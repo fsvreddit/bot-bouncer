@@ -1,9 +1,12 @@
-import { JobContext, TriggerContext, WikiPagePermissionLevel, WikiPage } from "@devvit/public-api";
-import { setCleanupForUser } from "./cleanup.js";
-import { CONTROL_SUBREDDIT } from "./constants.js";
+import { JobContext, TriggerContext, WikiPagePermissionLevel, WikiPage, ScheduledJobEvent, JSONObject } from "@devvit/public-api";
+import { setCleanupForUsers } from "./cleanup.js";
+import { CONTROL_SUBREDDIT, HANDLE_UNBANS_JOB } from "./constants.js";
 import { toPairs } from "lodash";
+import { isBanned } from "./utility.js";
+import pluralize from "pluralize";
 
 const USER_STORE = "UserStore";
+const BAN_STORE = "BanStore";
 const WIKI_UPDATE_DUE = "WikiUpdateDue";
 const WIKI_PAGE = "BotBouncer";
 
@@ -19,7 +22,7 @@ export enum UserStatus {
 interface UserDetails {
     trackingPostId: string;
     userStatus: UserStatus;
-    lastUpdate: Date;
+    lastUpdate: number;
     operator: string;
 }
 
@@ -34,7 +37,12 @@ export async function getUserStatus (username: string, context: TriggerContext) 
 
 export async function setUserStatus (username: string, details: UserDetails, context: TriggerContext) {
     await context.redis.hSet(USER_STORE, { [username]: JSON.stringify(details) });
-    await setCleanupForUser(username, context);
+    await setCleanupForUsers([username], context);
+    await queueWikiUpdate(context);
+}
+
+export async function deleteUserStatus (usernames: string[], context: TriggerContext) {
+    await context.redis.hDel(USER_STORE, usernames);
     await queueWikiUpdate(context);
 }
 
@@ -92,6 +100,11 @@ export async function updateWikiPage (_: unknown, context: JobContext) {
 
 export async function updateLocalStoreFromWiki (_: unknown, context: JobContext) {
     const lastUpdateKey = "lastUpdateFromWiki";
+    const lastUpdateDateKey = "lastUpdateDateKey";
+
+    const lastUpdateDateValue = await context.redis.get(lastUpdateDateKey);
+    const lastUpdateDate = lastUpdateDateValue ? new Date(parseInt(lastUpdateDateValue)) : new Date();
+    console.log(lastUpdateDate);
 
     let wikiPage: WikiPage;
     try {
@@ -102,7 +115,8 @@ export async function updateLocalStoreFromWiki (_: unknown, context: JobContext)
     }
 
     const lastUpdate = await context.redis.get(lastUpdateKey);
-    if (!lastUpdate || lastUpdate === wikiPage.revisionId) {
+    if (lastUpdate === wikiPage.revisionId) {
+        console.log("Wiki Update: Wiki page has not changed.");
         return;
     }
 
@@ -110,10 +124,68 @@ export async function updateLocalStoreFromWiki (_: unknown, context: JobContext)
     await context.redis.del(USER_STORE);
 
     if (Object.keys(incomingData).length === 0) {
+        console.log("Wiki Update: Control subreddit wiki page is empty");
         return;
     }
 
-    for (const [username, userData] of toPairs(incomingData)) {
-        await context.redis.hSet(USER_STORE, { [username]: userData });
+    const usersAdded = await context.redis.hSet(USER_STORE, incomingData);
+
+    console.log(`Wiki Update: Records for ${usersAdded} ${pluralize("user", usersAdded)} have been added`);
+
+    const newUpdateDate = new Date();
+
+    const unbannedUsers = toPairs(incomingData)
+        .map(([username, userdata]) => ({ username, data: JSON.parse(userdata) as UserDetails }))
+        .filter(item => new Date(item.data.lastUpdate) > lastUpdateDate && (item.data.userStatus === UserStatus.Organic || item.data.userStatus === UserStatus.Service))
+        .map(item => item.username);
+
+    await context.scheduler.runJob({
+        name: HANDLE_UNBANS_JOB,
+        runAt: new Date(),
+        data: { unbannedUsers },
+    });
+
+    await context.redis.set(lastUpdateDateKey, newUpdateDate.getTime().toString());
+    await context.redis.set(lastUpdateKey, wikiPage.revisionId);
+
+    console.log("Wiki Update: Finished processing.");
+}
+
+export async function recordBan (username: string, context: TriggerContext) {
+    await context.redis.zAdd(BAN_STORE, { member: username, score: new Date().getTime() });
+    await setCleanupForUsers([username], context);
+}
+
+export async function removeRecordOfBan (usernames: string[], context: TriggerContext) {
+    if (usernames.length > 0) {
+        await context.redis.zRem(BAN_STORE, usernames);
+    }
+}
+
+export async function wasUserBannedByApp (username: string, context: TriggerContext): Promise<boolean> {
+    const score = await context.redis.zScore(BAN_STORE, username);
+    return score !== undefined;
+}
+
+export async function handleUnbans (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
+    const unbannedUsers = event.data?.unbannedUsers as string[] | undefined;
+    if (!unbannedUsers || unbannedUsers.length === 0) {
+        return;
+    }
+
+    console.log(`Wiki Update: Checking unbans for ${unbannedUsers.length} ${pluralize("user", unbannedUsers.length)}`);
+
+    const subredditName = context.subredditName ?? (await context.reddit.getCurrentSubreddit()).name;
+
+    for (const username of unbannedUsers) {
+        const userBannedByApp = await wasUserBannedByApp(username, context);
+        if (!userBannedByApp) {
+            continue;
+        }
+
+        if (await isBanned(username, context)) {
+            await context.reddit.unbanUser(username, subredditName);
+            console.log(`Unbanned ${username} after wiki update`);
+        }
     }
 }

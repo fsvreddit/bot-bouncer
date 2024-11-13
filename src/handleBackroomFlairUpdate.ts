@@ -30,7 +30,7 @@ export async function handleBackroomFlairUpdate (event: PostFlairUpdate, context
     await setUserStatus(username, {
         trackingPostId: event.post.id,
         userStatus: postFlair,
-        lastUpdate: new Date(),
+        lastUpdate: new Date().getTime(),
         operator: event.author.name,
     }, context);
 

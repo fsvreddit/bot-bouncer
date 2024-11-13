@@ -1,6 +1,6 @@
 import { TriggerContext, User } from "@devvit/public-api";
 import { CommentSubmit, PostSubmit } from "@devvit/protos";
-import { getUserStatus, UserStatus } from "./dataStore.js";
+import { getUserStatus, recordBan, UserStatus } from "./dataStore.js";
 import { CONTROL_SUBREDDIT } from "./constants.js";
 import { isApproved, isBanned, isModerator } from "./utility.js";
 
@@ -54,10 +54,12 @@ async function handleContentCreation (username: string, targetId: string, contex
 
     if (await isApproved(user.username, context)) {
         console.log(`${user.username} is whitelisted as an approved user`);
+        return;
     }
 
     if (await isModerator(user.username, context)) {
         console.log(`${user.username} is whitelisted as a moderator`);
+        return;
     }
 
     await context.reddit.remove(targetId, true);
@@ -68,5 +70,7 @@ async function handleContentCreation (username: string, targetId: string, contex
             username: user.username,
             context: targetId,
         });
+
+        await recordBan(username, context);
     }
 }
