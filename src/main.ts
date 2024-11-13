@@ -4,6 +4,9 @@ import { updateLocalStoreFromWiki, updateWikiPage } from "./dataStore.js";
 import { UPDATE_DATASTORE_FROM_WIKI, UPDATE_WIKI_PAGE_JOB } from "./constants.js";
 import { handleInstallOrUpgrade } from "./installActions.js";
 import { handleBackroomFlairUpdate } from "./handleBackroomFlairUpdate.js";
+import { appSettings } from "./settings.js";
+
+Devvit.addSettings(appSettings);
 
 Devvit.addTrigger({
     event: "PostCreate",
