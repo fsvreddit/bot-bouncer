@@ -10,7 +10,7 @@ export async function addPostToPendingQueue (postId: string, username: string, c
 }
 
 export async function removePostFromPendingQueue (postId: string, username: string, context: TriggerContext) {
-    await context.redis.zRem(PENDING_QUEUE_KEY, [`postId~username`]);
+    await context.redis.zRem(PENDING_QUEUE_KEY, [`${postId}~${username}`]);
 }
 
 export async function processPendingQueue (_: unknown, context: JobContext) {

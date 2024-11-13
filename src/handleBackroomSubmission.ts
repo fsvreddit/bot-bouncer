@@ -1,7 +1,7 @@
 import { TriggerContext, User } from "@devvit/public-api";
 import { PostCreate } from "@devvit/protos";
 import { CONTROL_SUBREDDIT, PostFlairTemplate } from "./constants.js";
-import { getUsernameFromUrl } from "./utility.js";
+import { getUsernameFromUrl, isModerator } from "./utility.js";
 import { getUserStatus } from "./dataStore.js";
 
 export async function handleBackroomSubmission (event: PostCreate, context: TriggerContext) {
@@ -9,11 +9,11 @@ export async function handleBackroomSubmission (event: PostCreate, context: Trig
         return;
     }
 
-    if (!event.post) {
+    if (!event.post || !event.author) {
         return;
     }
 
-    if (event.author?.name === context.appName) {
+    if (event.author.name === context.appName) {
         if (event.post.spam) {
             await context.reddit.approve(event.post.id);
         }
@@ -25,6 +25,11 @@ export async function handleBackroomSubmission (event: PostCreate, context: Trig
     const username = getUsernameFromUrl(event.post.url);
 
     if (!username) {
+        if (await isModerator(event.author.name, context)) {
+            // Allow mods to make meta submissions
+            return;
+        }
+
         submissionResponse = "Hi, thanks for your submission.\n\nOnly links to user accounts are permitted here.";
     }
 
