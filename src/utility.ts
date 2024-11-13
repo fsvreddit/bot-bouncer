@@ -1,7 +1,7 @@
 import { TriggerContext } from "@devvit/public-api";
 
 export function getUsernameFromUrl (url: string) {
-    const urlRegex = /reddit\.com\/u(?:ser)?\/([\w_-]+)$/i;
+    const urlRegex = /reddit\.com\/u(?:ser)?\/([\w_-]+)\/?\/?(?:\?.+)?$/i;
     const matches = urlRegex.exec(url);
     if (!matches || matches.length !== 2) {
         return;
