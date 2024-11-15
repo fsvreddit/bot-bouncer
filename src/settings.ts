@@ -9,7 +9,7 @@ If you wish to appeal the classification of the /u/{account} account, please
 [message /r/${CONTROL_SUBREDDIT}](https://www.reddit.com/message/compose?to=/r/${CONTROL_SUBREDDIT}&subject=Ban%20dispute%20for%20/u/{account}%20on%20/r/{subreddit})
 rather than replying to this message.`,
 
-    banNote: "/u/{account} banned by /u/{me} at {date} for {reason}",
+    banNote: "Banned by /u/{me} at {date}",
 
     noteClient: `/u/{account} is [listed on /r/${CONTROL_SUBREDDIT}]({link}).
 
@@ -34,18 +34,14 @@ export const appSettings: SettingsFormField[] = [
         type: "paragraph",
         name: AppSetting.BanMessage,
         label: "Ban message to use when banning user",
+        helpText: "Supports placeholders {account}, {subreddit}",
         defaultValue: CONFIGURATION_DEFAULTS.banMessage,
-    },
-    {
-        type: "string",
-        name: AppSetting.BanNote,
-        label: "Note to add in banned users list",
-        defaultValue: CONFIGURATION_DEFAULTS.banNote,
     },
     {
         type: "string",
         name: AppSetting.ModmailNote,
         label: "Template for private moderator note that will be added if banned users write in",
+        helpText: `Supports placeholders {account}, {subreddit} and {link} (which links to the submission on /r/${CONTROL_SUBREDDIT}`,
         defaultValue: CONFIGURATION_DEFAULTS.noteClient,
     },
 ];
