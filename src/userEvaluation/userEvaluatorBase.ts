@@ -1,7 +1,7 @@
 import { TriggerContext } from "@devvit/public-api";
 
-export abstract class UserEvaluator {
-    public name = "Base Class";
+export abstract class UserEvaluatorBase {
+    public name = "";
     protected username: string;
     protected context: TriggerContext;
 

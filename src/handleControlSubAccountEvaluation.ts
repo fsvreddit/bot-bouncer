@@ -1,6 +1,6 @@
 import { JobContext, JSONObject, ScheduledJobEvent } from "@devvit/public-api";
 import { getUserStatus } from "./dataStore.js";
-import { EvaluateShortTlc } from "./userEvaluation/shortTlcEvaluator.js";
+import { EvaluateShortTlc } from "./userEvaluation/EvaluateShortTlc.js";
 import { CONTROL_SUBREDDIT, EVALUATE_USER, PostFlairTemplate } from "./constants.js";
 import { addHours } from "date-fns";
 import pluralize from "pluralize";

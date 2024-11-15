@@ -1,10 +1,10 @@
 import { Comment, Post } from "@devvit/public-api";
-import { UserEvaluator } from "./userEvaluatorBase.js";
+import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
 import { isCommentId } from "@devvit/shared-types/tid.js";
 import { subMonths } from "date-fns";
 import { uniq } from "lodash";
 
-export class EvaluateShortTlc extends UserEvaluator {
+export class EvaluateShortTlc extends UserEvaluatorBase {
     override name = "Short TLC Bot";
 
     override async evaluate (): Promise<boolean> {
