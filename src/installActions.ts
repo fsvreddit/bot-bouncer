@@ -1,7 +1,8 @@
 import { AppInstall, AppUpgrade } from "@devvit/protos";
 import { TriggerContext } from "@devvit/public-api";
-import { CLEANUP_JOB, CLEANUP_JOB_CRON, CONTROL_SUBREDDIT, EXTERNAL_SUBMISSION_CRON, EXTERNAL_SUBMISSION_JOB, PROCESS_PENDING_QUEUE, UPDATE_DATASTORE_FROM_WIKI, UPDATE_WIKI_PAGE_JOB } from "./constants.js";
+import { CLEANUP_JOB, CLEANUP_JOB_CRON, CONTROL_SUBREDDIT, PROCESS_PENDING_QUEUE, UPDATE_DATASTORE_FROM_WIKI, UPDATE_WIKI_PAGE_JOB } from "./constants.js";
 import { scheduleAdhocCleanup } from "./cleanup.js";
+import { createExternalSubmissionJob } from "./externalSubmissions.js";
 
 export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, context: TriggerContext) {
     console.log("Detected an app install or update event!");
@@ -20,10 +21,7 @@ export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, contex
             cron: "0/15 * * * *",
         });
 
-        await context.scheduler.runJob({
-            name: EXTERNAL_SUBMISSION_JOB,
-            cron: EXTERNAL_SUBMISSION_CRON,
-        });
+        await createExternalSubmissionJob(context);
 
         console.log("Control subreddit jobs added");
     } else {

@@ -28,4 +28,3 @@ export const EXTERNAL_SUBMISSION_JOB = "externalSubmission";
  * Job crons
  */
 export const CLEANUP_JOB_CRON = "0 6 * * *";
-export const EXTERNAL_SUBMISSION_CRON = "0/15 * * * *";

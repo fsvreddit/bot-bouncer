@@ -1,8 +1,6 @@
 import { JobContext, TriggerContext, WikiPage, WikiPagePermissionLevel } from "@devvit/public-api";
-import { CONTROL_SUBREDDIT, EXTERNAL_SUBMISSION_CRON, EXTERNAL_SUBMISSION_JOB, PostFlairTemplate } from "./constants.js";
+import { CONTROL_SUBREDDIT, EXTERNAL_SUBMISSION_JOB, PostFlairTemplate } from "./constants.js";
 import { getUserStatus, setUserStatus, UserStatus } from "./dataStore.js";
-import { parseExpression } from "cron-parser";
-import { addMinutes } from "date-fns";
 
 const WIKI_PAGE = "externalsubmissions";
 
@@ -43,6 +41,18 @@ export async function addExternalSubmission (username: string, context: TriggerC
             listed: true,
         });
     }
+}
+
+export async function createExternalSubmissionJob (context: TriggerContext) {
+    const jobs = await context.scheduler.listJobs();
+    if (jobs.some(job => job.name === EXTERNAL_SUBMISSION_JOB)) {
+        return;
+    }
+
+    await context.scheduler.runJob({
+        name: EXTERNAL_SUBMISSION_JOB,
+        runAt: new Date(),
+    });
 }
 
 export async function processExternalSubmissions (_: unknown, context: JobContext) {
@@ -113,16 +123,15 @@ export async function processExternalSubmissions (_: unknown, context: JobContex
         trackingPostId: newPost.id,
     }, context);
 
+    console.log(`External submission created for ${username}`);
+
     if (currentUserList.length === 0) {
         return;
     }
 
     // Schedule a new ad-hoc instance.
-    const cron = parseExpression(EXTERNAL_SUBMISSION_CRON);
-    if (cron.next().toDate() < addMinutes(new Date(), 2)) {
-        await context.scheduler.runJob({
-            name: EXTERNAL_SUBMISSION_JOB,
-            runAt: new Date(),
-        });
-    }
+    await context.scheduler.runJob({
+        name: EXTERNAL_SUBMISSION_JOB,
+        runAt: new Date(),
+    });
 }
