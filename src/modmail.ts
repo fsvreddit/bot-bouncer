@@ -28,13 +28,11 @@ export async function handleModmail (event: ModMail, context: TriggerContext) {
             conversationId: event.conversationId,
         });
     } catch (error) {
-        console.log("Error retrieving conversation:");
         console.log(error);
         return;
     }
 
     if (!conversationResponse.conversation) {
-        console.log("Modmail: No conversation.");
         return;
     }
 

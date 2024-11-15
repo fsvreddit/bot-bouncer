@@ -2,7 +2,7 @@ import { TriggerContext, User } from "@devvit/public-api";
 import { PostCreate } from "@devvit/protos";
 import { CONTROL_SUBREDDIT, EVALUATE_USER, PostFlairTemplate } from "./constants.js";
 import { getUsernameFromUrl, isModerator } from "./utility.js";
-import { getUserStatus } from "./dataStore.js";
+import { getUserStatus, setUserStatus, UserStatus } from "./dataStore.js";
 
 export async function handleBackroomSubmission (event: PostCreate, context: TriggerContext) {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
@@ -46,6 +46,10 @@ export async function handleBackroomSubmission (event: PostCreate, context: Trig
         submissionResponse = `Hi, thanks for your submission.\n\n/u/${username} appears to be deleted, suspended or shadowbanned already, so no post will be created for it.`;
     }
 
+    if (user?.username === event.author.name) {
+        submissionResponse = `Hi, thanks for your submission.\n\nYou cannot make a submission for yourself.`;
+    }
+
     if (user && !submissionResponse) {
         const currentStatus = await getUserStatus(user.username, context);
         if (currentStatus) {
@@ -53,11 +57,18 @@ export async function handleBackroomSubmission (event: PostCreate, context: Trig
             submissionResponse = `Hi, thanks for your submission.\n\n/u/${username} is already tracked by Bot Bouncer, you can see the submission [here](${post.permalink}).`;
         } else {
             const newPost = await context.reddit.submitPost({
-                subredditName: context.subredditName,
+                subredditName: CONTROL_SUBREDDIT,
                 title: `Overview for ${user.username}`,
                 url: `https://www.reddit.com/user/${user.username}`,
                 flairId: PostFlairTemplate.Pending,
             });
+
+            await setUserStatus(user.username, {
+                userStatus: UserStatus.Pending,
+                lastUpdate: new Date().getTime(),
+                operator: context.appName,
+                trackingPostId: newPost.id,
+            }, context);
 
             console.log(`Created new post for ${username}`);
 

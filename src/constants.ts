@@ -22,4 +22,10 @@ export const PROCESS_PENDING_QUEUE = "processPendingQueue";
 export const EVALUATE_USER = "evaluateUser";
 export const CLEANUP_JOB = "cleanupJob";
 export const ADHOC_CLEANUP_JOB = "adhocCleanup";
+export const EXTERNAL_SUBMISSION_JOB = "externalSubmission";
+
+/**
+ * Job crons
+ */
 export const CLEANUP_JOB_CRON = "0 6 * * *";
+export const EXTERNAL_SUBMISSION_CRON = "0/15 * * * *";

@@ -1,7 +1,7 @@
 import { Devvit } from "@devvit/public-api";
 import { handleBackroomSubmission } from "./handleControlSubSubmission.js";
 import { handleUnbans, updateLocalStoreFromWiki, updateWikiPage } from "./dataStore.js";
-import { ADHOC_CLEANUP_JOB, CLEANUP_JOB, EVALUATE_USER, HANDLE_UNBANS_JOB, PROCESS_PENDING_QUEUE, UPDATE_DATASTORE_FROM_WIKI, UPDATE_WIKI_PAGE_JOB } from "./constants.js";
+import { ADHOC_CLEANUP_JOB, CLEANUP_JOB, CONTROL_SUBREDDIT, EVALUATE_USER, EXTERNAL_SUBMISSION_JOB, HANDLE_UNBANS_JOB, PROCESS_PENDING_QUEUE, UPDATE_DATASTORE_FROM_WIKI, UPDATE_WIKI_PAGE_JOB } from "./constants.js";
 import { handleInstallOrUpgrade } from "./installActions.js";
 import { handleControlSubFlairUpdate } from "./handleControlSubFlairUpdate.js";
 import { appSettings } from "./settings.js";
@@ -11,6 +11,8 @@ import { processPendingQueue } from "./pendingQueue.js";
 import { handleModmail } from "./modmail.js";
 import { handleControlSubPostDelete } from "./handleControlSubPostDelete.js";
 import { handleControlSubAccountEvaluation } from "./handleControlSubAccountEvaluation.js";
+import { handleReportUser } from "./handleReportUser.js";
+import { processExternalSubmissions } from "./externalSubmissions.js";
 
 Devvit.addSettings(appSettings);
 
@@ -42,6 +44,14 @@ Devvit.addTrigger({
 Devvit.addTrigger({
     event: "ModMail",
     onEvent: handleModmail,
+});
+
+Devvit.addMenuItem({
+    label: "Report User to Bot Bouncer",
+    location: ["post", "comment"],
+    forUserType: "moderator",
+    description: `Creates a report on /r/${CONTROL_SUBREDDIT}`,
+    onPress: handleReportUser,
 });
 
 Devvit.addSchedulerJob({
@@ -77,6 +87,11 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: PROCESS_PENDING_QUEUE,
     onRun: processPendingQueue,
+});
+
+Devvit.addSchedulerJob({
+    name: EXTERNAL_SUBMISSION_JOB,
+    onRun: processExternalSubmissions,
 });
 
 Devvit.configure({

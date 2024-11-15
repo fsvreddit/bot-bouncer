@@ -23,7 +23,7 @@ export async function handleControlSubFlairUpdate (event: PostFlairUpdate, conte
         return;
     }
 
-    if (Object.keys(UserStatus).includes(postFlair) || postFlair === UserStatus.Pending) {
+    if (!Object.values(UserStatus).includes(postFlair)) {
         return;
     }
 
