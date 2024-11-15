@@ -1,9 +1,9 @@
 import { Devvit } from "@devvit/public-api";
-import { handleBackroomSubmission } from "./handleBackroomSubmission.js";
+import { handleBackroomSubmission } from "./handleControlSubSubmission.js";
 import { handleUnbans, updateLocalStoreFromWiki, updateWikiPage } from "./dataStore.js";
 import { ADHOC_CLEANUP_JOB, CLEANUP_JOB, HANDLE_UNBANS_JOB, PROCESS_PENDING_QUEUE, UPDATE_DATASTORE_FROM_WIKI, UPDATE_WIKI_PAGE_JOB } from "./constants.js";
 import { handleInstallOrUpgrade } from "./installActions.js";
-import { handleBackroomFlairUpdate } from "./handleBackroomFlairUpdate.js";
+import { handleControlSubFlairUpdate } from "./handleControlSubFlairUpdate.js";
 import { appSettings } from "./settings.js";
 import { cleanupDeletedAccounts } from "./cleanup.js";
 import { handleModAction } from "./handleModAction.js";
@@ -19,7 +19,7 @@ Devvit.addTrigger({
 
 Devvit.addTrigger({
     event: "PostFlairUpdate",
-    onEvent: handleBackroomFlairUpdate,
+    onEvent: handleControlSubFlairUpdate,
 });
 
 Devvit.addTrigger({

@@ -4,7 +4,7 @@ import { CONTROL_SUBREDDIT } from "./constants.js";
 import { setUserStatus, UserStatus } from "./dataStore.js";
 import { getUsernameFromUrl } from "./utility.js";
 
-export async function handleBackroomFlairUpdate (event: PostFlairUpdate, context: TriggerContext) {
+export async function handleControlSubFlairUpdate (event: PostFlairUpdate, context: TriggerContext) {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
         return;
     }
