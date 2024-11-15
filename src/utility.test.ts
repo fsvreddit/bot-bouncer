@@ -1,8 +1,6 @@
 import { getUsernameFromUrl } from "./utility.js";
 
 test("URL parsing", () => {
-    const expected = "spez";
-
     const inputs = [
         "https://www.reddit.com/user/spez/",
         "https://www.reddit.com/u/spez",
@@ -13,8 +11,8 @@ test("URL parsing", () => {
         "https://www.reddit.com/user/spez/?utm_source=abc",
     ];
 
-    for (const input of inputs) {
-        const username = getUsernameFromUrl(input);
-        expect(username).toEqual(expected);
-    }
+    const expected = inputs.map(input => ({ input, result: "spez" }));
+    const actual = inputs.map(input => ({ input, result: getUsernameFromUrl(input) }));
+
+    expect(actual).toEqual(expected);
 });
