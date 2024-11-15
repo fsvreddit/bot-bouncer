@@ -1,18 +1,19 @@
 import { getUsernameFromUrl } from "./utility.js";
 
 test("URL parsing", () => {
-    const inputs = [
-        "https://www.reddit.com/user/spez/",
-        "https://www.reddit.com/u/spez",
-        "https://www.reddit.com/u/spez/",
-        "https://www.reddit.com/user/spez",
-        "https://sh.reddit.com/user/spez/",
-        "reddit.com/user/spez",
-        "https://www.reddit.com/user/spez/?utm_source=abc",
+    const expected = [
+        { input: "https://www.reddit.com/user/spez/", result: "spez" },
+        { input: "https://www.reddit.com/u/spez", result: "spez" },
+        { input: "https://www.reddit.com/u/spez/", result: "spez" },
+        { input: "https://www.reddit.com/user/spez", result: "spez" },
+        { input: "https://sh.reddit.com/user/spez/", result: "spez" },
+        { input: "reddit.com/user/spez", result: "spez" },
+        { input: "https://www.reddit.com/user/spez/?utm_source=abc", result: "spez" },
+        { input: "https://old.reddit.com/r/fsvapps/comments/166g88j/introducing_hive_protector/", result: undefined },
+        { input: "https://www.bbc.co.uk/news/articles/cwygw982e3xo", result: undefined },
     ];
 
-    const expected = inputs.map(input => ({ input, result: "spez" }));
-    const actual = inputs.map(input => ({ input, result: getUsernameFromUrl(input) }));
+    const actual = expected.map(item => ({ input: item.input, result: getUsernameFromUrl(item.input) }));
 
     expect(actual).toEqual(expected);
 });
