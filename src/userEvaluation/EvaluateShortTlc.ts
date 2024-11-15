@@ -7,7 +7,7 @@ import { uniq } from "lodash";
 export class EvaluateShortTlc extends UserEvaluatorBase {
     override name = "Short TLC Bot";
 
-    override async evaluate (): Promise<boolean> {
+    async evaluate (): Promise<boolean> {
         let user: User | undefined;
         try {
             user = await this.context.reddit.getUserByUsername(this.username);
