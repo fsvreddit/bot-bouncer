@@ -1,7 +1,7 @@
 import { SettingsFormField } from "@devvit/public-api";
 import { CONTROL_SUBREDDIT } from "./constants.js";
 
-const CONFIGURATION_DEFAULTS = {
+export const CONFIGURATION_DEFAULTS = {
     banMessage: `Bots and bot-like accounts are not welcome on /r/{subreddit}.
 
 [I am a bot, and this action was performed automatically](/r/${CONTROL_SUBREDDIT}/wiki/index).
@@ -10,8 +10,6 @@ If you wish to appeal the classification of the /u/{account} account, please
 rather than replying to this message.`,
 
     banNote: "/u/{account} banned by /u/{me} at {date} for {reason}",
-
-    noteHome: "/u/{account} is [currently classified as **{classification}**]({link}).",
 
     noteClient: `/u/{account} is [listed on /r/${CONTROL_SUBREDDIT}]({link}).
 

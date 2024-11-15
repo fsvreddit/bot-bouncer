@@ -1,8 +1,8 @@
 import { TriggerContext, User, ZMember } from "@devvit/public-api";
 import { addDays, addMinutes, subMinutes } from "date-fns";
 import { parseExpression } from "cron-parser";
-import { ADHOC_CLEANUP_JOB, CLEANUP_JOB_CRON, CONTROL_SUBREDDIT, PostFlairTemplate } from "./constants.js";
-import { deleteUserStatus, getUserStatus, removeRecordOfBan, UserStatus } from "./dataStore.js";
+import { ADHOC_CLEANUP_JOB, CLEANUP_JOB_CRON, CONTROL_SUBREDDIT } from "./constants.js";
+import { deleteUserStatus, getUserStatus, removeRecordOfBan, updateAggregate, UserStatus } from "./dataStore.js";
 
 const CLEANUP_LOG_KEY = "CleanupLog";
 const DAYS_BETWEEN_CHECKS = 28;
@@ -107,14 +107,20 @@ async function handleDeletedAccounts (usernames: string[], context: TriggerConte
                 continue;
             }
 
-            const newFlair: string = status.userStatus === UserStatus.Pending ? PostFlairTemplate.Retired : PostFlairTemplate.Purged;
+            const newStatus = status.userStatus === UserStatus.Pending ? UserStatus.Retired : UserStatus.Purged;
+            await updateAggregate(newStatus, 1, context);
 
             try {
-                await context.reddit.setPostFlair({
-                    subredditName: CONTROL_SUBREDDIT,
-                    postId: status.trackingPostId,
-                    flairTemplateId: newFlair,
+                const post = await context.reddit.getPostById(status.trackingPostId);
+
+                const newComment = await post.addComment({
+                    text: "This post has been deleted, because the account it relates to is suspended, shadowbanned or deleted.",
                 });
+
+                await Promise.all([
+                    newComment.distinguish(true),
+                    post.delete(),
+                ]);
             } catch {
                 console.log(`Unable to set flair for ${username} on post ${status.trackingPostId}`);
             }

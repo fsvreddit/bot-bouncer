@@ -1,11 +1,12 @@
 import { JobContext, TriggerContext, WikiPagePermissionLevel, WikiPage, ScheduledJobEvent, JSONObject } from "@devvit/public-api";
 import { setCleanupForUsers } from "./cleanup.js";
 import { CONTROL_SUBREDDIT, HANDLE_UNBANS_JOB } from "./constants.js";
-import { toPairs } from "lodash";
+import { compact, countBy, toPairs } from "lodash";
 import { isBanned } from "./utility.js";
 import pluralize from "pluralize";
 
 const USER_STORE = "UserStore";
+const AGGREGATE_STORE = "AggregateStore";
 const BAN_STORE = "BanStore";
 const WIKI_UPDATE_DUE = "WikiUpdateDue";
 const WIKI_PAGE = "BotBouncer";
@@ -36,14 +37,38 @@ export async function getUserStatus (username: string, context: TriggerContext) 
 }
 
 export async function setUserStatus (username: string, details: UserDetails, context: TriggerContext) {
-    await context.redis.hSet(USER_STORE, { [username]: JSON.stringify(details) });
-    await setCleanupForUsers([username], context);
-    await queueWikiUpdate(context);
+    const currentStatus = await getUserStatus(username, context);
+
+    const promises: Promise<unknown>[] = [
+        context.redis.hSet(USER_STORE, { [username]: JSON.stringify(details) }),
+        setCleanupForUsers([username], context),
+        queueWikiUpdate(context),
+    ];
+
+    if (details.userStatus !== currentStatus?.userStatus) {
+        promises.push(context.redis.zIncrBy(AGGREGATE_STORE, details.userStatus, 1));
+        if (currentStatus) {
+            promises.push(context.redis.zIncrBy(AGGREGATE_STORE, currentStatus.userStatus, -1));
+        }
+    }
+
+    await Promise.all(promises);
 }
 
 export async function deleteUserStatus (usernames: string[], context: TriggerContext) {
-    await context.redis.hDel(USER_STORE, usernames);
-    await queueWikiUpdate(context);
+    const currentStatuses = await Promise.all(usernames.map(username => getUserStatus(username, context)));
+
+    const decrementsNeeded = toPairs(countBy(compact(currentStatuses.map(item => item?.userStatus))));
+
+    await Promise.all([
+        ...decrementsNeeded.map(([status, count]) => context.redis.zIncrBy(AGGREGATE_STORE, status, count)),
+        context.redis.hDel(USER_STORE, usernames),
+        queueWikiUpdate(context),
+    ]);
+}
+
+export async function updateAggregate (type: UserStatus, incrBy: number, context: TriggerContext) {
+    await context.redis.zIncrBy(AGGREGATE_STORE, type, incrBy);
 }
 
 async function queueWikiUpdate (context: TriggerContext) {

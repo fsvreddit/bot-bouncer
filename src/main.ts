@@ -8,6 +8,7 @@ import { appSettings } from "./settings.js";
 import { cleanupDeletedAccounts } from "./cleanup.js";
 import { handleModAction } from "./handleModAction.js";
 import { processPendingQueue } from "./pendingQueue.js";
+import { handleModmail } from "./modmail.js";
 
 Devvit.addSettings(appSettings);
 
@@ -29,6 +30,11 @@ Devvit.addTrigger({
 Devvit.addTrigger({
     event: "ModAction",
     onEvent: handleModAction,
+});
+
+Devvit.addTrigger({
+    event: "ModMail",
+    onEvent: handleModmail,
 });
 
 Devvit.addSchedulerJob({
