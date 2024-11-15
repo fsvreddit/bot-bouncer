@@ -34,7 +34,7 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
         const isABot = await evaluator.evaluate();
         if (isABot) {
             isBot = true;
-            console.log(`Evaluator: ${username} appears to be a bot via the evaluator: ${evaluator.name}`);
+            console.log(`Evaluator: ${username} appears to be a bot via the evaluator: ${evaluator.getName()}`);
             break;
         }
     }

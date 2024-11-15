@@ -5,7 +5,9 @@ import { subMonths } from "date-fns";
 import { uniq } from "lodash";
 
 export class EvaluateShortTlc extends UserEvaluatorBase {
-    override name = "Short TLC Bot";
+    getName () {
+        return "Short TLC Bot";
+    };
 
     async evaluate (): Promise<boolean> {
         let user: User | undefined;

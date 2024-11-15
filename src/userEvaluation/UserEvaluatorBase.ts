@@ -1,7 +1,6 @@
 import { TriggerContext } from "@devvit/public-api";
 
 export abstract class UserEvaluatorBase {
-    public name = "";
     protected username: string;
     protected context: TriggerContext;
 
@@ -9,6 +8,8 @@ export abstract class UserEvaluatorBase {
         this.username = username;
         this.context = context;
     }
+
+    abstract getName (): string;
 
     abstract evaluate (): Promise<boolean>;
 }
