@@ -36,7 +36,7 @@ async function handleContentCreation (username: string, targetId: string, contex
 
     let user: User | undefined;
     try {
-        user = await context.reddit.getUserById(username);
+        user = await context.reddit.getUserByUsername(username);
     } catch {
         //
     }

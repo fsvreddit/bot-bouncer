@@ -1,4 +1,4 @@
-import { Comment, Post } from "@devvit/public-api";
+import { Comment, Post, User } from "@devvit/public-api";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
 import { isCommentId } from "@devvit/shared-types/tid.js";
 import { subMonths } from "date-fns";
@@ -8,7 +8,13 @@ export class EvaluateShortTlc extends UserEvaluatorBase {
     override name = "Short TLC Bot";
 
     override async evaluate (): Promise<boolean> {
-        const user = await this.context.reddit.getUserByUsername(this.username);
+        let user: User | undefined;
+        try {
+            user = await this.context.reddit.getUserByUsername(this.username);
+        } catch {
+            //
+        }
+
         if (!user) {
             return false;
         }
