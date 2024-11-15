@@ -1,17 +1,17 @@
 import { JobContext, TriggerContext, WikiPagePermissionLevel, WikiPage, ScheduledJobEvent, JSONObject } from "@devvit/public-api";
-import { setCleanupForUsers } from "./cleanup.js";
-import { CONTROL_SUBREDDIT, HANDLE_UNBANS_JOB } from "./constants.js";
 import { compact, countBy, toPairs } from "lodash";
 import pako from "pako";
 import { isBanned } from "./utility.js";
 import pluralize from "pluralize";
+import { setCleanupForUsers } from "./cleanup.js";
+import { CONTROL_SUBREDDIT, HANDLE_UNBANS_JOB } from "./constants.js";
 
 const USER_STORE = "UserStore";
 const POST_STORE = "PostStore";
 const AGGREGATE_STORE = "AggregateStore";
 const BAN_STORE = "BanStore";
 const WIKI_UPDATE_DUE = "WikiUpdateDue";
-const WIKI_PAGE = "BotBouncer";
+const WIKI_PAGE = "botbouncer";
 
 export enum UserStatus {
     Pending = "pending",
