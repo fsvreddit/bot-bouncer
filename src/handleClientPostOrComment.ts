@@ -45,9 +45,7 @@ async function handleContentCreation (username: string, targetId: string, contex
     }
 
     const flair = await user.getUserFlairBySubreddit(subredditName);
-    const flairText = flair?.flairText;
-
-    if (flairText?.toLowerCase().endsWith("proof")) {
+    if (flair?.flairCssClass?.toLowerCase().endsWith("proof")) {
         console.log(`${user.username} is whitelisted via flair`);
         return;
     }
