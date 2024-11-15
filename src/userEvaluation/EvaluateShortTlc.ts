@@ -1,5 +1,5 @@
 import { Comment, Post } from "@devvit/public-api";
-import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
+import { UserEvaluatorBase } from "./UserEvaluator.js";
 import { isCommentId } from "@devvit/shared-types/tid.js";
 import { subMonths } from "date-fns";
 import { uniq } from "lodash";
