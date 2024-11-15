@@ -7,7 +7,10 @@ import { deleteUserStatus, getUserStatus, removeRecordOfBan, updateAggregate, Us
 const CLEANUP_LOG_KEY = "CleanupLog";
 const DAYS_BETWEEN_CHECKS = 28;
 
-export async function setCleanupForUsers (usernames: string[], context: TriggerContext) {
+export async function setCleanupForUsers (usernames: string[], context: TriggerContext, controlSubOnly?: boolean) {
+    if (controlSubOnly && context.subredditName === CONTROL_SUBREDDIT) {
+        return;
+    }
     await context.redis.zAdd(CLEANUP_LOG_KEY, ...usernames.map(username => ({ member: username, score: addDays(new Date(), DAYS_BETWEEN_CHECKS).getTime() })));
 }
 

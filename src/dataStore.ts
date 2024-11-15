@@ -44,7 +44,7 @@ export async function setUserStatus (username: string, details: UserDetails, con
     const promises: Promise<unknown>[] = [
         context.redis.hSet(USER_STORE, { [username]: JSON.stringify(details) }),
         context.redis.hSet(POST_STORE, { [details.trackingPostId]: username }),
-        setCleanupForUsers([username], context),
+        setCleanupForUsers([username], context, true),
         queueWikiUpdate(context),
     ];
 
