@@ -16,7 +16,7 @@ First, I recommend **reporting the account**. Bot accounts should be reported to
 
 If that does not happen, create a submission on /r/BotBouncer linking to the user's profile. Bot Bouncer will then remove your post and replace it with its own submission for the account, and then the evaluation process will start.
 
-If you feel that you can add extra context to the submission, for example if you have detected bot-like activity that you think may not be obvious, you can add body text to the submission to help evaluation. For example a user might look superficially human, but might be copying content from other users.
+If you feel that you can add extra context to the submission, for example if you have detected bot-like activity that you think may not be obvious, you can add body text to the submission that is created by the bot to help evaluation. For example a user might look superficially human, but might be copying content from other users.
 
 You do not need to moderate a subreddit to submit an account to BotBouncer. However if you are, there is a menu item on posts and comments on subreddits you moderate that have the app installed that can be used to automatically submit the account for consideration.
 
