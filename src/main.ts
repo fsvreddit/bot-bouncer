@@ -1,7 +1,7 @@
 import { Devvit } from "@devvit/public-api";
 import { handleBackroomSubmission } from "./handleControlSubSubmission.js";
 import { handleUnbans, updateLocalStoreFromWiki, updateWikiPage } from "./dataStore.js";
-import { ADHOC_CLEANUP_JOB, CLEANUP_JOB, HANDLE_UNBANS_JOB, PROCESS_PENDING_QUEUE, UPDATE_DATASTORE_FROM_WIKI, UPDATE_WIKI_PAGE_JOB } from "./constants.js";
+import { ADHOC_CLEANUP_JOB, CLEANUP_JOB, EVALUATE_USER, HANDLE_UNBANS_JOB, PROCESS_PENDING_QUEUE, UPDATE_DATASTORE_FROM_WIKI, UPDATE_WIKI_PAGE_JOB } from "./constants.js";
 import { handleInstallOrUpgrade } from "./installActions.js";
 import { handleControlSubFlairUpdate } from "./handleControlSubFlairUpdate.js";
 import { appSettings } from "./settings.js";
@@ -10,6 +10,7 @@ import { handleModAction } from "./handleModAction.js";
 import { processPendingQueue } from "./pendingQueue.js";
 import { handleModmail } from "./modmail.js";
 import { handleControlSubPostDelete } from "./handleControlSubPostDelete.js";
+import { handleControlSubAccountEvaluation } from "./handleControlSubAccountEvaluation.js";
 
 Devvit.addSettings(appSettings);
 
@@ -56,6 +57,11 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: HANDLE_UNBANS_JOB,
     onRun: handleUnbans,
+});
+
+Devvit.addSchedulerJob({
+    name: EVALUATE_USER,
+    onRun: handleControlSubAccountEvaluation,
 });
 
 Devvit.addSchedulerJob({

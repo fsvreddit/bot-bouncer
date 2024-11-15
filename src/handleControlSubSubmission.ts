@@ -1,6 +1,6 @@
 import { TriggerContext, User } from "@devvit/public-api";
 import { PostCreate } from "@devvit/protos";
-import { CONTROL_SUBREDDIT, PostFlairTemplate } from "./constants.js";
+import { CONTROL_SUBREDDIT, EVALUATE_USER, PostFlairTemplate } from "./constants.js";
 import { getUsernameFromUrl, isModerator } from "./utility.js";
 import { getUserStatus } from "./dataStore.js";
 
@@ -59,7 +59,19 @@ export async function handleBackroomSubmission (event: PostCreate, context: Trig
                 flairId: PostFlairTemplate.Pending,
             });
 
+            console.log(`Created new post for ${username}`);
+
             submissionResponse = `Hi, thanks for your submission.\n\nThe post tracking ${user.username} can be found [here](${newPost.permalink}).`;
+
+            await context.scheduler.runJob({
+                name: EVALUATE_USER,
+                runAt: new Date(),
+                data: {
+                    username: user.username,
+                    postId: newPost.id,
+                    run: 1,
+                },
+            });
         }
     }
 
@@ -72,6 +84,4 @@ export async function handleBackroomSubmission (event: PostCreate, context: Trig
     }
 
     await context.reddit.remove(event.post.id, false);
-
-    console.log(`Created new post for ${username}`);
 }
