@@ -1,19 +1,23 @@
 import { GetConversationResponse, TriggerContext } from "@devvit/public-api";
 import { ModMail } from "@devvit/protos";
+import { addMonths } from "date-fns";
 import { CONTROL_SUBREDDIT } from "./constants.js";
 import { getUserStatus, UserStatus, wasUserBannedByApp } from "./dataStore.js";
 import { isBanned, replaceAll } from "./utility.js";
 import { CONFIGURATION_DEFAULTS } from "./settings.js";
 
-const CONVERSATION_STORE = "ConversationStore";
+function conversationHandledRedisKey (conversationId: string) {
+    return `conversationHandled~${conversationId}`;
+}
 
 export async function getConversationHandled (conversationId: string, context: TriggerContext) {
-    const handled = await context.redis.hGet(CONVERSATION_STORE, conversationId);
-    return handled === "true";
+    const redisKey = conversationHandledRedisKey(conversationId);
+    const handled = await context.redis.get(redisKey);
+    return handled !== undefined;
 }
 
 export async function setConversationHandled (conversationId: string, context: TriggerContext) {
-    await context.redis.hSet(CONVERSATION_STORE, { [conversationId]: "true" });
+    await context.redis.set(conversationHandledRedisKey(conversationId), "true", { expiration: addMonths(new Date(), 6) });
 }
 
 export async function handleModmail (event: ModMail, context: TriggerContext) {
