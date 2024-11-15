@@ -2,6 +2,7 @@ import { JobContext, TriggerContext, WikiPagePermissionLevel, WikiPage, Schedule
 import { setCleanupForUsers } from "./cleanup.js";
 import { CONTROL_SUBREDDIT, HANDLE_UNBANS_JOB } from "./constants.js";
 import { compact, countBy, toPairs } from "lodash";
+import pako from "pako";
 import { isBanned } from "./utility.js";
 import pluralize from "pluralize";
 
@@ -83,6 +84,21 @@ async function queueWikiUpdate (context: TriggerContext) {
     await context.redis.set(WIKI_UPDATE_DUE, "true");
 }
 
+function compressData (value: Record<string, string>): string {
+    return Buffer.from(pako.deflate(JSON.stringify(value))).toString("base64");
+}
+
+function decompressData (blob: string): Record<string, string> {
+    let json: string;
+    if (blob.startsWith("{")) {
+        // Data is not compressed.
+        json = blob;
+    } else {
+        json = Buffer.from(pako.inflate(Buffer.from(blob, "base64"))).toString();
+    }
+    return JSON.parse(json) as Record<string, string>;
+}
+
 export async function updateWikiPage (_: unknown, context: JobContext) {
     const updateDue = await context.redis.get(WIKI_UPDATE_DUE);
     if (!updateDue) {
@@ -103,7 +119,7 @@ export async function updateWikiPage (_: unknown, context: JobContext) {
         return;
     }
 
-    const content = JSON.stringify(data);
+    const content = compressData(data);
     if (content === wikiPage?.content) {
         return;
     }
@@ -137,7 +153,6 @@ export async function updateLocalStoreFromWiki (_: unknown, context: JobContext)
 
     const lastUpdateDateValue = await context.redis.get(lastUpdateDateKey);
     const lastUpdateDate = lastUpdateDateValue ? new Date(parseInt(lastUpdateDateValue)) : new Date();
-    console.log(lastUpdateDate);
 
     let wikiPage: WikiPage;
     try {
@@ -153,7 +168,7 @@ export async function updateLocalStoreFromWiki (_: unknown, context: JobContext)
         return;
     }
 
-    const incomingData = JSON.parse(wikiPage.content) as Record<string, string>;
+    const incomingData = decompressData(wikiPage.content);
     await context.redis.del(USER_STORE);
 
     if (Object.keys(incomingData).length === 0) {
