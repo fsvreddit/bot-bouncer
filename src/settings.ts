@@ -25,7 +25,6 @@ moderator. If accepted, the result of your appeal will apply to any subreddit us
 
 export enum AppSetting {
     BanMessage = "banMessage",
-    BanNote = "banNote",
     ModmailNote = "clientModmailNote",
 }
 
