@@ -9,8 +9,14 @@ import { cleanupDeletedAccounts } from "./cleanup.js";
 import { handleModAction } from "./handleModAction.js";
 import { processPendingQueue } from "./pendingQueue.js";
 import { handleModmail } from "./modmail.js";
+import { handleControlSubPostDelete } from "./handleControlSubPostDelete.js";
 
 Devvit.addSettings(appSettings);
+
+Devvit.addTrigger({
+    events: ["AppInstall", "AppUpgrade"],
+    onEvent: handleInstallOrUpgrade,
+});
 
 Devvit.addTrigger({
     event: "PostCreate",
@@ -23,8 +29,8 @@ Devvit.addTrigger({
 });
 
 Devvit.addTrigger({
-    events: ["AppInstall", "AppUpgrade"],
-    onEvent: handleInstallOrUpgrade,
+    event: "PostDelete",
+    onEvent: handleControlSubPostDelete,
 });
 
 Devvit.addTrigger({

@@ -6,6 +6,7 @@ import { isBanned } from "./utility.js";
 import pluralize from "pluralize";
 
 const USER_STORE = "UserStore";
+const POST_STORE = "PostStore";
 const AGGREGATE_STORE = "AggregateStore";
 const BAN_STORE = "BanStore";
 const WIKI_UPDATE_DUE = "WikiUpdateDue";
@@ -41,6 +42,7 @@ export async function setUserStatus (username: string, details: UserDetails, con
 
     const promises: Promise<unknown>[] = [
         context.redis.hSet(USER_STORE, { [username]: JSON.stringify(details) }),
+        context.redis.hSet(POST_STORE, { [details.trackingPostId]: username }),
         setCleanupForUsers([username], context),
         queueWikiUpdate(context),
     ];
@@ -63,8 +65,14 @@ export async function deleteUserStatus (usernames: string[], context: TriggerCon
     await Promise.all([
         ...decrementsNeeded.map(([status, count]) => context.redis.zIncrBy(AGGREGATE_STORE, status, count)),
         context.redis.hDel(USER_STORE, usernames),
+        context.redis.hDel(POST_STORE, compact(currentStatuses.map(item => item?.trackingPostId))),
         queueWikiUpdate(context),
     ]);
+}
+
+export async function getUsernameFromPostId (postId: string, context: TriggerContext): Promise<string | undefined> {
+    const username = await context.redis.hGet(POST_STORE, postId);
+    return username;
 }
 
 export async function updateAggregate (type: UserStatus, incrBy: number, context: TriggerContext) {
