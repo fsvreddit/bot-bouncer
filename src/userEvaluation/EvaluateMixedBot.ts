@@ -6,7 +6,7 @@ import { CommentV2 } from "@devvit/protos/types/devvit/reddit/v2alpha/commentv2.
 import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
 
 export class EvaluateMixedBot extends UserEvaluatorBase {
-    override getName(): string {
+    override getName (): string {
         return "Mixed Bot";
     }
 
@@ -17,34 +17,39 @@ export class EvaluateMixedBot extends UserEvaluatorBase {
             && comment.body.split("\n\n").length <= 3
             && (comment.body.slice(0, 25).includes(",")
                 || comment.body.slice(0, 25).includes(".")
-                || this.emDashRegex.test(comment.body))
-                || comment.body.length < 200
-                || comment.body === comment.body.toLowerCase()
+                || this.emDashRegex.test(comment.body)
+                || !comment.body.includes("\n")
+                || comment.body === comment.body.toLowerCase())
     }
 
     private eligiblePost (post: Post): boolean {
         const domainRegex = /^[iv]\.redd\.it$/;
-        return (post.subredditId.toLowerCase().includes("cat") || post.subredditId.toLowerCase().includes("meme"))
+        return (post.subredditName.toLowerCase().includes("cat") || post.subredditName.toLowerCase().includes("meme"))
             && domainRegex.test(new URL(post.url).hostname);
     }
 
-    override preEvaluateComment(event: CommentSubmit): boolean {
+    override preEvaluateComment (event: CommentSubmit): boolean {
         if (!event.comment) {
             return false;
         }
         return this.eligibleComment(event.comment);
     }
 
-    override preEvaluatePost(post: Post): boolean {
+    override preEvaluatePost (post: Post): boolean {
         return this.eligiblePost(post);
     }
 
-    override evaluate(user: User, history: (Post | Comment)[]): boolean {
+    override evaluate (user: User, history: (Post | Comment)[]): boolean {
         if (user.createdAt > subYears(new Date(), 5)) {
             return false;
         }
 
         if (history.length > 50) {
+            return false;
+        }
+
+        const olderContentCount = history.filter(item => item.createdAt < subYears(new Date(), 5)).length;
+        if (olderContentCount === 0 || olderContentCount > 5) {
             return false;
         }
 

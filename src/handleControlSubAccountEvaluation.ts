@@ -18,7 +18,6 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
 
     const username = event.data?.username as string | undefined;
     const postId = event.data?.postId as string | undefined;
-    const run = event.data?.run as number | undefined;
 
     if (!username || !postId) {
         return;

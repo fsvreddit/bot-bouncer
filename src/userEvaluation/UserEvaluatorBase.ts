@@ -1,5 +1,5 @@
 import { CommentSubmit } from "@devvit/protos";
-import { Comment, Post, TriggerContext, User } from "@devvit/public-api";
+import { Comment, Post, User } from "@devvit/public-api";
 
 export abstract class UserEvaluatorBase {
     abstract getName (): string;
