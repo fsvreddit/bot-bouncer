@@ -61,7 +61,7 @@ export async function handleModmail (event: ModMail, context: TriggerContext) {
 async function handleControlSubredditModmail (username: string, conversationId: string, context: TriggerContext): Promise<boolean> {
     const currentStatus = await getUserStatus(username, context);
 
-    if (!currentStatus) {
+    if (!currentStatus || currentStatus.userStatus === UserStatus.Pending) {
         return false;
     }
 
@@ -91,7 +91,7 @@ async function handleControlSubredditModmail (username: string, conversationId: 
 async function handleClientSubredditModmail (username: string, conversationId: string, context: TriggerContext): Promise<boolean> {
     const currentStatus = await getUserStatus(username, context);
 
-    if (!currentStatus) {
+    if (!currentStatus || currentStatus.userStatus === UserStatus.Pending) {
         return false;
     }
 
