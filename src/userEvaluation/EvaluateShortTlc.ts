@@ -1,4 +1,5 @@
-import { Comment, Post } from "@devvit/public-api";
+import { Comment, Post, User, SettingsValues } from "@devvit/public-api";
+import { CommentSubmit, PostSubmit } from "@devvit/protos";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
 import { isCommentId } from "@devvit/shared-types/tid.js";
 import { subMonths } from "date-fns";
@@ -9,55 +10,72 @@ export class EvaluateShortTlc extends UserEvaluatorBase {
         return "Short TLC Bot";
     };
 
-    evaluate (): boolean {
-        if (this.user.commentKarma > 500) {
+    override preEvaluateComment(event: CommentSubmit): boolean {
+        if (!event.comment || !event.author) {
             return false;
         }
 
-        if (this.user.createdAt < subMonths(new Date(), 3)) {
-            console.log(`${this.username}: Account is too old.`);
+        if (isCommentId(event.comment.parentId)) {
             return false;
         }
 
-        if (!usernameMatchesBotPatterns(this.username, this.user.commentKarma)) {
+        if (event.comment.body.includes("\n")) {
+            return false;
+        }
+
+        if (!usernameMatchesBotPatterns(event.author.name, event.author.karma)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    override preEvaluatePost(post: Post): boolean {
+        return false;
+    }
+
+    override evaluate (user: User, history: (Post | Comment)[]): boolean {
+        if (user.commentKarma > 500) {
+            return false;
+        }
+
+        if (user.createdAt < subMonths(new Date(), 3)) {
+            console.log(`${user.username}: Account is too old.`);
+            return false;
+        }
+
+        if (!usernameMatchesBotPatterns(user.username, user.commentKarma)) {
             return false;
         }
 
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- cannot upload without this.
-        const userComments = this.userHistory.filter(item => item instanceof Comment) as Comment[];
+        const userComments = history.filter(item => item instanceof Comment) as Comment[];
 
-        if (this.userHistory.some(item => item instanceof Post && (item.subredditName !== "AskReddit" || item.url.includes("i.redd.it")))) {
-            console.log(`${this.username}: User has posts in their history.`);
+        if (history.some(item => item instanceof Post && (item.subredditName !== "AskReddit" || item.url.includes("i.redd.it")))) {
             return false;
         }
 
         if (userComments.some(comment => isCommentId(comment.parentId))) {
-            console.log(`${this.username}: User has non-TLC comments`);
             return false;
         }
 
         if (userComments.length > 1 && uniq(userComments.map(comment => comment.subredditName)).length === 1) {
-            console.log(`${this.username}: Comments are in one subreddit only.`);
             return false;
         }
 
         if (userComments.some(comment => comment.body.length > 500)) {
-            console.log(`${this.username}: User has comments that are too long or too short.`);
             return false;
         }
 
         if (userComments.some(comment => comment.body.includes("\n"))) {
-            console.log(`${this.username}: User has comments with line breaks.`);
             return false;
         }
 
         if (userComments.some(comment => comment.edited)) {
-            console.log(`${this.username}: User has at least one edited comment`);
             return false;
         }
 
         if (userComments.length < 5) {
-            console.log(`${this.username}: User doesn't have enough comments.`);
             return false;
         }
 

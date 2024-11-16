@@ -166,7 +166,6 @@ export async function updateLocalStoreFromWiki (_: unknown, context: JobContext)
 
     const lastUpdate = await context.redis.get(lastUpdateKey);
     if (lastUpdate === wikiPage.revisionId) {
-        console.log("Wiki Update: Wiki page has not changed.");
         return;
     }
 
