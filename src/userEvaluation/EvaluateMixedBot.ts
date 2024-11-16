@@ -39,16 +39,12 @@ export class EvaluateMixedBot extends UserEvaluatorBase {
     }
 
     override evaluate (user: User, history: (Post | Comment)[]): boolean {
-        if (user.createdAt > subYears(new Date(), 5)) {
-            return false;
-        }
-
         if (history.length > 50) {
             return false;
         }
 
         const olderContentCount = history.filter(item => item.createdAt < subYears(new Date(), 5)).length;
-        if (olderContentCount === 0 || olderContentCount > 5) {
+        if (user.createdAt > subYears(new Date(), 5) && olderContentCount > 5) {
             return false;
         }
 
@@ -67,7 +63,7 @@ export class EvaluateMixedBot extends UserEvaluatorBase {
             return false;
         }
 
-        if (!posts.some(post => post.title === post.title.toLowerCase())) {
+        if (!posts.some(post => post.title === post.title.toLowerCase() || post.title === post.title.toUpperCase())) {
             return false;
         }
 

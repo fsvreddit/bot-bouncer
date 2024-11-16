@@ -33,13 +33,15 @@ export const appSettings: SettingsFormField[] = [
     {
         type: "paragraph",
         name: AppSetting.BanMessage,
+        lineHeight: 10,
         label: "Ban message to use when banning user",
         helpText: "Supports placeholders {account}, {subreddit}",
         defaultValue: CONFIGURATION_DEFAULTS.banMessage,
     },
     {
-        type: "string",
+        type: "paragraph",
         name: AppSetting.ModmailNote,
+        lineHeight: 10,
         label: "Template for private moderator note that will be added if banned users write in",
         helpText: `Supports placeholders {account}, {subreddit} and {link} (which links to the submission on /r/${CONTROL_SUBREDDIT}`,
         defaultValue: CONFIGURATION_DEFAULTS.noteClient,

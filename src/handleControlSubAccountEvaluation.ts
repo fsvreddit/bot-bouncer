@@ -25,8 +25,8 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
     }
 
     const currentStatus = await getUserStatus(username, context);
-    if (currentStatus?.userStatus !== UserStatus.Pending) {
-        console.log("Evaluation: User has already been classified");
+    if (currentStatus && currentStatus.userStatus !== UserStatus.Pending) {
+        console.log(`Evaluation: ${username} has already been classified`);
         return;
     }
 

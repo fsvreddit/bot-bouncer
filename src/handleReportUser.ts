@@ -62,7 +62,7 @@ async function handleControlSubReportUser (target: Post | Comment, context: Cont
                 name: EVALUATE_USER,
                 runAt: new Date(),
                 data: {
-                    username: target.authorName,
+                    username,
                     postId: target.id,
                 },
             });
