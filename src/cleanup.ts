@@ -3,6 +3,7 @@ import { addDays, addMinutes, subMinutes } from "date-fns";
 import { parseExpression } from "cron-parser";
 import { ADHOC_CLEANUP_JOB, CLEANUP_JOB_CRON, CONTROL_SUBREDDIT } from "./constants.js";
 import { deleteUserStatus, getUserStatus, removeRecordOfBan, updateAggregate, UserStatus } from "./dataStore.js";
+import { getUserOrUndefined } from "./utility.js";
 
 const CLEANUP_LOG_KEY = "CleanupLog";
 const DAYS_BETWEEN_CHECKS = 28;
@@ -15,12 +16,7 @@ export async function setCleanupForUsers (usernames: string[], context: TriggerC
 }
 
 async function userActive (username: string, context: TriggerContext): Promise<boolean> {
-    let user: User | undefined;
-    try {
-        user = await context.reddit.getUserByUsername(username);
-    } catch {
-        return false;
-    }
+    const user = await getUserOrUndefined(username, context);
     return user !== undefined;
 }
 

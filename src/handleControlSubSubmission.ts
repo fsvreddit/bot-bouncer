@@ -1,7 +1,7 @@
 import { TriggerContext, User } from "@devvit/public-api";
 import { PostCreate } from "@devvit/protos";
 import { CONTROL_SUBREDDIT, EVALUATE_USER, PostFlairTemplate } from "./constants.js";
-import { getUsernameFromUrl, isModerator } from "./utility.js";
+import { getUsernameFromUrl, getUserOrUndefined, isModerator } from "./utility.js";
 import { getUserStatus, setUserStatus, UserStatus } from "./dataStore.js";
 
 export async function handleBackroomSubmission (event: PostCreate, context: TriggerContext) {
@@ -34,12 +34,8 @@ export async function handleBackroomSubmission (event: PostCreate, context: Trig
     }
 
     let user: User | undefined;
-    try {
-        if (username) {
-            user = await context.reddit.getUserByUsername(username);
-        }
-    } catch {
-        //
+    if (username) {
+        user = await getUserOrUndefined(username, context);
     }
 
     if (!user && !submissionResponse) {

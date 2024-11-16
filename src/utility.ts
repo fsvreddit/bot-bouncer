@@ -1,4 +1,4 @@
-import { Comment, Post, TriggerContext } from "@devvit/public-api";
+import { Comment, Post, TriggerContext, User } from "@devvit/public-api";
 import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
 
 export function getUsernameFromUrl (url: string) {
@@ -42,4 +42,14 @@ export function getPostOrCommentById (thingId: string, context: TriggerContext):
     } else {
         throw new Error(`Invalid thingId ${thingId}`);
     }
+}
+
+export async function getUserOrUndefined (username: string, context: TriggerContext): Promise<User | undefined> {
+    let user: User | undefined;
+    try {
+        user = await context.reddit.getUserByUsername(username);
+    } catch {
+        //
+    }
+    return user;
 }

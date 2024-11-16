@@ -1,6 +1,6 @@
 import { Context, MenuItemOnPressEvent, Post, Comment, User } from "@devvit/public-api";
 import { CONTROL_SUBREDDIT } from "./constants.js";
-import { getPostOrCommentById, getUsernameFromUrl } from "./utility.js";
+import { getPostOrCommentById, getUsernameFromUrl, getUserOrUndefined } from "./utility.js";
 import { getUserStatus, setUserStatus, UserStatus } from "./dataStore.js";
 import { addExternalSubmission } from "./externalSubmissions.js";
 
@@ -21,12 +21,7 @@ async function handleClientSubReportUser (target: Post | Comment, context: Conte
         return;
     }
 
-    let user: User | undefined;
-    try {
-        user = await context.reddit.getUserByUsername(target.authorName);
-    } catch {
-        //
-    }
+    const user = await getUserOrUndefined(target.authorName, context);
 
     if (!user) {
         context.ui.showToast(`${target.authorName} appears to be shadowbanned or suspended.`);

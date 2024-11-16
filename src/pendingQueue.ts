@@ -2,6 +2,7 @@ import { JobContext, TriggerContext, User } from "@devvit/public-api";
 import { addMinutes } from "date-fns";
 import { UserStatus } from "./dataStore.js";
 import { PostFlairTemplate } from "./constants.js";
+import { getUserOrUndefined } from "./utility.js";
 
 const PENDING_QUEUE_KEY = "PendingQueue";
 
@@ -20,12 +21,7 @@ export async function processPendingQueue (_: unknown, context: JobContext) {
     }
 
     for (const [postId, username] of queue.map(item => item.member.split("~"))) {
-        let user: User | undefined;
-        try {
-            user = await context.reddit.getUserByUsername(username);
-        } catch {
-            //
-        }
+        const user = await getUserOrUndefined(username, context);
 
         if (user) {
             await addPostToPendingQueue(postId, username, context);

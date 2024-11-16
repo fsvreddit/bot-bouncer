@@ -4,6 +4,7 @@ import { EvaluateShortTlc } from "./userEvaluation/EvaluateShortTlc.js";
 import { CONTROL_SUBREDDIT, PostFlairTemplate } from "./constants.js";
 import { EvaluateCopyBot } from "./userEvaluation/EvaluateCopyBot.js";
 import { EvaluateMixedBot } from "./userEvaluation/EvaluateMixedBot.js";
+import { getUserOrUndefined } from "./utility.js";
 
 const evaluators = [
     EvaluateShortTlc,
@@ -29,12 +30,7 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
         return;
     }
 
-    let user: User | undefined;
-    try {
-        user = await context.reddit.getUserByUsername(username);
-    } catch {
-        //
-    }
+    const user = await getUserOrUndefined(username, context);
 
     if (!user) {
         return;

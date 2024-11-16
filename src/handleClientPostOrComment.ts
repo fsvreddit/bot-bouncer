@@ -3,7 +3,7 @@ import { CommentSubmit, PostSubmit } from "@devvit/protos";
 import { formatDate } from "date-fns";
 import { getUserStatus, recordBan, UserStatus } from "./dataStore.js";
 import { CONTROL_SUBREDDIT } from "./constants.js";
-import { isApproved, isBanned, isModerator, replaceAll } from "./utility.js";
+import { getUserOrUndefined, isApproved, isBanned, isModerator, replaceAll } from "./utility.js";
 import { AppSetting, CONFIGURATION_DEFAULTS } from "./settings.js";
 
 export async function handleClientPostSubmit (event: PostSubmit, context: TriggerContext) {
@@ -34,12 +34,7 @@ async function handleContentCreation (username: string, targetId: string, contex
 
     const subredditName = context.subredditName ?? (await context.reddit.getCurrentSubreddit()).name;
 
-    let user: User | undefined;
-    try {
-        user = await context.reddit.getUserByUsername(username);
-    } catch {
-        //
-    }
+    const user = await getUserOrUndefined(username, context);
 
     if (!user) {
         // Unusual, but user may have been shadowbanned before getting to this point.
