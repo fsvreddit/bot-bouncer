@@ -25,9 +25,10 @@ export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, contex
 
         console.log("Control subreddit jobs added");
     } else {
+        const randomMinute = Math.floor(Math.random() * 15);
         await context.scheduler.runJob({
             name: UPDATE_DATASTORE_FROM_WIKI,
-            cron: "0 * * * *",
+            cron: `${randomMinute}/15 * * * *`,
         });
 
         await context.scheduler.runJob({

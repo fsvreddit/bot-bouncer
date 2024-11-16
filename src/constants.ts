@@ -17,7 +17,7 @@ export enum PostFlairTemplate {
  */
 export const UPDATE_WIKI_PAGE_JOB = "updateWikiPage";
 export const UPDATE_DATASTORE_FROM_WIKI = "updateDatastoreFromWiki";
-export const HANDLE_UNBANS_JOB = "handleUnbansJob";
+export const HANDLE_CLASSIFICATION_CHANGES_JOB = "handleClassificationChanges";
 export const PROCESS_PENDING_QUEUE = "processPendingQueue";
 export const EVALUATE_USER = "evaluateUser";
 export const CLEANUP_JOB = "cleanupJob";

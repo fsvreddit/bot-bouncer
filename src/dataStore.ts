@@ -1,10 +1,12 @@
 import { JobContext, TriggerContext, WikiPagePermissionLevel, WikiPage, ScheduledJobEvent, JSONObject } from "@devvit/public-api";
 import { compact, countBy, toPairs } from "lodash";
 import pako from "pako";
-import { isBanned } from "./utility.js";
+import { isBanned, replaceAll } from "./utility.js";
 import pluralize from "pluralize";
 import { setCleanupForUsers } from "./cleanup.js";
-import { CONTROL_SUBREDDIT, HANDLE_UNBANS_JOB } from "./constants.js";
+import { CONTROL_SUBREDDIT, HANDLE_CLASSIFICATION_CHANGES_JOB } from "./constants.js";
+import { AppSetting, CONFIGURATION_DEFAULTS } from "./settings.js";
+import { formatDate } from "date-fns";
 
 const USER_STORE = "UserStore";
 const POST_STORE = "PostStore";
@@ -187,11 +189,19 @@ export async function updateLocalStoreFromWiki (_: unknown, context: JobContext)
         .filter(item => new Date(item.data.lastUpdate) > lastUpdateDate && (item.data.userStatus === UserStatus.Organic || item.data.userStatus === UserStatus.Service))
         .map(item => item.username);
 
-    await context.scheduler.runJob({
-        name: HANDLE_UNBANS_JOB,
-        runAt: new Date(),
-        data: { unbannedUsers },
-    });
+    const bannedUsers = toPairs(incomingData)
+        .map(([username, userdata]) => ({ username, data: JSON.parse(userdata) as UserDetails }))
+        .filter(item => new Date(item.data.lastUpdate) > lastUpdateDate && (item.data.userStatus === UserStatus.Banned))
+        .map(item => item.username);
+
+    if (bannedUsers.length > 0 || unbannedUsers.length > 0) {
+        await context.scheduler.runJob({
+            name: HANDLE_CLASSIFICATION_CHANGES_JOB,
+            runAt: new Date(),
+            data: { bannedUsers, unbannedUsers },
+        });
+        console.log(`Wiki Update: Users have been reclassified. Job scheduled to update local.`);
+    }
 
     await context.redis.set(lastUpdateDateKey, newUpdateDate.getTime().toString());
     await context.redis.set(lastUpdateKey, wikiPage.revisionId);
@@ -215,25 +225,74 @@ export async function wasUserBannedByApp (username: string, context: TriggerCont
     return score !== undefined;
 }
 
-export async function handleUnbans (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
-    const unbannedUsers = event.data?.unbannedUsers as string[] | undefined;
-    if (!unbannedUsers || unbannedUsers.length === 0) {
-        return;
+export async function handleClassificationChanges (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
+    const unbannedUsers = event.data?.unbannedUsers as string[] | undefined ?? [];
+    const bannedUsers = event.data?.bannedUsers as string[] | undefined ?? [];
+
+    if (unbannedUsers.length > 0) {
+        console.log(`Wiki Update: Checking unbans for ${unbannedUsers.length} ${pluralize("user", unbannedUsers.length)}`);
+
+        const subredditName = context.subredditName ?? (await context.reddit.getCurrentSubreddit()).name;
+
+        for (const username of unbannedUsers) {
+            const userBannedByApp = await wasUserBannedByApp(username, context);
+            if (!userBannedByApp) {
+                continue;
+            }
+
+            if (await isBanned(username, context)) {
+                await context.reddit.unbanUser(username, subredditName);
+                console.log(`Unbanned ${username} after wiki update`);
+            }
+        }
     }
 
-    console.log(`Wiki Update: Checking unbans for ${unbannedUsers.length} ${pluralize("user", unbannedUsers.length)}`);
+    const settings = await context.settings.getAll();
 
-    const subredditName = context.subredditName ?? (await context.reddit.getCurrentSubreddit()).name;
+    if (bannedUsers.length > 0 && settings[AppSetting.RemoveRecentContent]) {
+        for (const username of bannedUsers) {
+            try {
+                const userContent = await context.reddit.getCommentsAndPostsByUser({
+                    username,
+                    timeframe: "week",
+                }).all();
 
-    for (const username of unbannedUsers) {
-        const userBannedByApp = await wasUserBannedByApp(username, context);
-        if (!userBannedByApp) {
-            continue;
-        }
+                const localContent = userContent.filter(item => item.subredditName === context.subredditName);
+                if (localContent.length === 0) {
+                    console.log(`${username} has no recent content on subreddit to remove.`);
+                    continue;
+                }
 
-        if (await isBanned(username, context)) {
-            await context.reddit.unbanUser(username, subredditName);
-            console.log(`Unbanned ${username} after wiki update`);
+                const isCurrentlyBanned = await isBanned(username, context);
+
+                if (!isCurrentlyBanned) {
+                    const subredditName = context.subredditName ?? (await context.reddit.getCurrentSubreddit()).name;
+                    let message = settings[AppSetting.BanMessage] as string | undefined ?? CONFIGURATION_DEFAULTS.banMessage;
+                    message = replaceAll(message, "{subreddit}", subredditName);
+                    message = replaceAll(message, "{account}", username);
+                    message = replaceAll(message, "{link}", username);
+
+                    let banNote = CONFIGURATION_DEFAULTS.banNote;
+                    banNote = replaceAll(banNote, "{me}", context.appName);
+                    banNote = replaceAll(banNote, "{date}", formatDate(new Date(), "yyyy-MM-dd"));
+
+                    await context.reddit.banUser({
+                        subredditName,
+                        username,
+                        context: localContent[0].id,
+                        message,
+                        note: banNote,
+                    });
+
+                    await recordBan(username, context);
+
+                    await Promise.all(localContent.map(item => item.remove()));
+                } else {
+                    console.log(`User ${username} is already banned from subreddit.`);
+                }
+            } catch {
+                console.log(`Couldn't retrieve content for ${username}`);
+            }
         }
     }
 }

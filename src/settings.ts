@@ -26,6 +26,7 @@ moderator. If accepted, the result of your appeal will apply to any subreddit us
 export enum AppSetting {
     BanMessage = "banMessage",
     ModmailNote = "clientModmailNote",
+    RemoveRecentContent = "removeRecentContent",
 }
 
 export const appSettings: SettingsFormField[] = [
@@ -42,5 +43,11 @@ export const appSettings: SettingsFormField[] = [
         label: "Template for private moderator note that will be added if banned users write in",
         helpText: `Supports placeholders {account}, {subreddit} and {link} (which links to the submission on /r/${CONTROL_SUBREDDIT}`,
         defaultValue: CONFIGURATION_DEFAULTS.noteClient,
+    },
+    {
+        type: "boolean",
+        name: AppSetting.RemoveRecentContent,
+        label: "Remove recent content from newly classified users on your subreddit even if they don't post again",
+        defaultValue: true,
     },
 ];

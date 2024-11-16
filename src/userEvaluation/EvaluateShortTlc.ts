@@ -1,4 +1,4 @@
-import { Comment, Post, User } from "@devvit/public-api";
+import { Comment, Post } from "@devvit/public-api";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
 import { isCommentId } from "@devvit/shared-types/tid.js";
 import { subMonths } from "date-fns";
@@ -9,41 +9,24 @@ export class EvaluateShortTlc extends UserEvaluatorBase {
         return "Short TLC Bot";
     };
 
-    async evaluate (): Promise<boolean> {
-        let user: User | undefined;
-        try {
-            user = await this.context.reddit.getUserByUsername(this.username);
-        } catch {
-            //
-        }
-
-        if (!user) {
+    evaluate (): boolean {
+        if (this.user.commentKarma > 500) {
             return false;
         }
 
-        if (user.commentKarma > 500) {
-            return false;
-        }
-
-        if (user.createdAt < subMonths(new Date(), 3)) {
+        if (this.user.createdAt < subMonths(new Date(), 3)) {
             console.log(`${this.username}: Account is too old.`);
             return false;
         }
 
-        if (!usernameMatchesBotPatterns(this.username, user.commentKarma)) {
+        if (!usernameMatchesBotPatterns(this.username, this.user.commentKarma)) {
             return false;
         }
 
-        const userItems = await this.context.reddit.getCommentsAndPostsByUser({
-            username: this.username,
-            sort: "new",
-            limit: 100,
-        }).all();
-
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- cannot upload without this.
-        const userComments = userItems.filter(item => item instanceof Comment) as Comment[];
+        const userComments = this.userHistory.filter(item => item instanceof Comment) as Comment[];
 
-        if (userItems.some(item => item instanceof Post && (item.subredditName !== "AskReddit" || item.url.includes("i.redd.it")))) {
+        if (this.userHistory.some(item => item instanceof Post && (item.subredditName !== "AskReddit" || item.url.includes("i.redd.it")))) {
             console.log(`${this.username}: User has posts in their history.`);
             return false;
         }

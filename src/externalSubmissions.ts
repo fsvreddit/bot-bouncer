@@ -1,5 +1,5 @@
 import { JobContext, TriggerContext, WikiPage, WikiPagePermissionLevel } from "@devvit/public-api";
-import { CONTROL_SUBREDDIT, EXTERNAL_SUBMISSION_JOB, PostFlairTemplate } from "./constants.js";
+import { CONTROL_SUBREDDIT, EVALUATE_USER, EXTERNAL_SUBMISSION_JOB, PostFlairTemplate } from "./constants.js";
 import { getUserStatus, setUserStatus, UserStatus } from "./dataStore.js";
 
 const WIKI_PAGE = "externalsubmissions";
@@ -114,6 +114,16 @@ export async function processExternalSubmissions (_: unknown, context: JobContex
         title: `Overview for ${username}`,
         url: `https://www.reddit.com/user/${username}`,
         flairId: PostFlairTemplate.Pending,
+    });
+
+    await context.scheduler.runJob({
+        name: EVALUATE_USER,
+        runAt: new Date(),
+        data: {
+            username,
+            postId: newPost.id,
+            run: 1,
+        },
     });
 
     await setUserStatus(username, {

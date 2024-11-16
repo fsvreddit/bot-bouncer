@@ -1,12 +1,14 @@
-import { JobContext, JSONObject, ScheduledJobEvent } from "@devvit/public-api";
-import { getUserStatus } from "./dataStore.js";
+import { JobContext, JSONObject, ScheduledJobEvent, User } from "@devvit/public-api";
+import { getUserStatus, UserStatus } from "./dataStore.js";
 import { EvaluateShortTlc } from "./userEvaluation/EvaluateShortTlc.js";
 import { CONTROL_SUBREDDIT, EVALUATE_USER, PostFlairTemplate } from "./constants.js";
 import { addHours } from "date-fns";
 import pluralize from "pluralize";
+import { EvaluateCopyBot } from "./userEvaluation/EvaluateCopyBot.js";
 
 const evaluators = [
     EvaluateShortTlc,
+    EvaluateCopyBot,
 ];
 
 export async function handleControlSubAccountEvaluation (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
@@ -23,15 +25,32 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
     }
 
     const currentStatus = await getUserStatus(username, context);
-    if (currentStatus) {
+    if (currentStatus?.userStatus !== UserStatus.Pending) {
         console.log("Evaluation: User has already been classified");
         return;
     }
 
+    let user: User | undefined;
+    try {
+        user = await context.reddit.getUserByUsername(username);
+    } catch {
+        //
+    }
+
+    if (!user) {
+        return;
+    }
+
+    const userItems = await context.reddit.getCommentsAndPostsByUser({
+        username,
+        sort: "new",
+        limit: 100,
+    }).all();
+
     let isBot = false;
     for (const Evaluator of evaluators) {
-        const evaluator = new Evaluator(username, context);
-        const isABot = await evaluator.evaluate();
+        const evaluator = new Evaluator(username, user, userItems, context);
+        const isABot = evaluator.evaluate();
         if (isABot) {
             isBot = true;
             console.log(`Evaluator: ${username} appears to be a bot via the evaluator: ${evaluator.getName()}`);
