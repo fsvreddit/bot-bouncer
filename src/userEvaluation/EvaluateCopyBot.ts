@@ -13,20 +13,16 @@ export class EvaluateCopyBot extends UserEvaluatorBase {
     private readonly emDashRegex = /\w—\w/i;
 
     private eligibleComment (comment: Comment | CommentV2): boolean {
-        return (
-            isLinkId(comment.parentId)
+        return isLinkId(comment.parentId)
             && !comment.body.includes("\n")
-            && comment.body.length < 1000
-        );
+            && comment.body.length < 1000;
     }
 
     private eligiblePost (post: Post): boolean {
-        return (
-            post.body !== undefined
+        return post.body !== undefined
             && post.url.includes(post.permalink)
             && post.body.includes("\n\n  \n")
-            && post.body.split("\n\n").length <= 3
-        );
+            && post.body.split("\n\n").length <= 3;
     }
 
     private readonly usernameRegex = /^(?:[A-Z][a-z]+[_-]?){2}\d{2,4}$/;

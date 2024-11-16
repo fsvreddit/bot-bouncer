@@ -1,5 +1,5 @@
 import { Context, MenuItemOnPressEvent, Post, Comment, User } from "@devvit/public-api";
-import { CONTROL_SUBREDDIT } from "./constants.js";
+import { CONTROL_SUBREDDIT, EVALUATE_USER } from "./constants.js";
 import { getPostOrCommentById, getUsernameFromUrl, getUserOrUndefined } from "./utility.js";
 import { getUserStatus, setUserStatus, UserStatus } from "./dataStore.js";
 import { addExternalSubmission } from "./externalSubmissions.js";
@@ -57,6 +57,17 @@ async function handleControlSubReportUser (target: Post | Comment, context: Cont
     const currentStatus = await getUserStatus(username, context);
     if (currentStatus) {
         context.ui.showToast(`${username}'s current status is ${currentStatus.userStatus}.`);
+        if (currentStatus.userStatus === UserStatus.Pending) {
+            await context.scheduler.runJob({
+                name: EVALUATE_USER,
+                runAt: new Date(),
+                data: {
+                    username: target.authorName,
+                    postId: target.id,
+                },
+            });
+            context.ui.showToast("User will be re-evaluated using AI detections");
+        }
     } else {
         context.ui.showToast(`${username} is not currently known to Bot Bouncer`);
     }

@@ -19,13 +19,12 @@ export class EvaluateMixedBot extends UserEvaluatorBase {
                 || comment.body.slice(0, 25).includes(".")
                 || this.emDashRegex.test(comment.body)
                 || !comment.body.includes("\n")
-                || comment.body === comment.body.toLowerCase())
+                || comment.body === comment.body.toLowerCase());
     }
 
     private eligiblePost (post: Post): boolean {
         const domainRegex = /^[iv]\.redd\.it$/;
-        return (post.subredditName.toLowerCase().includes("cat") || post.subredditName.toLowerCase().includes("meme"))
-            && domainRegex.test(new URL(post.url).hostname);
+        return domainRegex.test(new URL(post.url).hostname);
     }
 
     override preEvaluateComment (event: CommentSubmit): boolean {
