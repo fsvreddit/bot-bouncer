@@ -1,5 +1,5 @@
-import { Comment, Post, User, SettingsValues } from "@devvit/public-api";
-import { CommentSubmit, PostSubmit } from "@devvit/protos";
+import { Comment, Post, User } from "@devvit/public-api";
+import { CommentSubmit } from "@devvit/protos";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
 import { isCommentId } from "@devvit/shared-types/tid.js";
 import { subMonths } from "date-fns";
@@ -40,7 +40,6 @@ export class EvaluateShortTlc extends UserEvaluatorBase {
         }
 
         if (user.createdAt < subMonths(new Date(), 3)) {
-            console.log(`${user.username}: Account is too old.`);
             return false;
         }
 

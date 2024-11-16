@@ -1,14 +1,14 @@
 import { JobContext, JSONObject, ScheduledJobEvent, User } from "@devvit/public-api";
 import { getUserStatus, UserStatus } from "./dataStore.js";
 import { EvaluateShortTlc } from "./userEvaluation/EvaluateShortTlc.js";
-import { CONTROL_SUBREDDIT, EVALUATE_USER, PostFlairTemplate } from "./constants.js";
-import { addHours } from "date-fns";
-import pluralize from "pluralize";
+import { CONTROL_SUBREDDIT, PostFlairTemplate } from "./constants.js";
 import { EvaluateCopyBot } from "./userEvaluation/EvaluateCopyBot.js";
+import { EvaluateMixedBot } from "./userEvaluation/EvaluateMixedBot.js";
 
 const evaluators = [
     EvaluateShortTlc,
     EvaluateCopyBot,
+    EvaluateMixedBot,
 ];
 
 export async function handleControlSubAccountEvaluation (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
@@ -59,21 +59,6 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
     }
 
     if (!isBot) {
-        const nextRunInHours = run === 1 ? 6 : undefined;
-        console.log(`Evaluator: ${username} does not appear to be a bot`);
-        if (run && nextRunInHours) {
-            await context.scheduler.runJob({
-                name: EVALUATE_USER,
-                runAt: addHours(new Date(), nextRunInHours),
-                data: {
-                    username,
-                    postId,
-                    run: run + 1,
-                },
-            });
-            console.log(`Evaluator: Second run for ${username} will be run in ${nextRunInHours} ${pluralize("hour", nextRunInHours)}`);
-        }
-
         return;
     }
 

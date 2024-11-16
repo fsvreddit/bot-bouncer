@@ -60,7 +60,7 @@ export class EvaluateCopyBot extends UserEvaluatorBase {
             return false;
         }
 
-        if (user.commentKarma > 500 || user.linkKarma > 500) {
+        if (user.commentKarma + user.linkKarma > 500) {
             return false;
         }
 

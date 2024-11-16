@@ -122,7 +122,6 @@ export async function processExternalSubmissions (_: unknown, context: JobContex
         data: {
             username,
             postId: newPost.id,
-            run: 1,
         },
     });
 

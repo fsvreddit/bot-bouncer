@@ -80,7 +80,6 @@ export async function handleBackroomSubmission (event: PostCreate, context: Trig
                 data: {
                     username: user.username,
                     postId: newPost.id,
-                    run: 1,
                 },
             });
         }
