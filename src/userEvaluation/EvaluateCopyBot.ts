@@ -18,12 +18,12 @@ export class EvaluateCopyBot extends UserEvaluatorBase {
             return false;
         }
 
-        if (this.user.commentKarma > 500 || this.user.linkKarma > 100) {
+        if (this.user.commentKarma > 500 || this.user.linkKarma > 500) {
             return false;
         }
 
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
-        const userPosts = this.userHistory.filter(item => item instanceof Post) as Post[];
+        const userPosts = this.userHistory.filter(item => item.body !== "[removed]" && item instanceof Post) as Post[];
 
         const emDashRegex = /\w—\w/i;
 
