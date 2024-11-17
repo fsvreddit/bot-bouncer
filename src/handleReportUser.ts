@@ -23,6 +23,7 @@ export async function reportFormHandler (event: FormOnSubmitEvent<JSONObject>, c
     const targetId = context.commentId ?? context.postId;
     if (!targetId) {
         context.ui.showToast("Sorry, could not report user.");
+        console.log(context);
         return;
     }
 

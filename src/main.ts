@@ -16,17 +16,6 @@ import { processExternalSubmissions } from "./externalSubmissions.js";
 
 Devvit.addSettings(appSettings);
 
-export const reportForm = Devvit.createForm({
-    fields: [
-        {
-            type: "paragraph",
-            label: "Please provide more information that might help us understand why this is a bot",
-            helpText: "Optional. This is in case it is not obvious that this is a LLM bot.",
-            name: "reportContext",
-        },
-    ],
-}, reportFormHandler);
-
 Devvit.addTrigger({
     events: ["AppInstall", "AppUpgrade"],
     onEvent: handleInstallOrUpgrade,
@@ -59,11 +48,31 @@ Devvit.addTrigger({
 
 Devvit.addMenuItem({
     label: "Report User to Bot Bouncer",
-    location: ["post", "comment"],
+    location: "comment",
     forUserType: "moderator",
     description: `Creates a report on /r/${CONTROL_SUBREDDIT}`,
     onPress: handleReportUser,
 });
+
+Devvit.addMenuItem({
+    label: "Report User to Bot Bouncer",
+    location: "post",
+    forUserType: "moderator",
+    description: `Creates a report on /r/${CONTROL_SUBREDDIT}`,
+    onPress: handleReportUser,
+});
+
+export const reportForm = Devvit.createForm({
+    fields: [
+        {
+            type: "paragraph",
+            label: "Please provide more information that might help us understand why this is a bot",
+            helpText: "Optional. This is in case it is not obvious that this is a LLM bot.",
+            lineHeight: 4,
+            name: "reportContext",
+        },
+    ],
+}, reportFormHandler);
 
 Devvit.addSchedulerJob({
     name: UPDATE_WIKI_PAGE_JOB,
