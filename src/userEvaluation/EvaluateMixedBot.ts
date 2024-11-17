@@ -13,13 +13,21 @@ export class EvaluateMixedBot extends UserEvaluatorBase {
     private readonly emDashRegex = /\w—\w/i;
 
     private eligibleComment (comment: Comment | CommentV2): boolean {
-        return isLinkId(comment.parentId)
+        const isEligble = isLinkId(comment.parentId)
             && comment.body.split("\n\n").length <= 3
             && (comment.body.slice(0, 25).includes(",")
                 || comment.body.slice(0, 25).includes(".")
                 || this.emDashRegex.test(comment.body)
                 || !comment.body.includes("\n")
-                || comment.body === comment.body.toLowerCase());
+                || comment.body === comment.body.toLowerCase()
+                || comment.body.length < 50
+                || comment.body.includes("\n\n\n\n")
+            );
+
+        if (!isEligble) {
+            console.log(comment.body);
+        }
+        return isEligble;
     }
 
     private eligiblePost (post: Post): boolean {
@@ -52,22 +60,27 @@ export class EvaluateMixedBot extends UserEvaluatorBase {
         const comments = history.filter(item => isCommentId(item.id) && item.createdAt > subMonths(new Date(), 1)) as Comment[];
 
         if (posts.length === 0 || comments.length === 0) {
+            console.log("No items")
             return false;
         }
 
         if (!posts.every(post => this.eligiblePost(post))) {
+            console.log("Post mismatch");
             return false;
         }
 
         if (!comments.every(comment => this.eligibleComment(comment))) {
+            console.log("Comments mismatch")
             return false;
         }
 
         if (!posts.some(post => post.title === post.title.toLowerCase() || post.title === post.title.toUpperCase())) {
+            console.log("Title Mismatch");
             return false;
         }
 
         if (!comments.some(comment => this.emDashRegex.test(comment.body))) {
+            console.log("No em-dash");
             return false;
         }
 
