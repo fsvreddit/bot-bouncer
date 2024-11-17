@@ -13,7 +13,7 @@ export async function setCleanupForUsers (usernames: string[], context: TriggerC
         return;
     }
 
-    const cleanupTime = addDays(new Date(), overrideDuration ?? DAYS_BETWEEN_CHECKS)
+    const cleanupTime = addDays(new Date(), overrideDuration ?? DAYS_BETWEEN_CHECKS);
     await context.redis.zAdd(CLEANUP_LOG_KEY, ...usernames.map(username => ({ member: username, score: cleanupTime.getTime() })));
 }
 

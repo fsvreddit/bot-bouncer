@@ -47,7 +47,7 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
 
     if (userItems.length < 5) {
         console.log(`Evaluator: ${username} does not have enough content for automatic evaluation.`);
-        return
+        return;
     }
 
     let isBot = false;

@@ -1,5 +1,5 @@
 import { TriggerContext } from "@devvit/public-api";
-import { CommentSubmit, ContextActionServiceName, PostSubmit } from "@devvit/protos";
+import { CommentSubmit, PostSubmit } from "@devvit/protos";
 import { formatDate } from "date-fns";
 import { getUserStatus, recordBan, UserStatus } from "./dataStore.js";
 import { CONTROL_SUBREDDIT } from "./constants.js";
@@ -122,13 +122,13 @@ async function handleContentCreation (username: string, targetId: string, contex
     }
 }
 
-async function checkAndReportPotentialBot(username: string, context: TriggerContext) {
+async function checkAndReportPotentialBot (username: string, context: TriggerContext) {
     const user = await getUserOrUndefined(username, context);
     if (!user) {
         return;
     }
 
-    let userEligible = false
+    let userEligible = false;
     for (const Evaluator of ALL_EVALUATORS) {
         const evaluator = new Evaluator();
         if (evaluator.preEvaluateUser(user)) {
@@ -163,6 +163,5 @@ async function checkAndReportPotentialBot(username: string, context: TriggerCont
     const subredditName = context.subredditName ?? (await context.reddit.getCurrentSubreddit()).name;
     await addExternalSubmission(user.username, `Automatically reported via a post or comment on /r/${subredditName}`, context);
 
-    await console.log(`Created external submission via automated evaluation for ${user.username}`);
+    console.log(`Created external submission via automated evaluation for ${user.username}`);
 }
-
