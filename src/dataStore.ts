@@ -200,7 +200,8 @@ export async function updateLocalStoreFromWiki (_: unknown, context: JobContext)
             runAt: new Date(),
             data: { bannedUsers, unbannedUsers },
         });
-        console.log(`Wiki Update: Users have been reclassified. Job scheduled to update local.`);
+        const count = bannedUsers.length + unbannedUsers.length;
+        console.log(`Wiki Update: ${count} ${pluralize("user", count)} ${pluralize("has", count)} been reclassified. Job scheduled to update local store.`);
     }
 
     await context.redis.set(lastUpdateDateKey, newUpdateDate.getTime().toString());

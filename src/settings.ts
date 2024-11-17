@@ -49,7 +49,7 @@ export const appSettings: SettingsFormField[] = [
     {
         type: "boolean",
         name: AppSetting.RemoveRecentContent,
-        label: "Remove recent content from newly classified users on your subreddit even if they don't post again",
+        label: "Ban and remove recent content from newly classified users on your subreddit even if they don't post again",
         defaultValue: true,
     },
 ];
