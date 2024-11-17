@@ -252,6 +252,11 @@ export async function handleClassificationChanges (event: ScheduledJobEvent<JSON
     if (bannedUsers.length > 0 && settings[AppSetting.RemoveRecentContent]) {
         for (const username of bannedUsers) {
             try {
+                const isCurrentlyBanned = await isBanned(username, context);
+                if (isCurrentlyBanned) {
+                    continue;
+                }
+
                 const userContent = await context.reddit.getCommentsAndPostsByUser({
                     username,
                     timeframe: "week",
@@ -263,33 +268,27 @@ export async function handleClassificationChanges (event: ScheduledJobEvent<JSON
                     continue;
                 }
 
-                const isCurrentlyBanned = await isBanned(username, context);
+                const subredditName = context.subredditName ?? (await context.reddit.getCurrentSubreddit()).name;
+                let message = settings[AppSetting.BanMessage] as string | undefined ?? CONFIGURATION_DEFAULTS.banMessage;
+                message = replaceAll(message, "{subreddit}", subredditName);
+                message = replaceAll(message, "{account}", username);
+                message = replaceAll(message, "{link}", username);
 
-                if (!isCurrentlyBanned) {
-                    const subredditName = context.subredditName ?? (await context.reddit.getCurrentSubreddit()).name;
-                    let message = settings[AppSetting.BanMessage] as string | undefined ?? CONFIGURATION_DEFAULTS.banMessage;
-                    message = replaceAll(message, "{subreddit}", subredditName);
-                    message = replaceAll(message, "{account}", username);
-                    message = replaceAll(message, "{link}", username);
+                let banNote = CONFIGURATION_DEFAULTS.banNote;
+                banNote = replaceAll(banNote, "{me}", context.appName);
+                banNote = replaceAll(banNote, "{date}", formatDate(new Date(), "yyyy-MM-dd"));
 
-                    let banNote = CONFIGURATION_DEFAULTS.banNote;
-                    banNote = replaceAll(banNote, "{me}", context.appName);
-                    banNote = replaceAll(banNote, "{date}", formatDate(new Date(), "yyyy-MM-dd"));
+                await context.reddit.banUser({
+                    subredditName,
+                    username,
+                    context: localContent[0].id,
+                    message,
+                    note: banNote,
+                });
 
-                    await context.reddit.banUser({
-                        subredditName,
-                        username,
-                        context: localContent[0].id,
-                        message,
-                        note: banNote,
-                    });
+                await recordBan(username, context);
 
-                    await recordBan(username, context);
-
-                    await Promise.all(localContent.map(item => item.remove()));
-                } else {
-                    console.log(`User ${username} is already banned from subreddit.`);
-                }
+                await Promise.all(localContent.map(item => item.remove()));
             } catch {
                 console.log(`Couldn't retrieve content for ${username}`);
             }
