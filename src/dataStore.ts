@@ -289,6 +289,8 @@ export async function handleClassificationChanges (event: ScheduledJobEvent<JSON
 
                 await recordBan(username, context);
 
+                console.log(`${username} has been banned following wiki update.`);
+
                 await Promise.all(localContent.map(item => item.remove()));
             } catch {
                 console.log(`Couldn't retrieve content for ${username}`);

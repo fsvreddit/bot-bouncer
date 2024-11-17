@@ -24,6 +24,10 @@ export class EvaluateMixedBot extends UserEvaluatorBase {
                 || comment.body.includes("\n\n\n\n")
             );
 
+        if (!isEligble) {
+            console.log(comment.body);
+        }
+
         return isEligble;
     }
 
@@ -49,17 +53,18 @@ export class EvaluateMixedBot extends UserEvaluatorBase {
 
     override evaluate (user: User, history: (Post | Comment)[]): boolean {
         if (!this.preEvaluateUser(user)) {
+            this.setReason("User is too old or young");
             return false;
         }
 
         if (history.length > 90) {
-            console.log("Too much history");
+            this.setReason("User has too many items in history");
             return false;
         }
 
         const olderContentCount = history.filter(item => item.createdAt < subYears(new Date(), 5)).length;
         if (user.createdAt > subYears(new Date(), 5) && olderContentCount > 5) {
-            console.log("User mismatch");
+            this.setReason("User has too much old content");
             return false;
         }
 
@@ -67,27 +72,27 @@ export class EvaluateMixedBot extends UserEvaluatorBase {
         const comments = history.filter(item => isCommentId(item.id) && item.createdAt > subMonths(new Date(), 1)) as Comment[];
 
         if (posts.length === 0 || comments.length === 0) {
-            console.log("No items");
+            this.setReason("User has missing posts or comments");
             return false;
         }
 
         if (!posts.every(post => this.eligiblePost(post))) {
-            console.log("Post mismatch");
+            this.setReason("Mismatching post");
             return false;
         }
 
         if (!comments.every(comment => this.eligibleComment(comment))) {
-            console.log("Comments mismatch");
+            this.setReason("Mismatching comment");
             return false;
         }
 
         if (!posts.some(post => post.title === post.title.toLowerCase() || post.title === post.title.toUpperCase())) {
-            console.log("Title Mismatch");
+            this.setReason("No single-case post");
             return false;
         }
 
         if (!comments.some(comment => this.emDashRegex.test(comment.body))) {
-            console.log("No em-dash");
+            this.setReason("No comment with an em-dash");
             return false;
         }
 

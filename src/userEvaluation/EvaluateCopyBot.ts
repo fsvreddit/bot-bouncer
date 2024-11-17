@@ -19,10 +19,16 @@ export class EvaluateCopyBot extends UserEvaluatorBase {
     }
 
     private eligiblePost (post: Post): boolean {
-        return post.body !== undefined
+        const result = post.body !== undefined
             && post.url.includes(post.permalink)
             && post.body.includes("\n\n  \n")
             && post.body.split("\n\n").length <= 3;
+
+        if (!result) {
+            console.log(post.body);
+        }
+
+        return result;
     }
 
     private readonly usernameRegex = /^(?:[A-Z][a-z]+[_-]?){2}\d{2,4}$/;
@@ -49,14 +55,17 @@ export class EvaluateCopyBot extends UserEvaluatorBase {
 
     override preEvaluateUser (user: User): boolean {
         if (!this.usernameRegex.test(user.username)) {
+            this.setReason("Username does not match regex");
             return false;
         }
 
         if (user.createdAt < subMonths(new Date(), 6)) {
+            this.setReason("Account is too old");
             return false;
         }
 
-        if (user.commentKarma + user.linkKarma > 500) {
+        if (user.commentKarma > 500 || user.linkKarma > 500) {
+            this.setReason("Account has too much karma");
             return false;
         }
 
@@ -70,24 +79,27 @@ export class EvaluateCopyBot extends UserEvaluatorBase {
 
         const userPosts = history.filter(item => item.body !== "[removed]" && item instanceof Post && item.createdAt > subMonths(new Date(), 6)) as Post[];
 
-        if (userPosts.some(post => !this.eligiblePost(post))) {
+        if (!userPosts.every(post => this.eligiblePost(post))) {
+            this.setReason("Non-matching post");
             return false;
         }
 
         // At least one post must have an em-dash.
         if (!userPosts.some(post => post.body && this.emDashRegex.test(post.body))) {
+            this.setReason("No post with an em-dash");
             return false;
         }
 
         const userComments = history.filter(item => item instanceof Comment && item.createdAt > subMonths(new Date(), 6)) as Comment[];
 
-        // All comments must be top level
-        if (userComments.some(comment => !this.eligibleComment(comment))) {
+        if (!userComments.every(comment => this.eligibleComment(comment))) {
+            this.setReason("Non-matching comment");
             return false;
         }
 
         // At least one comment must include an em-dash
         if (!userComments.some(comment => this.emDashRegex.test(comment.body))) {
+            this.setReason("No comment with an em-dash");
             return false;
         }
 

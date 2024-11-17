@@ -1,4 +1,4 @@
-import { GetConversationResponse, TriggerContext } from "@devvit/public-api";
+import { GetConversationResponse, ModMailConversationState, TriggerContext } from "@devvit/public-api";
 import { ModMail } from "@devvit/protos";
 import { addMonths } from "date-fns";
 import { CONTROL_SUBREDDIT } from "./constants.js";
@@ -50,6 +50,9 @@ export async function handleModmail (event: ModMail, context: TriggerContext) {
     if (context.subredditName === CONTROL_SUBREDDIT) {
         messageSent = await handleControlSubredditModmail(username, event.conversationId, context);
     } else {
+        if (conversationResponse.conversation.state === ModMailConversationState.Archived) {
+            return;
+        }
         messageSent = await handleClientSubredditModmail(username, event.conversationId, context);
     }
 
@@ -91,6 +94,9 @@ async function handleControlSubredditModmail (username: string, conversationId: 
 async function handleClientSubredditModmail (username: string, conversationId: string, context: TriggerContext): Promise<boolean> {
     const currentStatus = await getUserStatus(username, context);
 
+    const conversation = await context.reddit.modMail.getConversation({ conversationId });
+    const currentState = conversation.conversation?.state;
+
     if (!currentStatus || currentStatus.userStatus === UserStatus.Pending) {
         return false;
     }
@@ -118,6 +124,10 @@ async function handleClientSubredditModmail (username: string, conversationId: s
         conversationId,
         isInternal: true,
     });
+
+    if (currentState === ModMailConversationState.Archived) {
+        await context.reddit.modMail.archiveConversation(conversationId);
+    }
 
     return true;
 }

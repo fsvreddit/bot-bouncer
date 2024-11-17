@@ -1,5 +1,6 @@
 import { Comment, Post, User } from "@devvit/public-api";
 import { CommentSubmit } from "@devvit/protos";
+import { CommentV2 } from "@devvit/protos/types/devvit/reddit/v2alpha/commentv2.js";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
 import { isCommentId } from "@devvit/shared-types/tid.js";
 import { subMonths } from "date-fns";
@@ -10,16 +11,18 @@ export class EvaluateShortTlc extends UserEvaluatorBase {
         return "Short TLC Bot";
     };
 
+    private eligibleComment (comment: Comment | CommentV2) {
+        if (isCommentId(comment.parentId)) {
+            return false;
+        }
+
+        return !comment.body.includes("\n")
+            && comment.body.length < 500
+            && !comment.body.includes("\n");
+    }
+
     override preEvaluateComment (event: CommentSubmit): boolean {
         if (!event.comment || !event.author) {
-            return false;
-        }
-
-        if (isCommentId(event.comment.parentId)) {
-            return false;
-        }
-
-        if (event.comment.body.includes("\n")) {
             return false;
         }
 
@@ -27,7 +30,7 @@ export class EvaluateShortTlc extends UserEvaluatorBase {
             return false;
         }
 
-        return true;
+        return this.eligibleComment(event.comment);
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -37,14 +40,16 @@ export class EvaluateShortTlc extends UserEvaluatorBase {
 
     override preEvaluateUser (user: User): boolean {
         if (user.commentKarma > 500) {
-            return false;
+            this.setReason("User has too much karma");
         }
 
         if (user.createdAt < subMonths(new Date(), 3)) {
+            this.setReason("Account is too old");
             return false;
         }
 
         if (!usernameMatchesBotPatterns(user.username, user.commentKarma)) {
+            this.setReason("Username does not match regex");
             return false;
         }
 
@@ -60,30 +65,27 @@ export class EvaluateShortTlc extends UserEvaluatorBase {
         const userComments = history.filter(item => item instanceof Comment) as Comment[];
 
         if (history.some(item => item instanceof Post && (item.subredditName !== "AskReddit" || item.url.includes("i.redd.it")))) {
+            this.setReason("User has posts outside AskReddit/image posts");
             return false;
         }
 
-        if (userComments.some(comment => isCommentId(comment.parentId))) {
+        if (!userComments.every(comment => this.eligibleComment(comment))) {
+            this.setReason("Mis-matching comment");
             return false;
         }
 
         if (userComments.length > 1 && uniq(userComments.map(comment => comment.subredditName)).length === 1) {
-            return false;
-        }
-
-        if (userComments.some(comment => comment.body.length > 500)) {
-            return false;
-        }
-
-        if (userComments.some(comment => comment.body.includes("\n"))) {
+            this.setReason("Single sub user");
             return false;
         }
 
         if (userComments.some(comment => comment.edited)) {
+            this.setReason("User has edited comments");
             return false;
         }
 
         if (userComments.length < 5) {
+            this.setReason("User doesn't have enough comments");
             return false;
         }
 
