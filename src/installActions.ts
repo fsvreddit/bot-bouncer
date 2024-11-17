@@ -13,7 +13,7 @@ export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, contex
     if (context.subredditName === CONTROL_SUBREDDIT) {
         await context.scheduler.runJob({
             name: UPDATE_WIKI_PAGE_JOB,
-            cron: "* * * * *",
+            cron: "0/15 * * * *",
         });
 
         await context.scheduler.runJob({

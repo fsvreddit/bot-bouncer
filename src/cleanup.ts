@@ -8,11 +8,13 @@ import { getUserOrUndefined } from "./utility.js";
 const CLEANUP_LOG_KEY = "CleanupLog";
 const DAYS_BETWEEN_CHECKS = 28;
 
-export async function setCleanupForUsers (usernames: string[], context: TriggerContext, controlSubOnly?: boolean) {
+export async function setCleanupForUsers (usernames: string[], context: TriggerContext, controlSubOnly?: boolean, overrideDuration?: number) {
     if (controlSubOnly && context.subredditName === CONTROL_SUBREDDIT) {
         return;
     }
-    await context.redis.zAdd(CLEANUP_LOG_KEY, ...usernames.map(username => ({ member: username, score: addDays(new Date(), DAYS_BETWEEN_CHECKS).getTime() })));
+
+    const cleanupTime = addDays(new Date(), overrideDuration ?? DAYS_BETWEEN_CHECKS)
+    await context.redis.zAdd(CLEANUP_LOG_KEY, ...usernames.map(username => ({ member: username, score: cleanupTime.getTime() })));
 }
 
 async function userActive (username: string, context: TriggerContext): Promise<boolean> {

@@ -27,6 +27,7 @@ export enum AppSetting {
     BanMessage = "banMessage",
     ModmailNote = "clientModmailNote",
     RemoveRecentContent = "removeRecentContent",
+    ReportPotentialBots = "reportPotentialBots",
 }
 
 export const appSettings: SettingsFormField[] = [
@@ -50,6 +51,13 @@ export const appSettings: SettingsFormField[] = [
         type: "boolean",
         name: AppSetting.RemoveRecentContent,
         label: "Ban and remove recent content from newly classified users on your subreddit even if they don't post again",
+        defaultValue: true,
+    },
+    {
+        type: "boolean",
+        name: AppSetting.ReportPotentialBots,
+        label: "Report potential bots to /r/BotBouncer",
+        helpText: "Automatically reports newly detected bots to /r/BotBouncer",
         defaultValue: true,
     },
 ];

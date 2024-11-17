@@ -46,7 +46,7 @@ export async function setUserStatus (username: string, details: UserDetails, con
     const promises: Promise<unknown>[] = [
         context.redis.hSet(USER_STORE, { [username]: JSON.stringify(details) }),
         context.redis.hSet(POST_STORE, { [details.trackingPostId]: username }),
-        setCleanupForUsers([username], context, true),
+        setCleanupForUsers([username], context, true, 3),
         queueWikiUpdate(context),
     ];
 
@@ -212,7 +212,7 @@ export async function updateLocalStoreFromWiki (_: unknown, context: JobContext)
 
 export async function recordBan (username: string, context: TriggerContext) {
     await context.redis.zAdd(BAN_STORE, { member: username, score: new Date().getTime() });
-    await setCleanupForUsers([username], context);
+    await setCleanupForUsers([username], context, false, 3);
 }
 
 export async function removeRecordOfBan (usernames: string[], context: TriggerContext) {

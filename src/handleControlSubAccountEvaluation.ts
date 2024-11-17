@@ -1,16 +1,8 @@
 import { JobContext, JSONObject, ScheduledJobEvent } from "@devvit/public-api";
 import { getUserStatus, UserStatus } from "./dataStore.js";
-import { EvaluateShortTlc } from "./userEvaluation/EvaluateShortTlc.js";
 import { CONTROL_SUBREDDIT, PostFlairTemplate } from "./constants.js";
-import { EvaluateCopyBot } from "./userEvaluation/EvaluateCopyBot.js";
-import { EvaluateMixedBot } from "./userEvaluation/EvaluateMixedBot.js";
 import { getUserOrUndefined } from "./utility.js";
-
-const evaluators = [
-    EvaluateShortTlc,
-    EvaluateCopyBot,
-    EvaluateMixedBot,
-];
+import { ALL_EVALUATORS } from "./userEvaluation/allEvaluators.js";
 
 export async function handleControlSubAccountEvaluation (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
@@ -36,7 +28,7 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
     }
 
     let userEligible = false;
-    for (const Evaluator of evaluators) {
+    for (const Evaluator of ALL_EVALUATORS) {
         const evaluator = new Evaluator();
         if (evaluator.preEvaluateUser(user)) {
             userEligible = true;
@@ -53,8 +45,13 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
         limit: 100,
     }).all();
 
+    if (userItems.length < 5) {
+        console.log(`Evaluator: ${username} does not have enough content for automatic evaluation.`);
+        return
+    }
+
     let isBot = false;
-    for (const Evaluator of evaluators) {
+    for (const Evaluator of ALL_EVALUATORS) {
         const evaluator = new Evaluator();
         const isABot = evaluator.evaluate(user, userItems);
         if (isABot) {
