@@ -4,7 +4,12 @@ import { getUserStatus, setUserStatus, UserStatus } from "./dataStore.js";
 
 const WIKI_PAGE = "externalsubmissions";
 
-export async function addExternalSubmission (username: string, context: TriggerContext) {
+interface ExternalSubmission {
+    username: string;
+    reportContext?: string;
+};
+
+export async function addExternalSubmission (username: string, reportContext: string | undefined, context: TriggerContext) {
     if (context.subredditName === CONTROL_SUBREDDIT) {
         return;
     }
@@ -16,13 +21,13 @@ export async function addExternalSubmission (username: string, context: TriggerC
         //
     }
 
-    const currentUserList = JSON.parse(wikiPage?.content ?? "[]") as string[];
+    const currentUserList = JSON.parse(wikiPage?.content ?? "[]") as ExternalSubmission[];
 
-    if (currentUserList.includes(username)) {
+    if (currentUserList.some(item => item.username === username)) {
         return;
     }
 
-    currentUserList.push(username);
+    currentUserList.push({ username, reportContext });
 
     const wikiUpdateOptions = {
         subredditName: CONTROL_SUBREDDIT,
@@ -67,17 +72,17 @@ export async function processExternalSubmissions (_: unknown, context: JobContex
         //
     }
 
-    const currentUserList = JSON.parse(wikiPage?.content ?? "[]") as string[];
-    if (currentUserList.length === 0) {
+    const currentSubmissionList = JSON.parse(wikiPage?.content ?? "[]") as ExternalSubmission[];
+    if (currentSubmissionList.length === 0) {
         return;
     }
 
     let canContinue = false;
-    let username: string | undefined;
+    let item: ExternalSubmission | undefined;
     while (!canContinue) {
-        username = currentUserList.shift();
-        if (username) {
-            const currentStatus = await getUserStatus(username, context);
+        item = currentSubmissionList.shift();
+        if (item) {
+            const currentStatus = await getUserStatus(item.username, context);
             if (!currentStatus) {
                 canContinue = true;
             }
@@ -90,7 +95,7 @@ export async function processExternalSubmissions (_: unknown, context: JobContex
     const wikiUpdateOptions = {
         subredditName: CONTROL_SUBREDDIT,
         page: WIKI_PAGE,
-        content: JSON.stringify(currentUserList),
+        content: JSON.stringify(currentSubmissionList),
     };
 
     if (wikiPage) {
@@ -105,36 +110,43 @@ export async function processExternalSubmissions (_: unknown, context: JobContex
         });
     }
 
-    if (!username) {
+    if (!item) {
         return;
     }
 
     const newPost = await context.reddit.submitPost({
         subredditName: CONTROL_SUBREDDIT,
-        title: `Overview for ${username}`,
-        url: `https://www.reddit.com/user/${username}`,
+        title: `Overview for ${item.username}`,
+        url: `https://www.reddit.com/user/${item.username}`,
         flairId: PostFlairTemplate.Pending,
     });
+
+    if (item.reportContext) {
+        let text = "The submitter added the following context for this submission:\n\n";
+        text += item.reportContext.split("\n").map(line => `> ${line}`).join("\n");
+        text += `\n\n*I am a bot, and this action was performed automatically. Please [contact the moderators of this subreddit](/message/compose/?to=/r/${CONTROL_SUBREDDIT}) if you have any questions or concerns.*`;
+        await newPost.addComment({ text });
+    }
 
     await context.scheduler.runJob({
         name: EVALUATE_USER,
         runAt: new Date(),
         data: {
-            username,
+            username: item.username,
             postId: newPost.id,
         },
     });
 
-    await setUserStatus(username, {
+    await setUserStatus(item.username, {
         userStatus: UserStatus.Pending,
         lastUpdate: new Date().getTime(),
         operator: context.appName,
         trackingPostId: newPost.id,
     }, context);
 
-    console.log(`External submission created for ${username}`);
+    console.log(`External submission created for ${item.username}`);
 
-    if (currentUserList.length === 0) {
+    if (currentSubmissionList.length === 0) {
         return;
     }
 

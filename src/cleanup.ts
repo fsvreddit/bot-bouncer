@@ -1,4 +1,4 @@
-import { TriggerContext, User, ZMember } from "@devvit/public-api";
+import { TriggerContext, ZMember } from "@devvit/public-api";
 import { addDays, addMinutes, subMinutes } from "date-fns";
 import { parseExpression } from "cron-parser";
 import { ADHOC_CLEANUP_JOB, CLEANUP_JOB_CRON, CONTROL_SUBREDDIT } from "./constants.js";

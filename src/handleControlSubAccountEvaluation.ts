@@ -1,4 +1,4 @@
-import { JobContext, JSONObject, ScheduledJobEvent, User } from "@devvit/public-api";
+import { JobContext, JSONObject, ScheduledJobEvent } from "@devvit/public-api";
 import { getUserStatus, UserStatus } from "./dataStore.js";
 import { EvaluateShortTlc } from "./userEvaluation/EvaluateShortTlc.js";
 import { CONTROL_SUBREDDIT, PostFlairTemplate } from "./constants.js";
@@ -31,9 +31,20 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
     }
 
     const user = await getUserOrUndefined(username, context);
-
     if (!user) {
         return;
+    }
+
+    let userEligible = false;
+    for (const Evaluator of evaluators) {
+        const evaluator = new Evaluator();
+        if (evaluator.preEvaluateUser(user)) {
+            userEligible = true;
+        }
+    }
+
+    if (!userEligible) {
+        console.log(`Evaluator: ${username} does not pass any user pre-checks.`);
     }
 
     const userItems = await context.reddit.getCommentsAndPostsByUser({

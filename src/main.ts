@@ -11,10 +11,21 @@ import { processPendingQueue } from "./pendingQueue.js";
 import { handleModmail } from "./modmail.js";
 import { handleControlSubPostDelete } from "./handleControlSubPostDelete.js";
 import { handleControlSubAccountEvaluation } from "./handleControlSubAccountEvaluation.js";
-import { handleReportUser } from "./handleReportUser.js";
+import { handleReportUser, reportFormHandler } from "./handleReportUser.js";
 import { processExternalSubmissions } from "./externalSubmissions.js";
 
 Devvit.addSettings(appSettings);
+
+export const reportForm = Devvit.createForm({
+    fields: [
+        {
+            type: "paragraph",
+            label: "Please provide more information that might help us understand why this is a bot",
+            helpText: "Optional. This is in case it is not obvious that this is a LLM bot.",
+            name: "reportContext",
+        },
+    ],
+}, reportFormHandler);
 
 Devvit.addTrigger({
     events: ["AppInstall", "AppUpgrade"],

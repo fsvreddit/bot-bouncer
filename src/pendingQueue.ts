@@ -1,4 +1,4 @@
-import { JobContext, TriggerContext, User } from "@devvit/public-api";
+import { JobContext, TriggerContext } from "@devvit/public-api";
 import { addMinutes } from "date-fns";
 import { UserStatus } from "./dataStore.js";
 import { PostFlairTemplate } from "./constants.js";

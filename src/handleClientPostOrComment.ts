@@ -1,4 +1,4 @@
-import { TriggerContext, User } from "@devvit/public-api";
+import { TriggerContext } from "@devvit/public-api";
 import { CommentSubmit, PostSubmit } from "@devvit/protos";
 import { formatDate } from "date-fns";
 import { getUserStatus, recordBan, UserStatus } from "./dataStore.js";

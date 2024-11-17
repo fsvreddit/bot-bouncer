@@ -10,7 +10,7 @@ export class EvaluateShortTlc extends UserEvaluatorBase {
         return "Short TLC Bot";
     };
 
-    override preEvaluateComment(event: CommentSubmit): boolean {
+    override preEvaluateComment (event: CommentSubmit): boolean {
         if (!event.comment || !event.author) {
             return false;
         }
@@ -30,11 +30,12 @@ export class EvaluateShortTlc extends UserEvaluatorBase {
         return true;
     }
 
-    override preEvaluatePost(post: Post): boolean {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    override preEvaluatePost (post: Post): boolean {
         return false;
     }
 
-    override evaluate (user: User, history: (Post | Comment)[]): boolean {
+    override preEvaluateUser (user: User): boolean {
         if (user.commentKarma > 500) {
             return false;
         }
@@ -44,6 +45,14 @@ export class EvaluateShortTlc extends UserEvaluatorBase {
         }
 
         if (!usernameMatchesBotPatterns(user.username, user.commentKarma)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    override evaluate (user: User, history: (Post | Comment)[]): boolean {
+        if (!this.preEvaluateUser(user)) {
             return false;
         }
 

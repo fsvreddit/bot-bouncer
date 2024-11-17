@@ -8,5 +8,7 @@ export abstract class UserEvaluatorBase {
 
     abstract preEvaluatePost (post: Post): boolean;
 
+    abstract preEvaluateUser (user: User): boolean;
+
     abstract evaluate (user: User, history: (Post | Comment)[]): boolean;
 }

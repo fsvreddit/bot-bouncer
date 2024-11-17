@@ -24,15 +24,12 @@ export class EvaluateMixedBot extends UserEvaluatorBase {
                 || comment.body.includes("\n\n\n\n")
             );
 
-        if (!isEligble) {
-            console.log(comment.body);
-        }
         return isEligble;
     }
 
     private eligiblePost (post: Post): boolean {
         const domainRegex = /^[iv]\.redd\.it$/;
-        return domainRegex.test(new URL(post.url).hostname);
+        return domainRegex.test(new URL(post.url).hostname) || post.subredditName === "WhatIsMyCQS";
     }
 
     override preEvaluateComment (event: CommentSubmit): boolean {
@@ -46,13 +43,23 @@ export class EvaluateMixedBot extends UserEvaluatorBase {
         return this.eligiblePost(post);
     }
 
+    override preEvaluateUser (user: User): boolean {
+        return user.createdAt < subYears(new Date(), 5) || user.createdAt > subMonths(new Date(), 6);
+    }
+
     override evaluate (user: User, history: (Post | Comment)[]): boolean {
-        if (history.length > 50) {
+        if (!this.preEvaluateUser(user)) {
+            return false;
+        }
+
+        if (history.length > 90) {
+            console.log("Too much history");
             return false;
         }
 
         const olderContentCount = history.filter(item => item.createdAt < subYears(new Date(), 5)).length;
         if (user.createdAt > subYears(new Date(), 5) && olderContentCount > 5) {
+            console.log("User mismatch");
             return false;
         }
 
@@ -60,7 +67,7 @@ export class EvaluateMixedBot extends UserEvaluatorBase {
         const comments = history.filter(item => isCommentId(item.id) && item.createdAt > subMonths(new Date(), 1)) as Comment[];
 
         if (posts.length === 0 || comments.length === 0) {
-            console.log("No items")
+            console.log("No items");
             return false;
         }
 
@@ -70,7 +77,7 @@ export class EvaluateMixedBot extends UserEvaluatorBase {
         }
 
         if (!comments.every(comment => this.eligibleComment(comment))) {
-            console.log("Comments mismatch")
+            console.log("Comments mismatch");
             return false;
         }
 

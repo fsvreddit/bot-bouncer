@@ -1,25 +1,32 @@
-import { Context, MenuItemOnPressEvent, Post, Comment, User } from "@devvit/public-api";
+import { Context, MenuItemOnPressEvent, Post, Comment, JSONObject, FormOnSubmitEvent } from "@devvit/public-api";
 import { CONTROL_SUBREDDIT, EVALUATE_USER } from "./constants.js";
 import { getPostOrCommentById, getUsernameFromUrl, getUserOrUndefined } from "./utility.js";
 import { getUserStatus, setUserStatus, UserStatus } from "./dataStore.js";
 import { addExternalSubmission } from "./externalSubmissions.js";
+import { reportForm } from "./main.js";
 
 export async function handleReportUser (event: MenuItemOnPressEvent, context: Context) {
     const target = await getPostOrCommentById(event.targetId, context);
-
     if (context.subredditName === CONTROL_SUBREDDIT) {
         await handleControlSubReportUser(target, context);
     } else {
-        await handleClientSubReportUser(target, context);
+        const currentStatus = await getUserStatus(target.authorName, context);
+        if (currentStatus) {
+            context.ui.showToast(`${target.authorName} has already been reported to Bot Bouncer.`);
+            return;
+        }
+        context.ui.showForm(reportForm);
     }
 }
 
-async function handleClientSubReportUser (target: Post | Comment, context: Context) {
-    const currentStatus = await getUserStatus(target.authorName, context);
-    if (currentStatus) {
-        context.ui.showToast(`${target.authorName} has already been reported to Bot Bouncer.`);
+export async function reportFormHandler (event: FormOnSubmitEvent<JSONObject>, context: Context) {
+    const targetId = context.commentId ?? context.postId;
+    if (!targetId) {
+        context.ui.showToast("Sorry, could not report user.");
         return;
     }
+
+    const target = await getPostOrCommentById(targetId, context);
 
     const user = await getUserOrUndefined(target.authorName, context);
 
@@ -28,7 +35,8 @@ async function handleClientSubReportUser (target: Post | Comment, context: Conte
         return;
     }
 
-    await addExternalSubmission(target.authorName, context);
+    const reportContext = event.values.reportContext as string | undefined;
+    await addExternalSubmission(target.authorName, reportContext, context);
 
     // Set local status
     await setUserStatus(target.authorName, {

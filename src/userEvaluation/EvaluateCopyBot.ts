@@ -27,7 +27,7 @@ export class EvaluateCopyBot extends UserEvaluatorBase {
 
     private readonly usernameRegex = /^(?:[A-Z][a-z]+[_-]?){2}\d{2,4}$/;
 
-    override preEvaluateComment(event: CommentSubmit): boolean {
+    override preEvaluateComment (event: CommentSubmit): boolean {
         if (!event.comment || !event.author) {
             return false;
         }
@@ -36,10 +36,10 @@ export class EvaluateCopyBot extends UserEvaluatorBase {
             return false;
         }
 
-        return this.eligibleComment(event.comment)
+        return this.eligibleComment(event.comment);
     }
 
-    override preEvaluatePost(post: Post): boolean {
+    override preEvaluatePost (post: Post): boolean {
         if (!this.usernameRegex.test(post.authorName)) {
             return false;
         }
@@ -47,7 +47,7 @@ export class EvaluateCopyBot extends UserEvaluatorBase {
         return this.eligiblePost(post);
     }
 
-    override evaluate (user: User, history: (Post | Comment)[]): boolean {
+    override preEvaluateUser (user: User): boolean {
         if (!this.usernameRegex.test(user.username)) {
             return false;
         }
@@ -60,7 +60,14 @@ export class EvaluateCopyBot extends UserEvaluatorBase {
             return false;
         }
 
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+        return true;
+    }
+
+    override evaluate (user: User, history: (Post | Comment)[]): boolean {
+        if (!this.preEvaluateUser(user)) {
+            return false;
+        }
+
         const userPosts = history.filter(item => item.body !== "[removed]" && item instanceof Post && item.createdAt > subMonths(new Date(), 6)) as Post[];
 
         if (userPosts.some(post => !this.eligiblePost(post))) {
@@ -72,7 +79,6 @@ export class EvaluateCopyBot extends UserEvaluatorBase {
             return false;
         }
 
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
         const userComments = history.filter(item => item instanceof Comment && item.createdAt > subMonths(new Date(), 6)) as Comment[];
 
         // All comments must be top level
