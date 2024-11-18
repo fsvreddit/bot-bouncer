@@ -9,7 +9,7 @@ const CLEANUP_LOG_KEY = "CleanupLog";
 const DAYS_BETWEEN_CHECKS = 28;
 
 export async function setCleanupForUsers (usernames: string[], context: TriggerContext, controlSubOnly?: boolean, overrideDuration?: number) {
-    if (controlSubOnly && context.subredditName === CONTROL_SUBREDDIT) {
+    if (controlSubOnly && context.subredditName !== CONTROL_SUBREDDIT) {
         return;
     }
 

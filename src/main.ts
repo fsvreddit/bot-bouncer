@@ -13,6 +13,7 @@ import { handleControlSubPostDelete } from "./handleControlSubPostDelete.js";
 import { handleControlSubAccountEvaluation } from "./handleControlSubAccountEvaluation.js";
 import { handleReportUser, reportFormHandler } from "./handleReportUser.js";
 import { processExternalSubmissions } from "./externalSubmissions.js";
+import { handleClientCommentSubmit, handleClientPostSubmit } from "./handleClientPostOrComment.js";
 
 Devvit.addSettings(appSettings);
 
@@ -24,6 +25,16 @@ Devvit.addTrigger({
 Devvit.addTrigger({
     event: "PostCreate",
     onEvent: handleBackroomSubmission,
+});
+
+Devvit.addTrigger({
+    event: "PostSubmit",
+    onEvent: handleClientPostSubmit,
+});
+
+Devvit.addTrigger({
+    event: "CommentSubmit",
+    onEvent: handleClientCommentSubmit,
 });
 
 Devvit.addTrigger({

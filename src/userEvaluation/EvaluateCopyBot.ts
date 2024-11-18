@@ -13,9 +13,11 @@ export class EvaluateCopyBot extends UserEvaluatorBase {
     private readonly emDashRegex = /\w—\w/i;
 
     private eligibleComment (comment: Comment | CommentV2): boolean {
-        return isLinkId(comment.parentId)
+        const result = isLinkId(comment.parentId)
             && !comment.body.includes("\n")
             && comment.body.length < 1000;
+
+        return result;
     }
 
     private eligiblePost (post: Post): boolean {
@@ -73,29 +75,23 @@ export class EvaluateCopyBot extends UserEvaluatorBase {
             return false;
         }
 
-        const userPosts = history.filter(item => item.body !== "[removed]" && item instanceof Post && item.createdAt > subMonths(new Date(), 6)) as Post[];
+        const userPosts = history.filter(item => item.body !== "[removed]" && item instanceof Post && item.createdAt > subMonths(new Date(), 1)) as Post[];
 
         if (!userPosts.every(post => this.eligiblePost(post))) {
             this.setReason("Non-matching post");
             return false;
         }
 
-        // At least one post must have an em-dash.
-        if (!userPosts.some(post => post.body && this.emDashRegex.test(post.body))) {
-            this.setReason("No post with an em-dash");
-            return false;
-        }
-
-        const userComments = history.filter(item => item instanceof Comment && item.createdAt > subMonths(new Date(), 6)) as Comment[];
+        const userComments = history.filter(item => item instanceof Comment && item.createdAt > subMonths(new Date(), 1)) as Comment[];
 
         if (!userComments.every(comment => this.eligibleComment(comment))) {
             this.setReason("Non-matching comment");
             return false;
         }
 
-        // At least one comment must include an em-dash
-        if (!userComments.some(comment => this.emDashRegex.test(comment.body))) {
-            this.setReason("No comment with an em-dash");
+        // At least one post or comment must have an em-dash.
+        if (!userPosts.some(post => post.body && this.emDashRegex.test(post.body)) && !userComments.some(comment => this.emDashRegex.test(comment.body))) {
+            this.setReason("No post with an em-dash");
             return false;
         }
 

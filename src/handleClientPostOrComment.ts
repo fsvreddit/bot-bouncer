@@ -71,12 +71,14 @@ async function handleContentCreation (username: string, targetId: string, contex
         return;
     }
 
+    console.log(`Status for ${username} is ${currentStatus.userStatus}`);
+
     const subredditName = context.subredditName ?? (await context.reddit.getCurrentSubreddit()).name;
 
     const user = await getUserOrUndefined(username, context);
 
     if (!user) {
-        // Unusual, but user may have been shadowbanned before getting to this point.
+        console.log(`${username} appears to be shadowbanned.`);
         return;
     }
 

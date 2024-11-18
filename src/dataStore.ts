@@ -1,5 +1,5 @@
 import { JobContext, TriggerContext, WikiPagePermissionLevel, WikiPage, ScheduledJobEvent, JSONObject } from "@devvit/public-api";
-import { compact, countBy, toPairs } from "lodash";
+import { compact, countBy, max, toPairs } from "lodash";
 import pako from "pako";
 import { isBanned, replaceAll } from "./utility.js";
 import pluralize from "pluralize";
@@ -181,10 +181,10 @@ export async function updateLocalStoreFromWiki (_: unknown, context: JobContext)
 
     console.log(`Wiki Update: Records for ${usersAdded} ${pluralize("user", usersAdded)} have been added`);
 
-    const newUpdateDate = new Date();
-
     const usersWithStatus = toPairs(incomingData)
         .map(([username, userdata]) => ({ username, data: JSON.parse(userdata) as UserDetails }));
+
+    const newUpdateDate = max(usersWithStatus.map(item => item.data.lastUpdate)) ?? new Date().getTime();
 
     const unbannedUsers = usersWithStatus
         .filter(item => new Date(item.data.lastUpdate) > lastUpdateDate && (item.data.userStatus === UserStatus.Organic || item.data.userStatus === UserStatus.Service))
@@ -204,7 +204,7 @@ export async function updateLocalStoreFromWiki (_: unknown, context: JobContext)
         console.log(`Wiki Update: ${count} ${pluralize("user", count)} ${pluralize("has", count)} been reclassified. Job scheduled to update local store.`);
     }
 
-    await context.redis.set(lastUpdateDateKey, newUpdateDate.getTime().toString());
+    await context.redis.set(lastUpdateDateKey, newUpdateDate.toString());
     await context.redis.set(lastUpdateKey, wikiPage.revisionId);
 
     console.log("Wiki Update: Finished processing.");
