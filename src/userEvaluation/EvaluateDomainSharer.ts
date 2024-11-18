@@ -1,7 +1,7 @@
 import { Comment, Post, User } from "@devvit/public-api";
 import { CommentSubmit } from "@devvit/protos";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
-import { countBy, toPairs, uniq } from "lodash";
+import { compact, countBy, toPairs, uniq } from "lodash";
 import { subMonths } from "date-fns";
 import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
 
@@ -10,13 +10,14 @@ export class EvaluateDomainSharer extends UserEvaluatorBase {
         return "Domain Sharer";
     };
 
-    private domainFromUrl (url: string): string {
+    private domainFromUrl (url: string): string | undefined {
         const hostname = new URL(url).hostname;
-        if (hostname.startsWith("www.")) {
-            return hostname.substring(4);
-        } else {
-            return hostname;
+        const trimmedHostname = hostname.startsWith("www.") ? hostname.substring(4) : hostname;
+        if (trimmedHostname === "reddit.com" || trimmedHostname === "i.redd.it" || trimmedHostname === "v.redd.it") {
+            return;
         }
+
+        return trimmedHostname;
     }
 
     private domainsFromContent (content: string): string[] {
@@ -24,18 +25,18 @@ export class EvaluateDomainSharer extends UserEvaluatorBase {
         const domainRegex = /(https?:\/\/[\w\.]+)[\/\)]/g;
         const matches = content.matchAll(domainRegex);
 
-        const domains: string[] = [];
+        const domains: (string | undefined)[] = [];
 
         for (const match of matches) {
             const [, url] = match;
             domains.push(this.domainFromUrl(url));
         }
 
-        return uniq(domains);
+        return uniq(compact((domains)));
     }
 
     private domainsFromPost (post: Post): string[] {
-        const domains: string[] = [];
+        const domains: (string | undefined)[] = [];
         if (!post.url.startsWith("/")) {
             domains.push(this.domainFromUrl(post.url));
         }
@@ -44,7 +45,7 @@ export class EvaluateDomainSharer extends UserEvaluatorBase {
             domains.push(...this.domainsFromContent(post.body));
         }
 
-        return uniq(domains);
+        return uniq(compact(domains));
     }
 
     override preEvaluateComment (event: CommentSubmit): boolean {
@@ -93,10 +94,10 @@ export class EvaluateDomainSharer extends UserEvaluatorBase {
             return false;
         }
 
-        const domainPairs = toPairs(countBy(domains));
-        console.log(domainPairs);
+        const domainAggregate = toPairs(countBy(domains)).map(([domain, count]) => ({ domain, count }));
+        console.log(domainAggregate);
 
-        if (domainPairs.some(([, count]) => count === recentContent.length)) {
+        if (domainAggregate.some(item => item.count === recentContent.length)) {
             return true;
         } else {
             this.setReason("User content is not dominated by one domain");
