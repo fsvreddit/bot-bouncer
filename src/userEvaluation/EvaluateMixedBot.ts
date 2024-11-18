@@ -24,10 +24,6 @@ export class EvaluateMixedBot extends UserEvaluatorBase {
                 || comment.body.includes("\n\n\n\n")
             );
 
-        if (!isEligble) {
-            console.log(comment.body);
-        }
-
         return isEligble;
     }
 

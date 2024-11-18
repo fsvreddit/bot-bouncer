@@ -24,10 +24,6 @@ export class EvaluateCopyBot extends UserEvaluatorBase {
             && post.body.includes("\n\n  \n")
             && post.body.split("\n\n").length <= 3;
 
-        if (!result) {
-            console.log(post.body);
-        }
-
         return result;
     }
 
