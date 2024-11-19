@@ -6,10 +6,11 @@ const WIKI_PAGE = "externalsubmissions";
 
 interface ExternalSubmission {
     username: string;
+    submitter?: string;
     reportContext?: string;
 };
 
-export async function addExternalSubmission (username: string, reportContext: string | undefined, context: TriggerContext) {
+export async function addExternalSubmission (username: string, submitter: string | undefined, reportContext: string | undefined, context: TriggerContext) {
     if (context.subredditName === CONTROL_SUBREDDIT) {
         return;
     }
@@ -27,7 +28,7 @@ export async function addExternalSubmission (username: string, reportContext: st
         return;
     }
 
-    currentUserList.push({ username, reportContext });
+    currentUserList.push({ username, submitter, reportContext });
 
     const wikiUpdateOptions = {
         subredditName: CONTROL_SUBREDDIT,
@@ -140,6 +141,7 @@ export async function processExternalSubmissions (_: unknown, context: JobContex
     await setUserStatus(item.username, {
         userStatus: UserStatus.Pending,
         lastUpdate: new Date().getTime(),
+        submitter: item.submitter,
         operator: context.appName,
         trackingPostId: newPost.id,
     }, context);

@@ -162,8 +162,10 @@ async function checkAndReportPotentialBot (username: string, context: TriggerCon
         return;
     }
 
+    const currentUser = await context.reddit.getCurrentUser();
+
     const subredditName = context.subredditName ?? (await context.reddit.getCurrentSubreddit()).name;
-    await addExternalSubmission(user.username, `Automatically reported via a post or comment on /r/${subredditName}`, context);
+    await addExternalSubmission(user.username, currentUser?.username, `Automatically reported via a post or comment on /r/${subredditName}`, context);
 
     console.log(`Created external submission via automated evaluation for ${user.username}`);
 }

@@ -62,6 +62,7 @@ export async function handleBackroomSubmission (event: PostCreate, context: Trig
             await setUserStatus(user.username, {
                 userStatus: UserStatus.Pending,
                 lastUpdate: new Date().getTime(),
+                submitter: event.author.name,
                 operator: context.appName,
                 trackingPostId: newPost.id,
             }, context);

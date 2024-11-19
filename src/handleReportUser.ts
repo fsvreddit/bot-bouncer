@@ -36,13 +36,15 @@ export async function reportFormHandler (event: FormOnSubmitEvent<JSONObject>, c
         return;
     }
 
+    const currentUser = await context.reddit.getCurrentUser();
     const reportContext = event.values.reportContext as string | undefined;
-    await addExternalSubmission(target.authorName, reportContext, context);
+    await addExternalSubmission(target.authorName, currentUser?.username, reportContext, context);
 
     // Set local status
     await setUserStatus(target.authorName, {
         userStatus: UserStatus.Pending,
         lastUpdate: new Date().getTime(),
+        submitter: currentUser?.username,
         operator: context.appName,
         trackingPostId: "",
     }, context);
@@ -65,7 +67,13 @@ async function handleControlSubReportUser (target: Post | Comment, context: Cont
 
     const currentStatus = await getUserStatus(username, context);
     if (currentStatus) {
-        context.ui.showToast(`${username}'s current status is ${currentStatus.userStatus}.`);
+        let message = `${username}'s current status is ${currentStatus.userStatus}`;
+        if (currentStatus.submitter) {
+            message += `, reported by ${currentStatus.submitter}.`;
+        } else {
+            message += ".";
+        }
+        context.ui.showToast(message);
         if (currentStatus.userStatus === UserStatus.Pending) {
             await context.scheduler.runJob({
                 name: EVALUATE_USER,

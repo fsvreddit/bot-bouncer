@@ -95,7 +95,6 @@ export class EvaluateDomainSharer extends UserEvaluatorBase {
         }
 
         const domainAggregate = toPairs(countBy(domains)).map(([domain, count]) => ({ domain, count }));
-        console.log(domainAggregate);
 
         if (domainAggregate.some(item => item.count === recentContent.length)) {
             return true;

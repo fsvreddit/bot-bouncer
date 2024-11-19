@@ -28,6 +28,7 @@ interface UserDetails {
     trackingPostId: string;
     userStatus: UserStatus;
     lastUpdate: number;
+    submitter?: string;
     operator: string;
 }
 
