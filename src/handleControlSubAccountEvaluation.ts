@@ -45,26 +45,29 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
         limit: 100,
     }).all();
 
-    if (userItems.length < 5) {
-        console.log(`Evaluator: ${username} does not have enough content for automatic evaluation.`);
-        return;
-    }
+    const detectedBots: string[] = [];
 
-    let isBot = false;
     for (const Evaluator of ALL_EVALUATORS) {
         const evaluator = new Evaluator();
         const isABot = evaluator.evaluate(user, userItems);
         if (isABot) {
-            isBot = true;
             console.log(`Evaluator: ${username} appears to be a bot via the evaluator: ${evaluator.getName()}`);
+            detectedBots.push(evaluator.getName());
             break;
         } else {
             console.log(`${evaluator.getName()} did not match: ${evaluator.getReasons().join(", ")}`);
         }
     }
 
-    if (!isBot) {
+    if (detectedBots.length === 0) {
         console.log(`Evaluator: ${username} does not appear to be a bot via evaluators.`);
+        return;
+    }
+
+    if (userItems.length < 10) {
+        console.log(`Evaluator: ${username} does not have enough content for automatic evaluation.`);
+        const post = await context.reddit.getPostById(postId);
+        await context.reddit.report(post, { reason: `Possible bot via evaluation, but insufficient content:${detectedBots.join(", ")}` });
         return;
     }
 
