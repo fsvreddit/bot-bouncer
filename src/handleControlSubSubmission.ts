@@ -69,7 +69,7 @@ export async function handleBackroomSubmission (event: PostCreate, context: Trig
 
             console.log(`Created new post for ${username}`);
 
-            submissionResponse = `Hi, thanks for your submission.\n\nThe post tracking ${user.username} can be found [here](${newPost.permalink}).`;
+            submissionResponse = `Hi, thanks for your submission.\n\nThe post tracking ${user.username} can be found [here](${newPost.permalink}).\n\nYour post has been removed, and can be deleted.`;
 
             await context.scheduler.runJob({
                 name: EVALUATE_USER,
