@@ -5,7 +5,7 @@ import { scheduleAdhocCleanup } from "./cleanup.js";
 import { createExternalSubmissionJob } from "./externalSubmissions.js";
 
 export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, context: TriggerContext) {
-    console.log("Detected an app install or update event!");
+    console.log("Detected an app install or update event");
 
     const currentJobs = await context.scheduler.listJobs();
     await Promise.all(currentJobs.map(job => context.scheduler.cancelJob(job.id)));

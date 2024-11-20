@@ -1,7 +1,7 @@
 import { TriggerContext } from "@devvit/public-api";
 import { CommentSubmit, PostSubmit } from "@devvit/protos";
 import { formatDate } from "date-fns";
-import { getUserStatus, recordBan, UserStatus } from "./dataStore.js";
+import { getUserStatus, isUserWhitelisted, recordBan, UserStatus } from "./dataStore.js";
 import { CONTROL_SUBREDDIT } from "./constants.js";
 import { getUserOrUndefined, isApproved, isBanned, isModerator, replaceAll } from "./utility.js";
 import { AppSetting, CONFIGURATION_DEFAULTS } from "./settings.js";
@@ -69,6 +69,11 @@ async function handleContentCreation (username: string, targetId: string, contex
     const currentStatus = await getUserStatus(username, context);
     if (!currentStatus || currentStatus.userStatus !== UserStatus.Banned) {
         return;
+    }
+
+    const userWhitelisted = await isUserWhitelisted(username, context);
+    if (userWhitelisted) {
+        console.log(`${username} is whitelisted after a previous unban, so will not be actioned.`);
     }
 
     console.log(`Status for ${username} is ${currentStatus.userStatus}`);
