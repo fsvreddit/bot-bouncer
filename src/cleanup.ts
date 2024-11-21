@@ -2,7 +2,7 @@ import { TriggerContext, ZMember } from "@devvit/public-api";
 import { addDays, addMinutes, subMinutes } from "date-fns";
 import { parseExpression } from "cron-parser";
 import { ADHOC_CLEANUP_JOB, CLEANUP_JOB_CRON, CONTROL_SUBREDDIT } from "./constants.js";
-import { deleteUserStatus, getUserStatus, removeRecordOfBan, updateAggregate, UserStatus } from "./dataStore.js";
+import { deleteUserStatus, getUserStatus, removeRecordOfBan, removeWhitelistUnban, updateAggregate, UserStatus } from "./dataStore.js";
 import { getUserOrUndefined } from "./utility.js";
 
 const CLEANUP_LOG_KEY = "CleanupLog";
@@ -130,6 +130,7 @@ async function handleDeletedAccounts (usernames: string[], context: TriggerConte
         await deleteUserStatus(usernames, context);
     } else {
         await removeRecordOfBan(usernames, context);
+        await removeWhitelistUnban(usernames, context);
     }
 
     await context.redis.zRem(CLEANUP_LOG_KEY, usernames);

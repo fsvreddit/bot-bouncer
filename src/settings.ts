@@ -25,6 +25,7 @@ moderator. If accepted, the result of your appeal will apply to any subreddit us
 
 export enum AppSetting {
     BanMessage = "banMessage",
+    AutoWhitelist = "autoWhitelist",
     ModmailNote = "clientModmailNote",
     RemoveRecentContent = "removeRecentContent",
     ReportPotentialBots = "reportPotentialBots",
@@ -38,6 +39,12 @@ export const appSettings: SettingsFormField[] = [
         label: "Ban message to use when banning user",
         helpText: "Supports placeholders {account}, {subreddit}",
         defaultValue: CONFIGURATION_DEFAULTS.banMessage,
+    },
+    {
+        type: "boolean",
+        name: AppSetting.AutoWhitelist,
+        label: "Whitelist users banned by Bot Bouncer if they are then unbanned",
+        defaultValue: true,
     },
     {
         type: "paragraph",

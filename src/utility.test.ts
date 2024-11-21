@@ -6,6 +6,8 @@ test("URL parsing", () => {
         { input: "https://www.reddit.com/u/spez", result: "spez" },
         { input: "https://www.reddit.com/u/spez/", result: "spez" },
         { input: "https://www.reddit.com/user/spez", result: "spez" },
+        { input: "https://new.reddit.com/user/spez", result: "spez" },
+        { input: "https://old.reddit.com/user/spez", result: "spez" },
         { input: "https://sh.reddit.com/user/spez/", result: "spez" },
         { input: "reddit.com/user/spez", result: "spez" },
         { input: "https://www.reddit.com/user/spez/?utm_source=abc", result: "spez" },

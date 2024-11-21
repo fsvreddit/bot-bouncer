@@ -24,6 +24,7 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
 
     const user = await getUserOrUndefined(username, context);
     if (!user) {
+        console.log(`Evaluation: ${username} has already been shadowbanned`);
         return;
     }
 

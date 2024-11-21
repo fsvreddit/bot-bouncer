@@ -12,6 +12,7 @@ const USER_STORE = "UserStore";
 const POST_STORE = "PostStore";
 const AGGREGATE_STORE = "AggregateStore";
 const BAN_STORE = "BanStore";
+const UNBAN_WHITELIST = "UnbanWhitelist";
 const WIKI_UPDATE_DUE = "WikiUpdateDue";
 const WIKI_PAGE = "botbouncer";
 
@@ -221,13 +222,33 @@ export async function recordBan (username: string, context: TriggerContext) {
 }
 
 export async function removeRecordOfBan (usernames: string[], context: TriggerContext) {
-    if (usernames.length > 0) {
-        await context.redis.zRem(BAN_STORE, usernames);
+    if (usernames.length === 0) {
+        return;
     }
+
+    await context.redis.zRem(BAN_STORE, usernames);
 }
 
 export async function wasUserBannedByApp (username: string, context: TriggerContext): Promise<boolean> {
     const score = await context.redis.zScore(BAN_STORE, username);
+    return score !== undefined;
+}
+
+export async function recordWhitelistUnban (username: string, context: TriggerContext) {
+    const whitelistEnabled = await context.settings.get<boolean>(AppSetting.AutoWhitelist);
+    if (!whitelistEnabled) {
+        return;
+    }
+    await context.redis.zAdd(UNBAN_WHITELIST, { member: username, score: new Date().getTime() });
+    await setCleanupForUsers([username], context);
+}
+
+export async function removeWhitelistUnban (usernames: string[], context: TriggerContext) {
+    await context.redis.zRem(UNBAN_WHITELIST, usernames);
+}
+
+export async function isUserWhitelisted (username: string, context: TriggerContext) {
+    const score = await context.redis.zScore(UNBAN_WHITELIST, username);
     return score !== undefined;
 }
 
