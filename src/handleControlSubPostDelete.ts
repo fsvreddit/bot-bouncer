@@ -8,17 +8,18 @@ export async function handleControlSubPostDelete (event: PostDelete, context: Tr
         return;
     }
 
+    const post = await context.reddit.getPostById(event.postId);
+    if (post.authorName === context.appName && event.source as number !== 1) {
+        await post.delete();
+    }
+
     const username = await getUsernameFromPostId(event.postId, context);
     if (!username) {
         // Not a submission from this app.
         return;
     }
 
-    const post = await context.reddit.getPostById(event.postId);
     await deleteUserStatus([username], context);
-    if (post.authorName === context.appName) {
-        await post.delete();
-    }
 
     console.log(`Post ${event.postId} deleted or removed. All records for this post have been removed and the post has been deleted.`);
 }

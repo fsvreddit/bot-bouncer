@@ -53,7 +53,7 @@ export class EvaluateDomainSharer extends UserEvaluatorBase {
             return false;
         }
 
-        return (this.domainsFromContent(event.comment.body).length > 0);
+        return this.domainsFromContent(event.comment.body).length > 0;
     }
 
     override preEvaluatePost (post: Post): boolean {

@@ -183,29 +183,33 @@ export async function updateLocalStoreFromWiki (_: unknown, context: JobContext)
     console.log(`Wiki Update: Records for ${usersAdded} ${pluralize("user", usersAdded)} have been added`);
 
     const usersWithStatus = toPairs(incomingData)
-        .map(([username, userdata]) => ({ username, data: JSON.parse(userdata) as UserDetails }));
+        .map(([username, userdata]) => ({ username, data: JSON.parse(userdata) as UserDetails }))
+        .filter(item => new Date(item.data.lastUpdate) > lastUpdateDate);
 
-    const newUpdateDate = max(usersWithStatus.map(item => item.data.lastUpdate)) ?? new Date().getTime();
+    if (usersWithStatus.length > 0) {
+        const newUpdateDate = max(usersWithStatus.map(item => item.data.lastUpdate)) ?? new Date().getTime();
 
-    const unbannedUsers = usersWithStatus
-        .filter(item => new Date(item.data.lastUpdate) > lastUpdateDate && (item.data.userStatus === UserStatus.Organic || item.data.userStatus === UserStatus.Service))
-        .map(item => item.username);
+        const unbannedUsers = usersWithStatus
+            .filter(item => new Date(item.data.lastUpdate) > lastUpdateDate && (item.data.userStatus === UserStatus.Organic || item.data.userStatus === UserStatus.Service))
+            .map(item => item.username);
 
-    const bannedUsers = usersWithStatus
-        .filter(item => new Date(item.data.lastUpdate) > lastUpdateDate && item.data.userStatus === UserStatus.Banned)
-        .map(item => item.username);
+        const bannedUsers = usersWithStatus
+            .filter(item => new Date(item.data.lastUpdate) > lastUpdateDate && item.data.userStatus === UserStatus.Banned)
+            .map(item => item.username);
 
-    if (bannedUsers.length > 0 || unbannedUsers.length > 0) {
-        await context.scheduler.runJob({
-            name: HANDLE_CLASSIFICATION_CHANGES_JOB,
-            runAt: new Date(),
-            data: { bannedUsers, unbannedUsers },
-        });
-        const count = bannedUsers.length + unbannedUsers.length;
-        console.log(`Wiki Update: ${count} ${pluralize("user", count)} ${pluralize("has", count)} been reclassified. Job scheduled to update local store.`);
+        if (bannedUsers.length > 0 || unbannedUsers.length > 0) {
+            await context.scheduler.runJob({
+                name: HANDLE_CLASSIFICATION_CHANGES_JOB,
+                runAt: new Date(),
+                data: { bannedUsers, unbannedUsers },
+            });
+            const count = bannedUsers.length + unbannedUsers.length;
+            console.log(`Wiki Update: ${count} ${pluralize("user", count)} ${pluralize("has", count)} been reclassified. Job scheduled to update local store.`);
+        }
+
+        await context.redis.set(lastUpdateDateKey, newUpdateDate.toString());
     }
 
-    await context.redis.set(lastUpdateDateKey, newUpdateDate.toString());
     await context.redis.set(lastUpdateKey, wikiPage.revisionId);
 
     console.log("Wiki Update: Finished processing.");
@@ -239,12 +243,13 @@ export async function handleClassificationChanges (event: ScheduledJobEvent<JSON
         for (const username of unbannedUsers) {
             const userBannedByApp = await wasUserBannedByApp(username, context);
             if (!userBannedByApp) {
+                console.log(`Wiki Update: ${username} was not banned on this sub.`);
                 continue;
             }
 
             if (await isBanned(username, context)) {
                 await context.reddit.unbanUser(username, subredditName);
-                console.log(`Unbanned ${username} after wiki update`);
+                console.log(`Wiki Update: Unbanned ${username}`);
             }
         }
     }
@@ -266,7 +271,7 @@ export async function handleClassificationChanges (event: ScheduledJobEvent<JSON
 
                 const localContent = userContent.filter(item => item.subredditName === context.subredditName);
                 if (localContent.length === 0) {
-                    console.log(`${username} has no recent content on subreddit to remove.`);
+                    console.log(`Wiki Update: ${username} has no recent content on subreddit to remove.`);
                     continue;
                 }
 
@@ -290,11 +295,11 @@ export async function handleClassificationChanges (event: ScheduledJobEvent<JSON
 
                 await recordBan(username, context);
 
-                console.log(`${username} has been banned following wiki update.`);
+                console.log(`Wiki Update: ${username} has been banned following wiki update.`);
 
                 await Promise.all(localContent.map(item => item.remove()));
             } catch {
-                console.log(`Couldn't retrieve content for ${username}`);
+                console.log(`Wiki Update: Couldn't retrieve content for ${username}`);
             }
         }
     }
