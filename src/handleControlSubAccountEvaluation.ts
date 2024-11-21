@@ -62,6 +62,8 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
 
     if (detectedBots.length === 0) {
         console.log(`Evaluator: ${username} does not appear to be a bot via evaluators.`);
+        const post = await context.reddit.getPostById(postId);
+        await context.reddit.report(post, { reason: "Not detected as a botvia evaluation, needs manual review." });
         return;
     }
 
