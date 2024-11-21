@@ -1,7 +1,7 @@
 import { TriggerContext, ZMember } from "@devvit/public-api";
 import { addDays, addMinutes, subMinutes } from "date-fns";
 import { parseExpression } from "cron-parser";
-import { ADHOC_CLEANUP_JOB, CLEANUP_JOB_CRON, CONTROL_SUBREDDIT } from "./constants.js";
+import { ADHOC_CLEANUP_JOB, CLEANUP_JOB_CRON, CONTROL_SUBREDDIT, PostFlairTemplate } from "./constants.js";
 import { deleteUserStatus, getUserStatus, removeRecordOfBan, removeWhitelistUnban, updateAggregate, UserStatus } from "./dataStore.js";
 import { getUserOrUndefined } from "./utility.js";
 
@@ -102,36 +102,49 @@ export async function scheduleAdhocCleanup (context: TriggerContext) {
 
 async function handleDeletedAccounts (usernames: string[], context: TriggerContext) {
     if (context.subredditName === CONTROL_SUBREDDIT) {
-        for (const username of usernames) {
-            const status = await getUserStatus(username, context);
-            if (!status) {
-                continue;
-            }
-
-            const newStatus = status.userStatus === UserStatus.Pending ? UserStatus.Retired : UserStatus.Purged;
-            await updateAggregate(newStatus, 1, context);
-
-            try {
-                const post = await context.reddit.getPostById(status.trackingPostId);
-
-                const newComment = await post.addComment({
-                    text: "This post has been deleted, because the account it relates to is suspended, shadowbanned or deleted.",
-                });
-
-                await Promise.all([
-                    newComment.distinguish(true),
-                    post.delete(),
-                ]);
-            } catch {
-                console.log(`Unable to set flair for ${username} on post ${status.trackingPostId}`);
-            }
-        }
-
-        await deleteUserStatus(usernames, context);
+        await handleDeletedAccountsControlSub(usernames, context);
     } else {
-        await removeRecordOfBan(usernames, context);
-        await removeWhitelistUnban(usernames, context);
+        await handleDeletedAccountsClientSub(usernames, context);
     }
 
     await context.redis.zRem(CLEANUP_LOG_KEY, usernames);
+}
+
+async function handleDeletedAccountsControlSub (usernames: string[], context: TriggerContext) {
+    for (const username of usernames) {
+        const status = await getUserStatus(username, context);
+        if (!status) {
+            continue;
+        }
+
+        const newStatus = status.userStatus === UserStatus.Pending ? UserStatus.Retired : UserStatus.Purged;
+        await updateAggregate(newStatus, 1, context);
+
+        try {
+            const post = await context.reddit.getPostById(status.trackingPostId);
+
+            const newComment = await post.addComment({
+                text: "This post has been deleted, because the account it relates to is suspended, shadowbanned or deleted.",
+            });
+
+            await Promise.all([
+                context.reddit.setPostFlair({
+                    postId: post.id,
+                    subredditName: CONTROL_SUBREDDIT,
+                    flairTemplateId: status.userStatus === UserStatus.Pending ? PostFlairTemplate.Retired : PostFlairTemplate.Purged,
+                }),
+                newComment.distinguish(true),
+                post.delete(),
+            ]);
+        } catch {
+            console.log(`Unable to set flair for ${username} on post ${status.trackingPostId}`);
+        }
+    }
+
+    await deleteUserStatus(usernames, context);
+}
+
+async function handleDeletedAccountsClientSub (usernames: string[], context: TriggerContext) {
+    await removeRecordOfBan(usernames, context);
+    await removeWhitelistUnban(usernames, context);
 }
