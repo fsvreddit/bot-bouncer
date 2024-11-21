@@ -8,7 +8,7 @@ export async function handleModAction (event: ModAction, context: TriggerContext
     /**
      * If a user is unbanned on a client subreddit, remove the record of their ban.
      */
-    if (event.action === "unbanuser" && event.targetUser && context.subredditName !== CONTROL_SUBREDDIT) {
+    if (event.action === "unbanuser" && event.moderator?.name !== context.appName && event.targetUser && context.subredditName !== CONTROL_SUBREDDIT) {
         await removeRecordOfBan([event.targetUser.name], context);
     }
 

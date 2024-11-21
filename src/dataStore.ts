@@ -264,7 +264,7 @@ export async function handleClassificationChanges (event: ScheduledJobEvent<JSON
         for (const username of unbannedUsers) {
             const userBannedByApp = await wasUserBannedByApp(username, context);
             if (!userBannedByApp) {
-                console.log(`Wiki Update: ${username} was not banned on this sub.`);
+                console.log(`Wiki Update: ${username} was not banned by this app.`);
                 continue;
             }
 
@@ -273,6 +273,8 @@ export async function handleClassificationChanges (event: ScheduledJobEvent<JSON
                 console.log(`Wiki Update: Unbanned ${username}`);
             }
         }
+
+        await removeRecordOfBan(unbannedUsers, context);
     }
 
     const settings = await context.settings.getAll();
@@ -282,6 +284,7 @@ export async function handleClassificationChanges (event: ScheduledJobEvent<JSON
             try {
                 const isCurrentlyBanned = await isBanned(username, context);
                 if (isCurrentlyBanned) {
+                    console.log(`Wiki Update: ${username} is already banned.`);
                     continue;
                 }
 
