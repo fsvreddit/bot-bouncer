@@ -6,7 +6,7 @@ import pluralize from "pluralize";
 import { setCleanupForUsers } from "./cleanup.js";
 import { CONTROL_SUBREDDIT, HANDLE_CLASSIFICATION_CHANGES_JOB } from "./constants.js";
 import { AppSetting, CONFIGURATION_DEFAULTS } from "./settings.js";
-import { formatDate } from "date-fns";
+import { formatDate, subHours } from "date-fns";
 
 const USER_STORE = "UserStore";
 const POST_STORE = "PostStore";
@@ -156,7 +156,7 @@ export async function updateLocalStoreFromWiki (_: unknown, context: JobContext)
     const lastUpdateDateKey = "lastUpdateDateKey";
 
     const lastUpdateDateValue = await context.redis.get(lastUpdateDateKey);
-    const lastUpdateDate = lastUpdateDateValue ? new Date(parseInt(lastUpdateDateValue)) : new Date();
+    const lastUpdateDate = lastUpdateDateValue ? new Date(parseInt(lastUpdateDateValue)) : subHours(new Date(), 6);
 
     let wikiPage: WikiPage;
     try {
