@@ -11,6 +11,12 @@ export class EvaluateDomainSharer extends UserEvaluatorBase {
         return "Domain Sharer";
     };
 
+    private ignoredDomains = [
+        "reddit.com",
+        "i.redd.it",
+        "v.redd.it",
+    ];
+
     private domainsFromContent (content: string): string[] {
         // eslint-disable-next-line no-useless-escape
         const domainRegex = /(https?:\/\/[\w\.]+)[\/\)]/g;
@@ -23,7 +29,7 @@ export class EvaluateDomainSharer extends UserEvaluatorBase {
             domains.push(domainFromUrl(url));
         }
 
-        return uniq(compact((domains)));
+        return uniq(compact((domains)).filter(domain => !this.ignoredDomains.includes(domain)));
     }
 
     private domainsFromPost (post: Post): string[] {
@@ -36,7 +42,7 @@ export class EvaluateDomainSharer extends UserEvaluatorBase {
             domains.push(...this.domainsFromContent(post.body));
         }
 
-        return uniq(compact(domains));
+        return uniq(compact(domains).filter(domain => !this.ignoredDomains.includes(domain)));
     }
 
     override preEvaluateComment (event: CommentSubmit): boolean {

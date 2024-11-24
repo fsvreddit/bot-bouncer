@@ -77,6 +77,11 @@ export class EvaluateCopyBot extends UserEvaluatorBase {
 
         const userPosts = history.filter(item => item.body !== "[removed]" && item instanceof Post && item.createdAt > subMonths(new Date(), 1)) as Post[];
 
+        if (userPosts.length < 2) {
+            this.setReason("User does not have enough posts");
+            return false;
+        }
+
         if (!userPosts.every(post => this.eligiblePost(post))) {
             this.setReason("Non-matching post");
             return false;

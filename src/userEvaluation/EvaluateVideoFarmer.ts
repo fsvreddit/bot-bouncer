@@ -3,7 +3,8 @@ import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
 import { CommentSubmit } from "@devvit/protos";
 import { domainFromUrl } from "./evaluatorHelpers.js";
 import { differenceInMinutes, subMonths } from "date-fns";
-import { isCommentId } from "@devvit/shared-types/tid.js";
+import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
+import { uniq } from "lodash";
 
 export class EvaluateVideoFarmer extends UserEvaluatorBase {
     getName () {
@@ -11,8 +12,7 @@ export class EvaluateVideoFarmer extends UserEvaluatorBase {
     };
 
     private isEligiblePost (post: Post): boolean {
-        return domainFromUrl(post.url) === "v.redd.it"
-            && (post.subredditName === this.context.subredditName || post.subredditName === "aww");
+        return domainFromUrl(post.url) === "v.redd.it";
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -25,7 +25,7 @@ export class EvaluateVideoFarmer extends UserEvaluatorBase {
     }
 
     override preEvaluateUser (user: User): boolean {
-        if (user.commentKarma > 0) {
+        if (user.commentKarma > 5) {
             this.setReason("User has too much comment karma");
         }
 
@@ -34,19 +34,19 @@ export class EvaluateVideoFarmer extends UserEvaluatorBase {
             return false;
         }
 
-        const usernameRegex = /^[a-z]+[A-Z][a-z]+$/;
-        if (!usernameRegex.test(user.username)) {
-            this.setReason("Username does not match regex");
-            return false;
-        }
+        // const usernameRegex = /^[a-z]+[A-Z][a-z]+$/;
+        // if (!usernameRegex.test(user.username)) {
+        //     this.setReason("Username does not match regex");
+        //     return false;
+        // }
 
-        const characters = [...user.username];
+        // const characters = [...user.username];
 
-        for (let x = 0; x < characters.length - 1; x++) {
-            if (characters[0] === characters[1]) {
-                return true;
-            }
-        }
+        // for (let x = 0; x < characters.length - 1; x++) {
+        //     if (characters[0] === characters[1]) {
+        //         return true;
+        //     }
+        // }
 
         return false;
     }
@@ -56,14 +56,25 @@ export class EvaluateVideoFarmer extends UserEvaluatorBase {
             return false;
         }
 
-        if (history.some(item => isCommentId(item.id))) {
-            this.setReason("User has comments");
+        const userComments = history.filter(item => isCommentId(item.id)) as Comment[];
+        if (userComments.length > 5) {
+            this.setReason("Too many comments");
             return false;
         }
 
-        const userPosts = history as Post[];
+        if (userComments.some(comment => comment.body.includes("\n"))) {
+            this.setReason("Comments with line breaks");
+            return false;
+        }
 
-        if (userPosts.length !== 3) {
+        if (userComments.some(comment => comment.body.length > 200)) {
+            this.setReason("User has comments that are too long.");
+            return false;
+        }
+
+        const userPosts = history.filter(item => isLinkId(item.id)) as Post[];
+
+        if (userPosts.length < 3 || userPosts.length > 5) {
             this.setReason("User has the wrong number of posts");
             return false;
         }
@@ -73,7 +84,13 @@ export class EvaluateVideoFarmer extends UserEvaluatorBase {
             return false;
         }
 
-        if (differenceInMinutes(userPosts[0].createdAt, userPosts[2].createdAt) > 30) {
+        const uniqueDomains = uniq(userPosts.map(post => post.subredditName));
+        if (uniqueDomains.length > 1) {
+            this.setReason("User has posts from more than one subreddit");
+            return false;
+        }
+
+        if (differenceInMinutes(userPosts[0].createdAt, userPosts[2].createdAt) > 20) {
             this.setReason("Posts are too far apart");
             return false;
         }
