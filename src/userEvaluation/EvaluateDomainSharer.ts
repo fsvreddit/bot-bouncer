@@ -4,26 +4,12 @@ import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
 import { compact, countBy, toPairs, uniq } from "lodash";
 import { subMonths } from "date-fns";
 import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
+import { domainFromUrl } from "./evaluatorHelpers.js";
 
 export class EvaluateDomainSharer extends UserEvaluatorBase {
     getName () {
         return "Domain Sharer";
     };
-
-    private domainFromUrl (url: string): string | undefined {
-        if (url.startsWith("/")) {
-            // Reddit internal link
-            return;
-        }
-
-        const hostname = new URL(url).hostname;
-        const trimmedHostname = hostname.startsWith("www.") ? hostname.substring(4) : hostname;
-        if (trimmedHostname === "reddit.com" || trimmedHostname === "i.redd.it" || trimmedHostname === "v.redd.it") {
-            return;
-        }
-
-        return trimmedHostname;
-    }
 
     private domainsFromContent (content: string): string[] {
         // eslint-disable-next-line no-useless-escape
@@ -34,7 +20,7 @@ export class EvaluateDomainSharer extends UserEvaluatorBase {
 
         for (const match of matches) {
             const [, url] = match;
-            domains.push(this.domainFromUrl(url));
+            domains.push(domainFromUrl(url));
         }
 
         return uniq(compact((domains)));
@@ -43,7 +29,7 @@ export class EvaluateDomainSharer extends UserEvaluatorBase {
     private domainsFromPost (post: Post): string[] {
         const domains: (string | undefined)[] = [];
         if (!post.url.startsWith("/")) {
-            domains.push(this.domainFromUrl(post.url));
+            domains.push(domainFromUrl(post.url));
         }
 
         if (post.body) {

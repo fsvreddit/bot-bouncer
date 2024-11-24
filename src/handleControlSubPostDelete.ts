@@ -8,6 +8,10 @@ export async function handleControlSubPostDelete (event: PostDelete, context: Tr
         return;
     }
 
+    if (event.source as number !== 1) {
+        return;
+    }
+
     const post = await context.reddit.getPostById(event.postId);
     if (post.authorName === context.appName && event.source as number !== 1) {
         await post.delete();

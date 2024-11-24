@@ -23,7 +23,7 @@ export async function handleClientPostSubmit (event: PostSubmit, context: Trigge
     const post = await context.reddit.getPostById(event.post.id);
     let possibleBot = false;
     for (const Evaluator of ALL_EVALUATORS) {
-        const evaluator = new Evaluator();
+        const evaluator = new Evaluator(context);
         if (evaluator.preEvaluatePost(post)) {
             possibleBot = true;
             break;
@@ -49,7 +49,7 @@ export async function handleClientCommentSubmit (event: CommentSubmit, context: 
 
     let possibleBot = false;
     for (const Evaluator of ALL_EVALUATORS) {
-        const evaluator = new Evaluator();
+        const evaluator = new Evaluator(context);
         if (evaluator.preEvaluateComment(event)) {
             possibleBot = true;
             break;
@@ -137,7 +137,7 @@ async function checkAndReportPotentialBot (username: string, context: TriggerCon
 
     let userEligible = false;
     for (const Evaluator of ALL_EVALUATORS) {
-        const evaluator = new Evaluator();
+        const evaluator = new Evaluator(context);
         if (evaluator.preEvaluateUser(user)) {
             userEligible = true;
             break;
@@ -156,7 +156,7 @@ async function checkAndReportPotentialBot (username: string, context: TriggerCon
 
     let isLikelyBot = false;
     for (const Evaluator of ALL_EVALUATORS) {
-        const evaluator = new Evaluator();
+        const evaluator = new Evaluator(context);
         if (evaluator.evaluate(user, userItems)) {
             isLikelyBot = true;
             break;

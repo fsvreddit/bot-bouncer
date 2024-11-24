@@ -1,8 +1,9 @@
 import { CommentSubmit } from "@devvit/protos";
-import { Comment, Post, User } from "@devvit/public-api";
+import { Comment, Post, TriggerContext, User } from "@devvit/public-api";
 
 export abstract class UserEvaluatorBase {
     protected reasons: string[] = [];
+    protected context: TriggerContext;
 
     public setReason (reason: string) {
         this.reasons.push(reason);
@@ -10,6 +11,10 @@ export abstract class UserEvaluatorBase {
 
     public getReasons () {
         return this.reasons;
+    }
+
+    constructor (context: TriggerContext) {
+        this.context = context;
     }
 
     abstract getName (): string;

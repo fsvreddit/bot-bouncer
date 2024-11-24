@@ -30,7 +30,7 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
 
     let userEligible = false;
     for (const Evaluator of ALL_EVALUATORS) {
-        const evaluator = new Evaluator();
+        const evaluator = new Evaluator(context);
         if (evaluator.preEvaluateUser(user)) {
             userEligible = true;
         }
@@ -49,7 +49,7 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
     const detectedBots: string[] = [];
 
     for (const Evaluator of ALL_EVALUATORS) {
-        const evaluator = new Evaluator();
+        const evaluator = new Evaluator(context);
         const isABot = evaluator.evaluate(user, userItems);
         if (isABot) {
             console.log(`Evaluator: ${username} appears to be a bot via the evaluator: ${evaluator.getName()}`);
@@ -70,7 +70,7 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
     if (userItems.length < 10) {
         console.log(`Evaluator: ${username} does not have enough content for automatic evaluation.`);
         const post = await context.reddit.getPostById(postId);
-        await context.reddit.report(post, { reason: `Possible bot via evaluation, but insufficient content:${detectedBots.join(", ")}` });
+        await context.reddit.report(post, { reason: `Possible bot via evaluation, but insufficient content: ${detectedBots.join(", ")}` });
         return;
     }
 
