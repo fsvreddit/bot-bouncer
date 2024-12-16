@@ -1,4 +1,4 @@
-import { JobContext, JSONObject, ScheduledJobEvent } from "@devvit/public-api";
+import { Comment, JobContext, JSONObject, Post, ScheduledJobEvent } from "@devvit/public-api";
 import { getUserStatus, UserStatus } from "./dataStore.js";
 import { CONTROL_SUBREDDIT, PostFlairTemplate } from "./constants.js";
 import { getUserOrUndefined } from "./utility.js";
@@ -40,11 +40,20 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
         console.log(`Evaluator: ${username} does not pass any user pre-checks.`);
     }
 
-    const userItems = await context.reddit.getCommentsAndPostsByUser({
-        username,
-        sort: "new",
-        limit: 100,
-    }).all();
+    let userItems: (Post | Comment)[];
+    try {
+        userItems = await context.reddit.getCommentsAndPostsByUser({
+            username,
+            sort: "new",
+            limit: 100,
+        }).all();
+    } catch {
+        // Error retrieving user history, likely shadowbanned.
+        console.log(`Evaluator: ${username} appears to have been shadowbanned since post made.`);
+        const post = await context.reddit.getPostById(postId);
+        await context.reddit.report(post, { reason: "Account appears to be shadowbanned already, needs manual review." });
+        return;
+    }
 
     const detectedBots: string[] = [];
 
@@ -63,7 +72,7 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
     if (detectedBots.length === 0) {
         console.log(`Evaluator: ${username} does not appear to be a bot via evaluators.`);
         const post = await context.reddit.getPostById(postId);
-        await context.reddit.report(post, { reason: "Not detected as a botvia evaluation, needs manual review." });
+        await context.reddit.report(post, { reason: "Not detected as a bot via evaluation, needs manual review." });
         return;
     }
 

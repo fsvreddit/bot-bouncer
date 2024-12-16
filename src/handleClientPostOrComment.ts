@@ -1,4 +1,4 @@
-import { TriggerContext } from "@devvit/public-api";
+import { Post, Comment, TriggerContext } from "@devvit/public-api";
 import { CommentSubmit, PostSubmit } from "@devvit/protos";
 import { formatDate } from "date-fns";
 import { getUserStatus, isUserWhitelisted, recordBan, UserStatus } from "./dataStore.js";
@@ -148,11 +148,17 @@ async function checkAndReportPotentialBot (username: string, context: TriggerCon
         return;
     }
 
-    const userItems = await context.reddit.getCommentsAndPostsByUser({
-        username,
-        sort: "new",
-        limit: 100,
-    }).all();
+    let userItems: (Post | Comment)[];
+    try {
+        userItems = await context.reddit.getCommentsAndPostsByUser({
+            username,
+            sort: "new",
+            limit: 100,
+        }).all();
+    } catch {
+        // Error retrieving user history, likely shadowbanned.
+        return;
+    }
 
     let isLikelyBot = false;
     for (const Evaluator of ALL_EVALUATORS) {

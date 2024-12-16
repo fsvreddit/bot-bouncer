@@ -39,7 +39,7 @@ export async function handleBackroomSubmission (event: PostCreate, context: Trig
     }
 
     if (!user && !submissionResponse) {
-        submissionResponse = `Hi, thanks for your submission.\n\n/u/${username} appears to be deleted, suspended or shadowbanned already, so no post will be created for it.`;
+        submissionResponse = `Hi, thanks for your submission.\n\n${username} appears to be deleted, suspended or shadowbanned already, so no post will be created for it.`;
     }
 
     if (user?.username === event.author.name) {
@@ -50,7 +50,7 @@ export async function handleBackroomSubmission (event: PostCreate, context: Trig
         const currentStatus = await getUserStatus(user.username, context);
         if (currentStatus) {
             const post = await context.reddit.getPostById(currentStatus.trackingPostId);
-            submissionResponse = `Hi, thanks for your submission.\n\n/u/${username} is already tracked by Bot Bouncer, you can see the submission [here](${post.permalink}).`;
+            submissionResponse = `Hi, thanks for your submission.\n\n${username} is already tracked by Bot Bouncer, you can see the submission [here](${post.permalink}).`;
         } else {
             const newPost = await context.reddit.submitPost({
                 subredditName: CONTROL_SUBREDDIT,

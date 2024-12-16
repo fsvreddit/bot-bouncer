@@ -78,17 +78,19 @@ export async function processExternalSubmissions (_: unknown, context: JobContex
         return;
     }
 
-    let canContinue = false;
+    let stopLooping = false;
     let item: ExternalSubmission | undefined;
-    while (!canContinue) {
+
+    // Iterate through list, and find the first user who isn't already being tracked.
+    while (!stopLooping) {
         item = currentSubmissionList.shift();
         if (item) {
             const currentStatus = await getUserStatus(item.username, context);
             if (!currentStatus) {
-                canContinue = true;
+                stopLooping = true;
             }
         } else {
-            canContinue = true;
+            stopLooping = true;
         }
     }
 
