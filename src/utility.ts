@@ -14,6 +14,11 @@ export function getUsernameFromUrl (url: string) {
 
 export async function isModerator (username: string, context: TriggerContext) {
     const subredditName = context.subredditName ?? (await context.reddit.getCurrentSubreddit()).name;
+
+    if (username === "AutoModerator" || username === `${subredditName}-ModTeam`) {
+        return true;
+    }
+
     const modList = await context.reddit.getModerators({ subredditName, username }).all();
     return modList.length > 0;
 }

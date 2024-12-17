@@ -173,6 +173,11 @@ async function checkAndReportPotentialBot (username: string, context: TriggerCon
         return;
     }
 
+    const isMod = await isModerator(user.username, context);
+    if (isMod) {
+        return;
+    }
+
     const currentUser = await context.reddit.getCurrentUser();
 
     const subredditName = context.subredditName ?? (await context.reddit.getCurrentSubreddit()).name;
