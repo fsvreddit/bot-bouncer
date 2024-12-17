@@ -1,5 +1,5 @@
-import { TriggerContext, ZMember } from "@devvit/public-api";
-import { addDays, addMinutes, subMinutes } from "date-fns";
+import { TriggerContext } from "@devvit/public-api";
+import { addHours, addMinutes, subMinutes } from "date-fns";
 import { parseExpression } from "cron-parser";
 import { ADHOC_CLEANUP_JOB, CLEANUP_JOB_CRON, CONTROL_SUBREDDIT, PostFlairTemplate } from "./constants.js";
 import { deleteUserStatus, getUserStatus, removeRecordOfBan, removeWhitelistUnban, updateAggregate, UserStatus } from "./dataStore.js";
@@ -13,7 +13,7 @@ export async function setCleanupForUsers (usernames: string[], context: TriggerC
         return;
     }
 
-    const cleanupTime = addDays(new Date(), overrideDuration ?? DAYS_BETWEEN_CHECKS);
+    const cleanupTime = addHours(new Date(), overrideDuration ?? DAYS_BETWEEN_CHECKS);
     await context.redis.zAdd(CLEANUP_LOG_KEY, ...usernames.map(username => ({ member: username, score: cleanupTime.getTime() })));
 }
 
@@ -54,8 +54,25 @@ export async function cleanupDeletedAccounts (_: unknown, context: TriggerContex
 
     // For active users, set their next check date to be one day from now.
     if (activeUsers.length > 0) {
-        await setCleanupForUsers(activeUsers, context);
-        await context.redis.zAdd(CLEANUP_LOG_KEY, ...activeUsers.map(user => ({ member: user, score: addDays(new Date(), DAYS_BETWEEN_CHECKS).getTime() } as ZMember)));
+        const pendingUsers: string[] = [];
+        const otherUsers: string[] = [];
+        for (const user of activeUsers) {
+            const userStatus = await getUserStatus(user, context);
+            if (userStatus?.userStatus === UserStatus.Pending) {
+                pendingUsers.push(user);
+            } else {
+                otherUsers.push(user);
+            }
+        }
+
+        // Users still in pending status should get checked every 3 hours.
+        if (pendingUsers.length > 0) {
+            await setCleanupForUsers(pendingUsers, context, false, 1);
+        }
+
+        if (otherUsers.length > 0) {
+            await setCleanupForUsers(otherUsers, context);
+        }
     }
 
     // For deleted users, remove them from both the cleanup log and the points score.
