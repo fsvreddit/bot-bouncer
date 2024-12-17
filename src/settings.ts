@@ -1,4 +1,4 @@
-import { SettingsFormField } from "@devvit/public-api";
+import { SettingsFormField, TriggerContext, WikiPage, WikiPagePermissionLevel } from "@devvit/public-api";
 import { CONTROL_SUBREDDIT } from "./constants.js";
 
 export const CONFIGURATION_DEFAULTS = {
@@ -68,3 +68,38 @@ export const appSettings: SettingsFormField[] = [
         defaultValue: true,
     },
 ];
+
+interface ControlSubSettings {
+    evaluationDisabled: boolean;
+}
+
+export async function getControlSubSettings (context: TriggerContext): Promise<ControlSubSettings> {
+    const wikiPageName = "controlSubSettings";
+    let wikiPage: WikiPage | undefined;
+    try {
+        wikiPage = await context.reddit.getWikiPage(CONTROL_SUBREDDIT, wikiPageName);
+    } catch {
+        //
+    }
+
+    if (wikiPage) {
+        return JSON.parse(wikiPage.content) as ControlSubSettings;
+    }
+
+    const result: ControlSubSettings = { evaluationDisabled: false };
+
+    await context.reddit.createWikiPage({
+        subredditName: CONTROL_SUBREDDIT,
+        page: wikiPageName,
+        content: JSON.stringify(result),
+    });
+
+    await context.reddit.updateWikiPageSettings({
+        subredditName: CONTROL_SUBREDDIT,
+        page: wikiPageName,
+        listed: true,
+        permLevel: WikiPagePermissionLevel.MODS_ONLY,
+    });
+
+    return result;
+}

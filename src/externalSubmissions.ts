@@ -1,6 +1,7 @@
 import { JobContext, TriggerContext, WikiPage, WikiPagePermissionLevel } from "@devvit/public-api";
 import { CONTROL_SUBREDDIT, EVALUATE_USER, EXTERNAL_SUBMISSION_JOB, PostFlairTemplate } from "./constants.js";
 import { getUserStatus, setUserStatus, UserStatus } from "./dataStore.js";
+import { getControlSubSettings } from "./settings.js";
 
 const WIKI_PAGE = "externalsubmissions";
 
@@ -131,14 +132,18 @@ export async function processExternalSubmissions (_: unknown, context: JobContex
         await newPost.addComment({ text });
     }
 
-    await context.scheduler.runJob({
-        name: EVALUATE_USER,
-        runAt: new Date(),
-        data: {
-            username: item.username,
-            postId: newPost.id,
-        },
-    });
+    const controlSubSettings = await getControlSubSettings(context);
+
+    if (!controlSubSettings.evaluationDisabled) {
+        await context.scheduler.runJob({
+            name: EVALUATE_USER,
+            runAt: new Date(),
+            data: {
+                username: item.username,
+                postId: newPost.id,
+            },
+        });
+    }
 
     await setUserStatus(item.username, {
         userStatus: UserStatus.Pending,
