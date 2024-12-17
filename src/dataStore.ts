@@ -67,12 +67,18 @@ export async function deleteUserStatus (usernames: string[], context: TriggerCon
 
     const decrementsNeeded = toPairs(countBy(compact(currentStatuses.map(item => item?.userStatus))));
 
-    await Promise.all([
+    const promises = [
         ...decrementsNeeded.map(([status, count]) => context.redis.zIncrBy(AGGREGATE_STORE, status, count)),
         context.redis.hDel(USER_STORE, usernames),
-        context.redis.hDel(POST_STORE, compact(currentStatuses.map(item => item?.trackingPostId))),
         queueWikiUpdate(context),
-    ]);
+    ];
+
+    const postsToDeleteTrackingFor = compact(currentStatuses.map(item => item?.trackingPostId));
+    if (postsToDeleteTrackingFor.length > 0) {
+        promises.push(context.redis.hDel(POST_STORE, postsToDeleteTrackingFor));
+    }
+
+    await Promise.all(promises);
 }
 
 export async function getUsernameFromPostId (postId: string, context: TriggerContext): Promise<string | undefined> {
