@@ -299,6 +299,11 @@ export async function handleClassificationChanges (event: ScheduledJobEvent<JSON
                     continue;
                 }
 
+                if (localContent.some(item => item.distinguishedBy)) {
+                    console.log(`Wiki Update: ${username} has distinguished content on subreddit. Skipping.`);
+                    continue;
+                }
+
                 const subredditName = context.subredditName ?? (await context.reddit.getCurrentSubreddit()).name;
                 let message = settings[AppSetting.BanMessage] as string | undefined ?? CONFIGURATION_DEFAULTS.banMessage;
                 message = replaceAll(message, "{subreddit}", subredditName);
