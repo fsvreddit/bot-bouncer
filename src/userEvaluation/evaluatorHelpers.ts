@@ -1,6 +1,6 @@
 export function domainFromUrl (url: string): string | undefined {
-    if (url.startsWith("/")) {
-        // Reddit internal link
+    if (!url || url.startsWith("/")) {
+        // Reddit internal link or crosspost
         return;
     }
 
