@@ -43,7 +43,8 @@ export const appSettings: SettingsFormField[] = [
     {
         type: "boolean",
         name: AppSetting.AutoWhitelist,
-        label: "Whitelist users banned by Bot Bouncer if they are then unbanned",
+        label: "Automatically whitelist users banned by Bot Bouncer if they are then unbanned by you",
+        helpText: "If this is selected, and you unban a user that has been banned by Bot Bouncer, then the app will not act on that user again.",
         defaultValue: true,
     },
     {
@@ -57,7 +58,8 @@ export const appSettings: SettingsFormField[] = [
     {
         type: "boolean",
         name: AppSetting.RemoveRecentContent,
-        label: "Ban and remove recent content from newly classified users on your subreddit even if they don't post again",
+        label: "Ban newly classified accounts if they have recent interactions on your sub, and remove the last week's posts and comments",
+        helpText: "If this is turned off, accounts banned on r/BotBouncer will only be actioned if they comment or post in the future.",
         defaultValue: true,
     },
     {
