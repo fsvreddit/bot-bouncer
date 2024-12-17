@@ -28,6 +28,14 @@ export class EvaluateMixedBot extends UserEvaluatorBase {
     }
 
     private eligiblePost (post: Post): boolean {
+        if (post.subredditName === "WhatIsMyCQS") {
+            return true;
+        }
+
+        if (!post.url) {
+            return false;
+        }
+
         const domainRegex = /^[iv]\.redd\.it$/;
         return domainRegex.test(new URL(post.url).hostname) || post.subredditName === "WhatIsMyCQS";
     }

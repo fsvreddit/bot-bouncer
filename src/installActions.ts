@@ -3,6 +3,7 @@ import { TriggerContext } from "@devvit/public-api";
 import { CLEANUP_JOB, CLEANUP_JOB_CRON, CONTROL_SUBREDDIT, PROCESS_PENDING_QUEUE, UPDATE_DATASTORE_FROM_WIKI, UPDATE_WIKI_PAGE_JOB } from "./constants.js";
 import { scheduleAdhocCleanup } from "./cleanup.js";
 import { createExternalSubmissionJob } from "./externalSubmissions.js";
+import { compact } from "lodash";
 
 export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, context: TriggerContext) {
     console.log("Detected an app install or update event");
@@ -45,4 +46,31 @@ export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, contex
     });
 
     await scheduleAdhocCleanup(context);
+
+    await oneOffERFix(context);
+}
+
+async function oneOffERFix (context: TriggerContext) {
+    if (context.subredditName !== "EngineeringResumes") {
+        return;
+    }
+
+    const redisKey = "ER-DataFix";
+    const fixDone = await context.redis.get(redisKey);
+    if (fixDone) {
+        return;
+    }
+
+    const modActions = await context.reddit.getModerationLog({
+        subredditName: context.subredditName,
+        moderatorUsernames: [context.appName],
+        type: "removecomment",
+        limit: 1000,
+    }).all();
+
+    const actionsToUndo = compact(modActions.filter(item => item.target?.id && item.target.author === "EngineeringResumes-modTeam").map(item => item.target?.id));
+
+    await Promise.all(actionsToUndo.map(item => context.reddit.approve(item)));
+
+    await context.redis.set(redisKey, new Date().getTime().toString());
 }
