@@ -4,7 +4,7 @@ import { CONTROL_SUBREDDIT, EVALUATE_USER, PostFlairTemplate } from "./constants
 import { getUsernameFromUrl, getUserOrUndefined, isModerator } from "./utility.js";
 import { getUserStatus, setUserStatus, UserStatus } from "./dataStore.js";
 
-export async function handleBackroomSubmission (event: PostCreate, context: TriggerContext) {
+export async function handleControlSubSubmission (event: PostCreate, context: TriggerContext) {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
         return;
     }
@@ -43,7 +43,20 @@ export async function handleBackroomSubmission (event: PostCreate, context: Trig
     }
 
     if (user?.username === event.author.name) {
-        submissionResponse = `Hi, thanks for your submission.\n\nYou cannot make a submission for yourself.`;
+        submissionResponse = "Hi, thanks for your submission.\n\nYou cannot make a submission for yourself.";
+    }
+
+    if (user) {
+        const userContent = await context.reddit.getCommentsAndPostsByUser({
+            username: user.username,
+            limit: 100,
+            sort: "new",
+            timeframe: "month",
+        }).all();
+
+        if (userContent.length === 0) {
+            submissionResponse = `Hi, thanks for your submission.\n\n${username} has no recent content on their history, so may be retired. Submissions can only be made for active users.`;
+        }
     }
 
     if (user && !submissionResponse) {
