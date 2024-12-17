@@ -36,6 +36,18 @@ export async function reportFormHandler (event: FormOnSubmitEvent<JSONObject>, c
         return;
     }
 
+    const userContent = await context.reddit.getCommentsAndPostsByUser({
+        username: target.authorName,
+        limit: 100,
+        sort: "new",
+        timeframe: "month",
+    }).all();
+
+    if (userContent.length === 0) {
+        context.ui.showToast("You can only report users with recent content on their history.");
+        return;
+    }
+
     const currentUser = await context.reddit.getCurrentUser();
     const reportContext = event.values.reportContext as string | undefined;
     await addExternalSubmission(target.authorName, currentUser?.username, reportContext, context);
