@@ -91,7 +91,8 @@ export async function updateAggregate (type: UserStatus, incrBy: number, context
 }
 
 export async function writeAggregateToWikiPage (_: unknown, context: JobContext) {
-    const results = await context.redis.zRange(AGGREGATE_STORE, 0, -1);
+    let results = await context.redis.zRange(AGGREGATE_STORE, 0, -1);
+    results = results.filter(item => item.member !== "pending");
 
     let wikiContent = "# Bot Bouncer statistics\n\nThis page details the number of accounts that have been processed by Bot Bouncer.\n\n";
 
