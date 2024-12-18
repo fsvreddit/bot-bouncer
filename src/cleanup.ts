@@ -139,6 +139,11 @@ async function handleDeletedAccountsControlSub (usernames: string[], context: Tr
 
         try {
             const post = await context.reddit.getPostById(status.trackingPostId);
+            await post.delete();
+
+            if (status.userStatus === newStatus) {
+                continue;
+            }
 
             const newComment = await post.addComment({
                 text: "This post has been deleted, because the account it relates to is suspended, shadowbanned or deleted.",
@@ -151,7 +156,6 @@ async function handleDeletedAccountsControlSub (usernames: string[], context: Tr
                     flairTemplateId: status.userStatus === UserStatus.Pending ? PostFlairTemplate.Retired : PostFlairTemplate.Purged,
                 }),
                 newComment.distinguish(true),
-                post.delete(),
             ]);
         } catch {
             console.log(`Unable to set flair for ${username} on post ${status.trackingPostId}`);
