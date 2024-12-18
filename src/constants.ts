@@ -23,6 +23,7 @@ export const EVALUATE_USER = "evaluateUser";
 export const CLEANUP_JOB = "cleanupJob";
 export const ADHOC_CLEANUP_JOB = "adhocCleanup";
 export const EXTERNAL_SUBMISSION_JOB = "externalSubmission";
+export const UPDATE_STATISTICS_PAGE = "updateStatisticsPage";
 
 /**
  * Job crons

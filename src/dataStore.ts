@@ -1,5 +1,5 @@
 import { JobContext, TriggerContext, WikiPagePermissionLevel, WikiPage, ScheduledJobEvent, JSONObject } from "@devvit/public-api";
-import { compact, countBy, max, toPairs } from "lodash";
+import { compact, countBy, max, sum, toPairs } from "lodash";
 import pako from "pako";
 import { isBanned, replaceAll } from "./utility.js";
 import pluralize from "pluralize";
@@ -88,6 +88,49 @@ export async function getUsernameFromPostId (postId: string, context: TriggerCon
 
 export async function updateAggregate (type: UserStatus, incrBy: number, context: TriggerContext) {
     await context.redis.zIncrBy(AGGREGATE_STORE, type, incrBy);
+}
+
+export async function writeAggregateToWikiPage (_: unknown, context: JobContext) {
+    const results = await context.redis.zRange(AGGREGATE_STORE, 0, -1);
+
+    let wikiContent = "# Bot Bouncer statistics\n\nThis page details the number of accounts that have been processed by Bot Bouncer.\n\n";
+
+    for (const item of results) {
+        wikiContent += `* **${item.member}**: ${item.score.toLocaleString()}\n`;
+    }
+
+    wikiContent += `\n**Total accounts processed**: ${sum(results.map(item => item.score)).toLocaleString()}\n\n`;
+    wikiContent += "These statistics update once a day at midnight UTC.";
+
+    const wikiPageName = "statistics";
+    const subredditName = context.subredditName ?? (await context.reddit.getCurrentSubreddit()).name;
+
+    let wikiPage: WikiPage | undefined;
+    try {
+        wikiPage = await context.reddit.getWikiPage(subredditName, wikiPageName);
+    } catch {
+        //
+    }
+
+    const wikiPageSaveOptions = {
+        subredditName,
+        page: wikiPageName,
+        content: wikiContent,
+    };
+
+    if (wikiPage) {
+        if (wikiContent.trim() !== wikiPage.content.trim()) {
+            await context.reddit.updateWikiPage(wikiPageSaveOptions);
+        }
+    } else {
+        await context.reddit.createWikiPage(wikiPageSaveOptions);
+        await context.reddit.updateWikiPageSettings({
+            subredditName,
+            page: wikiPageName,
+            listed: true,
+            permLevel: WikiPagePermissionLevel.SUBREDDIT_PERMISSIONS,
+        });
+    }
 }
 
 async function queueWikiUpdate (context: TriggerContext) {
