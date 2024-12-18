@@ -1,5 +1,5 @@
 import { TriggerContext } from "@devvit/public-api";
-import { addHours, addMinutes, subMinutes } from "date-fns";
+import { addDays, addHours, addMinutes, subMinutes } from "date-fns";
 import { parseExpression } from "cron-parser";
 import { ADHOC_CLEANUP_JOB, CLEANUP_JOB_CRON, CONTROL_SUBREDDIT, PostFlairTemplate } from "./constants.js";
 import { deleteUserStatus, getUserStatus, removeRecordOfBan, removeWhitelistUnban, updateAggregate, UserStatus } from "./dataStore.js";
@@ -13,7 +13,13 @@ export async function setCleanupForUsers (usernames: string[], context: TriggerC
         return;
     }
 
-    const cleanupTime = addHours(new Date(), overrideDuration ?? DAYS_BETWEEN_CHECKS);
+    let cleanupTime: Date;
+    if (overrideDuration) {
+        cleanupTime = addHours(new Date(), overrideDuration);
+    } else {
+        cleanupTime = addDays(new Date(), DAYS_BETWEEN_CHECKS);
+    }
+
     await context.redis.zAdd(CLEANUP_LOG_KEY, ...usernames.map(username => ({ member: username, score: cleanupTime.getTime() })));
 }
 
