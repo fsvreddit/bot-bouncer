@@ -1,9 +1,9 @@
 import { Post, Comment, TriggerContext } from "@devvit/public-api";
 import { CommentSubmit, PostSubmit } from "@devvit/protos";
-import { formatDate } from "date-fns";
+import { addMinutes, formatDate } from "date-fns";
 import { getUserStatus, isUserWhitelisted, recordBan, UserStatus } from "./dataStore.js";
 import { CONTROL_SUBREDDIT } from "./constants.js";
-import { getUserOrUndefined, isApproved, isBanned, isModerator, replaceAll } from "./utility.js";
+import { getPostOrCommentById, getUserOrUndefined, isApproved, isBanned, isModerator, replaceAll } from "./utility.js";
 import { AppSetting, CONFIGURATION_DEFAULTS } from "./settings.js";
 import { ALL_EVALUATORS } from "./userEvaluation/allEvaluators.js";
 import { addExternalSubmission } from "./externalSubmissions.js";
@@ -44,6 +44,7 @@ export async function handleClientCommentSubmit (event: CommentSubmit, context: 
 
     const currentStatus = await getUserStatus(event.author.name, context);
     if (currentStatus) {
+        await checkForBotMentions(event, context);
         return;
     }
 
@@ -184,4 +185,25 @@ async function checkAndReportPotentialBot (username: string, context: TriggerCon
     await addExternalSubmission(user.username, currentUser?.username, `Automatically reported via a post or comment on /r/${subredditName}`, context);
 
     console.log(`Created external submission via automated evaluation for ${user.username}`);
+}
+
+async function checkForBotMentions (event: CommentSubmit, context: TriggerContext) {
+    const botRegex = [
+        /\bbots?\b/i,
+        /\bChatGPT\b/i,
+    ];
+
+    const commentBody = event.comment?.body;
+    const parentId = event.comment?.parentId;
+    if (!commentBody || !parentId) {
+        return;
+    }
+
+    if (!botRegex.some(regex => regex.test(commentBody))) {
+        return;
+    }
+
+    const parentItem = await getPostOrCommentById(parentId, context);
+
+    await context.redis.set(`botmention:${parentItem.id}`, parentItem.authorName, { expiration: addMinutes(new Date(), 1) });
 }
