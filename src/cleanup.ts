@@ -140,8 +140,25 @@ async function handleDeletedAccountsControlSub (usernames: string[], context: Tr
             continue;
         }
 
-        const newStatus = status.userStatus === UserStatus.Pending ? UserStatus.Retired : UserStatus.Purged;
-        await updateAggregate(newStatus, 1, context);
+        let newStatus: UserStatus;
+        switch (status.userStatus) {
+            case UserStatus.Pending:
+                newStatus = UserStatus.Retired;
+                break;
+            case UserStatus.Retired:
+                newStatus = UserStatus.Retired;
+                break;
+            default:
+                newStatus = UserStatus.Purged;
+                break;
+        }
+
+        if (status.userStatus !== newStatus) {
+            await Promise.all([
+                updateAggregate(status.userStatus, -1, context),
+                updateAggregate(newStatus, 1, context),
+            ]);
+        }
 
         try {
             const post = await context.reddit.getPostById(status.trackingPostId);

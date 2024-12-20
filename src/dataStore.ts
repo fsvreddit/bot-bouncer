@@ -48,14 +48,14 @@ export async function setUserStatus (username: string, details: UserDetails, con
     const promises: Promise<unknown>[] = [
         context.redis.hSet(USER_STORE, { [username]: JSON.stringify(details) }),
         context.redis.hSet(POST_STORE, { [details.trackingPostId]: username }),
-        setCleanupForUsers([username], context, true, 3),
+        setCleanupForUsers([username], context, true, 1),
         queueWikiUpdate(context),
     ];
 
     if (details.userStatus !== currentStatus?.userStatus) {
-        promises.push(context.redis.zIncrBy(AGGREGATE_STORE, details.userStatus, 1));
+        promises.push(updateAggregate(details.userStatus, 1, context));
         if (currentStatus) {
-            promises.push(context.redis.zIncrBy(AGGREGATE_STORE, currentStatus.userStatus, -1));
+            promises.push(updateAggregate(currentStatus.userStatus, -1, context));
         }
     }
 
@@ -268,7 +268,7 @@ export async function updateLocalStoreFromWiki (_: unknown, context: JobContext)
 
 export async function recordBan (username: string, context: TriggerContext) {
     await context.redis.zAdd(BAN_STORE, { member: username, score: new Date().getTime() });
-    await setCleanupForUsers([username], context, false, 3);
+    await setCleanupForUsers([username], context, false, 1);
 }
 
 export async function removeRecordOfBan (usernames: string[], context: TriggerContext) {
