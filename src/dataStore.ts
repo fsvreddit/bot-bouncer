@@ -23,6 +23,8 @@ export enum UserStatus {
     Organic = "organic",
     Purged = "purged",
     Retired = "retired",
+    Declined = "declined",
+    Inactive = "inactive",
 }
 
 interface UserDetails {
@@ -169,8 +171,17 @@ export async function updateWikiPage (_: unknown, context: JobContext) {
     }
 
     const data = await context.redis.hGetAll(USER_STORE);
-    if (Object.entries(data).length === 0) {
+    const entries = Object.entries(data);
+    if (entries.length === 0) {
         return;
+    }
+
+    // Convert newer statuses to "Pending" to avoid data type issues.
+    for (const entry of entries) {
+        const [username, status] = entry;
+        if (status as UserStatus === UserStatus.Declined || status as UserStatus === UserStatus.Inactive) {
+            data[username] = UserStatus.Pending;
+        }
     }
 
     const content = compressData(data);

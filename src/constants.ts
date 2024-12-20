@@ -10,6 +10,8 @@ export enum PostFlairTemplate {
     Organic = "301b4a0a-a1a0-11ef-9bc1-c67e6d699878",
     Purged = "46c7d570-a1a0-11ef-a875-ca4499635235",
     Retired = "5dc983ae-a1a0-11ef-8101-ca18933c38fe",
+    Declined = "66cbc876-bede-11ef-92ec-ea42900b9dcb",
+    Inactive = "82f4d952-bede-11ef-9dec-4a43f41509f3",
 }
 
 /**
