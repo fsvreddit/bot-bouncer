@@ -36,6 +36,10 @@ export class EvaluateMixedBot extends UserEvaluatorBase {
             return false;
         }
 
+        if (post.url.startsWith("/")) {
+            return false;
+        }
+
         const domainRegex = /^[iv]\.redd\.it$/;
         return domainRegex.test(new URL(post.url).hostname) || post.subredditName === "WhatIsMyCQS";
     }
