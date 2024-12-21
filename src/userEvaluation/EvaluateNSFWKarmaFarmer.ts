@@ -37,10 +37,12 @@ export class EvaluateNSFWKarmaFarmer extends UserEvaluatorBase {
     override preEvaluateUser (user: User): boolean {
         if (user.commentKarma > 100) {
             this.setReason("User has too much comment karma");
+            return false;
         }
 
         if (user.linkKarma > 100) {
             this.setReason("User has too much post karma");
+            return false;
         }
 
         if (user.createdAt < subDays(new Date(), 5)) {
