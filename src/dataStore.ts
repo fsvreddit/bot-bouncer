@@ -141,7 +141,7 @@ async function queueWikiUpdate (context: TriggerContext) {
 }
 
 function compressData (value: Record<string, string>): string {
-    return Buffer.from(pako.deflate(JSON.stringify(value))).toString("base64");
+    return Buffer.from(pako.deflate(JSON.stringify(value), { level: 9 })).toString("base64");
 }
 
 function decompressData (blob: string): Record<string, string> {
