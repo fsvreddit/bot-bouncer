@@ -8,9 +8,7 @@ import { uniq } from "lodash";
 import { autogenRegex } from "./evaluatorHelpers.js";
 
 export class EvaluateShortTlc extends UserEvaluatorBase {
-    getName () {
-        return "Short TLC Bot";
-    };
+    override name = "Short TLC Bot";
 
     private eligibleComment (comment: Comment | CommentV2) {
         if (isCommentId(comment.parentId)) {

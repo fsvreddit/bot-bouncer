@@ -7,9 +7,7 @@ import { subDays } from "date-fns";
 import { domainFromUrl } from "./evaluatorHelpers.js";
 
 export class EvaluateNSFWKarmaFarmer extends UserEvaluatorBase {
-    getName () {
-        return "NSFW Karma Farmer";
-    };
+    override name = "NSFW Karma Farmer";
 
     private eligibleComment (comment: Comment | CommentV2) {
         if (isCommentId(comment.parentId)) {

@@ -7,9 +7,7 @@ import { subDays, subYears } from "date-fns";
 import { autogenRegex, domainFromUrl } from "./evaluatorHelpers.js";
 
 export class EvaluateZombie extends UserEvaluatorBase {
-    getName () {
-        return "Zombie";
-    };
+    override name = "Zombie";
 
     override canAutoBan = false;
 

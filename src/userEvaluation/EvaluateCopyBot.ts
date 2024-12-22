@@ -6,9 +6,7 @@ import { subMonths } from "date-fns";
 import { CommentSubmit } from "@devvit/protos";
 
 export class EvaluateCopyBot extends UserEvaluatorBase {
-    getName () {
-        return "Copy Bot";
-    };
+    override name = "Copy Bot";
 
     private readonly emDashRegex = /\w—\w/i;
 

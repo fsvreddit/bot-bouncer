@@ -6,9 +6,7 @@ import { CommentV2 } from "@devvit/protos/types/devvit/reddit/v2alpha/commentv2.
 import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
 
 export class EvaluateMixedBot extends UserEvaluatorBase {
-    override getName (): string {
-        return "Mixed Bot";
-    }
+    override name = "Mixed Bot";
 
     private readonly emDashRegex = /\w—\w/i;
 

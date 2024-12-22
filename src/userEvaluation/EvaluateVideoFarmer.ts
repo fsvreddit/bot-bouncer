@@ -7,9 +7,7 @@ import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
 import { uniq } from "lodash";
 
 export class EvaluateVideoFarmer extends UserEvaluatorBase {
-    getName () {
-        return "Video Farmer";
-    };
+    override name = "Video Farmer";
 
     private isEligiblePost (post: Post): boolean {
         return domainFromUrl(post.url) === "v.redd.it";

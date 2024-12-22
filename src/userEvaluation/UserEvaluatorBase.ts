@@ -5,6 +5,8 @@ export abstract class UserEvaluatorBase {
     protected reasons: string[] = [];
     protected context: TriggerContext;
 
+    abstract name: string;
+
     public setReason (reason: string) {
         this.reasons.push(reason);
     }
@@ -18,8 +20,6 @@ export abstract class UserEvaluatorBase {
     constructor (context: TriggerContext) {
         this.context = context;
     }
-
-    abstract getName (): string;
 
     abstract preEvaluateComment (event: CommentSubmit): boolean;
 

@@ -62,12 +62,12 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
         const evaluator = new Evaluator(context);
         const isABot = evaluator.evaluate(user, userItems);
         if (isABot) {
-            console.log(`Evaluator: ${username} appears to be a bot via the evaluator: ${evaluator.getName()}`);
+            console.log(`Evaluator: ${username} appears to be a bot via the evaluator: ${evaluator.name}`);
             canAutoBan = evaluator.canAutoBan;
-            detectedBots.push(evaluator.getName());
+            detectedBots.push(evaluator.name);
             break;
         } else {
-            console.log(`${evaluator.getName()} did not match: ${evaluator.getReasons().join(", ")}`);
+            console.log(`${evaluator.name} did not match: ${evaluator.getReasons().join(", ")}`);
         }
     }
 

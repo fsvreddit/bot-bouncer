@@ -7,9 +7,7 @@ import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
 import { domainFromUrl } from "./evaluatorHelpers.js";
 
 export class EvaluateDomainSharer extends UserEvaluatorBase {
-    getName () {
-        return "Domain Sharer";
-    };
+    override name = "Domain Sharer";
 
     private ignoredDomains = [
         "reddit.com",
