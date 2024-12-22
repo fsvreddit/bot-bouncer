@@ -3,6 +3,7 @@ import { EvaluateDomainSharer } from "./EvaluateDomainSharer.js";
 import { EvaluateMixedBot } from "./EvaluateMixedBot.js";
 import { EvaluateNSFWKarmaFarmer } from "./EvaluateNSFWKarmaFarmer.js";
 import { EvaluateShortTlc } from "./EvaluateShortTlc.js";
+import { EvaluateZombie } from "./EvaluateZombie.js";
 import { EvaluateVideoFarmer } from "./EvaluateVideoFarmer.js";
 
 export const ALL_EVALUATORS = [
@@ -11,5 +12,6 @@ export const ALL_EVALUATORS = [
     EvaluateMixedBot,
     EvaluateDomainSharer,
     EvaluateVideoFarmer,
+    EvaluateZombie,
     EvaluateNSFWKarmaFarmer,
 ];

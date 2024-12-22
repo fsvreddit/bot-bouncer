@@ -56,12 +56,14 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
     }
 
     const detectedBots: string[] = [];
+    let canAutoBan = false;
 
     for (const Evaluator of ALL_EVALUATORS) {
         const evaluator = new Evaluator(context);
         const isABot = evaluator.evaluate(user, userItems);
         if (isABot) {
             console.log(`Evaluator: ${username} appears to be a bot via the evaluator: ${evaluator.getName()}`);
+            canAutoBan = evaluator.canAutoBan;
             detectedBots.push(evaluator.getName());
             break;
         } else {
@@ -81,6 +83,12 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
         const post = await context.reddit.getPostById(postId);
         await context.reddit.report(post, { reason: `Possible bot via evaluation, but insufficient content: ${detectedBots.join(", ")}` });
         return;
+    }
+
+    if (!canAutoBan) {
+        console.log(`Evaluator: Cannot autoban.`);
+        const post = await context.reddit.getPostById(postId);
+        await context.reddit.report(post, { reason: `Possible bot via evaluation, tagged as no-auto-ban: ${detectedBots.join(", ")}` });
     }
 
     await context.reddit.setPostFlair({

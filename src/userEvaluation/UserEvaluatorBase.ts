@@ -13,6 +13,8 @@ export abstract class UserEvaluatorBase {
         return this.reasons;
     }
 
+    public canAutoBan = true;
+
     constructor (context: TriggerContext) {
         this.context = context;
     }
