@@ -68,6 +68,11 @@ export class EvaluateZombie extends UserEvaluatorBase {
             return false;
         }
 
+        if (!history.some(item => item.createdAt > subDays(new Date(), 7))) {
+            this.setReason("User has no recent content");
+            return false;
+        }
+
         if (history.some(item => item.createdAt < subDays(new Date(), 7) && item.createdAt > subYears(new Date(), 6))) {
             this.setReason("User has insufficient gap in history");
             return false;
