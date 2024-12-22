@@ -3,11 +3,12 @@ import { CommentSubmit } from "@devvit/protos";
 import { CommentV2 } from "@devvit/protos/types/devvit/reddit/v2alpha/commentv2.js";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
 import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
-import { subMonths } from "date-fns";
+import { subDays, subMonths } from "date-fns";
 import { domainFromUrl } from "./evaluatorHelpers.js";
 
 export class EvaluateCQSTester extends UserEvaluatorBase {
     override name = "CQS Tester";
+    override canAutoBan = false;
 
     private eligibleComment (comment: Comment | CommentV2) {
         if (isCommentId(comment.parentId)) {
@@ -33,6 +34,10 @@ export class EvaluateCQSTester extends UserEvaluatorBase {
     }
 
     override preEvaluateUser (user: User): boolean {
+        if (user.createdAt < subDays(new Date(), 7) && user.commentKarma < 50) {
+            return true;
+        }
+
         if (user.commentKarma > 500) {
             this.setReason("User has too much comment karma");
             return false;
