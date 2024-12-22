@@ -1,6 +1,6 @@
 import { Post, Comment, TriggerContext } from "@devvit/public-api";
 import { CommentSubmit, PostSubmit } from "@devvit/protos";
-import { addMinutes, formatDate } from "date-fns";
+import { addDays, addMinutes, formatDate } from "date-fns";
 import { getUserStatus, isUserWhitelisted, recordBan, UserStatus } from "./dataStore.js";
 import { CONTROL_SUBREDDIT } from "./constants.js";
 import { getPostOrCommentById, getUserOrUndefined, isApproved, isBanned, isModerator, replaceAll } from "./utility.js";
@@ -57,9 +57,19 @@ export async function handleClientCommentSubmit (event: CommentSubmit, context: 
         }
     }
 
-    if (possibleBot) {
-        await checkAndReportPotentialBot(event.author.name, context);
+    if (!possibleBot) {
+        return;
     }
+
+    const redisKey = `lastcheck:${event.author.name}`;
+    const recentlyChecked = await context.redis.get(redisKey);
+    if (recentlyChecked) {
+        return;
+    }
+
+    await checkAndReportPotentialBot(event.author.name, context);
+
+    await context.redis.set(redisKey, new Date().getTime.toString(), { expiration: addDays(new Date(), 2) });
 }
 
 async function handleContentCreation (username: string, targetId: string, context: TriggerContext) {
