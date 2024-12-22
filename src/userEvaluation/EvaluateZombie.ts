@@ -25,6 +25,10 @@ export class EvaluateZombie extends UserEvaluatorBase {
             return false;
         }
 
+        if (event.author && autogenRegex.test(event.author.name)) {
+            return false;
+        }
+
         return this.eligibleComment(event.comment);
     }
 
