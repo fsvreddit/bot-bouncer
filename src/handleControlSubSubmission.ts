@@ -3,6 +3,7 @@ import { PostCreate } from "@devvit/protos";
 import { CONTROL_SUBREDDIT, EVALUATE_USER, PostFlairTemplate } from "./constants.js";
 import { getUsernameFromUrl, getUserOrUndefined, isModerator } from "./utility.js";
 import { getUserStatus, setUserStatus, UserStatus } from "./dataStore.js";
+import { subMonths } from "date-fns";
 
 export async function handleControlSubSubmission (event: PostCreate, context: TriggerContext) {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
@@ -51,10 +52,9 @@ export async function handleControlSubSubmission (event: PostCreate, context: Tr
             username: user.username,
             limit: 100,
             sort: "new",
-            timeframe: "month",
         }).all();
 
-        if (userContent.length === 0) {
+        if (userContent.filter(item => item.createdAt > subMonths(new Date(), 1)).length === 0) {
             submissionResponse = `Hi, thanks for your submission.\n\n${username} has no recent content on their history, so may be retired. Submissions can only be made for active users.`;
         }
     }

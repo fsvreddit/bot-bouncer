@@ -6,7 +6,7 @@ import pluralize from "pluralize";
 import { setCleanupForUsers } from "./cleanup.js";
 import { CONTROL_SUBREDDIT, HANDLE_CLASSIFICATION_CHANGES_JOB } from "./constants.js";
 import { AppSetting, CONFIGURATION_DEFAULTS } from "./settings.js";
-import { formatDate, subHours } from "date-fns";
+import { formatDate, subHours, subWeeks } from "date-fns";
 
 const USER_STORE = "UserStore";
 const POST_STORE = "PostStore";
@@ -354,6 +354,8 @@ export async function handleClassificationChanges (event: ScheduledJobEvent<JSON
                     timeframe: "week",
                 }).all();
 
+                const recentUserContent = userContent.filter(item => item.createdAt > subWeeks(new Date(), 1));
+
                 const localContent = userContent.filter(item => item.subredditName === context.subredditName);
                 if (localContent.length === 0) {
                     console.log(`Wiki Update: ${username} has no recent content on subreddit to remove.`);
@@ -387,7 +389,7 @@ export async function handleClassificationChanges (event: ScheduledJobEvent<JSON
 
                 console.log(`Wiki Update: ${username} has been banned following wiki update.`);
 
-                await Promise.all(localContent.map(item => item.remove()));
+                await Promise.all(recentUserContent.map(item => item.remove()));
             } catch {
                 console.log(`Wiki Update: Couldn't retrieve content for ${username}`);
             }

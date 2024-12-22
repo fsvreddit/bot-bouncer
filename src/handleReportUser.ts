@@ -4,6 +4,7 @@ import { getPostOrCommentById, getUsernameFromUrl, getUserOrUndefined } from "./
 import { getUserStatus, setUserStatus, UserStatus } from "./dataStore.js";
 import { addExternalSubmission } from "./externalSubmissions.js";
 import { reportForm } from "./main.js";
+import { subMonths } from "date-fns";
 
 export async function handleReportUser (event: MenuItemOnPressEvent, context: Context) {
     const target = await getPostOrCommentById(event.targetId, context);
@@ -40,10 +41,9 @@ export async function reportFormHandler (event: FormOnSubmitEvent<JSONObject>, c
         username: target.authorName,
         limit: 100,
         sort: "new",
-        timeframe: "month",
     }).all();
 
-    if (userContent.length === 0) {
+    if (userContent.filter(item => item.createdAt > subMonths(new Date(), 1)).length === 0) {
         context.ui.showToast("You can only report users with recent content on their history.");
         return;
     }
