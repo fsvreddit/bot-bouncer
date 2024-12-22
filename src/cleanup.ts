@@ -137,6 +137,7 @@ async function handleDeletedAccountsControlSub (usernames: string[], context: Tr
     for (const username of usernames) {
         const status = await getUserStatus(username, context);
         if (!status) {
+            console.log(`Cleanup: ${username} has no status to delete.`);
             continue;
         }
 
@@ -163,6 +164,8 @@ async function handleDeletedAccountsControlSub (usernames: string[], context: Tr
         try {
             const post = await context.reddit.getPostById(status.trackingPostId);
             await post.delete();
+
+            console.log(`Cleanup: Post deleted for ${username}`);
 
             if (status.userStatus === newStatus) {
                 continue;
