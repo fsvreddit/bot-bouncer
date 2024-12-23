@@ -2,6 +2,7 @@ import { JobContext, TriggerContext, WikiPage, WikiPagePermissionLevel } from "@
 import { CONTROL_SUBREDDIT, EVALUATE_USER, EXTERNAL_SUBMISSION_JOB, PostFlairTemplate } from "./constants.js";
 import { getUserStatus, setUserStatus, UserStatus } from "./dataStore.js";
 import { getControlSubSettings } from "./settings.js";
+import Ajv, { JSONSchemaType } from "ajv";
 
 const WIKI_PAGE = "externalsubmissions";
 
@@ -9,6 +10,19 @@ interface ExternalSubmission {
     username: string;
     submitter?: string;
     reportContext?: string;
+};
+
+const schema: JSONSchemaType<ExternalSubmission[]> = {
+    type: "array",
+    items: {
+        type: "object",
+        properties: {
+            username: { type: "string" },
+            submitter: { type: "string", nullable: true },
+            reportContext: { type: "string", nullable: true },
+        },
+        required: ["username"],
+    },
 };
 
 export async function addExternalSubmission (username: string, submitter: string | undefined, reportContext: string | undefined, context: TriggerContext) {
@@ -24,6 +38,13 @@ export async function addExternalSubmission (username: string, submitter: string
     }
 
     const currentUserList = JSON.parse(wikiPage?.content ?? "[]") as ExternalSubmission[];
+
+    const ajv = new Ajv.default();
+    const validate = ajv.compile(schema);
+    if (!validate(currentUserList)) {
+        console.error("External submission list is invalid.", ajv.errorsText(validate.errors));
+        return;
+    }
 
     if (currentUserList.some(item => item.username === username)) {
         return;
@@ -75,6 +96,16 @@ export async function processExternalSubmissions (_: unknown, context: JobContex
     }
 
     const currentSubmissionList = JSON.parse(wikiPage?.content ?? "[]") as ExternalSubmission[];
+
+    const currentUserList = JSON.parse(wikiPage?.content ?? "[]") as ExternalSubmission[];
+
+    const ajv = new Ajv.default();
+    const validate = ajv.compile(schema);
+    if (!validate(currentUserList)) {
+        console.error("External submission list is invalid.", ajv.errorsText(validate.errors));
+        return;
+    }
+
     if (currentSubmissionList.length === 0) {
         return;
     }
@@ -118,11 +149,15 @@ export async function processExternalSubmissions (_: unknown, context: JobContex
         return;
     }
 
+    const controlSubSettings = await getControlSubSettings(context);
+    const newStatus = item.submitter && controlSubSettings.trustedSubmitters.includes(item.submitter) ? UserStatus.Banned : UserStatus.Pending;
+    const newFlair = newStatus === UserStatus.Banned ? PostFlairTemplate.Banned : PostFlairTemplate.Pending;
+
     const newPost = await context.reddit.submitPost({
         subredditName: CONTROL_SUBREDDIT,
         title: `Overview for ${item.username}`,
         url: `https://www.reddit.com/user/${item.username}`,
-        flairId: PostFlairTemplate.Pending,
+        flairId: newFlair,
     });
 
     if (item.reportContext) {
@@ -131,8 +166,6 @@ export async function processExternalSubmissions (_: unknown, context: JobContex
         text += `\n\n*I am a bot, and this action was performed automatically. Please [contact the moderators of this subreddit](/message/compose/?to=/r/${CONTROL_SUBREDDIT}) if you have any questions or concerns.*`;
         await newPost.addComment({ text });
     }
-
-    const controlSubSettings = await getControlSubSettings(context);
 
     if (!controlSubSettings.evaluationDisabled) {
         await context.scheduler.runJob({
@@ -146,7 +179,7 @@ export async function processExternalSubmissions (_: unknown, context: JobContex
     }
 
     await setUserStatus(item.username, {
-        userStatus: UserStatus.Pending,
+        userStatus: newStatus,
         lastUpdate: new Date().getTime(),
         submitter: item.submitter,
         operator: context.appName,

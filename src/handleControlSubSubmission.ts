@@ -4,6 +4,7 @@ import { CONTROL_SUBREDDIT, EVALUATE_USER, PostFlairTemplate } from "./constants
 import { getUsernameFromUrl, getUserOrUndefined, isModerator } from "./utility.js";
 import { getUserStatus, setUserStatus, UserStatus } from "./dataStore.js";
 import { subMonths } from "date-fns";
+import { getControlSubSettings } from "./settings.js";
 
 export async function handleControlSubSubmission (event: PostCreate, context: TriggerContext) {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
@@ -65,15 +66,19 @@ export async function handleControlSubSubmission (event: PostCreate, context: Tr
             const post = await context.reddit.getPostById(currentStatus.trackingPostId);
             submissionResponse = `Hi, thanks for your submission.\n\n${username} is already tracked by Bot Bouncer, you can see the submission [here](${post.permalink}).`;
         } else {
+            const controlSubSettings = await getControlSubSettings(context);
+            const newStatus = controlSubSettings.trustedSubmitters.includes(event.author.name) ? UserStatus.Banned : UserStatus.Pending;
+            const newFlair = newStatus === UserStatus.Banned ? PostFlairTemplate.Banned : PostFlairTemplate.Pending;
+
             const newPost = await context.reddit.submitPost({
                 subredditName: CONTROL_SUBREDDIT,
                 title: `Overview for ${user.username}`,
                 url: `https://www.reddit.com/user/${user.username}`,
-                flairId: PostFlairTemplate.Pending,
+                flairId: newFlair,
             });
 
             await setUserStatus(user.username, {
-                userStatus: UserStatus.Pending,
+                userStatus: newStatus,
                 lastUpdate: new Date().getTime(),
                 submitter: event.author.name,
                 operator: context.appName,

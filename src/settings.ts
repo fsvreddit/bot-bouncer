@@ -1,5 +1,6 @@
 import { SettingsFormField, TriggerContext, WikiPage, WikiPagePermissionLevel } from "@devvit/public-api";
 import { CONTROL_SUBREDDIT } from "./constants.js";
+import Ajv, { JSONSchemaType } from "ajv";
 
 export const CONFIGURATION_DEFAULTS = {
     banMessage: `Bots and bot-like accounts are not welcome on /r/{subreddit}.
@@ -73,7 +74,17 @@ export const appSettings: SettingsFormField[] = [
 
 interface ControlSubSettings {
     evaluationDisabled: boolean;
+    trustedSubmitters: string[];
 }
+
+const schema: JSONSchemaType<ControlSubSettings> = {
+    type: "object",
+    properties: {
+        evaluationDisabled: { type: "boolean" },
+        trustedSubmitters: { type: "array", items: { type: "string" } },
+    },
+    required: ["evaluationDisabled", "trustedSubmitters"],
+};
 
 export async function getControlSubSettings (context: TriggerContext): Promise<ControlSubSettings> {
     const wikiPageName = "controlSubSettings";
@@ -85,10 +96,18 @@ export async function getControlSubSettings (context: TriggerContext): Promise<C
     }
 
     if (wikiPage) {
-        return JSON.parse(wikiPage.content) as ControlSubSettings;
+        const ajv = new Ajv.default();
+        const validate = ajv.compile(schema);
+        const json = JSON.parse(wikiPage.content) as ControlSubSettings;
+
+        if (!validate(json)) {
+            console.error("Control sub settings are invalid. Default values will be returned.", ajv.errorsText(validate.errors));
+        } else {
+            return JSON.parse(wikiPage.content) as ControlSubSettings;
+        }
     }
 
-    const result: ControlSubSettings = { evaluationDisabled: false };
+    const result: ControlSubSettings = { evaluationDisabled: false, trustedSubmitters: [] };
 
     await context.reddit.createWikiPage({
         subredditName: CONTROL_SUBREDDIT,
