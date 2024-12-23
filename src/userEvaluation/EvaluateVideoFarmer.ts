@@ -32,20 +32,6 @@ export class EvaluateVideoFarmer extends UserEvaluatorBase {
             return false;
         }
 
-        // const usernameRegex = /^[a-z]+[A-Z][a-z]+$/;
-        // if (!usernameRegex.test(user.username)) {
-        //     this.setReason("Username does not match regex");
-        //     return false;
-        // }
-
-        // const characters = [...user.username];
-
-        // for (let x = 0; x < characters.length - 1; x++) {
-        //     if (characters[0] === characters[1]) {
-        //         return true;
-        //     }
-        // }
-
         return false;
     }
 
