@@ -75,6 +75,7 @@ export const appSettings: SettingsFormField[] = [
 interface ControlSubSettings {
     evaluationDisabled: boolean;
     trustedSubmitters: string[];
+    reporterBlacklist: string[];
 }
 
 const schema: JSONSchemaType<ControlSubSettings> = {
@@ -82,8 +83,9 @@ const schema: JSONSchemaType<ControlSubSettings> = {
     properties: {
         evaluationDisabled: { type: "boolean" },
         trustedSubmitters: { type: "array", items: { type: "string" } },
+        reporterBlacklist: { type: "array", items: { type: "string" } },
     },
-    required: ["evaluationDisabled", "trustedSubmitters"],
+    required: ["evaluationDisabled", "trustedSubmitters", "reporterBlacklist"],
 };
 
 export async function getControlSubSettings (context: TriggerContext): Promise<ControlSubSettings> {
@@ -107,7 +109,11 @@ export async function getControlSubSettings (context: TriggerContext): Promise<C
         }
     }
 
-    const result: ControlSubSettings = { evaluationDisabled: false, trustedSubmitters: [] };
+    const result: ControlSubSettings = {
+        evaluationDisabled: false,
+        trustedSubmitters: [],
+        reporterBlacklist: [],
+    };
 
     await context.reddit.createWikiPage({
         subredditName: CONTROL_SUBREDDIT,

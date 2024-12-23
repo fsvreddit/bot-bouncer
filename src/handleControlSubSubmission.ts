@@ -35,6 +35,11 @@ export async function handleControlSubSubmission (event: PostCreate, context: Tr
         submissionResponse = "Hi, thanks for your submission.\n\nOnly links to user accounts are permitted here.";
     }
 
+    const controlSubSettings = await getControlSubSettings(context);
+    if (controlSubSettings.reporterBlacklist.includes(event.author.name)) {
+        submissionResponse = "You are not currently permitted to submit bots to r/BotBouncer. Please write in to modmail if you believe this is a mistake";
+    }
+
     let user: User | undefined;
     if (username) {
         user = await getUserOrUndefined(username, context);
@@ -66,7 +71,6 @@ export async function handleControlSubSubmission (event: PostCreate, context: Tr
             const post = await context.reddit.getPostById(currentStatus.trackingPostId);
             submissionResponse = `Hi, thanks for your submission.\n\n${username} is already tracked by Bot Bouncer, you can see the submission [here](${post.permalink}).`;
         } else {
-            const controlSubSettings = await getControlSubSettings(context);
             const newStatus = controlSubSettings.trustedSubmitters.includes(event.author.name) ? UserStatus.Banned : UserStatus.Pending;
             const newFlair = newStatus === UserStatus.Banned ? PostFlairTemplate.Banned : PostFlairTemplate.Pending;
 

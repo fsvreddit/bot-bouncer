@@ -5,6 +5,7 @@ import { getUserStatus, setUserStatus, UserStatus } from "./dataStore.js";
 import { addExternalSubmission } from "./externalSubmissions.js";
 import { reportForm } from "./main.js";
 import { subMonths } from "date-fns";
+import { getControlSubSettings } from "./settings.js";
 
 export async function handleReportUser (event: MenuItemOnPressEvent, context: Context) {
     const target = await getPostOrCommentById(event.targetId, context);
@@ -16,6 +17,22 @@ export async function handleReportUser (event: MenuItemOnPressEvent, context: Co
             context.ui.showToast(`${target.authorName} has already been reported to Bot Bouncer.`);
             return;
         }
+
+        const [controlSubSettings, currentUser] = await Promise.all([
+            getControlSubSettings(context),
+            context.reddit.getCurrentUser(),
+        ]);
+
+        if (!currentUser) {
+            context.ui.showToast("You must be logged in to report users to Bot Bouncer.");
+            return;
+        }
+
+        if (controlSubSettings.reporterBlacklist.includes(currentUser.username)) {
+            context.ui.showToast("You are not currently permitted to submit bots to r/BotBouncer. Please write in to modmail if you believe this is a mistake");
+            return;
+        }
+
         context.ui.showForm(reportForm);
     }
 }
