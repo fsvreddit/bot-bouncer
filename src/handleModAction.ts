@@ -1,7 +1,7 @@
 import { TriggerContext } from "@devvit/public-api";
 import { ModAction } from "@devvit/protos";
 import { CONTROL_SUBREDDIT } from "./constants.js";
-import { removeRecordOfBan } from "./dataStore.js";
+import { removeRecordOfBan } from "./handleClientSubredditWikiUpdate.js";
 import { createExternalSubmissionJob } from "./externalSubmissions.js";
 
 export async function handleModAction (event: ModAction, context: TriggerContext) {

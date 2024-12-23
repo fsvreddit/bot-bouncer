@@ -2,7 +2,8 @@ import { GetConversationResponse, ModMailConversationState, TriggerContext } fro
 import { ModMail } from "@devvit/protos";
 import { addMonths } from "date-fns";
 import { CONTROL_SUBREDDIT } from "./constants.js";
-import { getUserStatus, UserStatus, wasUserBannedByApp } from "./dataStore.js";
+import { getUserStatus, UserStatus } from "./dataStore.js";
+import { wasUserBannedByApp } from "./handleClientSubredditWikiUpdate.js";
 import { isBanned, replaceAll } from "./utility.js";
 import { CONFIGURATION_DEFAULTS } from "./settings.js";
 

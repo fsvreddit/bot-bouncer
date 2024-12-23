@@ -1,7 +1,8 @@
 import { Post, Comment, TriggerContext } from "@devvit/public-api";
 import { CommentSubmit, PostSubmit } from "@devvit/protos";
 import { addDays, addMinutes, formatDate } from "date-fns";
-import { getUserStatus, isUserWhitelisted, recordBan, UserStatus } from "./dataStore.js";
+import { getUserStatus, UserStatus } from "./dataStore.js";
+import { isUserWhitelisted, recordBan } from "./handleClientSubredditWikiUpdate.js";
 import { CONTROL_SUBREDDIT } from "./constants.js";
 import { getPostOrCommentById, getUserOrUndefined, isApproved, isBanned, isModerator, replaceAll } from "./utility.js";
 import { AppSetting, CONFIGURATION_DEFAULTS } from "./settings.js";
