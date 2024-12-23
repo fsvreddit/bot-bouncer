@@ -2,8 +2,9 @@ import { TriggerContext } from "@devvit/public-api";
 import { addDays, addHours, addMinutes, subMinutes } from "date-fns";
 import { parseExpression } from "cron-parser";
 import { ADHOC_CLEANUP_JOB, CLEANUP_JOB_CRON, CONTROL_SUBREDDIT, PostFlairTemplate } from "./constants.js";
-import { deleteUserStatus, getUserStatus, removeRecordOfBan, removeWhitelistUnban, updateAggregate, UserStatus } from "./dataStore.js";
+import { deleteUserStatus, getUserStatus, updateAggregate, UserStatus } from "./dataStore.js";
 import { getUserOrUndefined } from "./utility.js";
+import { removeRecordOfBan, removeWhitelistUnban } from "./handleClientSubredditWikiUpdate.js";
 
 const CLEANUP_LOG_KEY = "CleanupLog";
 const DAYS_BETWEEN_CHECKS = 28;
@@ -144,9 +145,8 @@ async function handleDeletedAccountsControlSub (usernames: string[], context: Tr
         let newStatus: UserStatus;
         switch (status.userStatus) {
             case UserStatus.Pending:
-                newStatus = UserStatus.Retired;
-                break;
             case UserStatus.Retired:
+            case UserStatus.Service:
                 newStatus = UserStatus.Retired;
                 break;
             default:
