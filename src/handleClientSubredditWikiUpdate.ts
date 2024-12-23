@@ -1,91 +1,12 @@
-import { JobContext, JSONObject, ScheduledJobEvent, TriggerContext, WikiPage } from "@devvit/public-api";
-import { formatDate, subHours, subWeeks } from "date-fns";
-import pako from "pako";
+import { JobContext, JSONObject, ScheduledJobEvent, TriggerContext } from "@devvit/public-api";
+import { formatDate, subWeeks } from "date-fns";
 import pluralize from "pluralize";
-import { max, toPairs } from "lodash";
-import { CONTROL_SUBREDDIT, HANDLE_CLASSIFICATION_CHANGES_JOB } from "./constants.js";
-import { BAN_STORE, USER_STORE, UserDetails, UserStatus, WIKI_PAGE } from "./dataStore.js";
+import { BAN_STORE } from "./dataStore.js";
 import { setCleanupForUsers } from "./cleanup.js";
 import { AppSetting, CONFIGURATION_DEFAULTS } from "./settings.js";
 import { isBanned, replaceAll } from "./utility.js";
 
 const UNBAN_WHITELIST = "UnbanWhitelist";
-
-function decompressData (blob: string): Record<string, string> {
-    let json: string;
-    if (blob.startsWith("{")) {
-        // Data is not compressed.
-        json = blob;
-    } else {
-        json = Buffer.from(pako.inflate(Buffer.from(blob, "base64"))).toString();
-    }
-    return JSON.parse(json) as Record<string, string>;
-}
-
-export async function updateLocalStoreFromWiki (_: unknown, context: JobContext) {
-    const lastUpdateKey = "lastUpdateFromWiki";
-    const lastUpdateDateKey = "lastUpdateDateKey";
-
-    const lastUpdateDateValue = await context.redis.get(lastUpdateDateKey);
-    const lastUpdateDate = lastUpdateDateValue ? new Date(parseInt(lastUpdateDateValue)) : subHours(new Date(), 6);
-
-    let wikiPage: WikiPage;
-    try {
-        wikiPage = await context.reddit.getWikiPage(CONTROL_SUBREDDIT, WIKI_PAGE);
-    } catch {
-        console.log("Wiki page does not exist on control subreddit");
-        return;
-    }
-
-    const lastUpdate = await context.redis.get(lastUpdateKey);
-    if (lastUpdate === wikiPage.revisionId) {
-        return;
-    }
-
-    const incomingData = decompressData(wikiPage.content);
-    await context.redis.del(USER_STORE);
-
-    if (Object.keys(incomingData).length === 0) {
-        console.log("Wiki Update: Control subreddit wiki page is empty");
-        return;
-    }
-
-    const usersAdded = await context.redis.hSet(USER_STORE, incomingData);
-
-    console.log(`Wiki Update: Records for ${usersAdded} ${pluralize("user", usersAdded)} have been added`);
-
-    const usersWithStatus = toPairs(incomingData)
-        .map(([username, userdata]) => ({ username, data: JSON.parse(userdata) as UserDetails }))
-        .filter(item => new Date(item.data.lastUpdate) > lastUpdateDate);
-
-    if (usersWithStatus.length > 0) {
-        const newUpdateDate = max(usersWithStatus.map(item => item.data.lastUpdate)) ?? new Date().getTime();
-
-        const unbannedUsers = usersWithStatus
-            .filter(item => new Date(item.data.lastUpdate) > lastUpdateDate && (item.data.userStatus === UserStatus.Organic || item.data.userStatus === UserStatus.Service))
-            .map(item => item.username);
-
-        const bannedUsers = usersWithStatus
-            .filter(item => new Date(item.data.lastUpdate) > lastUpdateDate && item.data.userStatus === UserStatus.Banned)
-            .map(item => item.username);
-
-        if (bannedUsers.length > 0 || unbannedUsers.length > 0) {
-            await context.scheduler.runJob({
-                name: HANDLE_CLASSIFICATION_CHANGES_JOB,
-                runAt: new Date(),
-                data: { bannedUsers, unbannedUsers },
-            });
-            const count = bannedUsers.length + unbannedUsers.length;
-            console.log(`Wiki Update: ${count} ${pluralize("user", count)} ${pluralize("has", count)} been reclassified. Job scheduled to update local store.`);
-        }
-
-        await context.redis.set(lastUpdateDateKey, newUpdateDate.toString());
-    }
-
-    await context.redis.set(lastUpdateKey, wikiPage.revisionId);
-
-    console.log("Wiki Update: Finished processing.");
-}
 
 export async function recordBan (username: string, context: TriggerContext) {
     await context.redis.zAdd(BAN_STORE, { member: username, score: new Date().getTime() });

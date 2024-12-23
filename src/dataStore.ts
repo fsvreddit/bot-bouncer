@@ -1,7 +1,10 @@
 import { JobContext, TriggerContext, WikiPagePermissionLevel, WikiPage } from "@devvit/public-api";
-import { compact, countBy, sum, toPairs } from "lodash";
+import { compact, countBy, max, sum, toPairs } from "lodash";
 import pako from "pako";
 import { setCleanupForUsers } from "./cleanup.js";
+import { CONTROL_SUBREDDIT, HANDLE_CLASSIFICATION_CHANGES_JOB } from "./constants.js";
+import { subHours } from "date-fns";
+import pluralize from "pluralize";
 
 export const USER_STORE = "UserStore";
 const POST_STORE = "PostStore";
@@ -193,4 +196,80 @@ export async function updateWikiPage (_: unknown, context: JobContext) {
     await context.redis.del(WIKI_UPDATE_DUE);
 
     console.log("Wiki page has been updated");
+}
+
+function decompressData (blob: string): Record<string, string> {
+    let json: string;
+    if (blob.startsWith("{")) {
+        // Data is not compressed.
+        json = blob;
+    } else {
+        json = Buffer.from(pako.inflate(Buffer.from(blob, "base64"))).toString();
+    }
+    return JSON.parse(json) as Record<string, string>;
+}
+
+export async function updateLocalStoreFromWiki (_: unknown, context: JobContext) {
+    const lastUpdateKey = "lastUpdateFromWiki";
+    const lastUpdateDateKey = "lastUpdateDateKey";
+
+    const lastUpdateDateValue = await context.redis.get(lastUpdateDateKey);
+    const lastUpdateDate = lastUpdateDateValue ? new Date(parseInt(lastUpdateDateValue)) : subHours(new Date(), 6);
+
+    let wikiPage: WikiPage;
+    try {
+        wikiPage = await context.reddit.getWikiPage(CONTROL_SUBREDDIT, WIKI_PAGE);
+    } catch {
+        console.log("Wiki page does not exist on control subreddit");
+        return;
+    }
+
+    const lastUpdate = await context.redis.get(lastUpdateKey);
+    if (lastUpdate === wikiPage.revisionId) {
+        return;
+    }
+
+    const incomingData = decompressData(wikiPage.content);
+    await context.redis.del(USER_STORE);
+
+    if (Object.keys(incomingData).length === 0) {
+        console.log("Wiki Update: Control subreddit wiki page is empty");
+        return;
+    }
+
+    const usersAdded = await context.redis.hSet(USER_STORE, incomingData);
+
+    console.log(`Wiki Update: Records for ${usersAdded} ${pluralize("user", usersAdded)} have been added`);
+
+    const usersWithStatus = toPairs(incomingData)
+        .map(([username, userdata]) => ({ username, data: JSON.parse(userdata) as UserDetails }))
+        .filter(item => new Date(item.data.lastUpdate) > lastUpdateDate);
+
+    if (usersWithStatus.length > 0) {
+        const newUpdateDate = max(usersWithStatus.map(item => item.data.lastUpdate)) ?? new Date().getTime();
+
+        const unbannedUsers = usersWithStatus
+            .filter(item => new Date(item.data.lastUpdate) > lastUpdateDate && (item.data.userStatus === UserStatus.Organic || item.data.userStatus === UserStatus.Service))
+            .map(item => item.username);
+
+        const bannedUsers = usersWithStatus
+            .filter(item => new Date(item.data.lastUpdate) > lastUpdateDate && item.data.userStatus === UserStatus.Banned)
+            .map(item => item.username);
+
+        if (bannedUsers.length > 0 || unbannedUsers.length > 0) {
+            await context.scheduler.runJob({
+                name: HANDLE_CLASSIFICATION_CHANGES_JOB,
+                runAt: new Date(),
+                data: { bannedUsers, unbannedUsers },
+            });
+            const count = bannedUsers.length + unbannedUsers.length;
+            console.log(`Wiki Update: ${count} ${pluralize("user", count)} ${pluralize("has", count)} been reclassified. Job scheduled to update local store.`);
+        }
+
+        await context.redis.set(lastUpdateDateKey, newUpdateDate.toString());
+    }
+
+    await context.redis.set(lastUpdateKey, wikiPage.revisionId);
+
+    console.log("Wiki Update: Finished processing.");
 }
