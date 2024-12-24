@@ -1,10 +1,11 @@
-import { JobContext, JSONObject, ScheduledJobEvent, TriggerContext } from "@devvit/public-api";
+import { JobContext, JSONObject, ScheduledJobEvent, SettingsValues, TriggerContext } from "@devvit/public-api";
 import { formatDate, subWeeks } from "date-fns";
 import pluralize from "pluralize";
 import { BAN_STORE } from "./dataStore.js";
 import { setCleanupForUsers } from "./cleanup.js";
 import { AppSetting, CONFIGURATION_DEFAULTS } from "./settings.js";
 import { isBanned, replaceAll } from "./utility.js";
+import { HANDLE_CLASSIFICATION_CHANGES_JOB } from "./constants.js";
 
 const UNBAN_WHITELIST = "UnbanWhitelist";
 
@@ -44,86 +45,108 @@ export async function isUserWhitelisted (username: string, context: TriggerConte
     return score !== undefined;
 }
 
+async function handleUnban (username: string, subredditName: string, context: TriggerContext) {
+    const userBannedByApp = await wasUserBannedByApp(username, context);
+    if (!userBannedByApp) {
+        console.log(`Wiki Update: ${username} was not banned by this app.`);
+        return;
+    }
+
+    if (await isBanned(username, context)) {
+        await context.reddit.unbanUser(username, subredditName);
+        console.log(`Wiki Update: Unbanned ${username}`);
+    }
+}
+
+async function handleBan (username: string, subredditName: string, settings: SettingsValues, context: TriggerContext) {
+    try {
+        const isCurrentlyBanned = await isBanned(username, context);
+        if (isCurrentlyBanned) {
+            console.log(`Wiki Update: ${username} is already banned.`);
+            return;
+        }
+
+        const userContent = await context.reddit.getCommentsAndPostsByUser({
+            username,
+            timeframe: "week",
+        }).all();
+
+        const recentUserContent = userContent.filter(item => item.createdAt > subWeeks(new Date(), 1));
+
+        const localContent = userContent.filter(item => item.subredditName === context.subredditName);
+        if (localContent.length === 0) {
+            console.log(`Wiki Update: ${username} has no recent content on subreddit to remove.`);
+            return;
+        }
+
+        if (localContent.some(item => item.distinguishedBy)) {
+            console.log(`Wiki Update: ${username} has distinguished content on subreddit. Skipping.`);
+            return;
+        }
+
+        let message = settings[AppSetting.BanMessage] as string | undefined ?? CONFIGURATION_DEFAULTS.banMessage;
+        message = replaceAll(message, "{subreddit}", subredditName);
+        message = replaceAll(message, "{account}", username);
+        message = replaceAll(message, "{link}", username);
+
+        let banNote = CONFIGURATION_DEFAULTS.banNote;
+        banNote = replaceAll(banNote, "{me}", context.appName);
+        banNote = replaceAll(banNote, "{date}", formatDate(new Date(), "yyyy-MM-dd"));
+
+        await context.reddit.banUser({
+            subredditName,
+            username,
+            context: localContent[0].id,
+            message,
+            note: banNote,
+        });
+
+        await recordBan(username, context);
+
+        console.log(`Wiki Update: ${username} has been banned following wiki update.`);
+
+        await Promise.all(recentUserContent.map(item => item.remove()));
+    } catch {
+        console.log(`Wiki Update: Couldn't retrieve content for ${username}`);
+    }
+}
+
 export async function handleClassificationChanges (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
     const unbannedUsers = event.data?.unbannedUsers as string[] | undefined ?? [];
     const bannedUsers = event.data?.bannedUsers as string[] | undefined ?? [];
 
+    if (unbannedUsers.length === 0 && bannedUsers.length === 0) {
+        console.log("Wiki Update: No classification changes to process");
+        return;
+    }
+
+    const subredditName = context.subredditName ?? (await context.reddit.getCurrentSubreddit()).name;
+
+    const promises: Promise<unknown>[] = [];
+
     if (unbannedUsers.length > 0) {
         console.log(`Wiki Update: Checking unbans for ${unbannedUsers.length} ${pluralize("user", unbannedUsers.length)}`);
-
-        const subredditName = context.subredditName ?? (await context.reddit.getCurrentSubreddit()).name;
-
-        for (const username of unbannedUsers) {
-            const userBannedByApp = await wasUserBannedByApp(username, context);
-            if (!userBannedByApp) {
-                console.log(`Wiki Update: ${username} was not banned by this app.`);
-                continue;
-            }
-
-            if (await isBanned(username, context)) {
-                await context.reddit.unbanUser(username, subredditName);
-                console.log(`Wiki Update: Unbanned ${username}`);
-            }
-        }
-
-        await removeRecordOfBan(unbannedUsers, context);
+        promises.push(...unbannedUsers.map(username => handleUnban(username, subredditName, context)));
+        promises.push(removeRecordOfBan(unbannedUsers, context));
     }
 
     const settings = await context.settings.getAll();
 
     if (bannedUsers.length > 0 && settings[AppSetting.RemoveRecentContent]) {
-        for (const username of bannedUsers) {
-            try {
-                const isCurrentlyBanned = await isBanned(username, context);
-                if (isCurrentlyBanned) {
-                    console.log(`Wiki Update: ${username} is already banned.`);
-                    continue;
-                }
+        // Take 5 users to process immediately, and schedule the rest
+        const userCount = 5;
+        const usersToProcess = bannedUsers.slice(0, userCount);
+        promises.push(...usersToProcess.map(username => handleBan(username, subredditName, settings, context)));
 
-                const userContent = await context.reddit.getCommentsAndPostsByUser({
-                    username,
-                    timeframe: "week",
-                }).all();
-
-                const recentUserContent = userContent.filter(item => item.createdAt > subWeeks(new Date(), 1));
-
-                const localContent = userContent.filter(item => item.subredditName === context.subredditName);
-                if (localContent.length === 0) {
-                    console.log(`Wiki Update: ${username} has no recent content on subreddit to remove.`);
-                    continue;
-                }
-
-                if (localContent.some(item => item.distinguishedBy)) {
-                    console.log(`Wiki Update: ${username} has distinguished content on subreddit. Skipping.`);
-                    continue;
-                }
-
-                const subredditName = context.subredditName ?? (await context.reddit.getCurrentSubreddit()).name;
-                let message = settings[AppSetting.BanMessage] as string | undefined ?? CONFIGURATION_DEFAULTS.banMessage;
-                message = replaceAll(message, "{subreddit}", subredditName);
-                message = replaceAll(message, "{account}", username);
-                message = replaceAll(message, "{link}", username);
-
-                let banNote = CONFIGURATION_DEFAULTS.banNote;
-                banNote = replaceAll(banNote, "{me}", context.appName);
-                banNote = replaceAll(banNote, "{date}", formatDate(new Date(), "yyyy-MM-dd"));
-
-                await context.reddit.banUser({
-                    subredditName,
-                    username,
-                    context: localContent[0].id,
-                    message,
-                    note: banNote,
-                });
-
-                await recordBan(username, context);
-
-                console.log(`Wiki Update: ${username} has been banned following wiki update.`);
-
-                await Promise.all(recentUserContent.map(item => item.remove()));
-            } catch {
-                console.log(`Wiki Update: Couldn't retrieve content for ${username}`);
-            }
-        }
+        const remainingUsers = bannedUsers.slice(userCount);
+        await context.scheduler.runJob({
+            name: HANDLE_CLASSIFICATION_CHANGES_JOB,
+            runAt: new Date(),
+            data: { bannedUsers: remainingUsers, unbannedUsers: [] },
+        });
     }
+
+    await Promise.all(promises);
+
+    console.log("Wiki Update: Classification changes handled");
 }
