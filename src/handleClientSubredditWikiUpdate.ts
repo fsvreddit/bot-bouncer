@@ -71,15 +71,14 @@ async function handleBan (username: string, subredditName: string, settings: Set
             timeframe: "week",
         }).all();
 
-        const recentUserContent = userContent.filter(item => item.createdAt > subWeeks(new Date(), 1));
+        const recentLocalContent = userContent.filter(item => item.subredditName === context.subredditName && item.createdAt > subWeeks(new Date(), 1));
 
-        const localContent = userContent.filter(item => item.subredditName === context.subredditName);
-        if (localContent.length === 0) {
+        if (recentLocalContent.length === 0) {
             console.log(`Wiki Update: ${username} has no recent content on subreddit to remove.`);
             return;
         }
 
-        if (localContent.some(item => item.distinguishedBy)) {
+        if (recentLocalContent.some(item => item.distinguishedBy)) {
             console.log(`Wiki Update: ${username} has distinguished content on subreddit. Skipping.`);
             return;
         }
@@ -96,7 +95,7 @@ async function handleBan (username: string, subredditName: string, settings: Set
         await context.reddit.banUser({
             subredditName,
             username,
-            context: localContent[0].id,
+            context: recentLocalContent[0].id,
             message,
             note: banNote,
         });
@@ -105,9 +104,10 @@ async function handleBan (username: string, subredditName: string, settings: Set
 
         console.log(`Wiki Update: ${username} has been banned following wiki update.`);
 
-        await Promise.all(recentUserContent.map(item => item.remove()));
-    } catch {
+        await Promise.all(recentLocalContent.map(item => item.remove()));
+    } catch (error) {
         console.log(`Wiki Update: Couldn't retrieve content for ${username}`);
+        console.error(error);
     }
 }
 
