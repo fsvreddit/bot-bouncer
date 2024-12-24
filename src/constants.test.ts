@@ -1,4 +1,5 @@
 import { PostFlairTemplate } from "./constants.js";
+import { UserStatus } from "./dataStore.js";
 
 test("All flair templates match regex", () => {
     const flairTemplateRegex = /^[0-9a-z]{8}(?:-[0-9a-z]{4}){4}[0-9a-z]{8}$/;
@@ -9,4 +10,10 @@ test("All flair templates match regex", () => {
         .map(item => item.key);
 
     expect(actual).toEqual(expected);
+});
+
+test("All statuses have a corresponding flair template", () => {
+    const flairTemplateNames = Object.keys(PostFlairTemplate);
+    const statusNames = Object.keys(UserStatus);
+    expect(flairTemplateNames).toEqual(statusNames);
 });
