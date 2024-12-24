@@ -13,6 +13,12 @@ export async function handleControlSubFlairUpdate (event: PostFlairUpdate, conte
         return;
     }
 
+    const appUser = await context.reddit.getAppUser();
+
+    if (event.post.authorId !== appUser.id) {
+        return;
+    }
+
     const postFlair = event.post.linkFlair?.text as UserStatus | undefined;
     if (!postFlair) {
         return;
