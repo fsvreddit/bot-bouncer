@@ -3,7 +3,7 @@ import { compact, countBy, max, sum, toPairs } from "lodash";
 import pako from "pako";
 import { setCleanupForUsers } from "./cleanup.js";
 import { CONTROL_SUBREDDIT, HANDLE_CLASSIFICATION_CHANGES_JOB } from "./constants.js";
-import { subHours } from "date-fns";
+import { addWeeks, subHours } from "date-fns";
 import pluralize from "pluralize";
 
 export const USER_STORE = "UserStore";
@@ -12,6 +12,7 @@ const AGGREGATE_STORE = "AggregateStore";
 export const BAN_STORE = "BanStore";
 const WIKI_UPDATE_DUE = "WikiUpdateDue";
 export const WIKI_PAGE = "botbouncer";
+const MAX_WIKI_PAGE_SIZE = 524288;
 
 export enum UserStatus {
     Pending = "pending",
@@ -162,13 +163,19 @@ export async function updateWikiPage (_: unknown, context: JobContext) {
         return;
     }
 
-    // Convert newer statuses to "Pending" to avoid data type issues.
-    for (const entry of entries) {
-        const [username, status] = entry;
-        if (status as UserStatus === UserStatus.Declined || status as UserStatus === UserStatus.Inactive) {
-            data[username] = UserStatus.Pending;
-        }
-    }
+    // Data compaction - TODO
+    // for (const entry of entries) {
+    //     const [username, jsonData] = entry;
+    //     const status = JSON.parse(jsonData) as UserDetails;
+
+    //     status.operator = "";
+    //     delete status.submitter;
+    //     if (status.lastUpdate < subWeeks(new Date(), 1).getTime()) {
+    //         status.lastUpdate = 0;
+    //     }
+
+    //     data[username] = JSON.stringify(status);
+    // }
 
     const content = compressData(data);
     if (content === wikiPage?.content) {
@@ -196,6 +203,20 @@ export async function updateWikiPage (_: unknown, context: JobContext) {
     await context.redis.del(WIKI_UPDATE_DUE);
 
     console.log("Wiki page has been updated");
+
+    if (content.length > MAX_WIKI_PAGE_SIZE * 0.5) {
+        const spaceAlertKey = "wikiSpaceAlert";
+        const alertDone = await context.redis.get(spaceAlertKey);
+        if (!alertDone) {
+            const message = `The botbouncer wiki page is now at ${Math.round(content.length / MAX_WIKI_PAGE_SIZE * 100)}% of its maximum size. It's time to rethink how data is stored.\n\nI will modmail you again in a week.`;
+            await context.reddit.modMail.createModInboxConversation({
+                subject: "r/BotBouncer wiki page size alert",
+                bodyMarkdown: message,
+                subredditId: context.subredditId,
+            });
+            await context.redis.set(spaceAlertKey, new Date().getTime().toString(), { expiration: addWeeks(new Date(), 1) });
+        }
+    }
 }
 
 function decompressData (blob: string): Record<string, string> {
