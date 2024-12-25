@@ -1,5 +1,5 @@
 import { JobContext, JSONObject, ScheduledJobEvent, SettingsValues, TriggerContext } from "@devvit/public-api";
-import { formatDate, subWeeks } from "date-fns";
+import { addSeconds, formatDate, subWeeks } from "date-fns";
 import pluralize from "pluralize";
 import { BAN_STORE } from "./dataStore.js";
 import { setCleanupForUsers } from "./cleanup.js";
@@ -139,11 +139,13 @@ export async function handleClassificationChanges (event: ScheduledJobEvent<JSON
         promises.push(...usersToProcess.map(username => handleBan(username, subredditName, settings, context)));
 
         const remainingUsers = bannedUsers.slice(userCount);
-        await context.scheduler.runJob({
-            name: HANDLE_CLASSIFICATION_CHANGES_JOB,
-            runAt: new Date(),
-            data: { bannedUsers: remainingUsers, unbannedUsers: [] },
-        });
+        if (remainingUsers.length > 0) {
+            await context.scheduler.runJob({
+                name: HANDLE_CLASSIFICATION_CHANGES_JOB,
+                runAt: addSeconds(new Date(), 5),
+                data: { bannedUsers: remainingUsers, unbannedUsers: [] },
+            });
+        }
     }
 
     await Promise.all(promises);
