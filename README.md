@@ -6,10 +6,6 @@ If you add Bot Bouncer to your sub via the Dev Platform app directory, it will w
 
 Bot Bouncer is open source. You can find the source code on GitHub [here](https://github.com/fsvreddit/bot-bouncer).
 
-## How do I add Bot Bouncer?
-
-Bot Bouncer can be installed from the Dev Platform app directory [here](https://developers.reddit.com/apps/bot-bouncer). Please do not try and invite the app to your sub through the moderators list.
-
 ## How do I submit a bot for review?
 
 First, I recommend **reporting the account**. Bot accounts should be reported to Reddit as Spam->Harmful use of bots or AI. Reddit's spam detection is getting better all the time and in many cases, the bot's account will be shadowbanned immediately.
@@ -31,7 +27,7 @@ Optionally, if you have turned on the "Ban and remove recent content" option con
 
 The easiest way is to add the account as an Approved Submitter to your subreddit - Bot Bouncer will never ban approved submitters or moderators.
 
-You can also set a user flair with a CSS class that ends with `proof`. This is so that legacy flairs such as `botbustproof` will automatically whitelist the user.
+You can also set a user flair with a CSS class that ends with `proof`. This is so that legacy flairs such as `botbustproof` will prevent a user from being banned.
 
 ## What kind of accounts get banned by Bot Bouncer?
 
@@ -42,10 +38,6 @@ Bot Bouncer will not ban useful service bots, such as ones that respond to user 
 ## What modmail features are supported?
 
 If a user that has been banned by Bot Bouncer writes in to your subreddit, Bot Bouncer will add a private mod note to the modmail thread that links to the submission on /r/BotBouncer, and recommending that the user appeals via /r/BotBouncer. This is to save time appealing from all subreddits that the user has been banned from.
-
-## I've been banned by Bot Bouncer. How do I contest this?
-
-Write in to /r/BotBouncer's modmail. Your account status will be reviewed and if you are deemed human, you will be unbanned from any subreddit that Bot Bouncer banned you in.
 
 ## I think an account that was classified as human is actually a harmful bot. What should I do?
 
