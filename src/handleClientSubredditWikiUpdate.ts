@@ -1,7 +1,7 @@
 import { JobContext, JSONObject, ScheduledJobEvent, SettingsValues, TriggerContext } from "@devvit/public-api";
 import { addSeconds, formatDate, subWeeks } from "date-fns";
 import pluralize from "pluralize";
-import { BAN_STORE } from "./dataStore.js";
+import { BAN_STORE, getUserStatus, UserStatus } from "./dataStore.js";
 import { setCleanupForUsers } from "./cleanup.js";
 import { AppSetting, CONFIGURATION_DEFAULTS } from "./settings.js";
 import { isBanned, replaceAll } from "./utility.js";
@@ -32,6 +32,12 @@ export async function recordWhitelistUnban (username: string, context: TriggerCo
     if (!whitelistEnabled) {
         return;
     }
+
+    const currentStatus = await getUserStatus(username, context);
+    if (currentStatus?.userStatus !== UserStatus.Banned) {
+        return;
+    }
+
     await context.redis.zAdd(UNBAN_WHITELIST, { member: username, score: new Date().getTime() });
     await setCleanupForUsers([username], context);
 }
