@@ -9,7 +9,6 @@ import { cleanupDeletedAccounts } from "./cleanup.js";
 import { handleModAction } from "./handleModAction.js";
 import { processPendingQueue } from "./pendingQueue.js";
 import { handleModmail } from "./modmail.js";
-import { handleControlSubPostDelete } from "./handleControlSubPostDelete.js";
 import { handleControlSubAccountEvaluation } from "./handleControlSubAccountEvaluation.js";
 import { handleReportUser, reportFormHandler } from "./handleReportUser.js";
 import { processExternalSubmissions } from "./externalSubmissions.js";
@@ -42,11 +41,6 @@ Devvit.addTrigger({
 Devvit.addTrigger({
     event: "PostFlairUpdate",
     onEvent: handleControlSubFlairUpdate,
-});
-
-Devvit.addTrigger({
-    event: "PostDelete",
-    onEvent: handleControlSubPostDelete,
 });
 
 Devvit.addTrigger({
