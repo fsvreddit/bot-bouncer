@@ -135,6 +135,10 @@ export async function writeAggregateToWikiPage (_: unknown, context: JobContext)
 }
 
 async function queueWikiUpdate (context: TriggerContext) {
+    if (context.subredditName !== CONTROL_SUBREDDIT) {
+        return;
+    }
+
     await context.redis.set(WIKI_UPDATE_DUE, "true");
 }
 
