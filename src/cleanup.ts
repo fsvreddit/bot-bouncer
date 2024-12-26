@@ -72,7 +72,7 @@ export async function cleanupDeletedAccounts (_: unknown, context: TriggerContex
             }
         }
 
-        // Users still in pending status should get checked every 3 hours.
+        // Users still in pending status should get checked more rapidly.
         if (pendingUsers.length > 0) {
             await setCleanupForUsers(pendingUsers, context, false, 1);
         }
@@ -171,18 +171,11 @@ async function handleDeletedAccountsControlSub (usernames: string[], context: Tr
                 continue;
             }
 
-            const newComment = await post.addComment({
-                text: "This post has been deleted, because the account it relates to is suspended, shadowbanned or deleted.",
+            await context.reddit.setPostFlair({
+                postId: post.id,
+                subredditName: CONTROL_SUBREDDIT,
+                flairTemplateId: status.userStatus === UserStatus.Pending ? PostFlairTemplate.Retired : PostFlairTemplate.Purged,
             });
-
-            await Promise.all([
-                context.reddit.setPostFlair({
-                    postId: post.id,
-                    subredditName: CONTROL_SUBREDDIT,
-                    flairTemplateId: status.userStatus === UserStatus.Pending ? PostFlairTemplate.Retired : PostFlairTemplate.Purged,
-                }),
-                newComment.distinguish(true),
-            ]);
         } catch {
             console.log(`Unable to set flair for ${username} on post ${status.trackingPostId}`);
         }
