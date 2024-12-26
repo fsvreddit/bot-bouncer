@@ -1,9 +1,9 @@
-import { JobContext, TriggerContext, WikiPagePermissionLevel, WikiPage } from "@devvit/public-api";
+import { JobContext, TriggerContext, WikiPagePermissionLevel, WikiPage, ScheduledJobEvent, JSONObject } from "@devvit/public-api";
 import { compact, max, sum, toPairs } from "lodash";
 import pako from "pako";
 import { setCleanupForUsers } from "./cleanup.js";
 import { CONTROL_SUBREDDIT, HANDLE_CLASSIFICATION_CHANGES_JOB } from "./constants.js";
-import { addWeeks, subHours } from "date-fns";
+import { addWeeks, subDays, subHours } from "date-fns";
 import pluralize from "pluralize";
 
 const USER_STORE = "UserStore";
@@ -68,7 +68,6 @@ export async function deleteUserStatus (usernames: string[], context: TriggerCon
 
     const promises = [
         context.redis.hDel(USER_STORE, usernames),
-        queueWikiUpdate(context),
     ];
 
     const postsToDeleteTrackingFor = compact(currentStatuses.map(item => item?.trackingPostId));
@@ -144,9 +143,10 @@ function compressData (value: Record<string, string>): string {
     return Buffer.from(pako.deflate(JSON.stringify(value), { level: 9 })).toString("base64");
 }
 
-export async function updateWikiPage (_: unknown, context: JobContext) {
+export async function updateWikiPage (event: ScheduledJobEvent<JSONObject>, context: JobContext) {
+    const forceUpdate = event.data.force as boolean | undefined ?? false;
     const updateDue = await context.redis.get(WIKI_UPDATE_DUE);
-    if (!updateDue) {
+    if (!updateDue && !forceUpdate) {
         return;
     }
 
@@ -157,6 +157,11 @@ export async function updateWikiPage (_: unknown, context: JobContext) {
         wikiPage = await context.reddit.getWikiPage(subredditName, WIKI_PAGE);
     } catch {
         //
+    }
+
+    if (wikiPage?.revisionDate && wikiPage.revisionDate > subDays(new Date(), 1) && forceUpdate) {
+        // No need to run the monthly forced update, the page has been updated recently.
+        return;
     }
 
     const data = await context.redis.hGetAll(USER_STORE);
@@ -233,6 +238,10 @@ function decompressData (blob: string): Record<string, string> {
 }
 
 export async function updateLocalStoreFromWiki (_: unknown, context: JobContext) {
+    if (context.subredditName === CONTROL_SUBREDDIT) {
+        return;
+    }
+
     const lastUpdateKey = "lastUpdateFromWiki";
     const lastUpdateDateKey = "lastUpdateDateKey";
 

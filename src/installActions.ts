@@ -31,6 +31,12 @@ async function addControlSubredditJobs (context: TriggerContext) {
     });
 
     await context.scheduler.runJob({
+        name: UPDATE_WIKI_PAGE_JOB,
+        cron: "5 5 1 * *",
+        data: { force: true },
+    });
+
+    await context.scheduler.runJob({
         name: PROCESS_PENDING_QUEUE,
         cron: "0/15 * * * *",
     });
