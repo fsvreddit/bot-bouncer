@@ -1,4 +1,4 @@
-import { GetConversationResponse, ModMailConversationState, TriggerContext } from "@devvit/public-api";
+import { GetConversationResponse, ModMailConversationState, TriggerContext, User } from "@devvit/public-api";
 import { ModMail } from "@devvit/protos";
 import { addMonths } from "date-fns";
 import { CONTROL_SUBREDDIT } from "./constants.js";
@@ -80,13 +80,26 @@ async function handleControlSubredditModmail (username: string, conversationId: 
         isInternal: true,
     });
 
+    let user: User | undefined;
+    try {
+        user = await context.reddit.getUserByUsername(username);
+    } catch {
+        //
+    }
+
     if (currentStatus.userStatus === UserStatus.Banned) {
+        const message = user ? CONFIGURATION_DEFAULTS.appealMessage : CONFIGURATION_DEFAULTS.appealShadowbannedMessage;
+
         await context.reddit.modMail.reply({
-            body: CONFIGURATION_DEFAULTS.appealMessage,
+            body: message,
             conversationId,
             isInternal: false,
             isAuthorHidden: false,
         });
+
+        if (!user) {
+            await context.reddit.modMail.archiveConversation(conversationId);
+        }
     }
 
     return true;
