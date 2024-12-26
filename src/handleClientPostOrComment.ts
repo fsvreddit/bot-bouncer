@@ -216,5 +216,5 @@ async function checkForBotMentions (event: CommentSubmit, context: TriggerContex
 
     const parentItem = await getPostOrCommentById(parentId, context);
 
-    await context.redis.set(`botmention:${parentItem.id}`, parentItem.authorName, { expiration: addMinutes(new Date(), 1) });
+    await context.redis.set(`botmention:${parentItem.id}`, parentItem.authorName, { expiration: addMinutes(new Date(), 5) });
 }
