@@ -94,7 +94,7 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
     await context.reddit.setPostFlair({
         subredditName: CONTROL_SUBREDDIT,
         postId,
-        flairTemplateId: PostFlairTemplate.Banned,
+        flairTemplateId: canAutoBan ? PostFlairTemplate.Banned : PostFlairTemplate.Pending,
     });
 
     console.log(`Evaluator: Post flair changed for ${username}`);

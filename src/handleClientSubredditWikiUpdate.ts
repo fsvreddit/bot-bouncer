@@ -1,13 +1,14 @@
 import { JobContext, JSONObject, ScheduledJobEvent, SettingsValues, TriggerContext } from "@devvit/public-api";
 import { addSeconds, formatDate, subWeeks } from "date-fns";
 import pluralize from "pluralize";
-import { BAN_STORE, getUserStatus, UserStatus } from "./dataStore.js";
+import { getUserStatus, UserStatus } from "./dataStore.js";
 import { setCleanupForUsers } from "./cleanup.js";
 import { AppSetting, CONFIGURATION_DEFAULTS } from "./settings.js";
 import { isBanned, replaceAll } from "./utility.js";
 import { HANDLE_CLASSIFICATION_CHANGES_JOB } from "./constants.js";
 
 const UNBAN_WHITELIST = "UnbanWhitelist";
+const BAN_STORE = "BanStore";
 
 export async function recordBan (username: string, context: TriggerContext) {
     await context.redis.zAdd(BAN_STORE, { member: username, score: new Date().getTime() });

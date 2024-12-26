@@ -1,17 +1,16 @@
 import { JobContext, TriggerContext, WikiPagePermissionLevel, WikiPage } from "@devvit/public-api";
-import { compact, countBy, max, sum, toPairs } from "lodash";
+import { compact, max, sum, toPairs } from "lodash";
 import pako from "pako";
 import { setCleanupForUsers } from "./cleanup.js";
 import { CONTROL_SUBREDDIT, HANDLE_CLASSIFICATION_CHANGES_JOB } from "./constants.js";
 import { addWeeks, subHours } from "date-fns";
 import pluralize from "pluralize";
 
-export const USER_STORE = "UserStore";
+const USER_STORE = "UserStore";
 const POST_STORE = "PostStore";
 const AGGREGATE_STORE = "AggregateStore";
-export const BAN_STORE = "BanStore";
 const WIKI_UPDATE_DUE = "WikiUpdateDue";
-export const WIKI_PAGE = "botbouncer";
+const WIKI_PAGE = "botbouncer";
 const MAX_WIKI_PAGE_SIZE = 524288;
 
 export enum UserStatus {
