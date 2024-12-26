@@ -49,6 +49,8 @@ export async function reportFormHandler (event: FormOnSubmitEvent<JSONObject>, c
 
     const user = await getUserOrUndefined(target.authorName, context);
 
+    const controlSubSettings = await getControlSubSettings(context);
+
     if (!user) {
         context.ui.showToast(`${target.authorName} appears to be shadowbanned or suspended.`);
         return;
@@ -60,7 +62,7 @@ export async function reportFormHandler (event: FormOnSubmitEvent<JSONObject>, c
         sort: "new",
     }).all();
 
-    if (userContent.filter(item => item.createdAt > subMonths(new Date(), 1)).length === 0) {
+    if (userContent.filter(item => item.createdAt > subMonths(new Date(), controlSubSettings.maxInactivityMonths ?? 3)).length === 0) {
         context.ui.showToast("You can only report users with recent content on their history.");
         return;
     }

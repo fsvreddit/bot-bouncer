@@ -60,7 +60,7 @@ export async function handleControlSubSubmission (event: PostCreate, context: Tr
             sort: "new",
         }).all();
 
-        if (userContent.filter(item => item.createdAt > subMonths(new Date(), 1)).length === 0) {
+        if (userContent.filter(item => item.createdAt > subMonths(new Date(), controlSubSettings.maxInactivityMonths ?? 3)).length === 0) {
             submissionResponse = `Hi, thanks for your submission.\n\n${username} has no recent content on their history, so may be retired. Submissions can only be made for active users.`;
         }
     }

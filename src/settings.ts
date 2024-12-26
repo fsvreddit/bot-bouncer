@@ -81,6 +81,7 @@ export const appSettings: SettingsFormField[] = [
 
 interface ControlSubSettings {
     evaluationDisabled: boolean;
+    maxInactivityMonths?: number;
     trustedSubmitters: string[];
     reporterBlacklist: string[];
 }
@@ -89,6 +90,7 @@ const schema: JSONSchemaType<ControlSubSettings> = {
     type: "object",
     properties: {
         evaluationDisabled: { type: "boolean" },
+        maxInactivityMonths: { type: "number", nullable: true },
         trustedSubmitters: { type: "array", items: { type: "string" } },
         reporterBlacklist: { type: "array", items: { type: "string" } },
     },
@@ -118,6 +120,7 @@ export async function getControlSubSettings (context: TriggerContext): Promise<C
 
     const result: ControlSubSettings = {
         evaluationDisabled: false,
+        maxInactivityMonths: 3,
         trustedSubmitters: [],
         reporterBlacklist: [],
     };

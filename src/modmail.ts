@@ -1,10 +1,10 @@
-import { GetConversationResponse, ModMailConversationState, TriggerContext, User } from "@devvit/public-api";
+import { GetConversationResponse, ModMailConversationState, TriggerContext } from "@devvit/public-api";
 import { ModMail } from "@devvit/protos";
 import { addMonths } from "date-fns";
 import { CONTROL_SUBREDDIT } from "./constants.js";
 import { getUserStatus, UserStatus } from "./dataStore.js";
 import { wasUserBannedByApp } from "./handleClientSubredditWikiUpdate.js";
-import { isBanned, replaceAll } from "./utility.js";
+import { getUserOrUndefined, isBanned, replaceAll } from "./utility.js";
 import { CONFIGURATION_DEFAULTS } from "./settings.js";
 
 function conversationHandledRedisKey (conversationId: string) {
@@ -80,12 +80,7 @@ async function handleControlSubredditModmail (username: string, conversationId: 
         isInternal: true,
     });
 
-    let user: User | undefined;
-    try {
-        user = await context.reddit.getUserByUsername(username);
-    } catch {
-        //
-    }
+    const user = await getUserOrUndefined(username, context);
 
     if (currentStatus.userStatus === UserStatus.Banned) {
         const message = user ? CONFIGURATION_DEFAULTS.appealMessage : CONFIGURATION_DEFAULTS.appealShadowbannedMessage;

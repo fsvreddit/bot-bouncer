@@ -97,11 +97,9 @@ export async function processExternalSubmissions (_: unknown, context: JobContex
 
     const currentSubmissionList = JSON.parse(wikiPage?.content ?? "[]") as ExternalSubmission[];
 
-    const currentUserList = JSON.parse(wikiPage?.content ?? "[]") as ExternalSubmission[];
-
     const ajv = new Ajv.default();
     const validate = ajv.compile(schema);
-    if (!validate(currentUserList)) {
+    if (!validate(currentSubmissionList)) {
         console.error("External submission list is invalid.", ajv.errorsText(validate.errors));
         return;
     }
