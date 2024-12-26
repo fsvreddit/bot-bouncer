@@ -54,8 +54,10 @@ export async function setUserStatus (username: string, details: UserDetails, con
 
     if (details.userStatus !== currentStatus?.userStatus) {
         promises.push(updateAggregate(details.userStatus, 1, context));
+        console.log(`Aggregate for ${details.userStatus} incremented`);
         if (currentStatus) {
             promises.push(updateAggregate(currentStatus.userStatus, -1, context));
+            console.log(`Aggregate for ${currentStatus.userStatus} decremented`);
         }
     }
 
@@ -65,10 +67,7 @@ export async function setUserStatus (username: string, details: UserDetails, con
 export async function deleteUserStatus (usernames: string[], context: TriggerContext) {
     const currentStatuses = await Promise.all(usernames.map(username => getUserStatus(username, context)));
 
-    const decrementsNeeded = toPairs(countBy(compact(currentStatuses.map(item => item?.userStatus))));
-
     const promises = [
-        ...decrementsNeeded.map(([status, count]) => context.redis.zIncrBy(AGGREGATE_STORE, status, count)),
         context.redis.hDel(USER_STORE, usernames),
         queueWikiUpdate(context),
     ];
