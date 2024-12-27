@@ -1,6 +1,6 @@
 import { AppInstall, AppUpgrade } from "@devvit/protos";
 import { TriggerContext } from "@devvit/public-api";
-import { CLEANUP_JOB, CLEANUP_JOB_CRON, CONTROL_SUBREDDIT, PROCESS_PENDING_QUEUE, UPDATE_DATASTORE_FROM_WIKI, UPDATE_STATISTICS_PAGE, UPDATE_WIKI_PAGE_JOB } from "./constants.js";
+import { CLEANUP_JOB, CLEANUP_JOB_CRON, CONTROL_SUBREDDIT, UPDATE_DATASTORE_FROM_WIKI, UPDATE_STATISTICS_PAGE, UPDATE_WIKI_PAGE_JOB } from "./constants.js";
 import { scheduleAdhocCleanup } from "./cleanup.js";
 import { createExternalSubmissionJob } from "./externalSubmissions.js";
 
@@ -34,11 +34,6 @@ async function addControlSubredditJobs (context: TriggerContext) {
         name: UPDATE_WIKI_PAGE_JOB,
         cron: "5 5 1 * *",
         data: { force: true },
-    });
-
-    await context.scheduler.runJob({
-        name: PROCESS_PENDING_QUEUE,
-        cron: "0/15 * * * *",
     });
 
     await context.scheduler.runJob({
