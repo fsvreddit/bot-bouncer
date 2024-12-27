@@ -114,6 +114,13 @@ export async function scheduleAdhocCleanup (context: TriggerContext) {
     if (nextCleanupJobTime < subMinutes(nextScheduledTime, 5)) {
         // It's worth running an ad-hoc job.
         console.log(`Cleanup: Next ad-hoc cleanup: ${nextCleanupJobTime.toUTCString()}`);
+
+        const jobs = await context.scheduler.listJobs();
+        const cleanupJobs = jobs.filter(job => job.name === ADHOC_CLEANUP_JOB);
+        if (cleanupJobs.length > 0) {
+            await Promise.all(cleanupJobs.map(job => context.scheduler.cancelJob(job.id)));
+        }
+
         await context.scheduler.runJob({
             name: ADHOC_CLEANUP_JOB,
             runAt: nextCleanupJobTime > new Date() ? nextCleanupJobTime : new Date(),

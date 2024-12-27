@@ -1,7 +1,7 @@
 import { JobContext, TriggerContext, WikiPagePermissionLevel, WikiPage, ScheduledJobEvent, JSONObject } from "@devvit/public-api";
 import { compact, max, sum, toPairs } from "lodash";
 import pako from "pako";
-import { setCleanupForUsers } from "./cleanup.js";
+import { scheduleAdhocCleanup, setCleanupForUsers } from "./cleanup.js";
 import { CONTROL_SUBREDDIT, HANDLE_CLASSIFICATION_CHANGES_JOB } from "./constants.js";
 import { addWeeks, subDays, subHours } from "date-fns";
 import pluralize from "pluralize";
@@ -61,6 +61,7 @@ export async function setUserStatus (username: string, details: UserDetails, con
     }
 
     await Promise.all(promises);
+    await scheduleAdhocCleanup(context);
 }
 
 export async function deleteUserStatus (usernames: string[], context: TriggerContext) {
