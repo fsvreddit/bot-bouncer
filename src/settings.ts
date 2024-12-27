@@ -98,7 +98,7 @@ const schema: JSONSchemaType<ControlSubSettings> = {
 };
 
 export async function getControlSubSettings (context: TriggerContext): Promise<ControlSubSettings> {
-    const wikiPageName = "controlSubSettings";
+    const wikiPageName = "controlsubsettings";
     let wikiPage: WikiPage | undefined;
     try {
         wikiPage = await context.reddit.getWikiPage(CONTROL_SUBREDDIT, wikiPageName);
@@ -139,4 +139,48 @@ export async function getControlSubSettings (context: TriggerContext): Promise<C
     });
 
     return result;
+}
+
+async function reportControlSubValidationError (username: string, message: string, context: TriggerContext) {
+    let messageBody = `Hi ${username},\n\nThere is an issue with the control sub settings on r/${CONTROL_SUBREDDIT}:\n\n> ${message}\n\n`;
+    messageBody += "Please correct this issue as soon as possible. The settings can be found [here](https://www.reddit.com/r/BotBouncer/wiki/controlsubsettings).\n\n";
+
+    await context.reddit.sendPrivateMessage({
+        subject: "Validation error in r/BotBouncer control sub settings",
+        text: messageBody,
+        to: username,
+    });
+}
+
+export async function validateControlSubConfigChange (username: string, context: TriggerContext) {
+    const redisKey = "lastControlSubRevision";
+    const lastRevision = await context.redis.get(redisKey);
+
+    let wikiPage: WikiPage | undefined;
+    try {
+        wikiPage = await context.reddit.getWikiPage(CONTROL_SUBREDDIT, "controlsubsettings");
+    } catch {
+        //
+    }
+
+    if (!wikiPage || wikiPage.revisionId === lastRevision) {
+        return;
+    }
+
+    let json: ControlSubSettings | undefined;
+    try {
+        json = JSON.parse(wikiPage.content) as ControlSubSettings;
+    } catch {
+        await reportControlSubValidationError(username, "Invalid JSON in control sub settings", context);
+    }
+
+    if (json) {
+        const ajv = new Ajv.default();
+        const validate = ajv.compile(schema);
+        if (!validate(json)) {
+            await reportControlSubValidationError(username, `Control sub settings are invalid: ${ajv.errorsText(validate.errors)}`, context);
+        }
+    }
+
+    await context.redis.set(redisKey, wikiPage.revisionId);
 }

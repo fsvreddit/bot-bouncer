@@ -3,6 +3,7 @@ import { ModAction } from "@devvit/protos";
 import { CONTROL_SUBREDDIT } from "./constants.js";
 import { recordWhitelistUnban, removeRecordOfBan } from "./handleClientSubredditWikiUpdate.js";
 import { createExternalSubmissionJob } from "./externalSubmissions.js";
+import { validateControlSubConfigChange } from "./settings.js";
 
 export async function handleModAction (event: ModAction, context: TriggerContext) {
     /**
@@ -16,8 +17,15 @@ export async function handleModAction (event: ModAction, context: TriggerContext
     /**
      * When the wiki gets revised on the control subreddit, it may be because another
      * subreddit has filed in an external submission. Handle that eventuality.
+     *
+     * It may also be because the control sub configuration has changed, in which case
+     * check that too.
      */
     if (event.action === "wikirevise" && context.subredditName === CONTROL_SUBREDDIT) {
-        await createExternalSubmissionJob(context);
+        if (event.moderator?.name === context.appName) {
+            await createExternalSubmissionJob(context);
+        } else if (event.moderator) {
+            await validateControlSubConfigChange(event.moderator.name, context);
+        }
     }
 }
