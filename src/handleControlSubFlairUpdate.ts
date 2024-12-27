@@ -24,6 +24,11 @@ export async function handleControlSubFlairUpdate (event: PostFlairUpdate, conte
         return;
     }
 
+    const ignoreCheck = await context.redis.get(`ignoreflairchange:${event.post.id}`);
+    if (ignoreCheck) {
+        return;
+    }
+
     const username = getUsernameFromUrl(event.post.url);
     if (!username) {
         return;

@@ -168,6 +168,8 @@ async function handleDeletedAccountsControlSub (usernames: string[], context: Tr
 
             console.log(`Cleanup: Post deleted for ${username}`);
 
+            await context.redis.set(`ignoreflairchange:${post.id}`, "true", { expiration: addHours(new Date(), 1) });
+
             if (status.userStatus === newStatus) {
                 continue;
             }

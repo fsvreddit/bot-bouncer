@@ -143,8 +143,8 @@ function compressData (value: Record<string, string>): string {
     return Buffer.from(pako.deflate(JSON.stringify(value), { level: 9 })).toString("base64");
 }
 
-export async function updateWikiPage (event: ScheduledJobEvent<JSONObject>, context: JobContext) {
-    const forceUpdate = event.data.force as boolean | undefined ?? false;
+export async function updateWikiPage (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
+    const forceUpdate = event.data?.force as boolean | undefined ?? false;
     const updateDue = await context.redis.get(WIKI_UPDATE_DUE);
     if (!updateDue && !forceUpdate) {
         return;
