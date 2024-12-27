@@ -4,6 +4,11 @@ import { CONTROL_SUBREDDIT, PostFlairTemplate } from "./constants.js";
 import { getUserOrUndefined } from "./utility.js";
 import { ALL_EVALUATORS } from "./userEvaluation/allEvaluators.js";
 
+interface EvaluatorStats {
+    hitCount: number;
+    lastHit: number;
+}
+
 export async function handleControlSubAccountEvaluation (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
         return;
@@ -78,6 +83,21 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
         return;
     }
 
+    const redisKey = "EvaluatorStats";
+    const existingStatsVal = await context.redis.get(redisKey);
+
+    const allStats: Record<string, EvaluatorStats> = existingStatsVal ? JSON.parse(existingStatsVal) as Record<string, EvaluatorStats> : {};
+
+    for (const bot of detectedBots) {
+        const botStats = allStats[bot] ?? { hitCount: 0, lastHit: 0 };
+        botStats.hitCount++;
+        botStats.lastHit = new Date().getTime();
+        allStats[bot] = botStats;
+    }
+
+    await context.redis.set(redisKey, JSON.stringify(allStats));
+    console.log("Evaluator: Stats updated", allStats);
+
     if (userItems.length < 10) {
         console.log(`Evaluator: ${username} does not have enough content for automatic evaluation.`);
         const post = await context.reddit.getPostById(postId);
@@ -89,12 +109,13 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
         console.log(`Evaluator: Cannot autoban.`);
         const post = await context.reddit.getPostById(postId);
         await context.reddit.report(post, { reason: `Possible bot via evaluation, tagged as no-auto-ban: ${detectedBots.join(", ")}` });
+        return;
     }
 
     await context.reddit.setPostFlair({
         subredditName: CONTROL_SUBREDDIT,
         postId,
-        flairTemplateId: canAutoBan ? PostFlairTemplate.Banned : PostFlairTemplate.Pending,
+        flairTemplateId: PostFlairTemplate.Banned,
     });
 
     console.log(`Evaluator: Post flair changed for ${username}`);
