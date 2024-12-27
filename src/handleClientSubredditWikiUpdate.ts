@@ -69,7 +69,7 @@ async function handleBan (username: string, subredditName: string, settings: Set
     try {
         const isCurrentlyBanned = await isBanned(username, context);
         if (isCurrentlyBanned) {
-            console.log(`Wiki Update: ${username} is already banned.`);
+            console.log(`Wiki Update: ${username} is already banned on ${subredditName}.`);
             return;
         }
 
@@ -78,15 +78,15 @@ async function handleBan (username: string, subredditName: string, settings: Set
             timeframe: "week",
         }).all();
 
-        const recentLocalContent = userContent.filter(item => item.subredditName === context.subredditName && item.createdAt > subWeeks(new Date(), 1));
+        const recentLocalContent = userContent.filter(item => item.subredditName === subredditName && item.createdAt > subWeeks(new Date(), 1));
 
         if (recentLocalContent.length === 0) {
-            console.log(`Wiki Update: ${username} has no recent content on subreddit to remove.`);
+            console.log(`Wiki Update: ${username} has no recent content on ${subredditName} to remove.`);
             return;
         }
 
         if (recentLocalContent.some(item => item.distinguishedBy)) {
-            console.log(`Wiki Update: ${username} has distinguished content on subreddit. Skipping.`);
+            console.log(`Wiki Update: ${username} has distinguished content on ${subredditName}. Skipping.`);
             return;
         }
 
