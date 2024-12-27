@@ -86,6 +86,8 @@ interface ControlSubSettings {
     reporterBlacklist: string[];
 }
 
+const CONTROL_SUB_SETTINGS_WIKI_PAGE = "controlsubsettings";
+
 const schema: JSONSchemaType<ControlSubSettings> = {
     type: "object",
     properties: {
@@ -98,10 +100,9 @@ const schema: JSONSchemaType<ControlSubSettings> = {
 };
 
 export async function getControlSubSettings (context: TriggerContext): Promise<ControlSubSettings> {
-    const wikiPageName = "controlsubsettings";
     let wikiPage: WikiPage | undefined;
     try {
-        wikiPage = await context.reddit.getWikiPage(CONTROL_SUBREDDIT, wikiPageName);
+        wikiPage = await context.reddit.getWikiPage(CONTROL_SUBREDDIT, CONTROL_SUB_SETTINGS_WIKI_PAGE);
     } catch {
         //
     }
@@ -126,7 +127,7 @@ export async function getControlSubSettings (context: TriggerContext): Promise<C
         }
     }
 
-    const result: ControlSubSettings = {
+    const defaultConfig: ControlSubSettings = {
         evaluationDisabled: false,
         maxInactivityMonths: 3,
         trustedSubmitters: [],
@@ -135,18 +136,18 @@ export async function getControlSubSettings (context: TriggerContext): Promise<C
 
     await context.reddit.createWikiPage({
         subredditName: CONTROL_SUBREDDIT,
-        page: wikiPageName,
-        content: JSON.stringify(result),
+        page: CONTROL_SUB_SETTINGS_WIKI_PAGE,
+        content: JSON.stringify(defaultConfig),
     });
 
     await context.reddit.updateWikiPageSettings({
         subredditName: CONTROL_SUBREDDIT,
-        page: wikiPageName,
+        page: CONTROL_SUB_SETTINGS_WIKI_PAGE,
         listed: true,
         permLevel: WikiPagePermissionLevel.MODS_ONLY,
     });
 
-    return result;
+    return defaultConfig;
 }
 
 async function reportControlSubValidationError (username: string, message: string, context: TriggerContext) {
@@ -166,7 +167,7 @@ export async function validateControlSubConfigChange (username: string, context:
 
     let wikiPage: WikiPage | undefined;
     try {
-        wikiPage = await context.reddit.getWikiPage(CONTROL_SUBREDDIT, "controlsubsettings");
+        wikiPage = await context.reddit.getWikiPage(CONTROL_SUBREDDIT, CONTROL_SUB_SETTINGS_WIKI_PAGE);
     } catch {
         //
     }
