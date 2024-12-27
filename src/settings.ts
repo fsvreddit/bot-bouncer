@@ -109,12 +109,20 @@ export async function getControlSubSettings (context: TriggerContext): Promise<C
     if (wikiPage) {
         const ajv = new Ajv.default();
         const validate = ajv.compile(schema);
-        const json = JSON.parse(wikiPage.content) as ControlSubSettings;
 
-        if (!validate(json)) {
-            console.error("Control sub settings are invalid. Default values will be returned.", ajv.errorsText(validate.errors));
-        } else {
-            return JSON.parse(wikiPage.content) as ControlSubSettings;
+        let json: ControlSubSettings | undefined;
+        try {
+            json = JSON.parse(wikiPage.content) as ControlSubSettings;
+        } catch (error) {
+            console.error("Control sub settings are invalid. Default values will be returned.", error);
+        }
+
+        if (json) {
+            if (!validate(json)) {
+                console.error("Control sub settings are invalid. Default values will be returned.", ajv.errorsText(validate.errors));
+            } else {
+                return JSON.parse(wikiPage.content) as ControlSubSettings;
+            }
         }
     }
 
