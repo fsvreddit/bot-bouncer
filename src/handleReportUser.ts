@@ -49,12 +49,12 @@ export async function reportFormHandler (event: FormOnSubmitEvent<JSONObject>, c
 
     const user = await getUserOrUndefined(target.authorName, context);
 
-    const controlSubSettings = await getControlSubSettings(context);
-
     if (!user) {
         context.ui.showToast(`${target.authorName} appears to be shadowbanned or suspended.`);
         return;
     }
+
+    const controlSubSettings = await getControlSubSettings(context);
 
     const userContent = await context.reddit.getCommentsAndPostsByUser({
         username: target.authorName,
