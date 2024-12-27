@@ -1,6 +1,6 @@
 import { Post, Comment, TriggerContext } from "@devvit/public-api";
 import { CommentSubmit, PostSubmit } from "@devvit/protos";
-import { addDays, addMinutes, formatDate } from "date-fns";
+import { addDays, addMinutes, formatDate, subMinutes } from "date-fns";
 import { getUserStatus, UserStatus } from "./dataStore.js";
 import { isUserWhitelisted, recordBan } from "./handleClientSubredditWikiUpdate.js";
 import { CONTROL_SUBREDDIT } from "./constants.js";
@@ -65,7 +65,11 @@ export async function handleClientCommentSubmit (event: CommentSubmit, context: 
     const redisKey = `lastcheck:${event.author.name}`;
     const recentlyChecked = await context.redis.get(redisKey);
     if (recentlyChecked) {
-        return;
+        // Allow some rechecks within 15 minutes, to find rapid fire bots.
+        const lastCheck = new Date(parseInt(recentlyChecked));
+        if (lastCheck < subMinutes(new Date(), 15)) {
+            return;
+        }
     }
 
     await checkAndReportPotentialBot(event.author.name, context);
