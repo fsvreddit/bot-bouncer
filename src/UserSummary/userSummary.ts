@@ -182,7 +182,7 @@ export async function createUserSummary (username: string, postId: string, conte
 
         const domains = countBy(compact(userPosts.map(post => domainFromUrl(post.url))));
         if (Object.keys(domains).length > 0) {
-            summary += `* Domains: ${Object.entries(domains).map(([domain, count]) => `r/${domain}: ${count}`).join(", ")}\n`;
+            summary += `* Domains: ${Object.entries(domains).map(([domain, count]) => `${domain}: ${count}`).join(", ")}\n`;
         }
 
         const subreddits = countBy(compact(userPosts.map(post => post.subredditName)));
