@@ -1,6 +1,6 @@
 import { Comment, JobContext, JSONObject, Post, ScheduledJobEvent, TriggerContext } from "@devvit/public-api";
 import { domainFromUrl, getUserOrUndefined } from "../utility.js";
-import { addSeconds, differenceInDays, differenceInHours, differenceInSeconds, Duration, formatDuration, intervalToDuration, startOfDecade } from "date-fns";
+import { addMilliseconds, differenceInDays, differenceInHours, differenceInMilliseconds, differenceInMinutes, Duration, formatDuration, intervalToDuration, startOfDecade } from "date-fns";
 import { autogenRegex, femaleNameRegex, resemblesAutogen } from "./regexes.js";
 import { compact, countBy, mean } from "lodash";
 import { count } from "@wordpress/wordcount";
@@ -16,6 +16,10 @@ function formatDifferenceInDates (start: Date, end: Date) {
     if (differenceInHours(end, start) < 6) {
         units.push("minutes");
     }
+    if (differenceInMinutes(end, start) < 4) {
+        units.push("seconds");
+    }
+
     const duration = intervalToDuration({ start, end });
     return formatDuration(duration, { format: units });
 }
@@ -30,18 +34,18 @@ function timeBetween (history: (Post | Comment)[], type: "min" | "max") {
     for (let i = 0; i < history.length - 1; i++) {
         const first = history[i];
         const second = history[i + 1];
-        const thisDiff = differenceInSeconds(first.createdAt, second.createdAt);
+        const thisDiff = differenceInMilliseconds(first.createdAt, second.createdAt);
         if (!diff || (type === "min" && thisDiff < diff) || (type === "max" && thisDiff > diff)) {
             diff = thisDiff;
         }
     }
 
-    if (!diff) {
+    if (diff === undefined) {
         return;
     }
 
     const start = startOfDecade(new Date());
-    const end = addSeconds(start, diff);
+    const end = addMilliseconds(start, diff);
 
     return formatDifferenceInDates(start, end);
 }
@@ -56,11 +60,11 @@ function averageInterval (history: (Post | Comment)[]) {
     for (let i = 0; i < history.length - 1; i++) {
         const first = history[i];
         const second = history[i + 1];
-        differences.push(differenceInSeconds(first.createdAt, second.createdAt));
+        differences.push(differenceInMilliseconds(first.createdAt, second.createdAt));
     }
 
     const start = startOfDecade(new Date());
-    const end = addSeconds(start, Math.round(mean(differences)));
+    const end = addMilliseconds(start, Math.round(mean(differences)));
 
     return formatDifferenceInDates(start, end);
 }
