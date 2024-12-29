@@ -171,6 +171,10 @@ export async function createUserSummary (username: string, postId: string, conte
 
         const subreddits = countBy(compact(userComments.map(comment => comment.subredditName)));
         summary += `* Comment subreddits: ${Object.entries(subreddits).map(([subreddit, count]) => `r/${subreddit}: ${count}`).join(", ")}\n`;
+
+        if (userComments.length < 90) {
+            summary += `* First comment was ${formatDifferenceInDates(user.createdAt, userComments[userComments.length - 1].createdAt)} after account creation\n`;
+        }
     }
 
     summary += "\n";
@@ -191,6 +195,9 @@ export async function createUserSummary (username: string, postId: string, conte
 
         const subreddits = countBy(compact(userPosts.map(post => post.subredditName)));
         summary += `* Post subreddits: ${Object.entries(subreddits).map(([subreddit, count]) => `r/${subreddit}: ${count}`).join(", ")}\n`;
+        if (userPosts.length < 90) {
+            summary += `* First post was ${formatDifferenceInDates(user.createdAt, userPosts[userPosts.length - 1].createdAt)} after account creation\n`;
+        }
     }
 
     const newComment = await context.reddit.submitComment({
