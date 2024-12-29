@@ -120,6 +120,7 @@ async function handleBan (username: string, subredditName: string, settings: Set
     const failedPromises = results.filter(result => result.status === "rejected");
     if (failedPromises.length > 0) {
         console.error(`Wiki Update: Some errors occurred banning ${username} on ${subredditName}.`);
+        console.log(failedPromises);
     } else {
         console.log(`Wiki Update: ${username} has been banned following wiki update.`);
     }

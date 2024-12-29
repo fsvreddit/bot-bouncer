@@ -203,16 +203,18 @@ async function checkAndReportPotentialBot (username: string, context: TriggerCon
 }
 
 async function checkForBotMentions (event: CommentSubmit, context: TriggerContext) {
+    if (!event.comment) {
+        return;
+    }
+
     const botRegex = [
         /\bbots?\b/i,
         /\bChatGPT\b/i,
+        /\bLLM\b/i,
     ];
 
-    const commentBody = event.comment?.body;
-    const parentId = event.comment?.parentId;
-    if (!commentBody || !parentId) {
-        return;
-    }
+    const commentBody = event.comment.body;
+    const parentId = event.comment.parentId;
 
     if (!botRegex.some(regex => regex.test(commentBody))) {
         return;

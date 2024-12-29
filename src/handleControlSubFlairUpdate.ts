@@ -45,7 +45,7 @@ export async function handleControlSubFlairUpdate (event: PostFlairUpdate, conte
         operator: event.author.name,
     }, context);
 
-    console.log(`Status for ${username} set to ${postFlair} by ${event.author.name}`);
+    console.log(`Flair Update: Status for ${username} set to ${postFlair} by ${event.author.name}`);
 
     await context.reddit.approve(event.post.id);
 }

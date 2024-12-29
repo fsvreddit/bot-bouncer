@@ -73,7 +73,7 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
             detectedBots.push(evaluator.name);
             break;
         } else {
-            console.log(`${evaluator.name} did not match: ${evaluator.getReasons().join(", ")}`);
+            console.log(`Evaluator: ${evaluator.name} did not match: ${evaluator.getReasons().join(", ")}`);
         }
     }
 

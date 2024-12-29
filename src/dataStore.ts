@@ -230,13 +230,7 @@ export async function updateWikiPage (event: ScheduledJobEvent<JSONObject | unde
 }
 
 function decompressData (blob: string): Record<string, string> {
-    let json: string;
-    if (blob.startsWith("{")) {
-        // Data is not compressed.
-        json = blob;
-    } else {
-        json = Buffer.from(pako.inflate(Buffer.from(blob, "base64"))).toString();
-    }
+    const json = Buffer.from(pako.inflate(Buffer.from(blob, "base64"))).toString();
     return JSON.parse(json) as Record<string, string>;
 }
 
@@ -254,8 +248,9 @@ export async function updateLocalStoreFromWiki (_: unknown, context: JobContext)
     let wikiPage: WikiPage;
     try {
         wikiPage = await context.reddit.getWikiPage(CONTROL_SUBREDDIT, WIKI_PAGE);
-    } catch {
-        console.log("Wiki page does not exist on control subreddit");
+    } catch (error) {
+        console.error("Wiki Update: Failed to read wiki page from control subreddit");
+        console.log(error);
         return;
     }
 
@@ -302,9 +297,9 @@ export async function updateLocalStoreFromWiki (_: unknown, context: JobContext)
         }
 
         await context.redis.set(lastUpdateDateKey, newUpdateDate.toString());
+    } else {
+        console.log("Wiki Update: Finished processing.");
     }
 
     await context.redis.set(lastUpdateKey, wikiPage.revisionId);
-
-    console.log("Wiki Update: Finished processing.");
 }

@@ -1,9 +1,9 @@
 import { TriggerContext, User } from "@devvit/public-api";
 import { PostCreate } from "@devvit/protos";
-import { CONTROL_SUBREDDIT, EVALUATE_USER, PostFlairTemplate } from "./constants.js";
+import { CONTROL_SUBREDDIT, CREATE_USER_SUMMARY, EVALUATE_USER, PostFlairTemplate } from "./constants.js";
 import { getUsernameFromUrl, getUserOrUndefined, isModerator } from "./utility.js";
 import { getUserStatus, setUserStatus, UserStatus } from "./dataStore.js";
-import { subMonths } from "date-fns";
+import { addSeconds, subMonths } from "date-fns";
 import { getControlSubSettings } from "./settings.js";
 
 export async function handleControlSubSubmission (event: PostCreate, context: TriggerContext) {
@@ -100,6 +100,12 @@ export async function handleControlSubSubmission (event: PostCreate, context: Tr
                     username: user.username,
                     postId: newPost.id,
                 },
+            });
+
+            await context.scheduler.runJob({
+                name: CREATE_USER_SUMMARY,
+                runAt: addSeconds(new Date(), 5),
+                data: { username: user.username, postId: newPost.id },
             });
         }
     }

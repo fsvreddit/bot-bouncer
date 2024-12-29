@@ -166,7 +166,7 @@ async function handleDeletedAccountsControlSub (usernames: string[], context: Tr
                 updateAggregate(status.userStatus, -1, context),
                 updateAggregate(newStatus, 1, context),
             ]);
-            console.log(`Aggregate for ${status.userStatus} decremented, ${newStatus} incremented for ${username}`);
+            console.log(`Cleanup :Aggregate for ${status.userStatus} decremented, ${newStatus} incremented for ${username}`);
         }
 
         try {
@@ -187,7 +187,7 @@ async function handleDeletedAccountsControlSub (usernames: string[], context: Tr
                 flairTemplateId: status.userStatus === UserStatus.Pending ? PostFlairTemplate.Retired : PostFlairTemplate.Purged,
             });
         } catch {
-            console.log(`Unable to set flair for ${username} on post ${status.trackingPostId}`);
+            console.log(`Cleanup: Unable to set flair for ${username} on post ${status.trackingPostId}`);
         }
     }
 

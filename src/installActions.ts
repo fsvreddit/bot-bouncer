@@ -5,7 +5,7 @@ import { scheduleAdhocCleanup } from "./cleanup.js";
 import { createExternalSubmissionJob } from "./externalSubmissions.js";
 
 export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, context: TriggerContext) {
-    console.log("Detected an app install or update event");
+    console.log("App Install: Detected an app install or update event");
 
     const currentJobs = await context.scheduler.listJobs();
     await Promise.all(currentJobs.map(job => context.scheduler.cancelJob(job.id)));
@@ -48,7 +48,7 @@ async function addControlSubredditJobs (context: TriggerContext) {
 
     await createExternalSubmissionJob(context);
 
-    console.log("Control subreddit jobs added");
+    console.log("App Install: Control subreddit jobs added");
 }
 
 async function addClientSubredditJobs (context: TriggerContext) {
@@ -63,5 +63,5 @@ async function addClientSubredditJobs (context: TriggerContext) {
         runAt: new Date(),
     });
 
-    console.log("Client subreddit jobs added");
+    console.log("App Install: Client subreddit jobs added");
 }

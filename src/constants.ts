@@ -25,6 +25,7 @@ export const CLEANUP_JOB = "cleanupJob";
 export const ADHOC_CLEANUP_JOB = "adhocCleanup";
 export const EXTERNAL_SUBMISSION_JOB = "externalSubmission";
 export const UPDATE_STATISTICS_PAGE = "updateStatisticsPage";
+export const CREATE_USER_SUMMARY = "createUserSummary";
 
 /**
  * Job crons
