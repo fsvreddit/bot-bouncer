@@ -85,7 +85,9 @@ export async function getUsernameFromPostId (postId: string, context: TriggerCon
 }
 
 export async function updateAggregate (type: UserStatus, incrBy: number, context: TriggerContext) {
-    await context.redis.zIncrBy(AGGREGATE_STORE, type, incrBy);
+    if (context.subredditName === CONTROL_SUBREDDIT) {
+        await context.redis.zIncrBy(AGGREGATE_STORE, type, incrBy);
+    }
 }
 
 export async function writeAggregateToWikiPage (_: unknown, context: JobContext) {

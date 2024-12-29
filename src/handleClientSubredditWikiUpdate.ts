@@ -1,4 +1,4 @@
-import { JobContext, JSONObject, ScheduledJobEvent, SettingsValues, TriggerContext } from "@devvit/public-api";
+import { Comment, JobContext, JSONObject, Post, ScheduledJobEvent, SettingsValues, TriggerContext } from "@devvit/public-api";
 import { addSeconds, formatDate, subWeeks } from "date-fns";
 import pluralize from "pluralize";
 import { getUserStatus, UserStatus } from "./dataStore.js";
@@ -66,55 +66,62 @@ async function handleUnban (username: string, subredditName: string, context: Tr
 }
 
 async function handleBan (username: string, subredditName: string, settings: SettingsValues, context: TriggerContext) {
-    try {
-        const isCurrentlyBanned = await isBanned(username, context);
-        if (isCurrentlyBanned) {
-            console.log(`Wiki Update: ${username} is already banned on ${subredditName}.`);
-            return;
-        }
+    const isCurrentlyBanned = await isBanned(username, context);
+    if (isCurrentlyBanned) {
+        console.log(`Wiki Update: ${username} is already banned on ${subredditName}.`);
+        return;
+    }
 
-        const userContent = await context.reddit.getCommentsAndPostsByUser({
+    let userContent: (Comment | Post)[];
+    try {
+        userContent = await context.reddit.getCommentsAndPostsByUser({
             username,
+            sort: "new",
             timeframe: "week",
         }).all();
+    } catch {
+        console.log(`Wiki Update: Couldn't retrieve content for ${username}, likely shadowbanned.`);
+        return;
+    }
 
-        const recentLocalContent = userContent.filter(item => item.subredditName === subredditName && item.createdAt > subWeeks(new Date(), 1));
+    const recentLocalContent = userContent.filter(item => item.subredditName === subredditName && item.createdAt > subWeeks(new Date(), 1));
 
-        if (recentLocalContent.length === 0) {
-            console.log(`Wiki Update: ${username} has no recent content on ${subredditName} to remove.`);
-            return;
-        }
+    if (recentLocalContent.length === 0) {
+        console.log(`Wiki Update: ${username} has no recent content on ${subredditName} to remove.`);
+        return;
+    }
 
-        if (recentLocalContent.some(item => item.distinguishedBy)) {
-            console.log(`Wiki Update: ${username} has distinguished content on ${subredditName}. Skipping.`);
-            return;
-        }
+    if (recentLocalContent.some(item => item.distinguishedBy)) {
+        console.log(`Wiki Update: ${username} has distinguished content on ${subredditName}. Skipping.`);
+        return;
+    }
 
-        let message = settings[AppSetting.BanMessage] as string | undefined ?? CONFIGURATION_DEFAULTS.banMessage;
-        message = replaceAll(message, "{subreddit}", subredditName);
-        message = replaceAll(message, "{account}", username);
-        message = replaceAll(message, "{link}", username);
+    let message = settings[AppSetting.BanMessage] as string | undefined ?? CONFIGURATION_DEFAULTS.banMessage;
+    message = replaceAll(message, "{subreddit}", subredditName);
+    message = replaceAll(message, "{account}", username);
+    message = replaceAll(message, "{link}", username);
 
-        let banNote = CONFIGURATION_DEFAULTS.banNote;
-        banNote = replaceAll(banNote, "{me}", context.appName);
-        banNote = replaceAll(banNote, "{date}", formatDate(new Date(), "yyyy-MM-dd"));
+    let banNote = CONFIGURATION_DEFAULTS.banNote;
+    banNote = replaceAll(banNote, "{me}", context.appName);
+    banNote = replaceAll(banNote, "{date}", formatDate(new Date(), "yyyy-MM-dd"));
 
-        await context.reddit.banUser({
+    const results = await Promise.allSettled([
+        context.reddit.banUser({
             subredditName,
             username,
             context: recentLocalContent[0].id,
             message,
             note: banNote,
-        });
+        }),
+        recordBan(username, context),
+        ...recentLocalContent.map(item => item.remove()),
+    ]);
 
-        await recordBan(username, context);
-
+    const failedPromises = results.filter(result => result.status === "rejected");
+    if (failedPromises.length > 0) {
+        console.error(`Wiki Update: Some errors occurred banning ${username} on ${subredditName}.`);
+    } else {
         console.log(`Wiki Update: ${username} has been banned following wiki update.`);
-
-        await Promise.all(recentLocalContent.map(item => item.remove()));
-    } catch (error) {
-        console.log(`Wiki Update: Couldn't retrieve content for ${username}`);
-        console.error(error);
     }
 }
 

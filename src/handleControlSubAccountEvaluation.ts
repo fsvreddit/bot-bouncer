@@ -43,6 +43,7 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
 
     if (!userEligible) {
         console.log(`Evaluator: ${username} does not pass any user pre-checks.`);
+        return;
     }
 
     let userItems: (Post | Comment)[];
