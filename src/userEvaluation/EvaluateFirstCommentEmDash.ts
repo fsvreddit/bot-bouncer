@@ -15,7 +15,7 @@ export class EvaluateFirstCommentEmDash extends UserEvaluatorBase {
             return false;
         }
 
-        return !comment.body.includes("—");
+        return comment.body.includes("—");
     }
 
     override preEvaluateComment (event: CommentSubmit): boolean {

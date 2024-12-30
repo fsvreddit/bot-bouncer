@@ -1,5 +1,5 @@
 import { Post, Comment, TriggerContext } from "@devvit/public-api";
-import { CommentSubmit, PostSubmit } from "@devvit/protos";
+import { CommentCreate, PostCreate } from "@devvit/protos";
 import { addDays, addMinutes, formatDate, subMinutes } from "date-fns";
 import { getUserStatus, UserStatus } from "./dataStore.js";
 import { isUserWhitelisted, recordBan } from "./handleClientSubredditWikiUpdate.js";
@@ -9,7 +9,11 @@ import { AppSetting, CONFIGURATION_DEFAULTS } from "./settings.js";
 import { ALL_EVALUATORS } from "./userEvaluation/allEvaluators.js";
 import { addExternalSubmission } from "./externalSubmissions.js";
 
-export async function handleClientPostSubmit (event: PostSubmit, context: TriggerContext) {
+export async function handleClientPostCreate (event: PostCreate, context: TriggerContext) {
+    if (context.subredditName === CONTROL_SUBREDDIT) {
+        return;
+    }
+
     if (!event.post || !event.author?.name) {
         return;
     }
@@ -36,7 +40,11 @@ export async function handleClientPostSubmit (event: PostSubmit, context: Trigge
     }
 }
 
-export async function handleClientCommentSubmit (event: CommentSubmit, context: TriggerContext) {
+export async function handleClientCommentCreate (event: CommentCreate, context: TriggerContext) {
+    if (context.subredditName === CONTROL_SUBREDDIT) {
+        return;
+    }
+
     if (!event.comment || !event.author?.name) {
         return;
     }
@@ -78,10 +86,6 @@ export async function handleClientCommentSubmit (event: CommentSubmit, context: 
 }
 
 async function handleContentCreation (username: string, targetId: string, context: TriggerContext) {
-    if (context.subredditName === CONTROL_SUBREDDIT) {
-        return;
-    }
-
     const currentStatus = await getUserStatus(username, context);
     if (!currentStatus || currentStatus.userStatus !== UserStatus.Banned) {
         return;
@@ -204,7 +208,7 @@ async function checkAndReportPotentialBot (username: string, context: TriggerCon
     console.log(`Created external submission via automated evaluation for ${user.username} for bot style ${botName}`);
 }
 
-async function checkForBotMentions (event: CommentSubmit, context: TriggerContext) {
+async function checkForBotMentions (event: CommentCreate, context: TriggerContext) {
     if (!event.comment) {
         return;
     }
