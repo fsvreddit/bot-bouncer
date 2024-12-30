@@ -25,6 +25,7 @@ export class EvaluateVideoFarmer extends UserEvaluatorBase {
     override preEvaluateUser (user: User): boolean {
         if (user.commentKarma > 5) {
             this.setReason("User has too much comment karma");
+            return false;
         }
 
         if (user.createdAt < subMonths(new Date(), 3)) {

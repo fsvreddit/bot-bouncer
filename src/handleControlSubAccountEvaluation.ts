@@ -69,7 +69,9 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
         const isABot = evaluator.evaluate(user, userItems);
         if (isABot) {
             console.log(`Evaluator: ${username} appears to be a bot via the evaluator: ${evaluator.name}`);
-            canAutoBan = evaluator.canAutoBan;
+            if (evaluator.canAutoBan) {
+                canAutoBan = true;
+            }
             detectedBots.push(evaluator.name);
             break;
         } else {
