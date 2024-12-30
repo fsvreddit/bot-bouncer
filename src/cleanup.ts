@@ -166,7 +166,7 @@ async function handleDeletedAccountsControlSub (usernames: string[], context: Tr
                 updateAggregate(status.userStatus, -1, context),
                 updateAggregate(newStatus, 1, context),
             ]);
-            console.log(`Cleanup :Aggregate for ${status.userStatus} decremented, ${newStatus} incremented for ${username}`);
+            console.log(`Cleanup: Aggregate for ${status.userStatus} decremented, ${newStatus} incremented for ${username}`);
         }
 
         try {
