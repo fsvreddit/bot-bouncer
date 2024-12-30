@@ -107,6 +107,7 @@ function femaleNameCheck (username: string) {
 export async function createUserSummary (username: string, postId: string, context: TriggerContext) {
     const user = await getUserOrUndefined(username, context);
     if (!user) {
+        console.log(`User Summary: User ${username} is already shadowbanned or suspended, so summary will not be created.`);
         return;
     }
 
