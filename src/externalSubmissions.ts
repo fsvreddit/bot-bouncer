@@ -3,7 +3,7 @@ import { CONTROL_SUBREDDIT, CREATE_USER_SUMMARY, EVALUATE_USER, EXTERNAL_SUBMISS
 import { getUserStatus, setUserStatus, UserStatus } from "./dataStore.js";
 import { getControlSubSettings } from "./settings.js";
 import Ajv, { JSONSchemaType } from "ajv";
-import { addSeconds } from "date-fns";
+import { addMinutes, addSeconds } from "date-fns";
 
 const WIKI_PAGE = "externalsubmissions";
 
@@ -30,6 +30,23 @@ export async function addExternalSubmission (username: string, submitter: string
     if (context.subredditName === CONTROL_SUBREDDIT) {
         return;
     }
+
+    const redisKey = `externalSubmission:${username}`;
+    const alreadyDone = await context.redis.get(redisKey);
+    if (alreadyDone) {
+        return;
+    }
+
+    await context.redis.set(redisKey, new Date().getTime().toString(), { expiration: addMinutes(new Date(), 5) });
+
+    // Set local status
+    await setUserStatus(username, {
+        userStatus: UserStatus.Pending,
+        lastUpdate: new Date().getTime(),
+        submitter: "",
+        operator: context.appName,
+        trackingPostId: "",
+    }, context);
 
     let wikiPage: WikiPage | undefined;
     try {

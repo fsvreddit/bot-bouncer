@@ -1,7 +1,7 @@
 import { Context, MenuItemOnPressEvent, Post, Comment, JSONObject, FormOnSubmitEvent } from "@devvit/public-api";
 import { CONTROL_SUBREDDIT, EVALUATE_USER } from "./constants.js";
 import { getPostOrCommentById, getUsernameFromUrl, getUserOrUndefined } from "./utility.js";
-import { getUserStatus, setUserStatus, UserStatus } from "./dataStore.js";
+import { getUserStatus, UserStatus } from "./dataStore.js";
 import { addExternalSubmission } from "./externalSubmissions.js";
 import { reportForm } from "./main.js";
 import { subMonths } from "date-fns";
@@ -70,15 +70,6 @@ export async function reportFormHandler (event: FormOnSubmitEvent<JSONObject>, c
     const currentUser = await context.reddit.getCurrentUser();
     const reportContext = event.values.reportContext as string | undefined;
     await addExternalSubmission(target.authorName, currentUser?.username, reportContext, context);
-
-    // Set local status
-    await setUserStatus(target.authorName, {
-        userStatus: UserStatus.Pending,
-        lastUpdate: new Date().getTime(),
-        submitter: currentUser?.username,
-        operator: context.appName,
-        trackingPostId: "",
-    }, context);
 
     context.ui.showToast(`${target.authorName} has been submitted to /r/${CONTROL_SUBREDDIT}. A tracking post will be created shortly.`);
 }

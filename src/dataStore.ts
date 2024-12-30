@@ -3,7 +3,7 @@ import { compact, max, sum, toPairs } from "lodash";
 import pako from "pako";
 import { scheduleAdhocCleanup, setCleanupForUsers } from "./cleanup.js";
 import { CONTROL_SUBREDDIT, HANDLE_CLASSIFICATION_CHANGES_JOB } from "./constants.js";
-import { addWeeks, subDays, subHours } from "date-fns";
+import { addWeeks, subDays, subHours, subWeeks } from "date-fns";
 import pluralize from "pluralize";
 
 const USER_STORE = "UserStore";
@@ -146,6 +146,17 @@ function compressData (value: Record<string, string>): string {
     return Buffer.from(pako.deflate(JSON.stringify(value), { level: 9 })).toString("base64");
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function compactDataForWiki (input: string): string {
+    const status = JSON.parse(input) as UserDetails;
+    status.operator = "";
+    delete status.submitter;
+    if (status.lastUpdate < subWeeks(new Date(), 1).getTime()) {
+        status.lastUpdate = 0;
+    }
+    return JSON.stringify(status);
+}
+
 export async function updateWikiPage (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
     const forceUpdate = event.data?.force as boolean | undefined ?? false;
     const updateDue = await context.redis.get(WIKI_UPDATE_DUE);
@@ -176,15 +187,7 @@ export async function updateWikiPage (event: ScheduledJobEvent<JSONObject | unde
     // Data compaction - TODO
     // for (const entry of entries) {
     //     const [username, jsonData] = entry;
-    //     const status = JSON.parse(jsonData) as UserDetails;
-
-    //     status.operator = "";
-    //     delete status.submitter;
-    //     if (status.lastUpdate < subWeeks(new Date(), 1).getTime()) {
-    //         status.lastUpdate = 0;
-    //     }
-
-    //     data[username] = JSON.stringify(status);
+    //     data[username] = compactDataForWiki(jsonData)
     // }
 
     const content = compressData(data);
@@ -212,7 +215,7 @@ export async function updateWikiPage (event: ScheduledJobEvent<JSONObject | unde
 
     await context.redis.del(WIKI_UPDATE_DUE);
 
-    console.log("Wiki page has been updated");
+    console.log(`Wiki page has been updated with ${entries.length} entries`);
 
     if (content.length > MAX_WIKI_PAGE_SIZE * 0.5) {
         const spaceAlertKey = "wikiSpaceAlert";

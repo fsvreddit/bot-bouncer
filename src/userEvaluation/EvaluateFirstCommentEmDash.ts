@@ -46,13 +46,16 @@ export class EvaluateFirstCommentEmDash extends UserEvaluatorBase {
         }
 
         const comments = history.filter(item => isCommentId(item.id)) as Comment[];
-        if (comments.length !== 1) {
-            this.setReason("User has more than one comment");
+        if (comments.length > 10) {
+            this.setReason("User has too many comments");
             return false;
         }
 
-        if (!this.eligibleComment(comments[0])) {
-            this.setReason("User's only comment doesn't contain an em dash");
+        const firstCommentContainsEmDash = this.eligibleComment(comments[comments.length - 1]);
+        const atLeastHalfHaveEmDash = comments.filter(comment => this.eligibleComment(comment)).length / comments.length > 0.5;
+
+        if (!firstCommentContainsEmDash && !atLeastHalfHaveEmDash) {
+            this.setReason("User's first comment doesn't contain an em dash, or they have insufficient comments with them");
             return false;
         }
 
