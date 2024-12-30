@@ -175,9 +175,10 @@ export async function createUserSummary (username: string, postId: string, conte
         summary += "## Posts\n\n";
         summary += `User has ${userPosts.length} ${pluralize("post", userPosts.length)}\n\n`;
         if (userPosts.length > 2) {
-            summary += `* Min time between posts: ${timeBetween(userPosts, "min")}\n`;
-            summary += `* Max time between posts: ${timeBetween(userPosts, "max")}\n`;
-            summary += `* Average time between posts: ${averageInterval(userPosts)}\n`;
+            const nonStickied = userPosts.filter(post => !post.stickied);
+            summary += `* Min time between posts: ${timeBetween(nonStickied, "min")}\n`;
+            summary += `* Max time between posts: ${timeBetween(nonStickied, "max")}\n`;
+            summary += `* Average time between posts: ${averageInterval(nonStickied)}\n`;
         }
 
         const domains = countBy(compact(userPosts.map(post => domainFromUrl(post.url))));
