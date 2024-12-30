@@ -16,8 +16,7 @@ export class EvaluateShortTlc extends UserEvaluatorBase {
         }
 
         return !comment.body.includes("\n")
-            && comment.body.length < 500
-            && !comment.body.includes("\n");
+            && comment.body.length < 500;
     }
 
     override preEvaluateComment (event: CommentSubmit): boolean {

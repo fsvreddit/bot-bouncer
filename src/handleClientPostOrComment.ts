@@ -177,10 +177,12 @@ async function checkAndReportPotentialBot (username: string, context: TriggerCon
     }
 
     let isLikelyBot = false;
+    let botName: string | undefined;
     for (const Evaluator of ALL_EVALUATORS) {
         const evaluator = new Evaluator(context);
         if (evaluator.evaluate(user, userItems)) {
             isLikelyBot = true;
+            botName = evaluator.name;
             break;
         }
     }
@@ -199,7 +201,7 @@ async function checkAndReportPotentialBot (username: string, context: TriggerCon
     const subredditName = context.subredditName ?? (await context.reddit.getCurrentSubreddit()).name;
     await addExternalSubmission(user.username, currentUser?.username, `Automatically reported via a post or comment on /r/${subredditName}`, context);
 
-    console.log(`Created external submission via automated evaluation for ${user.username}`);
+    console.log(`Created external submission via automated evaluation for ${user.username} for bot style ${botName}`);
 }
 
 async function checkForBotMentions (event: CommentSubmit, context: TriggerContext) {
