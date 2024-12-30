@@ -26,6 +26,10 @@ async function isAppModOfSub (subredditName: string, context: TriggerContext): P
 
 export async function isUserPotentiallyBlockingBot (history: (Post | Comment)[], context: TriggerContext): Promise<boolean> {
     const distinctSubreddits = uniq(history.map(item => item.subredditName));
+    if (distinctSubreddits.length < 5) {
+        return false;
+    }
+
     for (const subredddit of distinctSubreddits) {
         const isMod = await isAppModOfSub(subredddit, context);
         if (!isMod) {
