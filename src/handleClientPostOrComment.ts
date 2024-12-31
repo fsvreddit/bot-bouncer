@@ -8,6 +8,7 @@ import { getPostOrCommentById, getUserOrUndefined, isApproved, isBanned, isModer
 import { AppSetting, CONFIGURATION_DEFAULTS } from "./settings.js";
 import { ALL_EVALUATORS } from "./userEvaluation/allEvaluators.js";
 import { addExternalSubmission } from "./externalSubmissions.js";
+import { isLinkId } from "@devvit/shared-types/tid.js";
 
 export async function handleClientPostCreate (event: PostCreate, context: TriggerContext) {
     if (context.subredditName === CONTROL_SUBREDDIT) {
@@ -36,7 +37,7 @@ export async function handleClientPostCreate (event: PostCreate, context: Trigge
     }
 
     if (possibleBot) {
-        await checkAndReportPotentialBot(event.author.name, context);
+        await checkAndReportPotentialBot(event.author.name, event.post.id, context);
     }
 }
 
@@ -80,7 +81,7 @@ export async function handleClientCommentCreate (event: CommentCreate, context: 
         }
     }
 
-    await checkAndReportPotentialBot(event.author.name, context);
+    await checkAndReportPotentialBot(event.author.name, event.comment.id, context);
 
     await context.redis.set(redisKey, new Date().getTime.toString(), { expiration: addDays(new Date(), 2) });
 }
@@ -149,7 +150,7 @@ async function handleContentCreation (username: string, targetId: string, contex
     }
 }
 
-async function checkAndReportPotentialBot (username: string, context: TriggerContext) {
+async function checkAndReportPotentialBot (username: string, thingId: string, context: TriggerContext) {
     const user = await getUserOrUndefined(username, context);
     if (!user) {
         return;
@@ -202,8 +203,9 @@ async function checkAndReportPotentialBot (username: string, context: TriggerCon
 
     const currentUser = await context.reddit.getCurrentUser();
 
-    const subredditName = context.subredditName ?? (await context.reddit.getCurrentSubreddit()).name;
-    await addExternalSubmission(user.username, currentUser?.username, `Automatically reported via a post or comment on /r/${subredditName}`, context);
+    const target = await getPostOrCommentById(thingId, context);
+    const reportContext = `Automatically reported via a [${isLinkId(target.id) ? "post" : "comment"}](${target.permalink}) on /r/${target.subredditName}`;
+    await addExternalSubmission(user.username, currentUser?.username, reportContext, context);
 
     console.log(`Created external submission via automated evaluation for ${user.username} for bot style ${botName}`);
 }
