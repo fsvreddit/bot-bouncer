@@ -162,6 +162,8 @@ export async function createUserSummary (username: string, postId: string, conte
             summary += `* Min time between comments: ${timeBetween(userComments, "min")}\n`;
             summary += `* Max time between comments: ${timeBetween(userComments, "max")}\n`;
             summary += `* Average time between comments: ${averageInterval(userComments)}\n`;
+        } else if (userComments.length === 2) {
+            summary += ` * Time between comments: ${timeBetween(userComments, "min")}\n`;
         }
         summary += `* Length: ${minMaxAvg(userComments.map(comment => comment.body.length))}\n`;
         summary += `* Word count: ${minMaxAvg(userComments.map(comment => count(comment.body, "words", {})))}\n`;
@@ -183,11 +185,13 @@ export async function createUserSummary (username: string, postId: string, conte
     if (userPosts.length > 0) {
         summary += "## Posts\n\n";
         summary += `User has ${userPosts.length} ${pluralize("post", userPosts.length)}\n\n`;
+        const nonStickied = userPosts.filter(post => !post.stickied);
         if (userPosts.length > 2) {
-            const nonStickied = userPosts.filter(post => !post.stickied);
             summary += `* Min time between posts: ${timeBetween(nonStickied, "min")}\n`;
             summary += `* Max time between posts: ${timeBetween(nonStickied, "max")}\n`;
             summary += `* Average time between posts: ${averageInterval(nonStickied)}\n`;
+        } else if (userPosts.length === 2) {
+            summary += ` * Time between comments: ${timeBetween(nonStickied, "min")}\n`;
         }
 
         const domains = countBy(compact(userPosts.map(post => domainFromUrl(post.url))));
