@@ -205,7 +205,11 @@ async function checkAndReportPotentialBot (username: string, thingId: string, co
 
     const target = await getPostOrCommentById(thingId, context);
     const reportContext = `Automatically reported via a [${isLinkId(target.id) ? "post" : "comment"}](${target.permalink}) on /r/${target.subredditName}`;
-    await addExternalSubmission(user.username, currentUser?.username, reportContext, context);
+    await addExternalSubmission({
+        username: user.username,
+        submitter: currentUser?.username,
+        reportContext,
+    }, context);
 
     console.log(`Created external submission via automated evaluation for ${user.username} for bot style ${botName}`);
 }

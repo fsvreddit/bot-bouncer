@@ -33,6 +33,12 @@ async function handleClientSubContentDelete (event: PostDelete | CommentDelete, 
         return;
     }
 
-    await addExternalSubmission(botMentionForUser, context.appName, "User reported due to deleting a post or comment immediately after a 'Bot' accusation", context);
+    await addExternalSubmission({
+        username: botMentionForUser,
+        submitter: context.appName,
+        reportContext: "User reported due to deleting a post or comment immediately after a 'Bot' accusation",
+        targetId: thingId,
+    }, context);
+
     console.log(`External submission created for ${botMentionForUser} due to bot accusation`);
 }

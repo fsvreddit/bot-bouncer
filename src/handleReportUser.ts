@@ -69,7 +69,12 @@ export async function reportFormHandler (event: FormOnSubmitEvent<JSONObject>, c
 
     const currentUser = await context.reddit.getCurrentUser();
     const reportContext = event.values.reportContext as string | undefined;
-    await addExternalSubmission(target.authorName, currentUser?.username, reportContext, context);
+    await addExternalSubmission({
+        username: target.authorName,
+        submitter: currentUser?.username,
+        reportContext,
+        targetId: target.id,
+    }, context);
 
     context.ui.showToast(`${target.authorName} has been submitted to /r/${CONTROL_SUBREDDIT}. A tracking post will be created shortly.`);
 }

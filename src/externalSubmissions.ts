@@ -4,6 +4,8 @@ import { getUserStatus, setUserStatus, UserStatus } from "./dataStore.js";
 import { getControlSubSettings } from "./settings.js";
 import Ajv, { JSONSchemaType } from "ajv";
 import { addMinutes, addSeconds } from "date-fns";
+import { getPostOrCommentById } from "./utility.js";
+import { isLinkId } from "@devvit/shared-types/tid.js";
 
 const WIKI_PAGE = "externalsubmissions";
 
@@ -11,6 +13,7 @@ interface ExternalSubmission {
     username: string;
     submitter?: string;
     reportContext?: string;
+    targetId?: string;
 };
 
 const schema: JSONSchemaType<ExternalSubmission[]> = {
@@ -21,17 +24,18 @@ const schema: JSONSchemaType<ExternalSubmission[]> = {
             username: { type: "string" },
             submitter: { type: "string", nullable: true },
             reportContext: { type: "string", nullable: true },
+            targetId: { type: "string", nullable: true },
         },
         required: ["username"],
     },
 };
 
-export async function addExternalSubmission (username: string, submitter: string | undefined, reportContext: string | undefined, context: TriggerContext) {
+export async function addExternalSubmission (data: ExternalSubmission, context: TriggerContext) {
     if (context.subredditName === CONTROL_SUBREDDIT) {
         return;
     }
 
-    const redisKey = `externalSubmission:${username}`;
+    const redisKey = `externalSubmission:${data.username}`;
     const alreadyDone = await context.redis.get(redisKey);
     if (alreadyDone) {
         return;
@@ -40,7 +44,7 @@ export async function addExternalSubmission (username: string, submitter: string
     await context.redis.set(redisKey, new Date().getTime().toString(), { expiration: addMinutes(new Date(), 5) });
 
     // Set local status
-    await setUserStatus(username, {
+    await setUserStatus(data.username, {
         userStatus: UserStatus.Pending,
         lastUpdate: new Date().getTime(),
         submitter: "",
@@ -64,11 +68,11 @@ export async function addExternalSubmission (username: string, submitter: string
         return;
     }
 
-    if (currentUserList.some(item => item.username === username)) {
+    if (currentUserList.some(item => item.username === data.username)) {
         return;
     }
 
-    currentUserList.push({ username, submitter, reportContext });
+    currentUserList.push(data);
 
     const wikiUpdateOptions = {
         subredditName: CONTROL_SUBREDDIT,
@@ -179,6 +183,10 @@ export async function processExternalSubmissions (_: unknown, context: JobContex
     if (item.reportContext) {
         let text = "The submitter added the following context for this submission:\n\n";
         text += item.reportContext.split("\n").map(line => `> ${line}`).join("\n");
+        if (item.targetId) {
+            const target = await getPostOrCommentById(item.targetId, context);
+            text += `\n\nUser was reported via [this ${isLinkId(target.id) ? "post" : "comment"}](${target.permalink})`;
+        }
         text += `\n\n*I am a bot, and this action was performed automatically. Please [contact the moderators of this subreddit](/message/compose/?to=/r/${CONTROL_SUBREDDIT}) if you have any questions or concerns.*`;
         await newPost.addComment({ text });
     }
