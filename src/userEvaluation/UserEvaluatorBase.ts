@@ -15,6 +15,7 @@ export abstract class UserEvaluatorBase {
         return this.reasons;
     }
 
+    public banContentThreshold = 10;
     public canAutoBan = true;
 
     constructor (context: TriggerContext) {

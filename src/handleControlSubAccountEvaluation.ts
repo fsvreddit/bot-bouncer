@@ -3,6 +3,7 @@ import { getUserStatus, UserStatus } from "./dataStore.js";
 import { CONTROL_SUBREDDIT, PostFlairTemplate } from "./constants.js";
 import { getUserOrUndefined } from "./utility.js";
 import { ALL_EVALUATORS } from "./userEvaluation/allEvaluators.js";
+import { UserEvaluatorBase } from "./userEvaluation/UserEvaluatorBase.js";
 
 interface EvaluatorStats {
     hitCount: number;
@@ -61,18 +62,14 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
         return;
     }
 
-    const detectedBots: string[] = [];
-    let canAutoBan = false;
+    const detectedBots: UserEvaluatorBase[] = [];
 
     for (const Evaluator of ALL_EVALUATORS) {
         const evaluator = new Evaluator(context);
         const isABot = evaluator.evaluate(user, userItems);
         if (isABot) {
             console.log(`Evaluator: ${username} appears to be a bot via the evaluator: ${evaluator.name}`);
-            if (evaluator.canAutoBan) {
-                canAutoBan = true;
-            }
-            detectedBots.push(evaluator.name);
+            detectedBots.push(evaluator);
             break;
         } else {
             console.log(`Evaluator: ${evaluator.name} did not match: ${evaluator.getReasons().join(", ")}`);
@@ -92,26 +89,26 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
     const allStats: Record<string, EvaluatorStats> = existingStatsVal ? JSON.parse(existingStatsVal) as Record<string, EvaluatorStats> : {};
 
     for (const bot of detectedBots) {
-        const botStats = allStats[bot] ?? { hitCount: 0, lastHit: 0 };
+        const botStats = allStats[bot.name] ?? { hitCount: 0, lastHit: 0 };
         botStats.hitCount++;
         botStats.lastHit = new Date().getTime();
-        allStats[bot] = botStats;
+        allStats[bot.name] = botStats;
     }
 
     await context.redis.set(redisKey, JSON.stringify(allStats));
     console.log("Evaluator: Stats updated", allStats);
 
-    if (userItems.length < 10) {
+    if (detectedBots.every(bot => userItems.length < bot.banContentThreshold)) {
         console.log(`Evaluator: ${username} does not have enough content for automatic evaluation.`);
         const post = await context.reddit.getPostById(postId);
-        await context.reddit.report(post, { reason: `Possible bot via evaluation, but insufficient content: ${detectedBots.join(", ")}` });
+        await context.reddit.report(post, { reason: `Possible bot via evaluation, but insufficient content: ${detectedBots.map(bot => bot.name).join(", ")}` });
         return;
     }
 
-    if (!canAutoBan) {
+    if (detectedBots.every(bot => !bot.canAutoBan)) {
         console.log(`Evaluator: Cannot autoban.`);
         const post = await context.reddit.getPostById(postId);
-        await context.reddit.report(post, { reason: `Possible bot via evaluation, tagged as no-auto-ban: ${detectedBots.join(", ")}` });
+        await context.reddit.report(post, { reason: `Possible bot via evaluation, tagged as no-auto-ban: ${detectedBots.map(bot => bot.name).join(", ")}` });
         return;
     }
 

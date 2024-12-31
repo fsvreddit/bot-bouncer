@@ -8,6 +8,7 @@ import { domainFromUrl } from "./evaluatorHelpers.js";
 
 export class EvaluateCQSTester extends UserEvaluatorBase {
     override name = "CQS Tester";
+
     override canAutoBan = false;
 
     private eligibleComment (comment: Comment | CommentV2) {

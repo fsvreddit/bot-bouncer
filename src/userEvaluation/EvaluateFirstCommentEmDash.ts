@@ -8,7 +8,7 @@ import { subMonths } from "date-fns";
 export class EvaluateFirstCommentEmDash extends UserEvaluatorBase {
     override name = "First Comment Em Dash";
 
-    override canAutoBan = true;
+    override banContentThreshold = 1;
 
     private eligibleComment (comment: Comment | CommentV2) {
         if (isCommentId(comment.parentId)) {
