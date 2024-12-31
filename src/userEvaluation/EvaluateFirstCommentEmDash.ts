@@ -47,6 +47,8 @@ export class EvaluateFirstCommentEmDash extends UserEvaluatorBase {
         }
 
         const comments = history.filter(item => isCommentId(item.id)) as Comment[];
+        const posts = history.filter(item => isLinkId(item.id)) as Post[];
+
         if (comments.length > 10) {
             this.setReason("User has too many comments");
             return false;
@@ -57,8 +59,13 @@ export class EvaluateFirstCommentEmDash extends UserEvaluatorBase {
             return false;
         }
 
-        if (!comments.every(comment => this.eligibleComment(comment))) {
+        if (comments.some(comment => !this.eligibleComment(comment))) {
             this.setReason("User has non-toplevel comments");
+            return false;
+        }
+
+        if (comments.some(comment => posts.some(post => post.id === comment.parentId))) {
+            this.setReason("User has comments on their own posts");
             return false;
         }
 
@@ -71,7 +78,6 @@ export class EvaluateFirstCommentEmDash extends UserEvaluatorBase {
             return false;
         }
 
-        const posts = history.filter(item => isLinkId(item.id)) as Post[];
         if (posts.length > 0 && posts.some(post => !this.eligiblePost(post))) {
             this.setReason("User has non-matching posts");
             return false;
