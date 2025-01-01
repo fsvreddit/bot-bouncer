@@ -1,4 +1,4 @@
-import { getUsernameFromUrl } from "./utility.js";
+import { getUsernameFromUrl, median } from "./utility.js";
 
 test("URL parsing", () => {
     const expected = [
@@ -20,5 +20,26 @@ test("URL parsing", () => {
 
     const actual = expected.map(item => ({ input: item.input, result: getUsernameFromUrl(item.input) }));
 
+    expect(actual).toEqual(expected);
+});
+
+test("Median with one input", () => {
+    const input = [1];
+    const expected = 1;
+    const actual = median(input);
+    expect(actual).toEqual(expected);
+});
+
+test("Median with odd numbers of inputs", () => {
+    const input = [1, 2, 100];
+    const expected = 2;
+    const actual = median(input);
+    expect(actual).toEqual(expected);
+});
+
+test("Median with even numbers of inputs", () => {
+    const input = [1, 2, 3, 100];
+    const expected = 2.5;
+    const actual = median(input);
     expect(actual).toEqual(expected);
 });

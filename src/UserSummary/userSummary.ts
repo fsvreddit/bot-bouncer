@@ -1,5 +1,5 @@
 import { Comment, JobContext, JSONObject, Post, ScheduledJobEvent, TriggerContext } from "@devvit/public-api";
-import { domainFromUrl, getUserOrUndefined } from "../utility.js";
+import { domainFromUrl, getUserOrUndefined, median } from "../utility.js";
 import { addMilliseconds, differenceInDays, differenceInHours, differenceInMilliseconds, differenceInMinutes, Duration, formatDuration, intervalToDuration, startOfDecade } from "date-fns";
 import { autogenRegex, femaleNameRegex, resemblesAutogen } from "./regexes.js";
 import { compact, countBy, mean } from "lodash";
@@ -50,7 +50,7 @@ function timeBetween (history: (Post | Comment)[], type: "min" | "max") {
     return formatDifferenceInDates(start, end);
 }
 
-function averageInterval (history: (Post | Comment)[]) {
+function averageInterval (history: (Post | Comment)[], mode: "mean" | "median") {
     if (history.length < 2) {
         return;
     }
@@ -64,7 +64,7 @@ function averageInterval (history: (Post | Comment)[]) {
     }
 
     const start = startOfDecade(new Date());
-    const end = addMilliseconds(start, Math.round(mean(differences)));
+    const end = addMilliseconds(start, Math.round(mode === "mean" ? mean(differences) : median(differences)));
 
     return formatDifferenceInDates(start, end);
 }
@@ -73,6 +73,7 @@ function minMaxAvg (numbers: number[]) {
     const min = Math.min(...numbers);
     const max = Math.max(...numbers);
     const avg = Math.round(mean(numbers));
+    const mdn = Math.round(median(numbers));
 
     if (min === max) {
         return `All ${min.toLocaleString()}`;
@@ -80,7 +81,8 @@ function minMaxAvg (numbers: number[]) {
 
     return `Min: ${min.toLocaleString()}, `
         + `Max: ${max.toLocaleString()}, `
-        + `Average: ${avg.toLocaleString()}`;
+        + `Average: ${avg.toLocaleString()}, `
+        + `Median: ${mdn.toLocaleString()}`;
 }
 
 function femaleNameCheck (username: string) {
@@ -161,7 +163,7 @@ export async function createUserSummary (username: string, postId: string, conte
         if (userComments.length > 2) {
             summary += `* Min time between comments: ${timeBetween(userComments, "min")}\n`;
             summary += `* Max time between comments: ${timeBetween(userComments, "max")}\n`;
-            summary += `* Average time between comments: ${averageInterval(userComments)}\n`;
+            summary += `* Average time between comments: ${averageInterval(userComments, "mean")} (median: ${averageInterval(userComments, "median")}\n`;
         } else if (userComments.length === 2) {
             summary += ` * Time between comments: ${timeBetween(userComments, "min")}\n`;
         }
@@ -189,7 +191,7 @@ export async function createUserSummary (username: string, postId: string, conte
         if (userPosts.length > 2) {
             summary += `* Min time between posts: ${timeBetween(nonStickied, "min")}\n`;
             summary += `* Max time between posts: ${timeBetween(nonStickied, "max")}\n`;
-            summary += `* Average time between posts: ${averageInterval(nonStickied)}\n`;
+            summary += `* Average time between posts: ${averageInterval(nonStickied, "mean")} (median: ${averageInterval(nonStickied, "median")}\n`;
         } else if (userPosts.length === 2) {
             summary += ` * Time between comments: ${timeBetween(nonStickied, "min")}\n`;
         }
