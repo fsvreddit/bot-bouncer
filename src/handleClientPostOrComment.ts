@@ -88,7 +88,7 @@ export async function handleClientCommentCreate (event: CommentCreate, context: 
 
 async function handleContentCreation (username: string, targetId: string, context: TriggerContext) {
     const currentStatus = await getUserStatus(username, context);
-    if (!currentStatus || currentStatus.userStatus !== UserStatus.Banned) {
+    if (currentStatus?.userStatus !== UserStatus.Banned) {
         return;
     }
 
@@ -97,34 +97,35 @@ async function handleContentCreation (username: string, targetId: string, contex
         console.log(`${username} is whitelisted after a previous unban, so will not be actioned.`);
     }
 
-    console.log(`Status for ${username} is ${currentStatus.userStatus}`);
+    console.log(`Content Create: Status for ${username} is ${currentStatus.userStatus}`);
 
     const subredditName = context.subredditName ?? (await context.reddit.getCurrentSubreddit()).name;
 
     const user = await getUserOrUndefined(username, context);
 
     if (!user) {
-        console.log(`${username} appears to be shadowbanned.`);
+        console.log(`Content Create: ${username} appears to be shadowbanned.`);
         return;
     }
 
     const flair = await user.getUserFlairBySubreddit(subredditName);
     if (flair?.flairCssClass?.toLowerCase().endsWith("proof")) {
-        console.log(`${user.username} is whitelisted via flair`);
+        console.log(`Content Create: ${user.username} is whitelisted via flair`);
         return;
     }
 
     if (await isApproved(user.username, context)) {
-        console.log(`${user.username} is whitelisted as an approved user`);
+        console.log(`Content Create: ${user.username} is whitelisted as an approved user`);
         return;
     }
 
     if (await isModerator(user.username, context)) {
-        console.log(`${user.username} is whitelisted as a moderator`);
+        console.log(`Content Create: ${user.username} is whitelisted as a moderator`);
         return;
     }
 
     await context.reddit.remove(targetId, true);
+    console.log(`Content Create: ${targetId} removed for ${user.username}`);
 
     const isCurrentlyBanned = await isBanned(user.username, context);
 
@@ -147,6 +148,7 @@ async function handleContentCreation (username: string, targetId: string, contex
         });
 
         await recordBan(username, context);
+        console.log(`Content Create: ${user.username} banned from ${subredditName}`);
     }
 }
 
