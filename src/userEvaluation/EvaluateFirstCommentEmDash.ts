@@ -3,7 +3,7 @@ import { CommentSubmit } from "@devvit/protos";
 import { CommentV2 } from "@devvit/protos/types/devvit/reddit/v2alpha/commentv2.js";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
 import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
-import { subMonths } from "date-fns";
+import { subWeeks } from "date-fns";
 import { last } from "lodash";
 import { domainFromUrl } from "./evaluatorHelpers.js";
 
@@ -33,7 +33,7 @@ export class EvaluateFirstCommentEmDash extends UserEvaluatorBase {
     }
 
     override preEvaluateUser (user: User): boolean {
-        if (user.createdAt < subMonths(new Date(), 1)) {
+        if (user.createdAt < subWeeks(new Date(), 6)) {
             this.setReason("Account is too old");
             return false;
         }
@@ -49,7 +49,7 @@ export class EvaluateFirstCommentEmDash extends UserEvaluatorBase {
         const comments = history.filter(item => isCommentId(item.id)) as Comment[];
         const posts = history.filter(item => isLinkId(item.id)) as Post[];
 
-        if (comments.length > 10) {
+        if (comments.length > 30) {
             this.setReason("User has too many comments");
             return false;
         }
