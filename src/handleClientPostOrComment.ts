@@ -1,4 +1,4 @@
-import { Post, Comment, TriggerContext } from "@devvit/public-api";
+import { Post, Comment, TriggerContext, SettingsValues } from "@devvit/public-api";
 import { CommentCreate, PostCreate } from "@devvit/protos";
 import { addDays, addMinutes, formatDate, subMinutes } from "date-fns";
 import { getUserStatus, UserStatus } from "./dataStore.js";
@@ -26,6 +26,11 @@ export async function handleClientPostCreate (event: PostCreate, context: Trigge
         return;
     }
 
+    const settings = await context.settings.getAll();
+    if (!settings[AppSetting.ReportPotentialBots]) {
+        return;
+    }
+
     const post = await context.reddit.getPostById(event.post.id);
     let possibleBot = false;
     for (const Evaluator of ALL_EVALUATORS) {
@@ -37,7 +42,7 @@ export async function handleClientPostCreate (event: PostCreate, context: Trigge
     }
 
     if (possibleBot) {
-        await checkAndReportPotentialBot(event.author.name, event.post.id, context);
+        await checkAndReportPotentialBot(event.author.name, event.post.id, settings, context);
     }
 }
 
@@ -54,7 +59,11 @@ export async function handleClientCommentCreate (event: CommentCreate, context: 
 
     const currentStatus = await getUserStatus(event.author.name, context);
     if (currentStatus) {
-        await checkForBotMentions(event, context);
+        return;
+    }
+
+    const settings = await context.settings.getAll();
+    if (!settings[AppSetting.ReportPotentialBots]) {
         return;
     }
 
@@ -68,6 +77,7 @@ export async function handleClientCommentCreate (event: CommentCreate, context: 
     }
 
     if (!possibleBot) {
+        await checkForBotMentions(event, context);
         return;
     }
 
@@ -81,7 +91,7 @@ export async function handleClientCommentCreate (event: CommentCreate, context: 
         }
     }
 
-    await checkAndReportPotentialBot(event.author.name, event.comment.id, context);
+    await checkAndReportPotentialBot(event.author.name, event.comment.id, settings, context);
 
     await context.redis.set(redisKey, new Date().getTime.toString(), { expiration: addDays(new Date(), 2) });
 }
@@ -152,7 +162,7 @@ async function handleContentCreation (username: string, targetId: string, contex
     }
 }
 
-async function checkAndReportPotentialBot (username: string, thingId: string, context: TriggerContext) {
+async function checkAndReportPotentialBot (username: string, thingId: string, settings: SettingsValues, context: TriggerContext) {
     const user = await getUserOrUndefined(username, context);
     if (!user) {
         return;
@@ -214,6 +224,10 @@ async function checkAndReportPotentialBot (username: string, thingId: string, co
     }, context);
 
     console.log(`Created external submission via automated evaluation for ${user.username} for bot style ${botName}`);
+
+    if (settings[AppSetting.RemoveContentWhenReporting]) {
+        await target.remove();
+    }
 }
 
 async function checkForBotMentions (event: CommentCreate, context: TriggerContext) {
@@ -236,5 +250,5 @@ async function checkForBotMentions (event: CommentCreate, context: TriggerContex
 
     const parentItem = await getPostOrCommentById(parentId, context);
 
-    await context.redis.set(`botmention:${parentItem.id}`, parentItem.authorName, { expiration: addMinutes(new Date(), 5) });
+    await context.redis.set(`botmention:${parentItem.id}`, parentItem.authorName, { expiration: addMinutes(new Date(), 1) });
 }
