@@ -187,7 +187,10 @@ export async function createUserSummary (username: string, postId: string, conte
     if (userPosts.length > 0) {
         summary += "## Posts\n\n";
         summary += `User has ${userPosts.length} ${pluralize("post", userPosts.length)}\n\n`;
-        const nonStickied = userPosts.filter(post => !post.stickied);
+        const nonStickied = userPosts
+            .filter(post => !post.stickied)
+            .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
         if (userPosts.length > 2) {
             summary += `* Min time between posts: ${timeBetween(nonStickied, "min")}\n`;
             summary += `* Max time between posts: ${timeBetween(nonStickied, "max")}\n`;
