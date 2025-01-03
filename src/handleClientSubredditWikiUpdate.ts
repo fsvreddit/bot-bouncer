@@ -52,7 +52,13 @@ export async function isUserWhitelisted (username: string, context: TriggerConte
     return score !== undefined;
 }
 
-async function handleUnban (username: string, subredditName: string, context: TriggerContext) {
+async function handleSetOrganic (username: string, subredditName: string, context: TriggerContext) {
+    const contentRemovedId = await context.redis.get(`removed:${username}`);
+    if (contentRemovedId) {
+        await context.reddit.approve(contentRemovedId);
+        await context.redis.del(`removed:${username}`);
+    }
+
     const userBannedByApp = await wasUserBannedByApp(username, context);
     if (!userBannedByApp) {
         console.log(`Wiki Update: ${username} was not banned by this app.`);
@@ -65,7 +71,7 @@ async function handleUnban (username: string, subredditName: string, context: Tr
     }
 }
 
-async function handleBan (username: string, subredditName: string, settings: SettingsValues, context: TriggerContext) {
+async function handleSetBanned (username: string, subredditName: string, settings: SettingsValues, context: TriggerContext) {
     const isCurrentlyBanned = await isBanned(username, context);
     if (isCurrentlyBanned) {
         console.log(`Wiki Update: ${username} is already banned on ${subredditName}.`);
@@ -115,6 +121,7 @@ async function handleBan (username: string, subredditName: string, settings: Set
         }),
         recordBan(username, context),
         ...recentLocalContent.map(item => item.remove()),
+        context.redis.del(`removed:${username}`),
     ]);
 
     const failedPromises = results.filter(result => result.status === "rejected");
@@ -141,7 +148,7 @@ export async function handleClassificationChanges (event: ScheduledJobEvent<JSON
 
     if (unbannedUsers.length > 0) {
         console.log(`Wiki Update: Checking unbans for ${unbannedUsers.length} ${pluralize("user", unbannedUsers.length)}`);
-        promises.push(...unbannedUsers.map(username => handleUnban(username, subredditName, context)));
+        promises.push(...unbannedUsers.map(username => handleSetOrganic(username, subredditName, context)));
         promises.push(removeRecordOfBan(unbannedUsers, context));
     }
 
@@ -151,7 +158,7 @@ export async function handleClassificationChanges (event: ScheduledJobEvent<JSON
         // Take 5 users to process immediately, and schedule the rest
         const userCount = 5;
         const usersToProcess = bannedUsers.slice(0, userCount);
-        promises.push(...usersToProcess.map(username => handleBan(username, subredditName, settings, context)));
+        promises.push(...usersToProcess.map(username => handleSetBanned(username, subredditName, settings, context)));
 
         const remainingUsers = bannedUsers.slice(userCount);
         if (remainingUsers.length > 0) {

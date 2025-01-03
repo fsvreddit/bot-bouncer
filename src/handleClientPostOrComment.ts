@@ -1,6 +1,6 @@
 import { Post, Comment, TriggerContext, SettingsValues } from "@devvit/public-api";
 import { CommentCreate, PostCreate } from "@devvit/protos";
-import { addDays, addMinutes, formatDate, subMinutes } from "date-fns";
+import { addDays, addMinutes, addWeeks, formatDate, subMinutes } from "date-fns";
 import { getUserStatus, UserStatus } from "./dataStore.js";
 import { isUserWhitelisted, recordBan } from "./handleClientSubredditWikiUpdate.js";
 import { CONTROL_SUBREDDIT } from "./constants.js";
@@ -226,6 +226,9 @@ async function checkAndReportPotentialBot (username: string, thingId: string, se
     console.log(`Created external submission via automated evaluation for ${user.username} for bot style ${botName}`);
 
     if (settings[AppSetting.RemoveContentWhenReporting]) {
+        if (!target.spam) {
+            await context.redis.set(`removed:${target.authorName}`, target.id, { expiration: addWeeks(new Date(), 4) });
+        }
         await target.remove();
     }
 }
@@ -251,4 +254,5 @@ async function checkForBotMentions (event: CommentCreate, context: TriggerContex
     const parentItem = await getPostOrCommentById(parentId, context);
 
     await context.redis.set(`botmention:${parentItem.id}`, parentItem.authorName, { expiration: addMinutes(new Date(), 1) });
+    console.log(`Bot mention: https://www.reddit.com${event.comment.permalink}`);
 }
