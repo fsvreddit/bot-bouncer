@@ -57,7 +57,7 @@ export class EvaluateZombie extends UserEvaluatorBase {
             return false;
         }
 
-        const oldContent = history.filter(item => item.createdAt < subYears(new Date(), 6));
+        const oldContent = history.filter(item => !item.stickied && item.createdAt < subYears(new Date(), 6));
         if (oldContent.length === 0) {
             this.setReason("User doesn't have old content");
             return false;
