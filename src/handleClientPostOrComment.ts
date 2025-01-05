@@ -212,6 +212,7 @@ async function checkAndReportPotentialBot (username: string, thingId: string, se
 
     const isMod = await isModerator(user.username, context);
     if (isMod) {
+        console.log(`User ${user.username} is a moderator, so not reporting as a bot.`);
         return;
     }
 

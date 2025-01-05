@@ -1,4 +1,4 @@
-import { CommentSubmit } from "@devvit/protos";
+import { CommentCreate } from "@devvit/protos";
 import { Comment, Post, TriggerContext, User } from "@devvit/public-api";
 
 export abstract class UserEvaluatorBase {
@@ -22,7 +22,7 @@ export abstract class UserEvaluatorBase {
         this.context = context;
     }
 
-    abstract preEvaluateComment (event: CommentSubmit): boolean;
+    abstract preEvaluateComment (event: CommentCreate): boolean;
 
     abstract preEvaluatePost (post: Post): boolean;
 

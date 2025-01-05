@@ -15,6 +15,7 @@ import { handleClientCommentCreate, handleClientPostCreate } from "./handleClien
 import { handleClientSubCommentDelete, handleClientSubPostDelete } from "./handleClientSubContentDelete.js";
 import { handleClassificationChanges } from "./handleClientSubredditWikiUpdate.js";
 import { createUserSummaryJobHandler } from "./UserSummary/userSummary.js";
+import { handleControlSubPostDelete } from "./handleControlSubPostDelete.js";
 
 Devvit.addSettings(appSettings);
 
@@ -46,6 +47,11 @@ Devvit.addTrigger({
 Devvit.addTrigger({
     event: "PostDelete",
     onEvent: handleClientSubPostDelete,
+});
+
+Devvit.addTrigger({
+    event: "PostDelete",
+    onEvent: handleControlSubPostDelete,
 });
 
 Devvit.addTrigger({
