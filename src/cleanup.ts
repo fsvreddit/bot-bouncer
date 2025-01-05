@@ -45,7 +45,7 @@ export async function cleanupDeletedAccounts (_: unknown, context: TriggerContex
     // Check platform is up.
     await context.reddit.getAppUser();
 
-    const itemsToCheck = 50;
+    const itemsToCheck = 5;
 
     // Get the first N accounts that are due a check.
     const usersToCheck = items.slice(0, itemsToCheck).map(item => item.member);
