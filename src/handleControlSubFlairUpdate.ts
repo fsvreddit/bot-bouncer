@@ -48,4 +48,15 @@ export async function handleControlSubFlairUpdate (event: PostFlairUpdate, conte
     console.log(`Flair Update: Status for ${username} set to ${postFlair} by ${event.author.name}`);
 
     await context.reddit.approve(event.post.id);
+
+    // Look for Account Properties comment and delete it.
+    if (postFlair !== UserStatus.Pending) {
+        const post = await context.reddit.getPostById(event.post.id);
+        const comment = await post.comments.all();
+        const commentToDelete = comment.find(c => c.authorName === context.appName && c.body.startsWith("## Account Properties"));
+
+        if (commentToDelete) {
+            await commentToDelete.delete();
+        }
+    }
 }
