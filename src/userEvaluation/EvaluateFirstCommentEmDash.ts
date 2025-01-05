@@ -71,9 +71,19 @@ export class EvaluateFirstCommentEmDash extends UserEvaluatorBase {
 
         const firstComment = last(comments);
         const firstCommentContainsEmDash = firstComment ? firstComment.body.includes("—") : false;
-        const atLeastHalfHaveEmDash = comments.filter(comment => comment.body.includes("—")).length / comments.length > 0.5;
 
-        if (!firstCommentContainsEmDash && !atLeastHalfHaveEmDash) {
+        let emDashThreshold: number;
+        if (comments.length > 80) {
+            emDashThreshold = 0.2;
+        } else if (comments.length > 30) {
+            emDashThreshold = 0.3;
+        } else {
+            emDashThreshold = 0.5;
+        }
+
+        const emDashThresholdMet = comments.filter(comment => comment.body.includes("—")).length / comments.length > emDashThreshold;
+
+        if (!firstCommentContainsEmDash && !emDashThresholdMet) {
             this.setReason("User's first comment doesn't contain an em dash, or they have insufficient comments with them");
             return false;
         }
