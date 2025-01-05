@@ -1,5 +1,5 @@
 import { Comment, Post, User } from "@devvit/public-api";
-import { CommentSubmit } from "@devvit/protos";
+import { CommentCreate } from "@devvit/protos";
 import { CommentV2 } from "@devvit/protos/types/devvit/reddit/v2alpha/commentv2.js";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
 import { isCommentId } from "@devvit/shared-types/tid.js";
@@ -19,7 +19,7 @@ export class EvaluateShortTlc extends UserEvaluatorBase {
             && comment.body.length < 500;
     }
 
-    override preEvaluateComment (event: CommentSubmit): boolean {
+    override preEvaluateComment (event: CommentCreate): boolean {
         if (!event.comment || !event.author) {
             return false;
         }

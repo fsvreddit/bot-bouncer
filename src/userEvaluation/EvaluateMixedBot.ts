@@ -1,4 +1,4 @@
-import { CommentSubmit } from "@devvit/protos";
+import { CommentCreate } from "@devvit/protos";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
 import { Comment, Post, User } from "@devvit/public-api";
 import { subMonths, subYears } from "date-fns";
@@ -42,7 +42,7 @@ export class EvaluateMixedBot extends UserEvaluatorBase {
         return domainRegex.test(new URL(post.url).hostname) || post.subredditName === "WhatIsMyCQS";
     }
 
-    override preEvaluateComment (event: CommentSubmit): boolean {
+    override preEvaluateComment (event: CommentCreate): boolean {
         if (!event.comment) {
             return false;
         }

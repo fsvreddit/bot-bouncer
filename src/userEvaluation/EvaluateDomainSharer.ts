@@ -1,5 +1,5 @@
 import { Comment, Post, User } from "@devvit/public-api";
-import { CommentSubmit } from "@devvit/protos";
+import { CommentCreate } from "@devvit/protos";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
 import { compact, countBy, toPairs, uniq } from "lodash";
 import { subMonths } from "date-fns";
@@ -43,7 +43,7 @@ export class EvaluateDomainSharer extends UserEvaluatorBase {
         return uniq(compact(domains).filter(domain => !this.ignoredDomains.includes(domain)));
     }
 
-    override preEvaluateComment (event: CommentSubmit): boolean {
+    override preEvaluateComment (event: CommentCreate): boolean {
         if (!event.comment) {
             return false;
         }

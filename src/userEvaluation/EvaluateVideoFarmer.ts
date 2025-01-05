@@ -1,6 +1,6 @@
 import { Comment, Post, User } from "@devvit/public-api";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
-import { CommentSubmit } from "@devvit/protos";
+import { CommentCreate } from "@devvit/protos";
 import { domainFromUrl } from "./evaluatorHelpers.js";
 import { differenceInMinutes, subMonths } from "date-fns";
 import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
@@ -14,7 +14,7 @@ export class EvaluateVideoFarmer extends UserEvaluatorBase {
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    override preEvaluateComment (_: CommentSubmit): boolean {
+    override preEvaluateComment (_: CommentCreate): boolean {
         return false;
     }
 

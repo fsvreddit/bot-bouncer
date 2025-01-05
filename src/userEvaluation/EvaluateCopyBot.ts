@@ -3,7 +3,7 @@ import { CommentV2 } from "@devvit/protos/types/devvit/reddit/v2alpha/commentv2.
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
 import { isLinkId } from "@devvit/shared-types/tid.js";
 import { subMonths } from "date-fns";
-import { CommentSubmit } from "@devvit/protos";
+import { CommentCreate } from "@devvit/protos";
 
 export class EvaluateCopyBot extends UserEvaluatorBase {
     override name = "Copy Bot";
@@ -29,7 +29,7 @@ export class EvaluateCopyBot extends UserEvaluatorBase {
 
     private readonly usernameRegex = /^(?:[A-Z][a-z]+[_-]?){2}\d{2,4}$/;
 
-    override preEvaluateComment (event: CommentSubmit): boolean {
+    override preEvaluateComment (event: CommentCreate): boolean {
         if (!event.comment || !event.author) {
             return false;
         }
