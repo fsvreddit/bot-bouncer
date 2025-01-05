@@ -81,7 +81,7 @@ export async function handleClientCommentCreate (event: CommentCreate, context: 
         return;
     }
 
-    const redisKey = `lastcheck:${event.author.name}`;
+    const redisKey = `lastbotcheck:${event.author.name}`;
     const recentlyChecked = await context.redis.get(redisKey);
     if (recentlyChecked) {
         // Allow some rechecks within 15 minutes, to find rapid fire bots.
@@ -93,7 +93,7 @@ export async function handleClientCommentCreate (event: CommentCreate, context: 
 
     await checkAndReportPotentialBot(event.author.name, event.comment.id, settings, context);
 
-    await context.redis.set(redisKey, new Date().getTime.toString(), { expiration: addDays(new Date(), 2) });
+    await context.redis.set(redisKey, new Date().getTime().toString(), { expiration: addDays(new Date(), 2) });
 }
 
 async function handleContentCreation (username: string, targetId: string, context: TriggerContext) {
@@ -192,6 +192,8 @@ async function checkAndReportPotentialBot (username: string, thingId: string, se
         // Error retrieving user history, likely shadowbanned.
         return;
     }
+
+    console.log(`Checking ${username} for potential bot activity`);
 
     let isLikelyBot = false;
     let botName: string | undefined;
