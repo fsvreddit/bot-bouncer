@@ -1,7 +1,7 @@
 import { TriggerContext } from "@devvit/public-api";
 import { addDays, addHours, addMinutes, subMinutes } from "date-fns";
 import { parseExpression } from "cron-parser";
-import { ADHOC_CLEANUP_JOB, CLEANUP_JOB_CRON, CONTROL_SUBREDDIT, PostFlairTemplate } from "./constants.js";
+import { ADHOC_CLEANUP_JOB, CLEANUP_JOB, CLEANUP_JOB_CRON, CONTROL_SUBREDDIT, PostFlairTemplate } from "./constants.js";
 import { deleteUserStatus, getUserStatus, updateAggregate, UserStatus } from "./dataStore.js";
 import { getUserOrUndefined } from "./utility.js";
 import { removeRecordOfBan, removeWhitelistUnban } from "./handleClientSubredditWikiUpdate.js";
@@ -92,7 +92,7 @@ export async function cleanupDeletedAccounts (_: unknown, context: TriggerContex
     if (items.length > itemsToCheck) {
         // In a backlog, so force another run.
         await context.scheduler.runJob({
-            name: "cleanupDeletedAccounts",
+            name: CLEANUP_JOB,
             runAt: new Date(),
         });
     } else {
