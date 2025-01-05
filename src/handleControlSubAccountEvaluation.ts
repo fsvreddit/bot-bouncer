@@ -70,7 +70,6 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
         if (isABot) {
             console.log(`Evaluator: ${username} appears to be a bot via the evaluator: ${evaluator.name}`);
             detectedBots.push(evaluator);
-            break;
         } else {
             console.log(`Evaluator: ${evaluator.name} did not match: ${evaluator.getReasons().join(", ")}`);
         }
