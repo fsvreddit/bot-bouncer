@@ -76,9 +76,9 @@ export class EvaluateFirstCommentEmDash extends UserEvaluatorBase {
         if (comments.length > 80) {
             emDashThreshold = 0.2;
         } else if (comments.length > 30) {
-            emDashThreshold = 0.3;
+            emDashThreshold = 0.25;
         } else {
-            emDashThreshold = 0.5;
+            emDashThreshold = 0.3;
         }
 
         const emDashThresholdMet = comments.filter(comment => comment.body.includes("—")).length / comments.length > emDashThreshold;

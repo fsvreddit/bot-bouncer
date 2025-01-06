@@ -165,7 +165,7 @@ export async function createUserSummary (username: string, postId: string, conte
             summary += `* Max time between comments: ${timeBetween(userComments, "max")}\n`;
             summary += `* Average time between comments: ${averageInterval(userComments, "mean")} (median: ${averageInterval(userComments, "median")})\n`;
         } else if (userComments.length === 2) {
-            summary += ` * Time between comments: ${timeBetween(userComments, "min")}\n`;
+            summary += `* Time between comments: ${timeBetween(userComments, "min")}\n`;
         }
         summary += `* Length: ${minMaxAvg(userComments.map(comment => comment.body.length))}\n`;
         summary += `* Word count: ${minMaxAvg(userComments.map(comment => count(comment.body, "words", {})))}\n`;
@@ -196,7 +196,7 @@ export async function createUserSummary (username: string, postId: string, conte
             summary += `* Max time between posts: ${timeBetween(nonStickied, "max")}\n`;
             summary += `* Average time between posts: ${averageInterval(nonStickied, "mean")} (median: ${averageInterval(nonStickied, "median")})\n`;
         } else if (userPosts.length === 2) {
-            summary += ` * Time between comments: ${timeBetween(nonStickied, "min")}\n`;
+            summary += `* Time between comments: ${timeBetween(nonStickied, "min")}\n`;
         }
 
         const domains = countBy(compact(userPosts.map(post => domainFromUrl(post.url))));
