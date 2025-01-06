@@ -237,7 +237,7 @@ async function checkAndReportPotentialBot (username: string, thingId: string, se
 }
 
 async function checkForBotMentions (event: CommentCreate, context: TriggerContext) {
-    if (!event.comment) {
+    if (!event.comment || event.author?.name === "AutoModerator") {
         return;
     }
 
