@@ -281,12 +281,14 @@ export async function updateLocalStoreFromWiki (_: unknown, context: JobContext)
     if (usersWithStatus.length > 0) {
         const newUpdateDate = max(usersWithStatus.map(item => item.data.lastUpdate)) ?? new Date().getTime();
 
-        const unbannedUsers = usersWithStatus
-            .filter(item => new Date(item.data.lastUpdate) > lastUpdateDate && (item.data.userStatus === UserStatus.Organic || item.data.userStatus === UserStatus.Service))
+        const recentItems = usersWithStatus.filter(item => new Date(item.data.lastUpdate) > lastUpdateDate);
+
+        const unbannedUsers = recentItems
+            .filter(item => item.data.userStatus === UserStatus.Organic || item.data.userStatus === UserStatus.Service)
             .map(item => item.username);
 
-        const bannedUsers = usersWithStatus
-            .filter(item => new Date(item.data.lastUpdate) > lastUpdateDate && item.data.userStatus === UserStatus.Banned)
+        const bannedUsers = recentItems
+            .filter(item => item.data.userStatus === UserStatus.Banned)
             .map(item => item.username);
 
         if (bannedUsers.length > 0 || unbannedUsers.length > 0) {
