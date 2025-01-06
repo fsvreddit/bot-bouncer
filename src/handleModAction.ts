@@ -1,6 +1,6 @@
 import { TriggerContext } from "@devvit/public-api";
 import { ModAction } from "@devvit/protos";
-import { CONTROL_SUBREDDIT } from "./constants.js";
+import { CONTROL_SUBREDDIT, UPDATE_EVALUATOR_VARIABLES } from "./constants.js";
 import { recordWhitelistUnban, removeRecordOfBan } from "./handleClientSubredditWikiUpdate.js";
 import { createExternalSubmissionJob } from "./externalSubmissions.js";
 import { validateControlSubConfigChange } from "./settings.js";
@@ -26,6 +26,11 @@ export async function handleModAction (event: ModAction, context: TriggerContext
             await createExternalSubmissionJob(context);
         } else if (event.moderator) {
             await validateControlSubConfigChange(event.moderator.name, context);
+            await context.scheduler.runJob({
+                name: UPDATE_EVALUATOR_VARIABLES,
+                runAt: new Date(),
+                data: { username: event.moderator.name },
+            });
         }
     }
 }

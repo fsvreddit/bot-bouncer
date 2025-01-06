@@ -1,7 +1,7 @@
 import { Devvit } from "@devvit/public-api";
 import { handleControlSubSubmission } from "./handleControlSubSubmission.js";
 import { updateLocalStoreFromWiki, updateWikiPage, writeAggregateToWikiPage } from "./dataStore.js";
-import { ADHOC_CLEANUP_JOB, CLEANUP_JOB, CONTROL_SUBREDDIT, CREATE_USER_SUMMARY, EVALUATE_USER, EXTERNAL_SUBMISSION_JOB, HANDLE_CLASSIFICATION_CHANGES_JOB, UPDATE_DATASTORE_FROM_WIKI, UPDATE_STATISTICS_PAGE, UPDATE_WIKI_PAGE_JOB } from "./constants.js";
+import { ADHOC_CLEANUP_JOB, CLEANUP_JOB, CONTROL_SUBREDDIT, CREATE_USER_SUMMARY, EVALUATE_USER, EXTERNAL_SUBMISSION_JOB, HANDLE_CLASSIFICATION_CHANGES_JOB, UPDATE_DATASTORE_FROM_WIKI, UPDATE_EVALUATOR_VARIABLES, UPDATE_STATISTICS_PAGE, UPDATE_WIKI_PAGE_JOB } from "./constants.js";
 import { handleInstallOrUpgrade } from "./installActions.js";
 import { handleControlSubFlairUpdate } from "./handleControlSubFlairUpdate.js";
 import { appSettings } from "./settings.js";
@@ -16,6 +16,7 @@ import { handleClientSubCommentDelete, handleClientSubPostDelete } from "./handl
 import { handleClassificationChanges } from "./handleClientSubredditWikiUpdate.js";
 import { createUserSummaryJobHandler } from "./UserSummary/userSummary.js";
 import { handleControlSubPostDelete } from "./handleControlSubPostDelete.js";
+import { updateEvaluatorVariablesFromWikiHandler } from "./userEvaluation/evaluatorVariables.js";
 
 Devvit.addSettings(appSettings);
 
@@ -140,6 +141,11 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: CREATE_USER_SUMMARY,
     onRun: createUserSummaryJobHandler,
+});
+
+Devvit.addSchedulerJob({
+    name: UPDATE_EVALUATOR_VARIABLES,
+    onRun: updateEvaluatorVariablesFromWikiHandler,
 });
 
 Devvit.configure({
