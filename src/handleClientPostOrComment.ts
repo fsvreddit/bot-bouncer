@@ -193,8 +193,6 @@ async function checkAndReportPotentialBot (username: string, thingId: string, se
         return;
     }
 
-    console.log(`Checking ${username} for potential bot activity`);
-
     let isLikelyBot = false;
     let botName: string | undefined;
     for (const Evaluator of ALL_EVALUATORS) {
@@ -207,12 +205,13 @@ async function checkAndReportPotentialBot (username: string, thingId: string, se
     }
 
     if (!isLikelyBot) {
+        console.log(`Bot check: ${username} doesn't match any bot styles.`);
         return;
     }
 
     const isMod = await isModerator(user.username, context);
     if (isMod) {
-        console.log(`User ${user.username} is a moderator, so not reporting as a bot.`);
+        console.log(`Bot check: User ${user.username} is a moderator, so not reporting as a bot.`);
         return;
     }
 

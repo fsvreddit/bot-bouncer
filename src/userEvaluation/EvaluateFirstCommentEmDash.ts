@@ -25,7 +25,8 @@ export class EvaluateFirstCommentEmDash extends UserEvaluatorBase {
     }
 
     private eligiblePost (post: Post): boolean {
-        return domainFromUrl(post.url) === "i.redd.it";
+        const domain = domainFromUrl(post.url);
+        return domain === "i.redd.it" || domain === "reddit.com";
     }
 
     override preEvaluatePost (post: Post): boolean {
