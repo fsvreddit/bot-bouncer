@@ -189,7 +189,7 @@ async function checkAndReportPotentialBot (username: string, thingId: string, se
             limit: 100,
         }).all();
     } catch {
-        // Error retrieving user history, likely shadowbanned.
+        console.log(`Bot check: couldn't read history for ${username}.`);
         return;
     }
 
