@@ -5,16 +5,14 @@ const EVALUATOR_VARIABLES_KEY = "evaluatorVariables";
 const EVALUATOR_VARIABLES_WIKI_PAGE = "evaluatorvariables";
 const EVALUATOR_VARIABLES_LAST_REVISION_KEY = "evaluatorVariablesLastRevision";
 
-export async function getEvaluatorVariable<T> (name: string, context: TriggerContext): Promise<T | undefined> {
+export async function getEvaluatorVariables (context: TriggerContext | JobContext): Promise<Record<string, JSONValue>> {
     const allVariables = await context.redis.get(EVALUATOR_VARIABLES_KEY);
     if (!allVariables) {
-        return;
+        return {};
     }
 
     const variables = JSON.parse(allVariables) as Record<string, JSONValue>;
-
-    const value = variables[name] as T;
-    return value;
+    return variables;
 }
 
 export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {

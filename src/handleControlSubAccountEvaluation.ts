@@ -4,6 +4,7 @@ import { CONTROL_SUBREDDIT, PostFlairTemplate } from "./constants.js";
 import { getUserOrUndefined } from "./utility.js";
 import { ALL_EVALUATORS } from "./userEvaluation/allEvaluators.js";
 import { UserEvaluatorBase } from "./userEvaluation/UserEvaluatorBase.js";
+import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 
 interface EvaluatorStats {
     hitCount: number;
@@ -63,9 +64,10 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
     }
 
     const detectedBots: UserEvaluatorBase[] = [];
+    const variables = await getEvaluatorVariables(context);
 
     for (const Evaluator of ALL_EVALUATORS) {
-        const evaluator = new Evaluator(context);
+        const evaluator = new Evaluator(context, variables);
         const isABot = evaluator.evaluate(user, userItems);
         if (isABot) {
             console.log(`Evaluator: ${username} appears to be a bot via the evaluator: ${evaluator.name}`);

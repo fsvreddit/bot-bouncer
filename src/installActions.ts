@@ -58,6 +58,11 @@ async function addClientSubredditJobs (context: TriggerContext) {
         cron: `${randomMinute}/15 * * * *`,
     });
 
+    await context.scheduler.runJob({
+        name: UPDATE_DATASTORE_FROM_WIKI,
+        runAt: new Date(),
+    });
+
     randomMinute = Math.floor(Math.random() * 60);
     const randomHour = Math.floor(Math.random() * 3);
     await context.scheduler.runJob({
@@ -66,7 +71,7 @@ async function addClientSubredditJobs (context: TriggerContext) {
     });
 
     await context.scheduler.runJob({
-        name: UPDATE_DATASTORE_FROM_WIKI,
+        name: UPDATE_EVALUATOR_VARIABLES,
         runAt: new Date(),
     });
 

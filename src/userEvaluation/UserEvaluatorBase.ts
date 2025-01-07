@@ -4,6 +4,7 @@ import { Comment, Post, TriggerContext, User } from "@devvit/public-api";
 export abstract class UserEvaluatorBase {
     protected reasons: string[] = [];
     protected context: TriggerContext;
+    protected variables: Record<string, unknown> = {};
 
     abstract name: string;
 
@@ -18,8 +19,9 @@ export abstract class UserEvaluatorBase {
     public banContentThreshold = 10;
     public canAutoBan = true;
 
-    constructor (context: TriggerContext) {
+    constructor (context: TriggerContext, variables: Record<string, unknown> = {}) {
         this.context = context;
+        this.variables = variables;
     }
 
     abstract preEvaluateComment (event: CommentCreate): boolean;

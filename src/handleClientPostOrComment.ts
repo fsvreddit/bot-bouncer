@@ -9,6 +9,7 @@ import { AppSetting, CONFIGURATION_DEFAULTS } from "./settings.js";
 import { ALL_EVALUATORS } from "./userEvaluation/allEvaluators.js";
 import { addExternalSubmission } from "./externalSubmissions.js";
 import { isLinkId } from "@devvit/shared-types/tid.js";
+import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 
 export async function handleClientPostCreate (event: PostCreate, context: TriggerContext) {
     if (context.subredditName === CONTROL_SUBREDDIT) {
@@ -193,10 +194,12 @@ async function checkAndReportPotentialBot (username: string, thingId: string, se
         return;
     }
 
+    const variables = await getEvaluatorVariables(context);
+
     let isLikelyBot = false;
     let botName: string | undefined;
     for (const Evaluator of ALL_EVALUATORS) {
-        const evaluator = new Evaluator(context);
+        const evaluator = new Evaluator(context, variables);
         if (evaluator.evaluate(user, userItems)) {
             isLikelyBot = true;
             botName = evaluator.name;

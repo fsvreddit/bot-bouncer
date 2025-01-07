@@ -7,6 +7,7 @@ import { EvaluateZombie } from "./EvaluateZombie.js";
 import { EvaluateCQSTester } from "./EvaluateCQSTester.js";
 import { EvaluateVideoFarmer } from "./EvaluateVideoFarmer.js";
 import { EvaluateFirstCommentEmDash } from "./EvaluateFirstCommentEmDash.js";
+import { EvaluateResumeSpam } from "./EvaluateResumeSpam.js";
 
 export const ALL_EVALUATORS = [
     EvaluateShortTlc,
@@ -18,4 +19,5 @@ export const ALL_EVALUATORS = [
     EvaluateCQSTester,
     EvaluateNSFWKarmaFarmer,
     EvaluateFirstCommentEmDash,
+    EvaluateResumeSpam,
 ];

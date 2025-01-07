@@ -39,6 +39,7 @@ export class EvaluateShortTlc extends UserEvaluatorBase {
     override preEvaluateUser (user: User): boolean {
         if (user.commentKarma > 500) {
             this.setReason("User has too much karma");
+            return false;
         }
 
         if (user.createdAt < subMonths(new Date(), 3)) {
