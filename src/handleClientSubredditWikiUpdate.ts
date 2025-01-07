@@ -12,7 +12,7 @@ const BAN_STORE = "BanStore";
 
 export async function recordBan (username: string, context: TriggerContext) {
     await context.redis.zAdd(BAN_STORE, { member: username, score: new Date().getTime() });
-    await setCleanupForUsers([username], context, false, 1);
+    await setCleanupForUsers([username], context, false);
 }
 
 export async function removeRecordOfBan (usernames: string[], context: TriggerContext) {

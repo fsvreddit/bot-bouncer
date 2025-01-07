@@ -47,9 +47,14 @@ export async function setUserStatus (username: string, details: UserDetails, con
     const promises: Promise<unknown>[] = [
         context.redis.hSet(USER_STORE, { [username]: JSON.stringify(details) }),
         context.redis.hSet(POST_STORE, { [details.trackingPostId]: username }),
-        setCleanupForUsers([username], context, true, 1),
         queueWikiUpdate(context),
     ];
+
+    if (details.userStatus === UserStatus.Pending) {
+        promises.push(setCleanupForUsers([username], context, true, 1));
+    } else {
+        promises.push(setCleanupForUsers([username], context, true));
+    }
 
     if (details.userStatus !== currentStatus?.userStatus) {
         promises.push(updateAggregate(details.userStatus, 1, context));
