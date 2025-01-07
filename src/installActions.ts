@@ -27,7 +27,7 @@ export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, contex
 async function addControlSubredditJobs (context: TriggerContext) {
     await context.scheduler.runJob({
         name: UPDATE_WIKI_PAGE_JOB,
-        cron: "0/15 * * * *",
+        cron: "0/5 * * * *",
     });
 
     await context.scheduler.runJob({
@@ -52,10 +52,10 @@ async function addControlSubredditJobs (context: TriggerContext) {
 }
 
 async function addClientSubredditJobs (context: TriggerContext) {
-    let randomMinute = Math.floor(Math.random() * 15);
+    let randomMinute = Math.floor(Math.random() * 5);
     await context.scheduler.runJob({
         name: UPDATE_DATASTORE_FROM_WIKI,
-        cron: `${randomMinute}/15 * * * *`,
+        cron: `${randomMinute}/5 * * * *`,
     });
 
     await context.scheduler.runJob({
