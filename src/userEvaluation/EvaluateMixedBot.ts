@@ -38,8 +38,8 @@ export class EvaluateMixedBot extends UserEvaluatorBase {
             return false;
         }
 
-        const domainRegex = /^(?:[iv]\.redd\.it|reddit.com|old.reddit.com)$/;
-        return domainRegex.test(new URL(post.url).hostname) || post.subredditName === "WhatIsMyCQS";
+        const redditDomains = this.variables["generic:redditdomains"] as string[] | undefined ?? [];
+        return redditDomains.includes(new URL(post.url).hostname) || post.subredditName === "WhatIsMyCQS";
     }
 
     override preEvaluateComment (event: CommentCreate): boolean {

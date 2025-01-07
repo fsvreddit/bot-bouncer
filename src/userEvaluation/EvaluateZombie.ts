@@ -33,10 +33,13 @@ export class EvaluateZombie extends UserEvaluatorBase {
     }
 
     override preEvaluatePost (post: Post): boolean {
+        const redditDomains = this.variables["generic:redditdomains"] as string[] | undefined ?? [];
+        const domain = domainFromUrl(post.url);
+        if (!domain) {
+            return false;
+        }
         return post.subredditName === "WhatIsMyCQS"
-            || domainFromUrl(post.url) === "reddit.com"
-            || domainFromUrl(post.url) === "old.reddit.com"
-            || domainFromUrl(post.url) === "i.redd.it";
+            || redditDomains.includes(domain);
     }
 
     override preEvaluateUser (user: User): boolean {

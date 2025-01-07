@@ -24,7 +24,7 @@ export class EvaluateShortTlc extends UserEvaluatorBase {
             return false;
         }
 
-        if (!usernameMatchesBotPatterns(event.author.name, event.author.karma)) {
+        if (!this.usernameMatchesBotPatterns(event.author.name, event.author.karma)) {
             return false;
         }
 
@@ -47,7 +47,7 @@ export class EvaluateShortTlc extends UserEvaluatorBase {
             return false;
         }
 
-        if (!usernameMatchesBotPatterns(user.username, user.commentKarma)) {
+        if (!this.usernameMatchesBotPatterns(user.username, user.commentKarma)) {
             this.setReason("Username does not match regex");
             return false;
         }
@@ -90,29 +90,21 @@ export class EvaluateShortTlc extends UserEvaluatorBase {
 
         return true;
     }
-}
 
-const botUsernameRegexes = [
-    /^(?:[A-Z][a-z]+[_-]?){2}\d{2,4}$/, // Usernames that resemble "default" WordWordNumber accounts
-    /^[A-Z]?[a-z]+[0-9]{1,2}[AEIOU][0-9]{1,2}[A-Z]?[a-z]+\d{0,3}$/, // e.g. Margaret3U88Nelson, Elizabeth5O3Perez20, patricia0E8efimov
-    /^[A-Z][a-z]+\d[a-z]\d[A-Z][a-z]+\d{1,3}$/, // e.g. Michelle8o4Mitchell0, Dorothy6s1Martin1
-    /^[A-Z][a-z]+\d{2,4}[a-z]+$/, // e.g. Patricia99kozlov, Michelle2012danilov
-    /^(?:[A-Z][a-z]+){1,2}\d[a-z](?:[a-z0-9]){2}$/, // e.g. MichelleWilson3g33, RuthGreen1r60, Laura9l7m
-    /^(?:[A-Z][a-z]+_){2}[a-z]{2}$/, // e.g. Laura_Parker_ea, Sandra_Jones_jd
-    /^\d{2}[A-Z][a-z]+\d[a-z]$/, // e.g. 79Betty3b, 82Lisa4t
-];
+    private usernameMatchesBotPatterns (username: string, karma?: number): boolean {
+        const botUsernameRegexes = this.variables["short-tlc:botregexes"] as string[] | undefined ?? [];
 
-function usernameMatchesBotPatterns (username: string, karma?: number): boolean {
-    // Check against known bot username patterns.
-    if (!botUsernameRegexes.some(regex => regex.test(username))) {
-        return false;
+        // Check against known bot username patterns.
+        if (!botUsernameRegexes.some(regex => new RegExp(regex).test(username))) {
+            return false;
+        }
+
+        if (!karma || karma > 3) {
+            // LLM bots sometimes use the same keywords as Reddit's autogen algorithm, but too prone to false positives
+            // for established accounts.
+            return !autogenRegex.test(username);
+        }
+
+        return true;
     }
-
-    if (!karma || karma > 3) {
-        // LLM bots sometimes use the same keywords as Reddit's autogen algorithm, but too prone to false positives
-        // for established accounts.
-        return !autogenRegex.test(username);
-    }
-
-    return true;
 }

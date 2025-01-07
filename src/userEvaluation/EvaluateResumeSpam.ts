@@ -17,8 +17,8 @@ export class EvaluateResumeSpam extends UserEvaluatorBase {
     }
 
     private eligiblePost (post: Post) {
-        const domainRegex = /^(?:[iv]\.redd\.it|reddit.com|old.reddit.com)$/;
-        return domainRegex.test(new URL(post.url).hostname);
+        const redditDomains = this.variables["generic:redditdomains"] as string[] | undefined ?? [];
+        return redditDomains.includes(new URL(post.url).hostname);
     }
 
     override preEvaluateComment (event: CommentCreate): boolean {
