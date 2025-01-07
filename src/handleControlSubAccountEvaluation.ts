@@ -35,9 +35,11 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
         return;
     }
 
+    const variables = await getEvaluatorVariables(context);
+
     let userEligible = false;
     for (const Evaluator of ALL_EVALUATORS) {
-        const evaluator = new Evaluator(context);
+        const evaluator = new Evaluator(context, variables);
         if (evaluator.preEvaluateUser(user)) {
             userEligible = true;
         }
@@ -64,7 +66,6 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
     }
 
     const detectedBots: UserEvaluatorBase[] = [];
-    const variables = await getEvaluatorVariables(context);
 
     for (const Evaluator of ALL_EVALUATORS) {
         const evaluator = new Evaluator(context, variables);

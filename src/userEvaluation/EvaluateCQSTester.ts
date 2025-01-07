@@ -31,6 +31,7 @@ export class EvaluateCQSTester extends UserEvaluatorBase {
     override preEvaluatePost (post: Post): boolean {
         return post.subredditName === "WhatIsMyCQS"
             || domainFromUrl(post.url) === "reddit.com"
+            || domainFromUrl(post.url) === "old.reddit.com"
             || domainFromUrl(post.url) === "i.redd.it";
     }
 

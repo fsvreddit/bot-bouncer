@@ -36,10 +36,12 @@ export async function handleClientPostCreate (event: PostCreate, context: Trigge
         return;
     }
 
+    const variables = await getEvaluatorVariables(context);
+
     const post = await context.reddit.getPostById(event.post.id);
     let possibleBot = false;
     for (const Evaluator of ALL_EVALUATORS) {
-        const evaluator = new Evaluator(context);
+        const evaluator = new Evaluator(context, variables);
         if (evaluator.preEvaluatePost(post)) {
             possibleBot = true;
             break;
@@ -76,9 +78,11 @@ export async function handleClientCommentCreate (event: CommentCreate, context: 
         return;
     }
 
+    const variables = await getEvaluatorVariables(context);
+
     let possibleBot = false;
     for (const Evaluator of ALL_EVALUATORS) {
-        const evaluator = new Evaluator(context);
+        const evaluator = new Evaluator(context, variables);
         if (evaluator.preEvaluateComment(event)) {
             possibleBot = true;
             break;
@@ -177,9 +181,11 @@ async function checkAndReportPotentialBot (username: string, thingId: string, se
         return;
     }
 
+    const variables = await getEvaluatorVariables(context);
+
     let userEligible = false;
     for (const Evaluator of ALL_EVALUATORS) {
-        const evaluator = new Evaluator(context);
+        const evaluator = new Evaluator(context, variables);
         if (evaluator.preEvaluateUser(user)) {
             userEligible = true;
             break;
@@ -201,8 +207,6 @@ async function checkAndReportPotentialBot (username: string, thingId: string, se
         console.log(`Bot check: couldn't read history for ${username}.`);
         return;
     }
-
-    const variables = await getEvaluatorVariables(context);
 
     let isLikelyBot = false;
     let botName: string | undefined;

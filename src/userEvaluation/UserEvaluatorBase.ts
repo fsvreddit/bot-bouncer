@@ -19,7 +19,7 @@ export abstract class UserEvaluatorBase {
     public banContentThreshold = 10;
     public canAutoBan = true;
 
-    constructor (context: TriggerContext, variables: Record<string, unknown> = {}) {
+    constructor (context: TriggerContext, variables: Record<string, unknown>) {
         this.context = context;
         this.variables = variables;
     }
