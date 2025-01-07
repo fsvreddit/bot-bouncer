@@ -20,7 +20,7 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
     try {
         wikiPage = await context.reddit.getWikiPage(CONTROL_SUBREDDIT, EVALUATOR_VARIABLES_WIKI_PAGE);
     } catch (e) {
-        console.error("Error reading evaluator variables from wiki", e);
+        console.error("Evaluator Variables: Error reading evaluator variables from wiki", e);
         return;
     }
 
@@ -33,7 +33,7 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
         try {
             JSON.parse(wikiPage.content) as Record<string, JSONValue>;
         } catch (error) {
-            console.error("Error parsing evaluator variables from wiki", error);
+            console.error("Evaluator Variables: Error parsing evaluator variables from wiki", error);
 
             let errorMessage = `There was an error parsing the evaluator variables from the wiki. Please check the wiki page and try again.`;
             errorMessage += `\n\nError: ${error}`;
