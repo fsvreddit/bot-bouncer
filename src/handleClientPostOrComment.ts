@@ -20,6 +20,10 @@ export async function handleClientPostCreate (event: PostCreate, context: Trigge
         return;
     }
 
+    if (event.author.name === "AutoModerator" || event.author.name === `${context.subredditName}-ModTeam`) {
+        return;
+    }
+
     await handleContentCreation(event.author.name, event.post.id, context);
 
     const currentStatus = await getUserStatus(event.author.name, context);
@@ -53,6 +57,10 @@ export async function handleClientCommentCreate (event: CommentCreate, context: 
     }
 
     if (!event.comment || !event.author?.name) {
+        return;
+    }
+
+    if (event.author.name === "AutoModerator" || event.author.name === `${context.subredditName}-ModTeam`) {
         return;
     }
 
@@ -239,7 +247,7 @@ async function checkAndReportPotentialBot (username: string, thingId: string, se
 }
 
 async function checkForBotMentions (event: CommentCreate, context: TriggerContext) {
-    if (!event.comment || event.author?.name === "AutoModerator") {
+    if (!event.comment) {
         return;
     }
 
