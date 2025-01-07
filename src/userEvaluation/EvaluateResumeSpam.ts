@@ -17,7 +17,7 @@ export class EvaluateResumeSpam extends UserEvaluatorBase {
     }
 
     private eligiblePost (post: Post) {
-        const domainRegex = /^(?:[iv]\.redd\.it|reddit.com)$/;
+        const domainRegex = /^(?:[iv]\.redd\.it|reddit.com|old.reddit.com)$/;
         return domainRegex.test(new URL(post.url).hostname);
     }
 
