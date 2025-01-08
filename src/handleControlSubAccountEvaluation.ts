@@ -7,7 +7,7 @@ import { UserEvaluatorBase } from "./userEvaluation/UserEvaluatorBase.js";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { createUserSummary } from "./UserSummary/userSummary.js";
 
-interface EvaluatorStats {
+export interface EvaluatorStats {
     hitCount: number;
     lastHit: number;
 }

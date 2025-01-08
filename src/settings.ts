@@ -102,6 +102,7 @@ export const appSettings: SettingsFormField[] = [
 
 interface ControlSubSettings {
     evaluationDisabled: boolean;
+    proactiveEvaluationEnabled?: boolean;
     maxInactivityMonths?: number;
     trustedSubmitters: string[];
     reporterBlacklist: string[];
@@ -113,6 +114,7 @@ const schema: JSONSchemaType<ControlSubSettings> = {
     type: "object",
     properties: {
         evaluationDisabled: { type: "boolean" },
+        proactiveEvaluationEnabled: { type: "boolean", nullable: true },
         maxInactivityMonths: { type: "number", nullable: true },
         trustedSubmitters: { type: "array", items: { type: "string" } },
         reporterBlacklist: { type: "array", items: { type: "string" } },

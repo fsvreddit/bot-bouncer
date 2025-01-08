@@ -1,6 +1,6 @@
 import { AppInstall, AppUpgrade } from "@devvit/protos";
 import { TriggerContext } from "@devvit/public-api";
-import { CLEANUP_JOB, CLEANUP_JOB_CRON, CONTROL_SUBREDDIT, UPDATE_DATASTORE_FROM_WIKI, UPDATE_EVALUATOR_VARIABLES, UPDATE_STATISTICS_PAGE, UPDATE_WIKI_PAGE_JOB } from "./constants.js";
+import { CLEANUP_JOB, CLEANUP_JOB_CRON, CONTROL_SUBREDDIT, EVALUATE_KARMA_FARMING_SUBS, UPDATE_DATASTORE_FROM_WIKI, UPDATE_EVALUATOR_VARIABLES, UPDATE_STATISTICS_PAGE, UPDATE_WIKI_PAGE_JOB } from "./constants.js";
 import { scheduleAdhocCleanup } from "./cleanup.js";
 import { createExternalSubmissionJob } from "./externalSubmissions.js";
 
@@ -43,6 +43,16 @@ async function addControlSubredditJobs (context: TriggerContext) {
 
     await context.scheduler.runJob({
         name: UPDATE_STATISTICS_PAGE,
+        runAt: new Date(),
+    });
+
+    await context.scheduler.runJob({
+        name: EVALUATE_KARMA_FARMING_SUBS,
+        cron: "5 * * * *",
+    });
+
+    await context.scheduler.runJob({
+        name: EVALUATE_KARMA_FARMING_SUBS,
         runAt: new Date(),
     });
 

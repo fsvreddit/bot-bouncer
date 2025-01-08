@@ -26,6 +26,7 @@ export const ADHOC_CLEANUP_JOB = "adhocCleanup";
 export const EXTERNAL_SUBMISSION_JOB = "externalSubmission";
 export const UPDATE_STATISTICS_PAGE = "updateStatisticsPage";
 export const UPDATE_EVALUATOR_VARIABLES = "updateEvaluatorVariables";
+export const EVALUATE_KARMA_FARMING_SUBS = "evaluateKarmaFarmingSubs";
 
 /**
  * Job crons
