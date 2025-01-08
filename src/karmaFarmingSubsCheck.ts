@@ -152,7 +152,11 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
     const variables = await getEvaluatorVariables(context);
 
     for (const username of itemsToCheck) {
-        await evaluateUser(username, variables, context);
+        try {
+            await evaluateUser(username, variables, context);
+        } catch (error) {
+            console.error(`Karma Farming Subs: Error evaluating ${username}: ${error}`);
+        }
     }
 
     const remainingUsers = accounts.slice(batchSize);
