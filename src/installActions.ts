@@ -51,11 +51,6 @@ async function addControlSubredditJobs (context: TriggerContext) {
         cron: "5 * * * *",
     });
 
-    await context.scheduler.runJob({
-        name: EVALUATE_KARMA_FARMING_SUBS,
-        runAt: new Date(),
-    });
-
     await createExternalSubmissionJob(context);
 
     console.log("App Install: Control subreddit jobs added");
