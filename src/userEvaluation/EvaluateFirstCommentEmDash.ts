@@ -4,7 +4,7 @@ import { CommentV2 } from "@devvit/protos/types/devvit/reddit/v2alpha/commentv2.
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
 import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
 import { subWeeks } from "date-fns";
-import { last } from "lodash";
+import { last, uniq } from "lodash";
 import { domainFromUrl } from "./evaluatorHelpers.js";
 
 export class EvaluateFirstCommentEmDash extends UserEvaluatorBase {
@@ -88,7 +88,18 @@ export class EvaluateFirstCommentEmDash extends UserEvaluatorBase {
 
         if (!firstCommentContainsEmDash && !emDashThresholdMet) {
             this.setReason("User's first comment doesn't contain an em dash, or they have insufficient comments with them");
-            return false;
+
+            const karmaFarmingSubs = this.variables["generic:karmafarminglinksubs"] as string[] | undefined ?? [];
+            const postCountNeeded = this.variables["em-dash:distinctsubs"] as number | undefined ?? 3;
+            const subsNeeded = this.variables["em-dash:distinctsubs"] as number | undefined ?? 3;
+
+            const backupRequirementsMet = posts.length >= postCountNeeded
+                && uniq(posts.filter(post => karmaFarmingSubs.includes(post.subredditName)).map(post => post.subredditName)).length >= subsNeeded
+                && comments.filter(comment => comment.body.includes("—")).length > 1;
+
+            if (!backupRequirementsMet) {
+                return false;
+            }
         }
 
         if (posts.length > 0 && posts.some(post => !this.eligiblePost(post))) {
