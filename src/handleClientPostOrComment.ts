@@ -5,7 +5,7 @@ import { getUserStatus, UserStatus } from "./dataStore.js";
 import { isUserWhitelisted, recordBan } from "./handleClientSubredditWikiUpdate.js";
 import { CONTROL_SUBREDDIT } from "./constants.js";
 import { getPostOrCommentById, getUserOrUndefined, isApproved, isBanned, isModerator, replaceAll } from "./utility.js";
-import { AppSetting, CONFIGURATION_DEFAULTS } from "./settings.js";
+import { AppSetting, CONFIGURATION_DEFAULTS, getControlSubSettings } from "./settings.js";
 import { ALL_EVALUATORS } from "./userEvaluation/allEvaluators.js";
 import { addExternalSubmission } from "./externalSubmissions.js";
 import { isLinkId } from "@devvit/shared-types/tid.js";
@@ -221,6 +221,11 @@ async function checkAndReportPotentialBot (username: string, thingId: string, se
 
     if (!isLikelyBot) {
         console.log(`Bot check: ${username} doesn't match any bot styles.`);
+        return;
+    }
+
+    const controlSubSettings = await getControlSubSettings(context);
+    if (controlSubSettings.evaluationDisabled) {
         return;
     }
 

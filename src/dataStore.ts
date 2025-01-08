@@ -256,9 +256,8 @@ export async function updateLocalStoreFromWiki (_: unknown, context: JobContext)
     let wikiPage: WikiPage;
     try {
         wikiPage = await context.reddit.getWikiPage(CONTROL_SUBREDDIT, WIKI_PAGE);
-    } catch (error) {
+    } catch {
         console.error("Wiki Update: Failed to read wiki page from control subreddit");
-        console.log(error);
         return;
     }
 

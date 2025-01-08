@@ -151,7 +151,8 @@ export async function getControlSubSettings (context: TriggerContext): Promise<C
     }
 
     const defaultConfig: ControlSubSettings = {
-        evaluationDisabled: false,
+        evaluationDisabled: true,
+        proactiveEvaluationEnabled: false,
         maxInactivityMonths: 3,
         trustedSubmitters: [],
         reporterBlacklist: [],
