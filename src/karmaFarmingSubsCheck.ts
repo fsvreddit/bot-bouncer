@@ -9,6 +9,7 @@ import pluralize from "pluralize";
 import { getUserStatus } from "./dataStore.js";
 import { EvaluatorStats } from "./handleControlSubAccountEvaluation.js";
 import { getControlSubSettings } from "./settings.js";
+import { addSeconds } from "date-fns";
 
 const CHECK_DATE_KEY = "KarmaFarmingSubsCheckDate";
 
@@ -163,7 +164,7 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
     if (remainingUsers.length > 0) {
         await context.scheduler.runJob({
             name: EVALUATE_KARMA_FARMING_SUBS,
-            runAt: new Date(),
+            runAt: addSeconds(new Date(), 30),
             data: { accounts: remainingUsers },
         });
     }
