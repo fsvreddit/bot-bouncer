@@ -1,9 +1,9 @@
 import { JobContext, TriggerContext, WikiPage, WikiPagePermissionLevel } from "@devvit/public-api";
-import { CONTROL_SUBREDDIT, CREATE_USER_SUMMARY, EVALUATE_USER, EXTERNAL_SUBMISSION_JOB, PostFlairTemplate } from "./constants.js";
+import { CONTROL_SUBREDDIT, EVALUATE_USER, EXTERNAL_SUBMISSION_JOB, PostFlairTemplate } from "./constants.js";
 import { getUserStatus, setUserStatus, UserStatus } from "./dataStore.js";
 import { getControlSubSettings } from "./settings.js";
 import Ajv, { JSONSchemaType } from "ajv";
-import { addMinutes, addSeconds } from "date-fns";
+import { addMinutes } from "date-fns";
 import { getPostOrCommentById } from "./utility.js";
 import { isLinkId } from "@devvit/shared-types/tid.js";
 
@@ -201,12 +201,6 @@ export async function processExternalSubmissions (_: unknown, context: JobContex
             },
         });
     }
-
-    await context.scheduler.runJob({
-        name: CREATE_USER_SUMMARY,
-        runAt: addSeconds(new Date(), 5),
-        data: { username: item.username, postId: newPost.id },
-    });
 
     await setUserStatus(item.username, {
         userStatus: newStatus,

@@ -5,6 +5,7 @@ import { getUserOrUndefined } from "./utility.js";
 import { ALL_EVALUATORS } from "./userEvaluation/allEvaluators.js";
 import { UserEvaluatorBase } from "./userEvaluation/UserEvaluatorBase.js";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
+import { createUserSummary } from "./UserSummary/userSummary.js";
 
 interface EvaluatorStats {
     hitCount: number;
@@ -82,6 +83,7 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
         console.log(`Evaluator: ${username} does not appear to be a bot via evaluators.`);
         const post = await context.reddit.getPostById(postId);
         await context.reddit.report(post, { reason: "Not detected as a bot via evaluation, needs manual review." });
+        await createUserSummary(username, postId, context);
         return;
     }
 
@@ -104,6 +106,7 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
         console.log(`Evaluator: ${username} does not have enough content for automatic evaluation.`);
         const post = await context.reddit.getPostById(postId);
         await context.reddit.report(post, { reason: `Possible bot via evaluation, but insufficient content: ${detectedBots.map(bot => bot.name).join(", ")}` });
+        await createUserSummary(username, postId, context);
         return;
     }
 
@@ -111,6 +114,7 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
         console.log(`Evaluator: Cannot autoban.`);
         const post = await context.reddit.getPostById(postId);
         await context.reddit.report(post, { reason: `Possible bot via evaluation, tagged as no-auto-ban: ${detectedBots.map(bot => bot.name).join(", ")}` });
+        await createUserSummary(username, postId, context);
         return;
     }
 

@@ -1,4 +1,4 @@
-import { Comment, JobContext, JSONObject, Post, ScheduledJobEvent, TriggerContext } from "@devvit/public-api";
+import { Comment, Post, TriggerContext } from "@devvit/public-api";
 import { domainFromUrl, getUserOrUndefined, median } from "../utility.js";
 import { addMilliseconds, differenceInDays, differenceInHours, differenceInMilliseconds, differenceInMinutes, Duration, formatDuration, intervalToDuration, startOfDecade } from "date-fns";
 import { autogenRegex, femaleNameRegex, resemblesAutogen } from "./regexes.js";
@@ -218,15 +218,4 @@ export async function createUserSummary (username: string, postId: string, conte
     await newComment.remove();
 
     console.log(`User Summary: Summary created for ${username}`);
-}
-
-export async function createUserSummaryJobHandler (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
-    const username = event.data?.username as string | undefined;
-    const postId = event.data?.postId as string | undefined;
-
-    if (!username || !postId) {
-        return;
-    }
-
-    await createUserSummary(username, postId, context);
 }
