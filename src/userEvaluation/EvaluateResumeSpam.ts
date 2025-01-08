@@ -4,6 +4,7 @@ import { CommentV2 } from "@devvit/protos/types/devvit/reddit/v2alpha/commentv2.
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
 import { isCommentId } from "@devvit/shared-types/tid.js";
 import { subYears } from "date-fns";
+import { domainFromUrl } from "./evaluatorHelpers.js";
 
 export class EvaluateResumeSpam extends UserEvaluatorBase {
     override name = "Resume Spam";
@@ -18,7 +19,8 @@ export class EvaluateResumeSpam extends UserEvaluatorBase {
 
     private eligiblePost (post: Post) {
         const redditDomains = this.variables["generic:redditdomains"] as string[] | undefined ?? [];
-        return redditDomains.includes(new URL(post.url).hostname);
+        const domain = domainFromUrl(post.url);
+        return domain && redditDomains.includes(domain);
     }
 
     override preEvaluateComment (event: CommentCreate): boolean {

@@ -4,6 +4,7 @@ import { Comment, Post, User } from "@devvit/public-api";
 import { subMonths, subYears } from "date-fns";
 import { CommentV2 } from "@devvit/protos/types/devvit/reddit/v2alpha/commentv2.js";
 import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
+import { domainFromUrl } from "./evaluatorHelpers.js";
 
 export class EvaluateMixedBot extends UserEvaluatorBase {
     override name = "Mixed Bot";
@@ -39,7 +40,9 @@ export class EvaluateMixedBot extends UserEvaluatorBase {
         }
 
         const redditDomains = this.variables["generic:redditdomains"] as string[] | undefined ?? [];
-        return redditDomains.includes(new URL(post.url).hostname) || post.subredditName === "WhatIsMyCQS";
+        const domain = domainFromUrl(post.url);
+        // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
+        return (domain && redditDomains.includes(domain)) || post.subredditName === "WhatIsMyCQS";
     }
 
     override preEvaluateComment (event: CommentCreate): boolean {
