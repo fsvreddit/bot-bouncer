@@ -14,7 +14,6 @@ import { processExternalSubmissions } from "./externalSubmissions.js";
 import { handleClientCommentCreate, handleClientPostCreate } from "./handleClientPostOrComment.js";
 import { handleClientSubCommentDelete, handleClientSubPostDelete } from "./handleClientSubContentDelete.js";
 import { handleClassificationChanges } from "./handleClientSubredditWikiUpdate.js";
-import { createUserSummaryJobHandler } from "./UserSummary/userSummary.js";
 import { handleControlSubPostDelete } from "./handleControlSubPostDelete.js";
 import { updateEvaluatorVariablesFromWikiHandler } from "./userEvaluation/evaluatorVariables.js";
 
