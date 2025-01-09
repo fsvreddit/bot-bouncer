@@ -2,7 +2,6 @@ import { JobContext, JSONObject, ScheduledJobEvent } from "@devvit/public-api";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { uniq } from "lodash";
 import { CONTROL_SUBREDDIT, EVALUATE_KARMA_FARMING_SUBS, PostFlairTemplate } from "./constants.js";
-import pluralize from "pluralize";
 import { getUserStatus } from "./dataStore.js";
 import { evaluateUserAccount } from "./handleControlSubAccountEvaluation.js";
 import { getControlSubSettings } from "./settings.js";
@@ -34,24 +33,24 @@ async function getDistinctAccounts (context: JobContext): Promise<string[]> {
     return uniq(results.flat());
 }
 
-async function evaluateUser (username: string, context: JobContext) {
+async function evaluateAndHandleUser (username: string, context: JobContext): Promise<boolean> {
     const userStatus = await getUserStatus(username, context);
     if (userStatus) {
-        return;
+        return false;
     }
 
     const evaluationResults = await evaluateUserAccount(username, context, false);
 
     if (evaluationResults.length === 0) {
-        return;
+        return false;
     }
 
     if (evaluationResults.every(item => !item.metThreshold)) {
-        return;
+        return false;
     }
 
     if (!evaluationResults.every(item => item.canAutoBan)) {
-        return;
+        return false;
     }
 
     const newPost = await context.reddit.submitPost({
@@ -72,6 +71,8 @@ async function evaluateUser (username: string, context: JobContext) {
     });
 
     console.log(`Karma Farming Subs: Banned ${username}`);
+
+    return true;
 }
 
 export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
@@ -86,30 +87,32 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
         console.log("Karma Farming Subs: First batch starting.");
     }
 
-    const batchSize = 5;
+    const batchSize = 10;
+    let processed = 0;
 
-    const itemsToCheck = accounts.slice(0, batchSize);
-    if (itemsToCheck.length === 0) {
-        console.log("Karma Farming Subs: No accounts to check");
-        return;
-    }
+    console.log(`Karma Farming Subs: Checking up to ten accounts out of ${accounts.length}`);
 
-    console.log(`Karma Farming Subs: Checking ${itemsToCheck.length} ${pluralize("account", itemsToCheck.length)} out of ${accounts.length}`);
-
-    for (const username of itemsToCheck) {
+    let username = accounts.shift();
+    while (username && processed < batchSize) {
         try {
-            await evaluateUser(username, context);
+            const userBanned = await evaluateAndHandleUser(username, context);
+            if (userBanned) {
+                // Only let one user be banned per run to avoid rate limiting
+                break;
+            }
         } catch (error) {
             console.error(`Karma Farming Subs: Error evaluating ${username}: ${error}`);
         }
+
+        processed++;
+        username = accounts.shift();
     }
 
-    const remainingUsers = accounts.slice(batchSize);
-    if (remainingUsers.length > 0) {
+    if (accounts.length > 0) {
         await context.scheduler.runJob({
             name: EVALUATE_KARMA_FARMING_SUBS,
             runAt: addSeconds(new Date(), 30),
-            data: { accounts: remainingUsers },
+            data: { accounts },
         });
     }
 }
