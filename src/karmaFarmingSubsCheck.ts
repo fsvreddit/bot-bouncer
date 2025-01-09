@@ -40,7 +40,11 @@ async function evaluateUser (username: string, variables: Record<string, JSONVal
         return;
     }
 
-    const evaluationResults = await evaluateUserAccount(username, context);
+    const evaluationResults = await evaluateUserAccount(username, context, false);
+
+    if (evaluationResults.length === 0) {
+        return;
+    }
 
     if (evaluationResults.every(item => !item.metThreshold)) {
         return;
@@ -66,6 +70,8 @@ async function evaluateUser (username: string, variables: Record<string, JSONVal
         postId: newPost.id,
         flairTemplateId: PostFlairTemplate.Banned,
     });
+
+    console.log(`Karma Farming Subs: Banned ${username}`);
 }
 
 export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {

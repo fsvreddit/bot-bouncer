@@ -18,10 +18,12 @@ interface EvaluationResult {
     metThreshold: boolean;
 }
 
-export async function evaluateUserAccount (username: string, context: JobContext): Promise<EvaluationResult[]> {
+export async function evaluateUserAccount (username: string, context: JobContext, verbose: boolean): Promise<EvaluationResult[]> {
     const user = await getUserOrUndefined(username, context);
     if (!user) {
-        console.log(`Evaluation: ${username} has already been shadowbanned`);
+        if (verbose) {
+            console.log(`Evaluation: ${username} has already been shadowbanned`);
+        }
         return [];
     }
 
@@ -36,7 +38,9 @@ export async function evaluateUserAccount (username: string, context: JobContext
     }
 
     if (!userEligible) {
-        console.log(`Evaluator: ${username} does not pass any user pre-checks.`);
+        if (verbose) {
+            console.log(`Evaluator: ${username} does not pass any user pre-checks.`);
+        }
         return [];
     }
 
@@ -49,7 +53,9 @@ export async function evaluateUserAccount (username: string, context: JobContext
         }).all();
     } catch {
         // Error retrieving user history, likely shadowbanned.
-        console.log(`Evaluator: ${username} appears to have been shadowbanned since post made.`);
+        if (verbose) {
+            console.log(`Evaluator: ${username} appears to have been shadowbanned since post made.`);
+        }
         return [];
     }
 
@@ -59,9 +65,11 @@ export async function evaluateUserAccount (username: string, context: JobContext
         const evaluator = new Evaluator(context, variables);
         const isABot = evaluator.evaluate(user, userItems);
         if (isABot) {
-            console.log(`Evaluator: ${username} appears to be a bot via the evaluator: ${evaluator.name}`);
+            if (verbose) {
+                console.log(`Evaluator: ${username} appears to be a bot via the evaluator: ${evaluator.name}`);
+            }
             detectedBots.push(evaluator);
-        } else {
+        } else if (verbose) {
             console.log(`Evaluator: ${evaluator.name} did not match: ${evaluator.getReasons().join(", ")}`);
         }
     }
@@ -106,7 +114,7 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
         return;
     }
 
-    const evaluationResults = await evaluateUserAccount(username, context);
+    const evaluationResults = await evaluateUserAccount(username, context, true);
 
     let reportReason: string | undefined;
 
