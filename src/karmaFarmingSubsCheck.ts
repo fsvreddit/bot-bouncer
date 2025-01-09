@@ -92,8 +92,12 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
 
     console.log(`Karma Farming Subs: Checking up to ten accounts out of ${accounts.length}`);
 
-    let username = accounts.shift();
-    while (username && processed < batchSize) {
+    while (processed < batchSize) {
+        const username = accounts.shift();
+        if (!username) {
+            break;
+        }
+
         try {
             const userBanned = await evaluateAndHandleUser(username, context);
             if (userBanned) {
@@ -105,7 +109,6 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
         }
 
         processed++;
-        username = accounts.shift();
     }
 
     if (accounts.length > 0) {
