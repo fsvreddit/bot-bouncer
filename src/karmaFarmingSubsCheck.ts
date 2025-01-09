@@ -1,13 +1,10 @@
-import { Comment, JobContext, JSONObject, JSONValue, Post, ScheduledJobEvent } from "@devvit/public-api";
+import { JobContext, JSONObject, JSONValue, ScheduledJobEvent } from "@devvit/public-api";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { uniq } from "lodash";
 import { CONTROL_SUBREDDIT, EVALUATE_KARMA_FARMING_SUBS, PostFlairTemplate } from "./constants.js";
-import { getUserOrUndefined } from "./utility.js";
-import { ALL_EVALUATORS } from "./userEvaluation/allEvaluators.js";
-import { UserEvaluatorBase } from "./userEvaluation/UserEvaluatorBase.js";
 import pluralize from "pluralize";
 import { getUserStatus } from "./dataStore.js";
-import { EvaluatorStats } from "./handleControlSubAccountEvaluation.js";
+import { evaluateUserAccount } from "./handleControlSubAccountEvaluation.js";
 import { getControlSubSettings } from "./settings.js";
 import { addSeconds } from "date-fns";
 
@@ -43,57 +40,15 @@ async function evaluateUser (username: string, variables: Record<string, JSONVal
         return;
     }
 
-    const user = await getUserOrUndefined(username, context);
-    if (!user) {
+    const evaluationResults = await evaluateUserAccount(username, context);
+
+    if (evaluationResults.every(item => !item.metThreshold)) {
         return;
     }
 
-    let userEligible = false;
-    for (const Evaluator of ALL_EVALUATORS) {
-        const evaluator = new Evaluator(context, variables);
-        if (evaluator.preEvaluateUser(user)) {
-            userEligible = true;
-        }
-    }
-
-    if (!userEligible) {
+    if (!evaluationResults.every(item => item.canAutoBan)) {
         return;
     }
-
-    let userItems: (Post | Comment)[];
-    try {
-        userItems = await context.reddit.getCommentsAndPostsByUser({
-            username,
-            sort: "new",
-            limit: 100,
-        }).all();
-    } catch {
-        // Error retrieving user history, likely shadowbanned.
-        return;
-    }
-
-    const detectedBots: UserEvaluatorBase[] = [];
-    for (const Evaluator of ALL_EVALUATORS) {
-        const evaluator = new Evaluator(context, variables);
-        const isABot = evaluator.evaluate(user, userItems);
-        if (isABot) {
-            detectedBots.push(evaluator);
-        }
-    }
-
-    if (detectedBots.length === 0) {
-        return;
-    }
-
-    if (detectedBots.every(bot => userItems.length < bot.banContentThreshold)) {
-        return;
-    }
-
-    if (detectedBots.every(bot => !bot.canAutoBan)) {
-        return;
-    }
-
-    console.log(`Karma Farming Subs: Detected bot ${username} in ${detectedBots.map(bot => bot.name).join(", ")}`);
 
     const newPost = await context.reddit.submitPost({
         subredditName: CONTROL_SUBREDDIT,
@@ -105,21 +60,6 @@ async function evaluateUser (username: string, variables: Record<string, JSONVal
     let text = "This user was detected automatically through proactive bot hunting activity.\n\n";
     text += `\n\n*I am a bot, and this action was performed automatically. Please [contact the moderators of this subreddit](/message/compose/?to=/r/${CONTROL_SUBREDDIT}) if you have any questions or concerns.*`;
     await newPost.addComment({ text });
-
-    const redisKey = "EvaluatorStats";
-    const existingStatsVal = await context.redis.get(redisKey);
-
-    const allStats: Record<string, EvaluatorStats> = existingStatsVal ? JSON.parse(existingStatsVal) as Record<string, EvaluatorStats> : {};
-
-    for (const bot of detectedBots) {
-        const botStats = allStats[bot.name] ?? { hitCount: 0, lastHit: 0 };
-        botStats.hitCount++;
-        botStats.lastHit = new Date().getTime();
-        allStats[bot.name] = botStats;
-    }
-
-    await context.redis.set(redisKey, JSON.stringify(allStats));
-    console.log("Karma Farming Subs: Evaluator Stats updated", allStats);
 
     await context.reddit.setPostFlair({
         subredditName: CONTROL_SUBREDDIT,
