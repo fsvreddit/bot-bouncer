@@ -1,4 +1,4 @@
-import { JobContext, JSONObject, JSONValue, ScheduledJobEvent } from "@devvit/public-api";
+import { JobContext, JSONObject, ScheduledJobEvent } from "@devvit/public-api";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { uniq } from "lodash";
 import { CONTROL_SUBREDDIT, EVALUATE_KARMA_FARMING_SUBS, PostFlairTemplate } from "./constants.js";
@@ -34,7 +34,7 @@ async function getDistinctAccounts (context: JobContext): Promise<string[]> {
     return uniq(results.flat());
 }
 
-async function evaluateUser (username: string, variables: Record<string, JSONValue>, context: JobContext) {
+async function evaluateUser (username: string, context: JobContext) {
     const userStatus = await getUserStatus(username, context);
     if (userStatus) {
         return;
@@ -96,11 +96,9 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
 
     console.log(`Karma Farming Subs: Checking ${itemsToCheck.length} ${pluralize("account", itemsToCheck.length)} out of ${accounts.length}`);
 
-    const variables = await getEvaluatorVariables(context);
-
     for (const username of itemsToCheck) {
         try {
-            await evaluateUser(username, variables, context);
+            await evaluateUser(username, context);
         } catch (error) {
             console.error(`Karma Farming Subs: Error evaluating ${username}: ${error}`);
         }
