@@ -120,9 +120,9 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
 
     if (evaluationResults.length === 0) {
         reportReason = "Not detected as a bot via evaluation, needs manual review.";
-    } else if (!evaluationResults.every(result => result.metThreshold)) {
+    } else if (evaluationResults.every(result => !result.metThreshold)) {
         reportReason = `Possible bot via evaluation, but insufficient content: ${evaluationResults.map(result => result.botName).join(", ")}`;
-    } else if (evaluationResults.every(result => !result.canAutoBan)) {
+    } else if (!evaluationResults.some(result => result.canAutoBan)) {
         reportReason = `Possible bot via evaluation, tagged as no-auto-ban: ${evaluationResults.map(result => result.botName).join(", ")}`;
     }
 

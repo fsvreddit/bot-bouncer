@@ -49,7 +49,7 @@ async function evaluateAndHandleUser (username: string, context: JobContext): Pr
         return false;
     }
 
-    if (!evaluationResults.every(item => item.canAutoBan)) {
+    if (!evaluationResults.some(item => item.canAutoBan)) {
         return false;
     }
 
