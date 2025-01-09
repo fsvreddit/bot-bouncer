@@ -3,7 +3,7 @@ import { CONTROL_SUBREDDIT, EVALUATE_USER, EXTERNAL_SUBMISSION_JOB, PostFlairTem
 import { getUserStatus, setUserStatus, UserStatus } from "./dataStore.js";
 import { getControlSubSettings } from "./settings.js";
 import Ajv, { JSONSchemaType } from "ajv";
-import { addMinutes } from "date-fns";
+import { addMinutes, addSeconds } from "date-fns";
 import { getPostOrCommentById } from "./utility.js";
 import { isLinkId } from "@devvit/shared-types/tid.js";
 
@@ -194,7 +194,7 @@ export async function processExternalSubmissions (_: unknown, context: JobContex
     if (!controlSubSettings.evaluationDisabled) {
         await context.scheduler.runJob({
             name: EVALUATE_USER,
-            runAt: new Date(),
+            runAt: addSeconds(new Date(), 10),
             data: {
                 username: item.username,
                 postId: newPost.id,
