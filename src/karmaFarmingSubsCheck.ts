@@ -117,5 +117,7 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
             runAt: addSeconds(new Date(), 30),
             data: { accounts },
         });
+    } else {
+        console.log("Karma Farming Subs: Finished checking all accounts.");
     }
 }
