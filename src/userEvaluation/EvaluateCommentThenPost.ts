@@ -1,51 +1,24 @@
 import { CommentCreate } from "@devvit/protos";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
 import { Comment, Post, User } from "@devvit/public-api";
-import { subMonths, subYears } from "date-fns";
+import { subMonths } from "date-fns";
 import { CommentV2 } from "@devvit/protos/types/devvit/reddit/v2alpha/commentv2.js";
 import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
 import { domainFromUrl } from "./evaluatorHelpers.js";
-import { uniq } from "lodash";
 
 export class EvaluateCommentThenPost extends UserEvaluatorBase {
     override name = "CommentThenPost";
-    override canAutoBan = false;
-
-    private readonly emDashRegex = /\w—\w/i;
+    override banContentThreshold = 10;
 
     private eligibleComment (comment: Comment | CommentV2): boolean {
-        const subs = this.variables["comment-then-post:requiredsubs"] as string[] | undefined ?? [];
-
-        if (comment instanceof Comment) {
-            if (!subs.includes(comment.subredditName)) {
-                return false;
-            }
-        } else if (this.context.subredditName) {
-            if (!subs.includes(this.context.subredditName)) {
-                return false;
-            }
-        }
-
         const isEligble = isLinkId(comment.parentId)
-            && comment.body.split("\n\n").length <= 3
-            && comment.body.length < 300
-            && (comment.body.slice(0, 25).includes(",")
-                || comment.body.slice(0, 25).includes(".")
-                || this.emDashRegex.test(comment.body)
-                || !comment.body.includes("\n")
-                || comment.body === comment.body.toLowerCase()
-                || comment.body.length < 50
-            );
+            && comment.body.length < 150
+            && !comment.body.includes("\n");
 
         return isEligble;
     }
 
     private eligiblePost (post: Post): boolean {
-        const subs = this.variables["comment-then-post:requiredsubs"] as string[] | undefined ?? [];
-        if (!subs.includes(post.subredditName)) {
-            return false;
-        }
-
         if (post.subredditName === "WhatIsMyCQS") {
             return true;
         }
@@ -84,40 +57,30 @@ export class EvaluateCommentThenPost extends UserEvaluatorBase {
             return false;
         }
 
-        if (history.length > 90) {
-            this.setReason("User has too many items in history");
+        const posts = history.filter(item => isLinkId(item.id) && item.body !== "[removed]") as Post[];
+        const comments = history.filter(item => isCommentId(item.id)) as Comment[];
+
+        const firstContent = history.slice(history.length - 4);
+        if (firstContent.length !== 4 && firstContent.some(item => isLinkId(item.id))) {
+            this.setReason("User has insufficient initial comment content");
             return false;
         }
 
-        const olderContentCount = history.filter(item => item.createdAt < subYears(new Date(), 5)).length;
-        if (user.createdAt > subYears(new Date(), 5) && olderContentCount > 5) {
-            this.setReason("User has too much old content");
+        const newestComment = comments[0];
+        if (posts.some(post => post.createdAt < newestComment.createdAt)) {
+            this.setReason("User has posts older than their oldest comment");
             return false;
         }
 
-        const posts = history.filter(item => isLinkId(item.id) && item.body !== "[removed]" && item.createdAt > subMonths(new Date(), 1)) as Post[];
-        const comments = history.filter(item => isCommentId(item.id) && item.createdAt > subMonths(new Date(), 1)) as Comment[];
-
-        const requiredCommentCount = this.variables["comment-then-post:requiredcomments"] as number | undefined ?? 5;
-        if (comments.length < requiredCommentCount) {
-            this.setReason("User does not have enough comments");
-            return false;
-        }
-
-        const requiredPostCount = this.variables["comment-then-post:requiredposts"] as number | undefined ?? 5;
-        if (posts.length < requiredPostCount) {
+        if (posts.length < 5) {
             this.setReason("User does not have enough posts");
             return false;
         }
 
-        const subs = this.variables["comment-then-post:requiredsubs"] as string[] | undefined ?? [];
-        if (posts.some(post => !subs.includes(post.subredditName))) {
-            this.setReason("User has posts in non-eligible subs");
-            return false;
-        }
-
-        if (comments.some(comment => !subs.includes(comment.subredditName))) {
-            this.setReason("User has comments in non-eligible subs");
+        const karmaFarmingSubs = this.variables["generic:karmafarminglinksubs"] as string[] | undefined ?? [];
+        const postsInKarmaFarmingSubs = posts.filter(post => karmaFarmingSubs.includes(post.subredditName));
+        if (postsInKarmaFarmingSubs.length / posts.length < 0.7) {
+            this.setReason("User has too few posts in karma farming subs");
             return false;
         }
 
@@ -129,16 +92,6 @@ export class EvaluateCommentThenPost extends UserEvaluatorBase {
         if (posts.some(post => !this.eligiblePost(post))) {
             this.setReason("User has non-eligible posts");
             return false;
-        }
-
-        const distinctPostSubs = uniq(posts.map(post => post.subredditName));
-        if (distinctPostSubs.length !== subs.length) {
-            this.setReason("User doesn't have posts in all required subs");
-        }
-
-        const distinctCommentSubs = uniq(comments.map(comment => comment.subredditName));
-        if (distinctCommentSubs.length !== subs.length) {
-            this.setReason("User doesn't have comments in all required subs");
         }
 
         return true;

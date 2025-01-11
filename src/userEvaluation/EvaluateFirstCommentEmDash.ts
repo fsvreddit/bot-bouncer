@@ -3,7 +3,7 @@ import { CommentCreate } from "@devvit/protos";
 import { CommentV2 } from "@devvit/protos/types/devvit/reddit/v2alpha/commentv2.js";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
 import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
-import { subWeeks } from "date-fns";
+import { subMonths } from "date-fns";
 import { last, uniq } from "lodash";
 import { domainFromUrl } from "./evaluatorHelpers.js";
 
@@ -36,7 +36,7 @@ export class EvaluateFirstCommentEmDash extends UserEvaluatorBase {
     }
 
     override preEvaluateUser (user: User): boolean {
-        if (user.createdAt < subWeeks(new Date(), 6)) {
+        if (user.createdAt < subMonths(new Date(), 2)) {
             this.setReason("Account is too old");
             return false;
         }

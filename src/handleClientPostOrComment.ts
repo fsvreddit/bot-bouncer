@@ -217,6 +217,10 @@ async function checkAndReportPotentialBot (username: string, thingId: string, se
             botName = evaluator.name;
             break;
         }
+        const regex = /^[A-Z][a-z]+_?[A-Z][a-z]+$/;
+        if (evaluator.name === "First Comment Em Dash" && regex.test(username)) {
+            console.log(`Bot Check: ${username} didn't match em-dash rule for ${evaluator.getReasons().join(", ")}`);
+        }
     }
 
     if (!isLikelyBot) {
