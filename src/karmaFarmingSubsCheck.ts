@@ -1,4 +1,4 @@
-import { JobContext, JSONObject, ScheduledJobEvent } from "@devvit/public-api";
+import { JobContext, JSONObject, Post, ScheduledJobEvent } from "@devvit/public-api";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { uniq } from "lodash";
 import { CONTROL_SUBREDDIT, EVALUATE_KARMA_FARMING_SUBS, PostFlairTemplate } from "./constants.js";
@@ -10,10 +10,16 @@ import { addSeconds } from "date-fns";
 const CHECK_DATE_KEY = "KarmaFarmingSubsCheckDate";
 
 async function getAccountsFromSub (subredditName: string, since: Date, context: JobContext): Promise<string[]> {
-    const posts = await context.reddit.getNewPosts({
-        subredditName,
-        limit: 100,
-    }).all();
+    let posts: Post[];
+    try {
+        posts = await context.reddit.getNewPosts({
+            subredditName,
+            limit: 100,
+        }).all();
+    } catch (error) {
+        console.error(`Karma Farming Subs: Error getting posts from ${subredditName}: ${error}`);
+        return [];
+    }
 
     return uniq(posts.filter(post => post.createdAt > since).map(post => post.authorName));
 }

@@ -3,7 +3,7 @@ import { compact, max, sum, toPairs } from "lodash";
 import pako from "pako";
 import { scheduleAdhocCleanup, setCleanupForUsers } from "./cleanup.js";
 import { CONTROL_SUBREDDIT, HANDLE_CLASSIFICATION_CHANGES_JOB } from "./constants.js";
-import { addWeeks, subDays, subHours, subWeeks } from "date-fns";
+import { addSeconds, addWeeks, startOfSecond, subDays, subHours } from "date-fns";
 import pluralize from "pluralize";
 
 const USER_STORE = "UserStore";
@@ -156,8 +156,10 @@ function compactDataForWiki (input: string): string {
     const status = JSON.parse(input) as UserDetails;
     status.operator = "";
     delete status.submitter;
-    if (status.lastUpdate < subWeeks(new Date(), 1).getTime()) {
+    if (status.lastUpdate < subDays(new Date(), 2).getTime()) {
         status.lastUpdate = 0;
+    } else {
+        status.lastUpdate = addSeconds(startOfSecond(new Date(status.lastUpdate)), 1).getTime();
     }
     return JSON.stringify(status);
 }

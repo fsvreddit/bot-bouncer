@@ -106,6 +106,41 @@ function femaleNameCheck (username: string) {
     }
 }
 
+function numberToBlock (input: number): string {
+    switch (input) {
+        case 0: return "";
+        case 1: return "▁";
+        case 2: return "▂";
+        case 3: return "▃";
+        case 4: return "▄";
+        case 5: return "▅";
+        case 6: return "▆";
+        case 7: return "▇";
+        case 8: return "█";
+        default: throw new Error("Number out of range");
+    }
+}
+
+function activityByTimeOfDay (history: (Post | Comment)[]) {
+    const hours = countBy(history.map(item => item.createdAt.getHours()));
+    const max = Math.max(...Object.values(hours));
+
+    const line1 = "0|1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23";
+    const line2 = "-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-";
+    let line3 = "";
+
+    for (let i = 0; i < 24; i++) {
+        const value = hours[i] || 0;
+        const blockHeight = Math.round(8 * value / max);
+        line3 += numberToBlock(blockHeight);
+        if (i < 23) {
+            line3 += "|";
+        }
+    }
+
+    return `##Activity by time of day:\n\n${line1}\n${line2}\n${line3}\n\n`;
+}
+
 export async function createUserSummary (username: string, postId: string, context: TriggerContext) {
     const user = await getUserOrUndefined(username, context);
     if (!user) {
@@ -210,6 +245,9 @@ export async function createUserSummary (username: string, postId: string, conte
             summary += `* First post was ${formatDifferenceInDates(user.createdAt, userPosts[userPosts.length - 1].createdAt)} after account creation\n`;
         }
     }
+
+    summary += "\n";
+    summary += activityByTimeOfDay([...userComments, ...userPosts]);
 
     const newComment = await context.reddit.submitComment({
         id: postId,
