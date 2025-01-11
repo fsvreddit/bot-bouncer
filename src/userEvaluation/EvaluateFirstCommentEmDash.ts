@@ -53,7 +53,7 @@ export class EvaluateFirstCommentEmDash extends UserEvaluatorBase {
         const posts = history.filter(item => isLinkId(item.id)) as Post[];
 
         if (comments.length > 30) {
-            this.setReason("User has too many comments");
+            this.canAutoBan = false;
             return false;
         }
 

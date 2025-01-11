@@ -129,7 +129,9 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
     if (reportReason) {
         const post = await context.reddit.getPostById(postId);
         await context.reddit.report(post, { reason: reportReason });
-        await createUserSummary(username, postId, context);
+        if (!event.data?.skipSummary) {
+            await createUserSummary(username, postId, context);
+        }
         return;
     }
 

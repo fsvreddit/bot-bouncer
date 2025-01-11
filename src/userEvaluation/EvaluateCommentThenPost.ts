@@ -5,28 +5,47 @@ import { subMonths, subYears } from "date-fns";
 import { CommentV2 } from "@devvit/protos/types/devvit/reddit/v2alpha/commentv2.js";
 import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
 import { domainFromUrl } from "./evaluatorHelpers.js";
+import { uniq } from "lodash";
 
-export class EvaluateMixedBot extends UserEvaluatorBase {
-    override name = "Mixed Bot";
+export class EvaluateCommentThenPost extends UserEvaluatorBase {
+    override name = "CommentThenPost";
+    override canAutoBan = false;
 
     private readonly emDashRegex = /\w—\w/i;
 
     private eligibleComment (comment: Comment | CommentV2): boolean {
-        const isEligible = isLinkId(comment.parentId)
+        const subs = this.variables["comment-then-post:requiredsubs"] as string[] | undefined ?? [];
+
+        if (comment instanceof Comment) {
+            if (!subs.includes(comment.subredditName)) {
+                return false;
+            }
+        } else if (this.context.subredditName) {
+            if (!subs.includes(this.context.subredditName)) {
+                return false;
+            }
+        }
+
+        const isEligble = isLinkId(comment.parentId)
             && comment.body.split("\n\n").length <= 3
+            && comment.body.length < 300
             && (comment.body.slice(0, 25).includes(",")
                 || comment.body.slice(0, 25).includes(".")
                 || this.emDashRegex.test(comment.body)
                 || !comment.body.includes("\n")
                 || comment.body === comment.body.toLowerCase()
                 || comment.body.length < 50
-                || comment.body.includes("\n\n\n\n")
             );
 
-        return isEligible;
+        return isEligble;
     }
 
     private eligiblePost (post: Post): boolean {
+        const subs = this.variables["comment-then-post:requiredsubs"] as string[] | undefined ?? [];
+        if (!subs.includes(post.subredditName)) {
+            return false;
+        }
+
         if (post.subredditName === "WhatIsMyCQS") {
             return true;
         }
@@ -41,8 +60,7 @@ export class EvaluateMixedBot extends UserEvaluatorBase {
 
         const redditDomains = this.variables["generic:redditdomains"] as string[] | undefined ?? [];
         const domain = domainFromUrl(post.url);
-        // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
-        return (domain && redditDomains.includes(domain)) || post.subredditName === "WhatIsMyCQS";
+        return domain !== undefined && redditDomains.includes(domain);
     }
 
     override preEvaluateComment (event: CommentCreate): boolean {
@@ -57,12 +75,12 @@ export class EvaluateMixedBot extends UserEvaluatorBase {
     }
 
     override preEvaluateUser (user: User): boolean {
-        return user.createdAt < subYears(new Date(), 5) || user.createdAt > subMonths(new Date(), 6);
+        return user.createdAt > subMonths(new Date(), 2);
     }
 
     override evaluate (user: User, history: (Post | Comment)[]): boolean {
         if (!this.preEvaluateUser(user)) {
-            this.setReason("User is too old or young");
+            this.setReason("User is too old");
             return false;
         }
 
@@ -80,29 +98,47 @@ export class EvaluateMixedBot extends UserEvaluatorBase {
         const posts = history.filter(item => isLinkId(item.id) && item.body !== "[removed]" && item.createdAt > subMonths(new Date(), 1)) as Post[];
         const comments = history.filter(item => isCommentId(item.id) && item.createdAt > subMonths(new Date(), 1)) as Comment[];
 
-        if (posts.length === 0 || comments.length === 0) {
-            this.setReason("User has missing posts or comments");
+        const requiredCommentCount = this.variables["comment-then-post:requiredcomments"] as number | undefined ?? 5;
+        if (comments.length < requiredCommentCount) {
+            this.setReason("User does not have enough comments");
             return false;
         }
 
-        if (!posts.every(post => this.eligiblePost(post))) {
-            this.setReason("Mismatching post");
+        const requiredPostCount = this.variables["comment-then-post:requiredposts"] as number | undefined ?? 5;
+        if (posts.length < requiredPostCount) {
+            this.setReason("User does not have enough posts");
             return false;
         }
 
-        if (!comments.every(comment => this.eligibleComment(comment))) {
-            this.setReason("Mismatching comment");
+        const subs = this.variables["comment-then-post:requiredsubs"] as string[] | undefined ?? [];
+        if (posts.some(post => !subs.includes(post.subredditName))) {
+            this.setReason("User has posts in non-eligible subs");
             return false;
         }
 
-        if (!posts.some(post => post.title === post.title.toLowerCase() || post.title === post.title.toUpperCase())) {
-            this.setReason("No single-case post");
+        if (comments.some(comment => !subs.includes(comment.subredditName))) {
+            this.setReason("User has comments in non-eligible subs");
             return false;
         }
 
-        if (!comments.some(comment => this.emDashRegex.test(comment.body))) {
-            this.setReason("No comment with an em-dash");
+        if (comments.some(comment => !this.eligibleComment(comment))) {
+            this.setReason("User has non-eligible comments");
             return false;
+        }
+
+        if (posts.some(post => !this.eligiblePost(post))) {
+            this.setReason("User has non-eligible posts");
+            return false;
+        }
+
+        const distinctPostSubs = uniq(posts.map(post => post.subredditName));
+        if (distinctPostSubs.length !== subs.length) {
+            this.setReason("User doesn't have posts in all required subs");
+        }
+
+        const distinctCommentSubs = uniq(comments.map(comment => comment.subredditName));
+        if (distinctCommentSubs.length !== subs.length) {
+            this.setReason("User doesn't have comments in all required subs");
         }
 
         return true;

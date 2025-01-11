@@ -108,6 +108,7 @@ async function handleControlSubReportUser (target: Post | Comment, context: Cont
                 data: {
                     username,
                     postId: target.id,
+                    skipSummary: true,
                 },
             });
             context.ui.showToast("User will be re-evaluated using AI detections");
