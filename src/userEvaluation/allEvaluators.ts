@@ -9,6 +9,7 @@ import { EvaluateVideoFarmer } from "./EvaluateVideoFarmer.js";
 import { EvaluateFirstCommentEmDash } from "./EvaluateFirstCommentEmDash.js";
 import { EvaluateResumeSpam } from "./EvaluateResumeSpam.js";
 import { EvaluateCommentThenPost } from "./EvaluateCommentThenPost.js";
+import { EvaluateCommentBot } from "./EvaluateCommentBot.js";
 
 export const ALL_EVALUATORS = [
     EvaluateShortTlc,
@@ -22,4 +23,5 @@ export const ALL_EVALUATORS = [
     EvaluateFirstCommentEmDash,
     EvaluateResumeSpam,
     EvaluateCommentThenPost,
+    EvaluateCommentBot,
 ];
