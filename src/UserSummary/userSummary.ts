@@ -141,7 +141,7 @@ function activityByTimeOfDay (history: (Post | Comment)[]) {
     return `##Activity by time of day:\n\n${line1}\n${line2}\n${line3}\n\n`;
 }
 
-export async function createUserSummary (username: string, postId: string, context: TriggerContext) {
+export async function getSummaryTextForUser (username: string, context: TriggerContext): Promise<string | undefined> {
     const user = await getUserOrUndefined(username, context);
     if (!user) {
         console.log(`User Summary: User ${username} is already shadowbanned or suspended, so summary will not be created.`);
@@ -248,6 +248,15 @@ export async function createUserSummary (username: string, postId: string, conte
 
     summary += "\n";
     summary += activityByTimeOfDay([...userComments, ...userPosts]);
+
+    return summary;
+}
+
+export async function createUserSummary (username: string, postId: string, context: TriggerContext) {
+    const summary = await getSummaryTextForUser(username, context);
+    if (!summary) {
+        return;
+    }
 
     const newComment = await context.reddit.submitComment({
         id: postId,

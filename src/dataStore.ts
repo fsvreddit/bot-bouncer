@@ -290,7 +290,7 @@ export async function updateLocalStoreFromWiki (_: unknown, context: JobContext)
         const recentItems = usersWithStatus.filter(item => new Date(item.data.lastUpdate) > lastUpdateDate);
 
         const unbannedUsers = recentItems
-            .filter(item => item.data.userStatus === UserStatus.Organic || item.data.userStatus === UserStatus.Service)
+            .filter(item => item.data.userStatus === UserStatus.Organic || item.data.userStatus === UserStatus.Service || item.data.userStatus === UserStatus.Declined)
             .map(item => item.username);
 
         const bannedUsers = recentItems
