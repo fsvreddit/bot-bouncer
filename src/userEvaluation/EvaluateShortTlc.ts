@@ -84,7 +84,7 @@ export class EvaluateShortTlc extends UserEvaluatorBase {
             return false;
         }
 
-        if (userComments.length < 5) {
+        if (userComments.length < 15) {
             this.setReason("User doesn't have enough comments");
             return false;
         }
