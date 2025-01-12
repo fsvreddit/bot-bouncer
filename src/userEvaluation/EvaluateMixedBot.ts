@@ -57,7 +57,7 @@ export class EvaluateMixedBot extends UserEvaluatorBase {
     }
 
     override preEvaluateUser (user: User): boolean {
-        return user.createdAt < subYears(new Date(), 5) || user.createdAt > subMonths(new Date(), 6);
+        return (user.createdAt < subYears(new Date(), 5) || user.createdAt > subMonths(new Date(), 6)) && user.commentKarma < 1000;
     }
 
     override evaluate (user: User, history: (Post | Comment)[]): boolean {

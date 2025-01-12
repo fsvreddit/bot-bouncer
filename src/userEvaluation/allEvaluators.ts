@@ -5,7 +5,6 @@ import { EvaluateNSFWKarmaFarmer } from "./EvaluateNSFWKarmaFarmer.js";
 import { EvaluateShortTlc } from "./EvaluateShortTlc.js";
 import { EvaluateZombie } from "./EvaluateZombie.js";
 import { EvaluateCQSTester } from "./EvaluateCQSTester.js";
-import { EvaluateVideoFarmer } from "./EvaluateVideoFarmer.js";
 import { EvaluateFirstCommentEmDash } from "./EvaluateFirstCommentEmDash.js";
 import { EvaluateResumeSpam } from "./EvaluateResumeSpam.js";
 import { EvaluateCommentThenPost } from "./EvaluateCommentThenPost.js";
@@ -16,7 +15,6 @@ export const ALL_EVALUATORS = [
     EvaluateCopyBot,
     EvaluateMixedBot,
     EvaluateDomainSharer,
-    EvaluateVideoFarmer,
     EvaluateZombie,
     EvaluateCQSTester,
     EvaluateNSFWKarmaFarmer,

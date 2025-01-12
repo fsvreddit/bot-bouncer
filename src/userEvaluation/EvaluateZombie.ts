@@ -48,6 +48,11 @@ export class EvaluateZombie extends UserEvaluatorBase {
             return false;
         }
 
+        if (user.commentKarma > 1000) {
+            this.setReason("User has too much karma");
+            return false;
+        }
+
         if (autogenRegex.test(user.username)) {
             this.setReason("Username is autogen");
             return false;

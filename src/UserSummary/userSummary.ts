@@ -212,6 +212,9 @@ export async function getSummaryTextForUser (username: string, context: TriggerC
         const subreddits = countBy(compact(userComments.map(comment => comment.subredditName)));
         summary += `* Comment subreddits: ${Object.entries(subreddits).map(([subreddit, count]) => `r/${subreddit}: ${count}`).join(", ")}\n`;
 
+        const commentsPerPost = countBy(Object.values(countBy(userComments.map(comment => comment.postId))));
+        summary += `* Comments per post: ${Object.entries(commentsPerPost).map(([count, posts]) => `${count} comments: ${posts}`).join(", ")}\n`;
+
         if (userComments.length < 90) {
             summary += `* First comment was ${formatDifferenceInDates(user.createdAt, userComments[userComments.length - 1].createdAt)} after account creation\n`;
         }
