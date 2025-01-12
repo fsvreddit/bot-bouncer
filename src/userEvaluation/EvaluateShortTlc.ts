@@ -9,6 +9,7 @@ import { autogenRegex } from "./evaluatorHelpers.js";
 
 export class EvaluateShortTlc extends UserEvaluatorBase {
     override name = "Short TLC Bot";
+    override banContentThreshold = 40;
 
     private eligibleComment (comment: Comment | CommentV2) {
         if (isCommentId(comment.parentId)) {
