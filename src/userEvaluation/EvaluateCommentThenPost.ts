@@ -60,8 +60,7 @@ export class EvaluateCommentThenPost extends UserEvaluatorBase {
         const posts = history.filter(item => isLinkId(item.id) && item.body !== "[removed]") as Post[];
         const comments = history.filter(item => isCommentId(item.id)) as Comment[];
 
-        const firstContent = history.slice(history.length - 4);
-        if (firstContent.length !== 4 && firstContent.some(item => isLinkId(item.id))) {
+        if (comments.length < 5) {
             this.setReason("User has insufficient initial comment content");
             return false;
         }
