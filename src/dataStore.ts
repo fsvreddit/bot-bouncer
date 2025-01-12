@@ -5,6 +5,7 @@ import { scheduleAdhocCleanup, setCleanupForUsers } from "./cleanup.js";
 import { CONTROL_SUBREDDIT, HANDLE_CLASSIFICATION_CHANGES_JOB } from "./constants.js";
 import { addSeconds, addWeeks, startOfSecond, subDays, subHours } from "date-fns";
 import pluralize from "pluralize";
+import { getControlSubSettings } from "./settings.js";
 
 const USER_STORE = "UserStore";
 const POST_STORE = "PostStore";
@@ -255,9 +256,12 @@ export async function updateLocalStoreFromWiki (_: unknown, context: JobContext)
     const lastUpdateDateValue = await context.redis.get(lastUpdateDateKey);
     const lastUpdateDate = lastUpdateDateValue ? new Date(parseInt(lastUpdateDateValue)) : subHours(new Date(), 6);
 
+    let wikiContent: string;
+
     let wikiPage: WikiPage;
     try {
         wikiPage = await context.reddit.getWikiPage(CONTROL_SUBREDDIT, WIKI_PAGE);
+        wikiContent = wikiPage.content;
     } catch {
         console.error("Wiki Update: Failed to read wiki page from control subreddit");
         return;
@@ -268,7 +272,21 @@ export async function updateLocalStoreFromWiki (_: unknown, context: JobContext)
         return;
     }
 
-    const incomingData = decompressData(wikiPage.content);
+    const controlSubSettings = await getControlSubSettings(context);
+    const numberOfPages = controlSubSettings.numberOfWikiPages ?? 1;
+    if (numberOfPages > 1) {
+        for (let i = 2; i <= numberOfPages; i++) {
+            try {
+                const page = await context.reddit.getWikiPage(CONTROL_SUBREDDIT, `${WIKI_PAGE}/${i}`);
+                wikiContent += page.content;
+            } catch {
+                console.error(`Wiki Update: Failed to read wiki page ${i} from control subreddit. Page may not yet exist.`);
+                break;
+            }
+        }
+    }
+
+    const incomingData = decompressData(wikiContent);
     await context.redis.del(USER_STORE);
 
     if (Object.keys(incomingData).length === 0) {

@@ -106,6 +106,7 @@ interface ControlSubSettings {
     maxInactivityMonths?: number;
     trustedSubmitters: string[];
     reporterBlacklist: string[];
+    numberOfWikiPages?: number;
 }
 
 const CONTROL_SUB_SETTINGS_WIKI_PAGE = "controlsubsettings";
@@ -118,6 +119,7 @@ const schema: JSONSchemaType<ControlSubSettings> = {
         maxInactivityMonths: { type: "number", nullable: true },
         trustedSubmitters: { type: "array", items: { type: "string" } },
         reporterBlacklist: { type: "array", items: { type: "string" } },
+        numberOfWikiPages: { type: "number", nullable: true },
     },
     required: ["evaluationDisabled", "trustedSubmitters", "reporterBlacklist"],
 };
@@ -156,6 +158,7 @@ export async function getControlSubSettings (context: TriggerContext): Promise<C
         maxInactivityMonths: 3,
         trustedSubmitters: [],
         reporterBlacklist: [],
+        numberOfWikiPages: 1,
     };
 
     await context.reddit.createWikiPage({
