@@ -92,9 +92,9 @@ export const appSettings: SettingsFormField[] = [
             {
                 type: "boolean",
                 name: AppSetting.RemoveContentWhenReporting,
-                label: "Remove content when potential bots are detected",
+                label: "Remove content when potential bots are detected before classification",
                 helpText: "If this is turned on, the bot will remove the content before reporting it. The comment will be approved if the user is classified human unless it was filtered or removed by AutoMod or Reddit.",
-                defaultValue: true,
+                defaultValue: false,
             },
         ],
     },

@@ -90,8 +90,8 @@ export const reportForm = Devvit.createForm({
     fields: [
         {
             type: "paragraph",
-            label: "Please provide more information that might help us understand why this is a bot",
-            helpText: "Optional. This is in case it is not obvious that this is a LLM bot.",
+            label: "Optional. Please provide more information that might help us understand why this is a bot",
+            helpText: "This is in case it is not obvious that this is a LLM bot.",
             lineHeight: 4,
             name: "reportContext",
         },
