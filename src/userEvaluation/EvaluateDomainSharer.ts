@@ -8,6 +8,7 @@ import { domainFromUrl } from "./evaluatorHelpers.js";
 
 export class EvaluateDomainSharer extends UserEvaluatorBase {
     override name = "Domain Sharer";
+    override canAutoBan = false;
 
     private domainsFromContent (content: string): string[] {
         // eslint-disable-next-line no-useless-escape
