@@ -117,7 +117,7 @@ async function handleContentCreation (username: string, targetId: string, contex
 
     const userWhitelisted = await isUserWhitelisted(username, context);
     if (userWhitelisted) {
-        console.log(`${username} is whitelisted after a previous unban, so will not be actioned.`);
+        console.log(`${username} is allowlisted after a previous unban, so will not be actioned.`);
     }
 
     console.log(`Content Create: Status for ${username} is ${currentStatus.userStatus}`);
@@ -133,17 +133,17 @@ async function handleContentCreation (username: string, targetId: string, contex
 
     const flair = await user.getUserFlairBySubreddit(subredditName);
     if (flair?.flairCssClass?.toLowerCase().endsWith("proof")) {
-        console.log(`Content Create: ${user.username} is whitelisted via flair`);
+        console.log(`Content Create: ${user.username} is allowlisted via flair`);
         return;
     }
 
     if (await isApproved(user.username, context)) {
-        console.log(`Content Create: ${user.username} is whitelisted as an approved user`);
+        console.log(`Content Create: ${user.username} is allowlisted as an approved user`);
         return;
     }
 
     if (await isModerator(user.username, context)) {
-        console.log(`Content Create: ${user.username} is whitelisted as a moderator`);
+        console.log(`Content Create: ${user.username} is allowlisted as a moderator`);
         return;
     }
 

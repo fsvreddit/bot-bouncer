@@ -23,7 +23,7 @@ If a user creates a post or comment on your subreddit and the user is classified
 
 Optionally, if you have turned on the "Ban and remove recent content" option configured, newly classified bots will be banned if they have posted or commented on your subreddit within the past week shortly after being classified.
 
-## How do I whitelist a user?
+## How do I exempt (allowlist) a user?
 
 The easiest way is to add the account as an Approved Submitter to your subreddit - Bot Bouncer will never ban approved submitters or moderators.
 
