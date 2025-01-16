@@ -42,3 +42,10 @@ If a user that has been banned by Bot Bouncer writes in to your subreddit, Bot B
 ## I think an account that was classified as human is actually a harmful bot. What should I do?
 
 Write in to /r/BotBouncer's modmail with details of why you think that this is the case. Sometimes mistakes are made and we rely on assistance to get classifications right.
+
+# Change History
+
+## v1.1
+
+* The "CQS Tester" evaluator now checks a wider range of titles
+* Terminology changed from "whitelist" to "allowlist" or similar throughout user interfaces and documentation
