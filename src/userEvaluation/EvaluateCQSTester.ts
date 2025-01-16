@@ -68,7 +68,8 @@ export class EvaluateCQSTester extends UserEvaluatorBase {
         }
 
         const userPosts = history.filter(item => isLinkId(item.id)) as Post[];
-        if (!userPosts.some(item => item.subredditName === "WhatIsMyCQS" && (item.title === "Test" || item.title === "test"))) {
+        const titlesToCheck = ["Test", "test", "T", "t"];
+        if (!userPosts.some(item => item.subredditName === "WhatIsMyCQS" && titlesToCheck.includes(item.title))) {
             this.setReason("User doesn't have a CQS Testing post");
             return false;
         }
