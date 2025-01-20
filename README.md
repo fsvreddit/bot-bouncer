@@ -47,7 +47,7 @@ Write in to [/r/BotBouncer's modmail](https://www.reddit.com/message/compose/?to
 
 ## v1.1
 
-* The "CQS Tester" evaluator now checks a wider range of titles
+* The "CQS Tester" evaluator now checks a wider range of post titles
 * Terminology changed from "whitelist" to "allowlist" or similar throughout user interfaces and documentation
 * Introduced a new automated bot detector
 * Fixed a bug that prevents unbans from being processed correctly after a user is set from "banned" to "organic"
