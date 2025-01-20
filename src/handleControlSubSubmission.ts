@@ -69,7 +69,7 @@ export async function handleControlSubSubmission (event: PostCreate, context: Tr
         const currentStatus = await getUserStatus(user.username, context);
         if (currentStatus) {
             const post = await context.reddit.getPostById(currentStatus.trackingPostId);
-            submissionResponse = `Hi, thanks for your submission.\n\n${username} is already tracked by Bot Bouncer, you can see the submission [here](${post.permalink}).`;
+            submissionResponse = `Hi, thanks for your submission.\n\n${username} is already tracked by Bot Bouncer with a current status of ${currentStatus.userStatus}, you can see the submission [here](${post.permalink}).`;
         } else {
             const newStatus = controlSubSettings.trustedSubmitters.includes(event.author.name) ? UserStatus.Banned : UserStatus.Pending;
             const newFlair = newStatus === UserStatus.Banned ? PostFlairTemplate.Banned : PostFlairTemplate.Pending;
