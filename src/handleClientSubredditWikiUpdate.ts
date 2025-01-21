@@ -13,6 +13,7 @@ const BAN_STORE = "BanStore";
 export async function recordBan (username: string, context: TriggerContext) {
     await context.redis.zAdd(BAN_STORE, { member: username, score: new Date().getTime() });
     await setCleanupForUsers([username], context, false);
+    console.log(`Ban recorded for ${username}`);
 }
 
 export async function removeRecordOfBan (usernames: string[], context: TriggerContext) {
@@ -20,7 +21,8 @@ export async function removeRecordOfBan (usernames: string[], context: TriggerCo
         return;
     }
 
-    await context.redis.zRem(BAN_STORE, usernames);
+    const actuallyRemoved = await context.redis.zRem(BAN_STORE, usernames);
+    console.log(`Removed record of ban for ${actuallyRemoved}: ${usernames.join(", ")}`);
 }
 
 export async function wasUserBannedByApp (username: string, context: TriggerContext): Promise<boolean> {
@@ -69,6 +71,8 @@ async function handleSetOrganic (username: string, subredditName: string, contex
         await context.reddit.unbanUser(username, subredditName);
         console.log(`Wiki Update: Unbanned ${username}`);
     }
+
+    await removeRecordOfBan([username], context);
 }
 
 async function handleSetBanned (username: string, subredditName: string, settings: SettingsValues, context: TriggerContext) {
@@ -149,7 +153,6 @@ export async function handleClassificationChanges (event: ScheduledJobEvent<JSON
     if (unbannedUsers.length > 0) {
         console.log(`Wiki Update: Checking unbans for ${unbannedUsers.length} ${pluralize("user", unbannedUsers.length)}`);
         promises.push(...unbannedUsers.map(username => handleSetOrganic(username, subredditName, context)));
-        promises.push(removeRecordOfBan(unbannedUsers, context));
     }
 
     const settings = await context.settings.getAll();

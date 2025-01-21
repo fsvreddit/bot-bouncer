@@ -17,7 +17,7 @@ rather than replying to this message.`,
 If this account is claiming to be human and isn't an obvious novelty account,
 we recommend asking the account owner to [message /r/${CONTROL_SUBREDDIT}](https://www.reddit.com/message/compose?to=/r/${CONTROL_SUBREDDIT}&subject=Ban%20dispute%20for%20/u/{account}%20on%20/r/{subreddit}).
 
-If this account is a bot that you wish to allow, remember to [whitelist](/r/${CONTROL_SUBREDDIT}/wiki/index) it before you unban it.`,
+If this account is a bot that you wish to allow, remember to [allowlist](/r/${CONTROL_SUBREDDIT}/wiki/index) it before you unban it.`,
 
     appealMessage: `Your classification appeal has been received and will be reviewed by a
 moderator. If accepted, the result of your appeal will apply to any subreddit using /r/${CONTROL_SUBREDDIT}.
@@ -56,7 +56,7 @@ export const appSettings: SettingsFormField[] = [
             {
                 type: "boolean",
                 name: AppSetting.AutoWhitelist,
-                label: "Automatically whitelist users banned by Bot Bouncer if they are then unbanned by you",
+                label: "Automatically exempt users banned by Bot Bouncer if they are then unbanned by you",
                 helpText: "If this is selected, and you unban a user that has been banned by Bot Bouncer, then the app will not act on that user again.",
                 defaultValue: true,
             },

@@ -90,7 +90,7 @@ export class EvaluateFirstCommentEmDash extends UserEvaluatorBase {
             this.setReason("User's first comment doesn't contain an em dash, or they have insufficient comments with them");
 
             const karmaFarmingSubs = this.variables["generic:karmafarminglinksubs"] as string[] | undefined ?? [];
-            const postCountNeeded = this.variables["em-dash:distinctsubs"] as number | undefined ?? 3;
+            const postCountNeeded = this.variables["em-dash:postcount"] as number | undefined ?? 3;
             const subsNeeded = this.variables["em-dash:distinctsubs"] as number | undefined ?? 3;
 
             const backupRequirementsMet = posts.length >= postCountNeeded
