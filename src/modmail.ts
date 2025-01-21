@@ -56,19 +56,15 @@ export async function handleModmail (event: ModMail, context: TriggerContext) {
         return;
     }
 
-    let messageSent: boolean;
+    await setConversationHandled(event.conversationId, context);
 
     if (context.subredditName === CONTROL_SUBREDDIT) {
-        messageSent = await handleControlSubredditModmail(username, event.conversationId, context);
+        await handleControlSubredditModmail(username, event.conversationId, context);
     } else {
         if (conversationResponse.conversation.state === ModMailConversationState.Archived) {
             return;
         }
-        messageSent = await handleClientSubredditModmail(username, event.conversationId, context);
-    }
-
-    if (messageSent) {
-        await setConversationHandled(event.conversationId, context);
+        await handleClientSubredditModmail(username, event.conversationId, context);
     }
 }
 
