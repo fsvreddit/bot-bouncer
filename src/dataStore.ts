@@ -152,7 +152,6 @@ function compressData (value: Record<string, string>): string {
     return Buffer.from(pako.deflate(JSON.stringify(value), { level: 9 })).toString("base64");
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function compactDataForWiki (input: string): string {
     const status = JSON.parse(input) as UserDetails;
     status.operator = "";
@@ -192,11 +191,10 @@ export async function updateWikiPage (event: ScheduledJobEvent<JSONObject | unde
         return;
     }
 
-    // Data compaction - TODO
-    // for (const entry of entries) {
-    //     const [username, jsonData] = entry;
-    //     data[username] = compactDataForWiki(jsonData)
-    // }
+    for (const entry of entries) {
+        const [username, jsonData] = entry;
+        data[username] = compactDataForWiki(jsonData);
+    }
 
     const content = compressData(data);
     if (content === wikiPage?.content) {
