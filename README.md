@@ -45,6 +45,10 @@ Write in to [/r/BotBouncer's modmail](https://www.reddit.com/message/compose/?to
 
 # Change History
 
+## Next version (this may show as installable, but 1.1.1 is the current live version)
+
+* Changes to support operations on r/BotBouncer, no user-facing changes.
+
 ## v1.1
 
 * The "CQS Tester" evaluator now checks a wider range of post titles

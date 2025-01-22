@@ -4,7 +4,7 @@ import { getUserStatus, setUserStatus, UserStatus } from "./dataStore.js";
 import { getControlSubSettings } from "./settings.js";
 import Ajv, { JSONSchemaType } from "ajv";
 import { addMinutes, addSeconds } from "date-fns";
-import { getPostOrCommentById } from "./utility.js";
+import { getPostOrCommentById, getUserOrUndefined } from "./utility.js";
 import { isLinkId } from "@devvit/shared-types/tid.js";
 
 const WIKI_PAGE = "externalsubmissions";
@@ -14,6 +14,7 @@ interface ExternalSubmission {
     submitter?: string;
     reportContext?: string;
     targetId?: string;
+    initialStatus?: UserStatus;
 };
 
 const schema: JSONSchemaType<ExternalSubmission[]> = {
@@ -25,6 +26,7 @@ const schema: JSONSchemaType<ExternalSubmission[]> = {
             submitter: { type: "string", nullable: true },
             reportContext: { type: "string", nullable: true },
             targetId: { type: "string", nullable: true },
+            initialStatus: { type: "string", nullable: true, enum: Object.values(UserStatus) },
         },
         required: ["username"],
     },
@@ -139,7 +141,10 @@ export async function processExternalSubmissions (_: unknown, context: JobContex
         if (item) {
             const currentStatus = await getUserStatus(item.username, context);
             if (!currentStatus) {
-                stopLooping = true;
+                const user = await getUserOrUndefined(item.username, context);
+                if (user) {
+                    stopLooping = true;
+                }
             }
         } else {
             stopLooping = true;
@@ -170,7 +175,7 @@ export async function processExternalSubmissions (_: unknown, context: JobContex
     }
 
     const controlSubSettings = await getControlSubSettings(context);
-    const newStatus = item.submitter && controlSubSettings.trustedSubmitters.includes(item.submitter) ? UserStatus.Banned : UserStatus.Pending;
+    const newStatus = ((item.submitter && controlSubSettings.trustedSubmitters.includes(item.submitter)) || item.initialStatus === UserStatus.Banned) ? UserStatus.Banned : UserStatus.Pending;
     const newFlair = newStatus === UserStatus.Banned ? PostFlairTemplate.Banned : PostFlairTemplate.Pending;
 
     const newPost = await context.reddit.submitPost({
@@ -219,6 +224,6 @@ export async function processExternalSubmissions (_: unknown, context: JobContex
     // Schedule a new ad-hoc instance.
     await context.scheduler.runJob({
         name: EXTERNAL_SUBMISSION_JOB,
-        runAt: new Date(),
+        runAt: addSeconds(new Date(), 20),
     });
 }
