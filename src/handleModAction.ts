@@ -22,7 +22,7 @@ export async function handleModAction (event: ModAction, context: TriggerContext
      * check that too.
      */
     if (event.action === "wikirevise" && context.subredditName === CONTROL_SUBREDDIT) {
-        if (event.moderator?.name === context.appName) {
+        if (event.moderator?.name === context.appName || event.moderator?.name === "bot-bouncer-int") {
             await createExternalSubmissionJob(context);
         } else if (event.moderator) {
             await validateControlSubConfigChange(event.moderator.name, context);
