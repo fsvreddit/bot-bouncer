@@ -84,6 +84,7 @@ async function evaluateAndHandleUser (username: string, context: JobContext): Pr
 export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
     const controlSubSettings = await getControlSubSettings(context);
     if (!controlSubSettings.proactiveEvaluationEnabled || controlSubSettings.evaluationDisabled) {
+        console.log("Karma Farming Subs: Proactive evaluation is disabled.");
         return;
     }
 
