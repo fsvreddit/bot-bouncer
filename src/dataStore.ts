@@ -1,5 +1,5 @@
 import { JobContext, TriggerContext, WikiPagePermissionLevel, WikiPage, ScheduledJobEvent, JSONObject } from "@devvit/public-api";
-import { compact, max, sum, toPairs } from "lodash";
+import { compact, Dictionary, max, sum, toPairs, uniq } from "lodash";
 import pako from "pako";
 import { scheduleAdhocCleanup, setCleanupForUsers } from "./cleanup.js";
 import { CONTROL_SUBREDDIT, HANDLE_CLASSIFICATION_CHANGES_JOB } from "./constants.js";
@@ -96,6 +96,12 @@ export async function updateAggregate (type: UserStatus, incrBy: number, context
     }
 }
 
+interface SubmitterStatistic {
+    submitter: string;
+    count: number;
+    ratio: number;
+}
+
 export async function writeAggregateToWikiPage (_: unknown, context: JobContext) {
     let results = await context.redis.zRange(AGGREGATE_STORE, 0, -1);
     results = results.filter(item => item.member !== "pending");
@@ -136,6 +142,65 @@ export async function writeAggregateToWikiPage (_: unknown, context: JobContext)
             page: wikiPageName,
             listed: true,
             permLevel: WikiPagePermissionLevel.SUBREDDIT_PERMISSIONS,
+        });
+    }
+
+    const allData = await context.redis.hGetAll(USER_STORE);
+    const allStatuses = Object.values(allData).map(item => JSON.parse(item) as UserDetails);
+
+    const organicStatuses: Dictionary<number> = {};
+    const bannedStatuses: Dictionary<number> = {};
+
+    for (const status of allStatuses) {
+        if (!status.submitter) {
+            continue;
+        }
+
+        if (status.userStatus === UserStatus.Organic) {
+            organicStatuses[status.submitter] = (organicStatuses[status.submitter] ?? 0) + 1;
+        } else if (status.userStatus === UserStatus.Banned) {
+            bannedStatuses[status.submitter] = (bannedStatuses[status.submitter] ?? 0) + 1;
+        }
+    }
+
+    const distinctUsers = uniq([...Object.keys(organicStatuses), ...Object.keys(bannedStatuses)]);
+    const submitterStatistics: SubmitterStatistic[] = [];
+    for (const user of distinctUsers) {
+        const organicCount = organicStatuses[user] ?? 0;
+        const bannedCount = bannedStatuses[user] ?? 0;
+        const totalCount = organicCount + bannedCount;
+        const ratio = Math.round(100 * bannedCount / totalCount);
+        submitterStatistics.push({ submitter: user, count: totalCount, ratio });
+    }
+
+    wikiContent = "Submitter statistics\n\n";
+
+    for (const item of submitterStatistics.sort((a, b) => a.count - b.count)) {
+        wikiContent += `* **${item.submitter}**: ${item.count} (${item.ratio}% banned)\n`;
+    }
+
+    const submitterStatisticsWikiPage = "submitter-statistics";
+    try {
+        wikiPage = await context.reddit.getWikiPage(subredditName, submitterStatisticsWikiPage);
+    } catch {
+        wikiPage = undefined;
+    }
+
+    const submitterStatisticsWikiPageSaveOptions = {
+        subredditName,
+        page: submitterStatisticsWikiPage,
+        content: wikiContent,
+    };
+
+    if (wikiPage) {
+        await context.reddit.updateWikiPage(submitterStatisticsWikiPageSaveOptions);
+    } else {
+        await context.reddit.createWikiPage(submitterStatisticsWikiPageSaveOptions);
+        await context.reddit.updateWikiPageSettings({
+            listed: true,
+            page: submitterStatisticsWikiPage,
+            subredditName,
+            permLevel: WikiPagePermissionLevel.MODS_ONLY,
         });
     }
 }

@@ -49,7 +49,7 @@ export async function addExternalSubmission (data: ExternalSubmission, context: 
     await setUserStatus(data.username, {
         userStatus: UserStatus.Pending,
         lastUpdate: new Date().getTime(),
-        submitter: "",
+        submitter: data.submitter,
         operator: context.appName,
         trackingPostId: "",
     }, context);
@@ -95,7 +95,15 @@ export async function addExternalSubmission (data: ExternalSubmission, context: 
     }
 }
 
+const JOB_BLOCK_REDIS_KEY = "externalSubmissionJobBlock";
+
 export async function createExternalSubmissionJob (context: TriggerContext) {
+    const isBlocked = await context.redis.get(JOB_BLOCK_REDIS_KEY);
+    if (isBlocked) {
+        await context.redis.del(JOB_BLOCK_REDIS_KEY);
+        return;
+    }
+
     const jobs = await context.scheduler.listJobs();
     if (jobs.some(job => job.name === EXTERNAL_SUBMISSION_JOB)) {
         return;
@@ -157,6 +165,8 @@ export async function processExternalSubmissions (_: unknown, context: JobContex
         page: WIKI_PAGE,
         content: JSON.stringify(currentSubmissionList),
     };
+
+    await context.redis.set(JOB_BLOCK_REDIS_KEY, "true", { expiration: addMinutes(new Date(), 5) });
 
     if (wikiPage) {
         await context.reddit.updateWikiPage(wikiUpdateOptions);

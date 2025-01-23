@@ -1,7 +1,7 @@
 import { TriggerContext } from "@devvit/public-api";
 import { PostFlairUpdate } from "@devvit/protos";
 import { CONTROL_SUBREDDIT } from "./constants.js";
-import { setUserStatus, UserStatus } from "./dataStore.js";
+import { getUserStatus, setUserStatus, UserStatus } from "./dataStore.js";
 import { getUsernameFromUrl } from "./utility.js";
 
 export async function handleControlSubFlairUpdate (event: PostFlairUpdate, context: TriggerContext) {
@@ -38,9 +38,12 @@ export async function handleControlSubFlairUpdate (event: PostFlairUpdate, conte
         return;
     }
 
+    const currentStatus = await getUserStatus(username, context);
+
     await setUserStatus(username, {
         trackingPostId: event.post.id,
         userStatus: postFlair,
+        submitter: currentStatus?.submitter,
         lastUpdate: new Date().getTime(),
         operator: event.author.name,
     }, context);
