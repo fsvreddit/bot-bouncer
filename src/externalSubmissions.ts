@@ -206,7 +206,7 @@ export async function processExternalSubmissions (_: unknown, context: JobContex
         await newPost.addComment({ text });
     }
 
-    if (!controlSubSettings.evaluationDisabled) {
+    if (!controlSubSettings.evaluationDisabled && newStatus === UserStatus.Pending) {
         await context.scheduler.runJob({
             name: EVALUATE_USER,
             runAt: addSeconds(new Date(), 10),
