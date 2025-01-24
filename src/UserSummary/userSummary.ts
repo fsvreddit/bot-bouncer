@@ -234,7 +234,7 @@ export async function getSummaryTextForUser (username: string, context: TriggerC
             summary += `* Max time between posts: ${timeBetween(nonStickied, "max")}\n`;
             summary += `* Average time between posts: ${averageInterval(nonStickied, "mean")} (median: ${averageInterval(nonStickied, "median")})\n`;
         } else if (userPosts.length === 2) {
-            summary += `* Time between comments: ${timeBetween(nonStickied, "min")}\n`;
+            summary += `* Time between posts: ${timeBetween(nonStickied, "min")}\n`;
         }
 
         const domains = countBy(compact(userPosts.map(post => domainFromUrl(post.url))));
