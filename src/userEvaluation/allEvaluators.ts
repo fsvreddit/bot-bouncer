@@ -10,6 +10,7 @@ import { EvaluateResumeSpam } from "./EvaluateResumeSpam.js";
 import { EvaluateCommentThenPost } from "./EvaluateCommentThenPost.js";
 import { EvaluateCommentBot } from "./EvaluateCommentBot.js";
 import { EvaluateCelebBot } from "./EvaluateCelebBot.js";
+import { EvaluateAffiliateBot } from "./EvaluateAffiliateBot.js";
 
 export const ALL_EVALUATORS = [
     EvaluateShortTlc,
@@ -24,4 +25,5 @@ export const ALL_EVALUATORS = [
     EvaluateCommentThenPost,
     EvaluateCommentBot,
     EvaluateCelebBot,
+    EvaluateAffiliateBot,
 ];

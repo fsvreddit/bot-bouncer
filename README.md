@@ -47,7 +47,8 @@ Write in to [/r/BotBouncer's modmail](https://www.reddit.com/message/compose/?to
 
 ## Next version (this may show as installable, but 1.1.1 is the current live version)
 
-* Changes to support operations on r/BotBouncer, no user-facing changes.
+* Changes to support operations on r/BotBouncer
+* Add evaluator for affiliate spam
 
 ## v1.1
 
