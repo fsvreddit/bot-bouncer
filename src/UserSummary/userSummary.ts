@@ -209,6 +209,9 @@ export async function getSummaryTextForUser (username: string, context: TriggerC
         const topLevelPercentage = Math.floor(100 * userComments.filter(comment => isLinkId(comment.parentId)).length / userComments.length);
         summary += `* Top level comments: ${topLevelPercentage}% of total\n`;
 
+        const editedCommentPercentage = Math.round(100 * userComments.filter(comment => comment.edited).length / userComments.length);
+        summary += `* Edited comments: ${editedCommentPercentage}% of total\n`;
+
         const subreddits = countBy(compact(userComments.map(comment => comment.subredditName)));
         summary += `* Comment subreddits: ${Object.entries(subreddits).map(([subreddit, count]) => `r/${subreddit}: ${count}`).join(", ")}\n`;
 
