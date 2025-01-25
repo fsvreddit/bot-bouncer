@@ -59,10 +59,8 @@ export async function setUserStatus (username: string, details: UserDetails, con
 
     if (details.userStatus !== currentStatus?.userStatus) {
         promises.push(updateAggregate(details.userStatus, 1, context));
-        console.log(`Aggregate for ${details.userStatus} incremented`);
         if (currentStatus) {
             promises.push(updateAggregate(currentStatus.userStatus, -1, context));
-            console.log(`Aggregate for ${currentStatus.userStatus} decremented`);
         }
     }
 
@@ -92,7 +90,8 @@ export async function getUsernameFromPostId (postId: string, context: TriggerCon
 
 export async function updateAggregate (type: UserStatus, incrBy: number, context: TriggerContext) {
     if (context.subredditName === CONTROL_SUBREDDIT) {
-        await context.redis.zIncrBy(AGGREGATE_STORE, type, incrBy);
+        const newScore = await context.redis.zIncrBy(AGGREGATE_STORE, type, incrBy);
+        console.log(`Aggregate for ${type} ${incrBy > 0 ? "increased" : "decreased"} to ${newScore}`);
     }
 }
 
