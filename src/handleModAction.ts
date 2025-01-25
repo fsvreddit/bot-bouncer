@@ -6,6 +6,10 @@ import { createExternalSubmissionJob } from "./externalSubmissions.js";
 import { validateControlSubConfigChange } from "./settings.js";
 
 export async function handleModAction (event: ModAction, context: TriggerContext) {
+    if (!event.action) {
+        return;
+    }
+
     /**
      * If a user is unbanned on a client subreddit, remove the record of their ban.
      */
@@ -32,5 +36,15 @@ export async function handleModAction (event: ModAction, context: TriggerContext
                 data: { username: event.moderator.name },
             });
         }
+    }
+
+    /**
+     * If Automod, Reddit or a mod removes a post or comment, ensure that the record of the comment being
+     * stored for potential reapproval is removed. While normally the "spam" property should already
+     * be set when the CommentCreate or PostCreate trigger is fired, this is a failsafe.
+     */
+    const actions = ["removecomment", "removelink", "spamcomment", "spamlink"];
+    if (actions.includes(event.action) && event.moderator?.name !== context.appName && event.targetUser) {
+        await context.redis.del(`removed:${event.targetUser.name}`);
     }
 }

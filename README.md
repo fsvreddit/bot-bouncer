@@ -45,10 +45,13 @@ Write in to [/r/BotBouncer's modmail](https://www.reddit.com/message/compose/?to
 
 # Change History
 
-## Next version (this may show as installable, but 1.1.1 is the current live version)
+## Next version 
+
+Note: A 1.1.xx release may show as installable but fail, but 1.1.1 is the current live version.
 
 * Changes to support operations on r/BotBouncer
 * Add evaluator for affiliate spam
+* Prevent reapproval of comments for accounts set to "organic" if they were filtered or removed by Automod, Reddit or a mod
 
 ## v1.1
 
