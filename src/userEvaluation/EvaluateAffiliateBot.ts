@@ -1,7 +1,7 @@
 import { Comment, Post, User } from "@devvit/public-api";
 import { CommentCreate } from "@devvit/protos";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
-import { subMonths } from "date-fns";
+import { subYears } from "date-fns";
 import { compact, uniq } from "lodash";
 import { domainFromUrl } from "./evaluatorHelpers.js";
 
@@ -56,7 +56,7 @@ export class EvaluateAffiliateBot extends UserEvaluatorBase {
             return false;
         }
 
-        if (user.createdAt < subMonths(new Date(), 18)) {
+        if (user.createdAt < subYears(new Date(), 2)) {
             this.setReason("Account is too old");
             return false;
         }
