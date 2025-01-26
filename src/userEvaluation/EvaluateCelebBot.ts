@@ -19,7 +19,7 @@ export class EvaluateCelebBot extends UserEvaluatorBase {
             return true;
         }
 
-        const eligibleComment = comment.body.length < 1000 && !comment.body.includes("\n") && isLinkId(comment.parentId);
+        const eligibleComment = comment.body.length < 1200 && !comment.body.includes("\n") && isLinkId(comment.parentId);
 
         return eligibleComment;
     }
