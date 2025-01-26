@@ -107,6 +107,11 @@ export class EvaluateFirstCommentEmDash extends UserEvaluatorBase {
             return false;
         }
 
+        const noAutoBanSubs = this.variables["em-dash:noautobansubs"] as string[] | undefined ?? [];
+        if (history.some(item => noAutoBanSubs.includes(item.subredditName))) {
+            this.canAutoBan = false;
+        }
+
         return true;
     }
 }
