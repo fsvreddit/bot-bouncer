@@ -125,6 +125,15 @@ const schema: JSONSchemaType<ControlSubSettings> = {
 };
 
 export async function getControlSubSettings (context: TriggerContext): Promise<ControlSubSettings> {
+    const defaultConfig: ControlSubSettings = {
+        evaluationDisabled: false,
+        proactiveEvaluationEnabled: true,
+        maxInactivityMonths: 3,
+        trustedSubmitters: [],
+        reporterBlacklist: [],
+        numberOfWikiPages: 1,
+    };
+
     let wikiPage: WikiPage | undefined;
     try {
         wikiPage = await context.reddit.getWikiPage(CONTROL_SUBREDDIT, CONTROL_SUB_SETTINGS_WIKI_PAGE);
@@ -141,38 +150,31 @@ export async function getControlSubSettings (context: TriggerContext): Promise<C
             json = JSON.parse(wikiPage.content) as ControlSubSettings;
         } catch (error) {
             console.error("Control sub settings are invalid. Default values will be returned.", error);
+            return defaultConfig;
         }
 
-        if (json) {
-            if (!validate(json)) {
-                console.error("Control sub settings are invalid. Default values will be returned.", ajv.errorsText(validate.errors));
-            } else {
-                return JSON.parse(wikiPage.content) as ControlSubSettings;
-            }
+        if (!validate(json)) {
+            console.error("Control sub settings are invalid. Default values will be returned.", ajv.errorsText(validate.errors));
+            return defaultConfig;
+        } else {
+            return JSON.parse(wikiPage.content) as ControlSubSettings;
         }
     }
 
-    const defaultConfig: ControlSubSettings = {
-        evaluationDisabled: true,
-        proactiveEvaluationEnabled: false,
-        maxInactivityMonths: 3,
-        trustedSubmitters: [],
-        reporterBlacklist: [],
-        numberOfWikiPages: 1,
-    };
+    if (context.subredditName === CONTROL_SUBREDDIT) {
+        await context.reddit.createWikiPage({
+            subredditName: CONTROL_SUBREDDIT,
+            page: CONTROL_SUB_SETTINGS_WIKI_PAGE,
+            content: JSON.stringify(defaultConfig),
+        });
 
-    await context.reddit.createWikiPage({
-        subredditName: CONTROL_SUBREDDIT,
-        page: CONTROL_SUB_SETTINGS_WIKI_PAGE,
-        content: JSON.stringify(defaultConfig),
-    });
-
-    await context.reddit.updateWikiPageSettings({
-        subredditName: CONTROL_SUBREDDIT,
-        page: CONTROL_SUB_SETTINGS_WIKI_PAGE,
-        listed: true,
-        permLevel: WikiPagePermissionLevel.MODS_ONLY,
-    });
+        await context.reddit.updateWikiPageSettings({
+            subredditName: CONTROL_SUBREDDIT,
+            page: CONTROL_SUB_SETTINGS_WIKI_PAGE,
+            listed: true,
+            permLevel: WikiPagePermissionLevel.MODS_ONLY,
+        });
+    }
 
     return defaultConfig;
 }

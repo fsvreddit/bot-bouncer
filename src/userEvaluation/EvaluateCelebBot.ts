@@ -10,7 +10,7 @@ import { uniq } from "lodash";
 export class EvaluateCelebBot extends UserEvaluatorBase {
     override name = "Celeb Bot"; // Why this? It always has old-school celeb pictures in the post history.
     override banContentThreshold = 20;
-    override canAutoBan = false;
+    override canAutoBan = true;
 
     private eligibleComment (comment: Comment | CommentV2): boolean {
         const selfPostSubs = this.variables["celeb:allowedselfpostsubs"] as string[] | undefined ?? [];
@@ -19,7 +19,7 @@ export class EvaluateCelebBot extends UserEvaluatorBase {
             return true;
         }
 
-        const eligibleComment = comment.body.length < 1000 && !comment.body.includes("\n") && isLinkId(comment.parentId);
+        const eligibleComment = comment.body.length < 1200 && !comment.body.includes("\n") && isLinkId(comment.parentId);
 
         return eligibleComment;
     }

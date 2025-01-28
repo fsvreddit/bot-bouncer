@@ -209,6 +209,9 @@ export async function getSummaryTextForUser (username: string, context: TriggerC
         const topLevelPercentage = Math.floor(100 * userComments.filter(comment => isLinkId(comment.parentId)).length / userComments.length);
         summary += `* Top level comments: ${topLevelPercentage}% of total\n`;
 
+        const editedCommentPercentage = Math.round(100 * userComments.filter(comment => comment.edited).length / userComments.length);
+        summary += `* Edited comments: ${editedCommentPercentage}% of total\n`;
+
         const subreddits = countBy(compact(userComments.map(comment => comment.subredditName)));
         summary += `* Comment subreddits: ${Object.entries(subreddits).map(([subreddit, count]) => `r/${subreddit}: ${count}`).join(", ")}\n`;
 
@@ -234,7 +237,7 @@ export async function getSummaryTextForUser (username: string, context: TriggerC
             summary += `* Max time between posts: ${timeBetween(nonStickied, "max")}\n`;
             summary += `* Average time between posts: ${averageInterval(nonStickied, "mean")} (median: ${averageInterval(nonStickied, "median")})\n`;
         } else if (userPosts.length === 2) {
-            summary += `* Time between comments: ${timeBetween(nonStickied, "min")}\n`;
+            summary += `* Time between posts: ${timeBetween(nonStickied, "min")}\n`;
         }
 
         const domains = countBy(compact(userPosts.map(post => domainFromUrl(post.url))));

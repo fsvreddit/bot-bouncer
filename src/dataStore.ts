@@ -1,5 +1,5 @@
 import { JobContext, TriggerContext, WikiPagePermissionLevel, WikiPage, ScheduledJobEvent, JSONObject } from "@devvit/public-api";
-import { compact, max, sum, toPairs } from "lodash";
+import { compact, Dictionary, max, sum, toPairs, uniq } from "lodash";
 import pako from "pako";
 import { scheduleAdhocCleanup, setCleanupForUsers } from "./cleanup.js";
 import { CONTROL_SUBREDDIT, HANDLE_CLASSIFICATION_CHANGES_JOB } from "./constants.js";
@@ -59,10 +59,8 @@ export async function setUserStatus (username: string, details: UserDetails, con
 
     if (details.userStatus !== currentStatus?.userStatus) {
         promises.push(updateAggregate(details.userStatus, 1, context));
-        console.log(`Aggregate for ${details.userStatus} incremented`);
         if (currentStatus) {
             promises.push(updateAggregate(currentStatus.userStatus, -1, context));
-            console.log(`Aggregate for ${currentStatus.userStatus} decremented`);
         }
     }
 
@@ -92,8 +90,15 @@ export async function getUsernameFromPostId (postId: string, context: TriggerCon
 
 export async function updateAggregate (type: UserStatus, incrBy: number, context: TriggerContext) {
     if (context.subredditName === CONTROL_SUBREDDIT) {
-        await context.redis.zIncrBy(AGGREGATE_STORE, type, incrBy);
+        const newScore = await context.redis.zIncrBy(AGGREGATE_STORE, type, incrBy);
+        console.log(`Aggregate for ${type} ${incrBy > 0 ? "increased" : "decreased"} to ${newScore}`);
     }
+}
+
+interface SubmitterStatistic {
+    submitter: string;
+    count: number;
+    ratio: number;
 }
 
 export async function writeAggregateToWikiPage (_: unknown, context: JobContext) {
@@ -138,6 +143,65 @@ export async function writeAggregateToWikiPage (_: unknown, context: JobContext)
             permLevel: WikiPagePermissionLevel.SUBREDDIT_PERMISSIONS,
         });
     }
+
+    const allData = await context.redis.hGetAll(USER_STORE);
+    const allStatuses = Object.values(allData).map(item => JSON.parse(item) as UserDetails);
+
+    const organicStatuses: Dictionary<number> = {};
+    const bannedStatuses: Dictionary<number> = {};
+
+    for (const status of allStatuses) {
+        if (!status.submitter) {
+            continue;
+        }
+
+        if (status.userStatus === UserStatus.Organic) {
+            organicStatuses[status.submitter] = (organicStatuses[status.submitter] ?? 0) + 1;
+        } else if (status.userStatus === UserStatus.Banned) {
+            bannedStatuses[status.submitter] = (bannedStatuses[status.submitter] ?? 0) + 1;
+        }
+    }
+
+    const distinctUsers = uniq([...Object.keys(organicStatuses), ...Object.keys(bannedStatuses)]);
+    const submitterStatistics: SubmitterStatistic[] = [];
+    for (const user of distinctUsers) {
+        const organicCount = organicStatuses[user] ?? 0;
+        const bannedCount = bannedStatuses[user] ?? 0;
+        const totalCount = organicCount + bannedCount;
+        const ratio = Math.round(100 * bannedCount / totalCount);
+        submitterStatistics.push({ submitter: user, count: totalCount, ratio });
+    }
+
+    wikiContent = "Submitter statistics\n\n";
+
+    for (const item of submitterStatistics.sort((a, b) => a.count - b.count)) {
+        wikiContent += `* **${item.submitter}**: ${item.count} (${item.ratio}% banned)\n`;
+    }
+
+    const submitterStatisticsWikiPage = "submitter-statistics";
+    try {
+        wikiPage = await context.reddit.getWikiPage(subredditName, submitterStatisticsWikiPage);
+    } catch {
+        wikiPage = undefined;
+    }
+
+    const submitterStatisticsWikiPageSaveOptions = {
+        subredditName,
+        page: submitterStatisticsWikiPage,
+        content: wikiContent,
+    };
+
+    if (wikiPage) {
+        await context.reddit.updateWikiPage(submitterStatisticsWikiPageSaveOptions);
+    } else {
+        await context.reddit.createWikiPage(submitterStatisticsWikiPageSaveOptions);
+        await context.reddit.updateWikiPageSettings({
+            listed: true,
+            page: submitterStatisticsWikiPage,
+            subredditName,
+            permLevel: WikiPagePermissionLevel.MODS_ONLY,
+        });
+    }
 }
 
 async function queueWikiUpdate (context: TriggerContext) {
@@ -152,7 +216,6 @@ function compressData (value: Record<string, string>): string {
     return Buffer.from(pako.deflate(JSON.stringify(value), { level: 9 })).toString("base64");
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function compactDataForWiki (input: string): string {
     const status = JSON.parse(input) as UserDetails;
     status.operator = "";
@@ -192,11 +255,10 @@ export async function updateWikiPage (event: ScheduledJobEvent<JSONObject | unde
         return;
     }
 
-    // Data compaction - TODO
-    // for (const entry of entries) {
-    //     const [username, jsonData] = entry;
-    //     data[username] = compactDataForWiki(jsonData)
-    // }
+    for (const entry of entries) {
+        const [username, jsonData] = entry;
+        data[username] = compactDataForWiki(jsonData);
+    }
 
     const content = compressData(data);
     if (content === wikiPage?.content) {

@@ -45,6 +45,12 @@ Write in to [/r/BotBouncer's modmail](https://www.reddit.com/message/compose/?to
 
 # Change History
 
+## v1.2
+
+* Changes to support operations on r/BotBouncer
+* Add evaluator for affiliate spam
+* Prevent reapproval of comments for accounts set to "organic" if they were filtered or removed by Automod, Reddit or a mod
+
 ## v1.1
 
 * The "CQS Tester" evaluator now checks a wider range of post titles

@@ -4,7 +4,7 @@ import { getUserStatus, setUserStatus, UserStatus } from "./dataStore.js";
 import { getControlSubSettings } from "./settings.js";
 import Ajv, { JSONSchemaType } from "ajv";
 import { addMinutes, addSeconds } from "date-fns";
-import { getPostOrCommentById } from "./utility.js";
+import { getPostOrCommentById, getUserOrUndefined } from "./utility.js";
 import { isLinkId } from "@devvit/shared-types/tid.js";
 
 const WIKI_PAGE = "externalsubmissions";
@@ -14,6 +14,7 @@ interface ExternalSubmission {
     submitter?: string;
     reportContext?: string;
     targetId?: string;
+    initialStatus?: UserStatus;
 };
 
 const schema: JSONSchemaType<ExternalSubmission[]> = {
@@ -25,6 +26,7 @@ const schema: JSONSchemaType<ExternalSubmission[]> = {
             submitter: { type: "string", nullable: true },
             reportContext: { type: "string", nullable: true },
             targetId: { type: "string", nullable: true },
+            initialStatus: { type: "string", nullable: true, enum: Object.values(UserStatus) },
         },
         required: ["username"],
     },
@@ -47,7 +49,7 @@ export async function addExternalSubmission (data: ExternalSubmission, context: 
     await setUserStatus(data.username, {
         userStatus: UserStatus.Pending,
         lastUpdate: new Date().getTime(),
-        submitter: "",
+        submitter: data.submitter,
         operator: context.appName,
         trackingPostId: "",
     }, context);
@@ -93,7 +95,15 @@ export async function addExternalSubmission (data: ExternalSubmission, context: 
     }
 }
 
+const JOB_BLOCK_REDIS_KEY = "externalSubmissionJobBlock";
+
 export async function createExternalSubmissionJob (context: TriggerContext) {
+    const isBlocked = await context.redis.get(JOB_BLOCK_REDIS_KEY);
+    if (isBlocked) {
+        await context.redis.del(JOB_BLOCK_REDIS_KEY);
+        return;
+    }
+
     const jobs = await context.scheduler.listJobs();
     if (jobs.some(job => job.name === EXTERNAL_SUBMISSION_JOB)) {
         return;
@@ -139,7 +149,10 @@ export async function processExternalSubmissions (_: unknown, context: JobContex
         if (item) {
             const currentStatus = await getUserStatus(item.username, context);
             if (!currentStatus) {
-                stopLooping = true;
+                const user = await getUserOrUndefined(item.username, context);
+                if (user) {
+                    stopLooping = true;
+                }
             }
         } else {
             stopLooping = true;
@@ -152,6 +165,8 @@ export async function processExternalSubmissions (_: unknown, context: JobContex
         page: WIKI_PAGE,
         content: JSON.stringify(currentSubmissionList),
     };
+
+    await context.redis.set(JOB_BLOCK_REDIS_KEY, "true", { expiration: addMinutes(new Date(), 5) });
 
     if (wikiPage) {
         await context.reddit.updateWikiPage(wikiUpdateOptions);
@@ -170,7 +185,7 @@ export async function processExternalSubmissions (_: unknown, context: JobContex
     }
 
     const controlSubSettings = await getControlSubSettings(context);
-    const newStatus = item.submitter && controlSubSettings.trustedSubmitters.includes(item.submitter) ? UserStatus.Banned : UserStatus.Pending;
+    const newStatus = ((item.submitter && controlSubSettings.trustedSubmitters.includes(item.submitter)) || item.initialStatus === UserStatus.Banned) ? UserStatus.Banned : UserStatus.Pending;
     const newFlair = newStatus === UserStatus.Banned ? PostFlairTemplate.Banned : PostFlairTemplate.Pending;
 
     const newPost = await context.reddit.submitPost({
@@ -191,7 +206,7 @@ export async function processExternalSubmissions (_: unknown, context: JobContex
         await newPost.addComment({ text });
     }
 
-    if (!controlSubSettings.evaluationDisabled) {
+    if (!controlSubSettings.evaluationDisabled && newStatus === UserStatus.Pending) {
         await context.scheduler.runJob({
             name: EVALUATE_USER,
             runAt: addSeconds(new Date(), 10),
@@ -219,6 +234,6 @@ export async function processExternalSubmissions (_: unknown, context: JobContex
     // Schedule a new ad-hoc instance.
     await context.scheduler.runJob({
         name: EXTERNAL_SUBMISSION_JOB,
-        runAt: new Date(),
+        runAt: addSeconds(new Date(), 20),
     });
 }
