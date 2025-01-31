@@ -146,7 +146,7 @@ export async function handleClassificationChanges (event: ScheduledJobEvent<JSON
         return;
     }
 
-    const subredditName = context.subredditName ?? (await context.reddit.getCurrentSubreddit()).name;
+    const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
 
     const promises: Promise<unknown>[] = [];
 

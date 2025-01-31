@@ -115,7 +115,7 @@ export async function writeAggregateToWikiPage (_: unknown, context: JobContext)
     wikiContent += "These statistics update once a day at midnight UTC.";
 
     const wikiPageName = "statistics";
-    const subredditName = context.subredditName ?? (await context.reddit.getCurrentSubreddit()).name;
+    const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
 
     let wikiPage: WikiPage | undefined;
     try {
@@ -235,7 +235,7 @@ export async function updateWikiPage (event: ScheduledJobEvent<JSONObject | unde
         return;
     }
 
-    const subredditName = context.subredditName ?? (await context.reddit.getCurrentSubreddit()).name;
+    const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
 
     let wikiPage: WikiPage | undefined;
     try {

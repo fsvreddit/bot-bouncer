@@ -142,7 +142,7 @@ async function handleClientSubredditModmail (username: string, conversationId: s
         return false;
     }
 
-    const subredditName = context.subredditName ?? (await context.reddit.getCurrentSubreddit()).name;
+    const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
     const post = await context.reddit.getPostById(currentStatus.trackingPostId);
 
     let message = CONFIGURATION_DEFAULTS.noteClient;

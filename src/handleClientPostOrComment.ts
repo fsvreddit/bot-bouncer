@@ -122,7 +122,7 @@ async function handleContentCreation (username: string, targetId: string, contex
 
     console.log(`Content Create: Status for ${username} is ${currentStatus.userStatus}`);
 
-    const subredditName = context.subredditName ?? (await context.reddit.getCurrentSubreddit()).name;
+    const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
 
     const user = await getUserOrUndefined(username, context);
 

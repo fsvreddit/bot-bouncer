@@ -9,9 +9,9 @@
     "test:unit": "vitest --run"
   },
   "dependencies": {
-    "@devvit/protos": "0.11.5",
-    "@devvit/public-api": "0.11.5",
-    "@devvit/shared-types": "0.11.5",
+    "@devvit/protos": "0.11.6",
+    "@devvit/public-api": "0.11.6",
+    "@devvit/shared-types": "0.11.6",
     "@types/lodash": "^4.17.13",
     "@types/pako": "^2.0.3",
     "@types/pluralize": "^0.0.33",
@@ -29,7 +29,7 @@
     "@stylistic/eslint-plugin": "^2.7.2",
     "@vitest/eslint-plugin": "^1.1.0",
     "eslint": "^9.14.0",
-    "typescript": "^5.5.2",
+    "typescript": "5.3.2",
     "typescript-eslint": "^8.4.0",
     "vitest": "^2.0.5"
   }

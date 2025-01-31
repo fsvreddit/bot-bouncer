@@ -13,7 +13,7 @@ export function getUsernameFromUrl (url: string) {
 }
 
 export async function isModerator (username: string, context: TriggerContext) {
-    const subredditName = context.subredditName ?? (await context.reddit.getCurrentSubreddit()).name;
+    const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
 
     if (username === "AutoModerator" || username === `${subredditName}-ModTeam`) {
         return true;
@@ -24,13 +24,13 @@ export async function isModerator (username: string, context: TriggerContext) {
 }
 
 export async function isApproved (username: string, context: TriggerContext) {
-    const subredditName = context.subredditName ?? (await context.reddit.getCurrentSubreddit()).name;
+    const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
     const approvedList = await context.reddit.getModerators({ subredditName, username }).all();
     return approvedList.length > 0;
 }
 
 export async function isBanned (username: string, context: TriggerContext) {
-    const subredditName = context.subredditName ?? (await context.reddit.getCurrentSubreddit()).name;
+    const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
     const bannedList = await context.reddit.getBannedUsers({ subredditName, username }).all();
     return bannedList.length > 0;
 }

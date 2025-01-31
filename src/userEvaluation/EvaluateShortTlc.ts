@@ -25,7 +25,7 @@ export class EvaluateShortTlc extends UserEvaluatorBase {
             return false;
         }
 
-        if (!this.usernameMatchesBotPatterns(event.author.name, event.author.karma)) {
+        if (!this.usernameMatchesBotPatterns(event.author.name)) {
             return false;
         }
 
@@ -48,7 +48,7 @@ export class EvaluateShortTlc extends UserEvaluatorBase {
             return false;
         }
 
-        if (!this.usernameMatchesBotPatterns(user.username, user.commentKarma)) {
+        if (!this.usernameMatchesBotPatterns(user.username)) {
             this.setReason("Username does not match regex");
             return false;
         }
@@ -92,7 +92,7 @@ export class EvaluateShortTlc extends UserEvaluatorBase {
         return true;
     }
 
-    private usernameMatchesBotPatterns (username: string, karma?: number): boolean {
+    private usernameMatchesBotPatterns (username: string): boolean {
         const botUsernameRegexes = this.variables["short-tlc:botregexes"] as string[] | undefined ?? [];
 
         // Check against known bot username patterns.
@@ -100,12 +100,6 @@ export class EvaluateShortTlc extends UserEvaluatorBase {
             return false;
         }
 
-        if (!karma || karma > 3) {
-            // LLM bots sometimes use the same keywords as Reddit's autogen algorithm, but too prone to false positives
-            // for established accounts.
-            return !autogenRegex.test(username);
-        }
-
-        return true;
+        return !autogenRegex.test(username);
     }
 }
