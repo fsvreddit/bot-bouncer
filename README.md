@@ -45,6 +45,15 @@ Write in to [/r/BotBouncer's modmail](https://www.reddit.com/message/compose/?to
 
 # Change History
 
+## Next version
+
+Note: An upgrade may show as available to install at present. v1.2 is the current latest public version.
+
+* Add method to disable "zombie" evaluator
+* Add evaluator for suspect username patterns
+* Improved message sent to users making appeals
+* Allow certain domains to result in an automatic ban evaluation
+
 ## v1.2
 
 * Changes to support operations on r/BotBouncer
