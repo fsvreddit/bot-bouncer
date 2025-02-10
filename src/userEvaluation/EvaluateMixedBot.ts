@@ -66,6 +66,11 @@ export class EvaluateMixedBot extends UserEvaluatorBase {
             return false;
         }
 
+        if (this.variables["mixed-bot:killswitch"]) {
+            this.setReason("Killswitch is enabled");
+            return false;  
+        }
+
         if (history.length > 90) {
             this.setReason("User has too many items in history");
             return false;

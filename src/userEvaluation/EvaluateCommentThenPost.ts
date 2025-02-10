@@ -57,6 +57,11 @@ export class EvaluateCommentThenPost extends UserEvaluatorBase {
             return false;
         }
 
+        if (this.variables["comment-then-post:killswitch"]) {
+            this.setReason("Evaluator is disabled");
+            return false;
+        }
+
         const posts = history.filter(item => isLinkId(item.id) && item.body !== "[removed]") as Post[];
         const comments = history.filter(item => isCommentId(item.id)) as Comment[];
 

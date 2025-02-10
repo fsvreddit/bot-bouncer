@@ -60,6 +60,11 @@ export class EvaluateResumeSpam extends UserEvaluatorBase {
             return false;
         }
 
+        if (this.variables["resume:killswitch"]) {
+            this.setReason("Killswitch is enabled");
+            return false;
+        }   
+
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
         const userPosts = history.filter(item => item instanceof Post) as Post[];
         if (userPosts.some(post => !this.eligiblePost(post))) {

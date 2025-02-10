@@ -75,6 +75,11 @@ export class EvaluateAffiliateBot extends UserEvaluatorBase {
             return false;
         }
 
+        if (this.variables["affiliate:killswitch"]) {
+            this.setReason("Evaluator is disabled");
+            return false;
+        }
+
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- cannot upload without this.
         const userComments = history.filter(item => item instanceof Comment) as Comment[];
         const userDomains = uniq(userComments.map(comment => this.domainsFromContent(comment.body)).flat());

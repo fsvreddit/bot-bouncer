@@ -67,6 +67,11 @@ export class EvaluateCQSTester extends UserEvaluatorBase {
             return false;
         }
 
+        if (this.variables["cqstester:killswitch"]) {
+            this.setReason("Evaluator is disabled");
+            return false;
+        }
+
         const userPosts = history.filter(item => isLinkId(item.id)) as Post[];
         const titlesToCheck = ["Test", "test", "T", "t"];
         if (!userPosts.some(item => item.subredditName === "WhatIsMyCQS" && titlesToCheck.includes(item.title))) {

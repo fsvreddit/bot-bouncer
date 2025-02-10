@@ -62,6 +62,11 @@ export class EvaluateDomainSharer extends UserEvaluatorBase {
             return false;
         }
 
+        if (this.variables["domainsharer:killswitch"]) {
+            this.setReason("Evaluator is disabled");
+            return false;
+        }
+
         const recentContent = history.filter(item => item.createdAt > subMonths(new Date(), 6));
 
         if (recentContent.length < 5) {

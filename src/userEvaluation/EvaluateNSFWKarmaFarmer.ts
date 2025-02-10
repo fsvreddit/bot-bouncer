@@ -61,6 +61,11 @@ export class EvaluateNSFWKarmaFarmer extends UserEvaluatorBase {
             return false;
         }
 
+        if (this.variables["nsfw-karma-farmer:killswitch"]) {
+            this.setReason("Killswitch is enabled");
+            return false;
+        }
+
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- cannot upload without this.
         const userComments = history.filter(item => item instanceof Comment) as Comment[];
 

@@ -46,7 +46,7 @@ export class EvaluateBadUsername extends UserEvaluatorBase {
             return false;
         }
 
-        if (this.variables["short-tlc:killswitch"]) {
+        if (this.variables["badusername:killswitch"]) {
             this.setReason("Evaluator is disabled");
             return false;
         }

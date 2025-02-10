@@ -49,6 +49,11 @@ export class EvaluateFirstCommentEmDash extends UserEvaluatorBase {
             return false;
         }
 
+        if (this.variables["em-dash:killswitch"]) {
+            this.setReason("Killswitch is enabled");
+            return false;
+        }
+
         const comments = history.filter(item => isCommentId(item.id)) as Comment[];
         const posts = history.filter(item => isLinkId(item.id)) as Post[];
 
