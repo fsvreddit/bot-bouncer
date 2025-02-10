@@ -22,6 +22,8 @@ If this account is a bot that you wish to allow, remember to [allowlist](/r/${CO
     appealMessage: `Your classification appeal has been received and will be reviewed by a
 moderator. If accepted, the result of your appeal will apply to any subreddit using /r/${CONTROL_SUBREDDIT}.
 
+If Bot Bouncer has banned you from more than one subreddit, you don't need to appeal separately.
+
 *This is an automated message.*`,
 
     appealShadowbannedMessage: `Your classification appeal has been received. Unfortunately, it is not possible to review your request at this time because you have been shadowbanned by Reddit Admin, which prevents us from reviewing your account contents.
