@@ -164,11 +164,11 @@ export async function getSummaryTextForUser (username: string, context: TriggerC
         summary += "* Username matches autogen pattern\n";
     } else if (resemblesAutogen.test(user.username)) {
         summary += "* Username resembles autogen pattern, but uses different keywords\n";
-    }
-
-    const femaleNameSummaryLine = femaleNameCheck(user.username);
-    if (femaleNameSummaryLine) {
-        summary += femaleNameSummaryLine;
+    } else {
+        const femaleNameSummaryLine = femaleNameCheck(user.username);
+        if (femaleNameSummaryLine) {
+            summary += femaleNameSummaryLine;
+        }
     }
 
     const userComments = await context.reddit.getCommentsByUser({

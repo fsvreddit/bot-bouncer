@@ -2,7 +2,7 @@ import { TriggerContext } from "@devvit/public-api";
 import { addDays, addHours, addMinutes, subMinutes } from "date-fns";
 import { parseExpression } from "cron-parser";
 import { ADHOC_CLEANUP_JOB, CLEANUP_JOB, CLEANUP_JOB_CRON, CONTROL_SUBREDDIT, PostFlairTemplate } from "./constants.js";
-import { deleteUserStatus, getUserStatus, updateAggregate, UserStatus } from "./dataStore.js";
+import { deleteUserStatus, getUserStatus, updateAggregate, UserDetails, UserStatus } from "./dataStore.js";
 import { getUserOrUndefined } from "./utility.js";
 import { removeRecordOfBan, removeWhitelistUnban } from "./handleClientSubredditWikiUpdate.js";
 
@@ -62,11 +62,14 @@ export async function cleanupDeletedAccounts (_: unknown, context: TriggerContex
     // For active users, set their next check date to be one day from now.
     if (activeUsers.length > 0) {
         const pendingUsers: string[] = [];
+        const purgedUsers: Record<string, UserDetails> = {};
         const otherUsers: string[] = [];
         for (const user of activeUsers) {
             const userStatus = await getUserStatus(user, context);
             if (userStatus?.userStatus === UserStatus.Pending) {
                 pendingUsers.push(user);
+            } else if (userStatus?.userStatus === UserStatus.Purged || userStatus?.userStatus === UserStatus.Retired) {
+                purgedUsers[user] = userStatus;
             } else {
                 otherUsers.push(user);
             }
@@ -75,6 +78,17 @@ export async function cleanupDeletedAccounts (_: unknown, context: TriggerContex
         // Users still in pending status should get checked more rapidly.
         if (pendingUsers.length > 0) {
             await setCleanupForUsers(pendingUsers, context, false, 1);
+        }
+
+        // Users who were formerly marked as "purged" or "retired" should be set back to "pending".s
+        for (const username of Object.keys(purgedUsers)) {
+            await context.reddit.setPostFlair({
+                postId: purgedUsers[username].trackingPostId,
+                subredditName: CONTROL_SUBREDDIT,
+                flairTemplateId: PostFlairTemplate.Pending,
+            });
+            const post = await context.reddit.getPostById(purgedUsers[username].trackingPostId);
+            await context.reddit.report(post, { reason: `User has returned to pending status, formerly ${purgedUsers[username].userStatus}.` });
         }
 
         if (otherUsers.length > 0) {

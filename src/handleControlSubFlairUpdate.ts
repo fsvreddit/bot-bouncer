@@ -51,9 +51,6 @@ export async function handleControlSubFlairUpdate (event: PostFlairUpdate, conte
     console.log(`Flair Update: Status for ${username} set to ${postFlair} by ${event.author.name}`);
 
     const post = await context.reddit.getPostById(event.post.id);
-    if (post.numberOfReports > 0) {
-        await context.reddit.approve(event.post.id);
-    }
 
     // Look for Account Properties comment and delete it.
     if (postFlair !== UserStatus.Pending) {
@@ -62,6 +59,10 @@ export async function handleControlSubFlairUpdate (event: PostFlairUpdate, conte
 
         if (commentToDelete) {
             await commentToDelete.delete();
+        }
+
+        if (post.numberOfReports > 0) {
+            await context.reddit.approve(event.post.id);
         }
     }
 }
