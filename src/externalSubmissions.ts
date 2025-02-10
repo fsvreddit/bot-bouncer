@@ -129,6 +129,8 @@ async function scheduleAdhocExternalSubmissionsJob (context: TriggerContext) {
         name: EXTERNAL_SUBMISSION_JOB,
         runAt: addSeconds(new Date(), 20),
     });
+
+    console.log("External Submissions: Ad-hoc job scheduled.");
 }
 
 export async function handleExternalSubmissionsPageUpdate (context: TriggerContext) {
