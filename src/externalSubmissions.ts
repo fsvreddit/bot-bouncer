@@ -224,7 +224,7 @@ export async function processExternalSubmissions (_: unknown, context: JobContex
             } else {
                 console.log(`External Submissions: ${username} is deleted or shadowbanned, skipping.`);
             }
-            
+
             await context.redis.hDel(EXTERNAL_SUBMISSION_QUEUE, [username]);
         } else {
             stopLooping = true;
