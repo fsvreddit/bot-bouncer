@@ -80,7 +80,6 @@ export class EvaluateAffiliateBot extends UserEvaluatorBase {
             return false;
         }
 
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- cannot upload without this.
         const userComments = history.filter(item => item instanceof Comment) as Comment[];
         const userDomains = uniq(userComments.map(comment => this.domainsFromContent(comment.body)).flat());
 
@@ -99,7 +98,6 @@ export class EvaluateAffiliateBot extends UserEvaluatorBase {
             return false;
         }
 
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
         const userPosts = history.filter(item => item instanceof Post) as Post[];
         if (!userPosts.every(post => this.eligiblePost(post))) {
             this.setReason("User has ineligible posts");

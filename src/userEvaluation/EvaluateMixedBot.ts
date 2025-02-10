@@ -68,7 +68,7 @@ export class EvaluateMixedBot extends UserEvaluatorBase {
 
         if (this.variables["mixed-bot:killswitch"]) {
             this.setReason("Killswitch is enabled");
-            return false;  
+            return false;
         }
 
         if (history.length > 90) {
