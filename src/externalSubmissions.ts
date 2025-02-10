@@ -218,7 +218,11 @@ export async function processExternalSubmissions (_: unknown, context: JobContex
                 if (user) {
                     stopLooping = true;
                     item = JSON.parse(submissionQueue[username]) as ExternalSubmission;
+                } else {
+                    console.log(`External Submissions: ${username} is deleted or shadowbanned, skipping.`);
                 }
+            } else {
+                console.log(`External Submissions: Status for ${username} already exists, skipping.`);
             }
             await context.redis.hDel(EXTERNAL_SUBMISSION_QUEUE, [username]);
         } else {
