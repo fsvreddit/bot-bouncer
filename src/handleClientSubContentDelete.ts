@@ -3,6 +3,7 @@ import { CommentDelete, PostDelete } from "@devvit/protos";
 import { CONTROL_SUBREDDIT } from "./constants.js";
 import { getUserStatus } from "./dataStore.js";
 import { addExternalSubmission } from "./externalSubmissions.js";
+import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 
 export async function handleClientSubPostDelete (event: PostDelete, context: TriggerContext) {
     await handleClientSubContentDelete(event, event.postId, context);
@@ -30,6 +31,11 @@ async function handleClientSubContentDelete (event: PostDelete | CommentDelete, 
     // Post or comment has been deleted within two minutes of a "bot" mention. Create external submission.
     const currentStatus = await getUserStatus(botMentionForUser, context);
     if (currentStatus) {
+        return;
+    }
+
+    const variables = await getEvaluatorVariables(context);
+    if (variables["botmentions:killswitch"]) {
         return;
     }
 
