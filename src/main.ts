@@ -7,7 +7,7 @@ import { handleControlSubFlairUpdate } from "./handleControlSubFlairUpdate.js";
 import { appSettings } from "./settings.js";
 import { cleanupDeletedAccounts } from "./cleanup.js";
 import { handleModAction } from "./handleModAction.js";
-import { handleModmail } from "./modmail.js";
+import { handleModmail } from "./modmail/modmail.js";
 import { handleControlSubAccountEvaluation } from "./handleControlSubAccountEvaluation.js";
 import { handleReportUser, reportFormHandler } from "./handleReportUser.js";
 import { processExternalSubmissions } from "./externalSubmissions.js";

@@ -9,9 +9,9 @@ import { isLinkId } from "@devvit/shared-types/tid.js";
 import { parseExpression } from "cron-parser";
 
 const WIKI_PAGE = "externalsubmissions";
-const EXTERNAL_SUBMISSION_QUEUE = "externalSubmissionQueue";
+export const EXTERNAL_SUBMISSION_QUEUE = "externalSubmissionQueue";
 
-interface ExternalSubmission {
+export interface ExternalSubmission {
     username: string;
     submitter?: string;
     reportContext?: string;
@@ -99,7 +99,7 @@ export async function addExternalSubmission (data: ExternalSubmission, context: 
     await scheduleAdhocExternalSubmissionsJob(context);
 }
 
-async function scheduleAdhocExternalSubmissionsJob (context: TriggerContext) {
+export async function scheduleAdhocExternalSubmissionsJob (context: TriggerContext) {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
         return;
     }
@@ -212,18 +212,19 @@ export async function processExternalSubmissions (_: unknown, context: JobContex
     while (!stopLooping) {
         username = usersInQueue.shift();
         if (username) {
-            const currentStatus = await getUserStatus(username, context);
-            if (!currentStatus) {
-                const user = await getUserOrUndefined(username, context);
-                if (user) {
+            const user = await getUserOrUndefined(username, context);
+            if (user) {
+                const currentStatus = await getUserStatus(user.username, context);
+                if (!currentStatus) {
                     stopLooping = true;
                     item = JSON.parse(submissionQueue[username]) as ExternalSubmission;
                 } else {
-                    console.log(`External Submissions: ${username} is deleted or shadowbanned, skipping.`);
+                    console.log(`External Submissions: ${username} is already being tracked, skipping.`);
                 }
             } else {
-                console.log(`External Submissions: Status for ${username} already exists, skipping.`);
+                console.log(`External Submissions: ${username} is deleted or shadowbanned, skipping.`);
             }
+            
             await context.redis.hDel(EXTERNAL_SUBMISSION_QUEUE, [username]);
         } else {
             stopLooping = true;
