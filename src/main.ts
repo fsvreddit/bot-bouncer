@@ -1,4 +1,4 @@
-import { Devvit } from "@devvit/public-api";
+import { Devvit, FormField } from "@devvit/public-api";
 import { handleControlSubSubmission } from "./handleControlSubSubmission.js";
 import { updateLocalStoreFromWiki, updateWikiPage, writeAggregateToWikiPage } from "./dataStore.js";
 import { ADHOC_CLEANUP_JOB, CLEANUP_JOB, CONTROL_SUBREDDIT, EVALUATE_KARMA_FARMING_SUBS, EVALUATE_USER, EXTERNAL_SUBMISSION_JOB, HANDLE_CLASSIFICATION_CHANGES_JOB, UPDATE_DATASTORE_FROM_WIKI, UPDATE_EVALUATOR_VARIABLES, UPDATE_STATISTICS_PAGE, UPDATE_WIKI_PAGE_JOB } from "./constants.js";
@@ -17,6 +17,7 @@ import { handleClassificationChanges } from "./handleClientSubredditWikiUpdate.j
 import { handleControlSubPostDelete } from "./handleControlSubPostDelete.js";
 import { updateEvaluatorVariablesFromWikiHandler } from "./userEvaluation/evaluatorVariables.js";
 import { evaluateKarmaFarmingSubs } from "./karmaFarmingSubsCheck.js";
+import { handleControlSubForm } from "./handleControlSubMenu.js";
 
 Devvit.addSettings(appSettings);
 
@@ -97,6 +98,8 @@ export const reportForm = Devvit.createForm({
         },
     ],
 }, reportFormHandler);
+
+export const controlSubForm = Devvit.createForm(data => ({ title: data.title as string, description: data.description as string, fields: data.fields as FormField[] }), handleControlSubForm);
 
 Devvit.addSchedulerJob({
     name: UPDATE_WIKI_PAGE_JOB,
