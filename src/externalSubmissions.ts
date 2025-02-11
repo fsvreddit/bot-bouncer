@@ -218,6 +218,7 @@ export async function processExternalSubmissions (_: unknown, context: JobContex
                 if (!currentStatus) {
                     stopLooping = true;
                     item = JSON.parse(submissionQueue[username]) as ExternalSubmission;
+                    item.username = user.username;
                 } else {
                     console.log(`External Submissions: ${username} is already being tracked, skipping.`);
                 }
