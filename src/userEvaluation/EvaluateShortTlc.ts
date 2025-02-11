@@ -9,7 +9,6 @@ import { autogenRegex } from "./evaluatorHelpers.js";
 
 export class EvaluateShortTlc extends UserEvaluatorBase {
     override name = "Short TLC Bot";
-    override banContentThreshold = 40;
 
     private eligibleComment (comment: Comment | CommentV2) {
         if (isCommentId(comment.parentId)) {
@@ -25,7 +24,7 @@ export class EvaluateShortTlc extends UserEvaluatorBase {
             return false;
         }
 
-        if (!this.usernameMatchesBotPatterns(event.author.name, event.author.karma)) {
+        if (!this.usernameMatchesBotPatterns(event.author.name)) {
             return false;
         }
 
@@ -48,7 +47,7 @@ export class EvaluateShortTlc extends UserEvaluatorBase {
             return false;
         }
 
-        if (!this.usernameMatchesBotPatterns(user.username, user.commentKarma)) {
+        if (!this.usernameMatchesBotPatterns(user.username)) {
             this.setReason("Username does not match regex");
             return false;
         }
@@ -61,7 +60,11 @@ export class EvaluateShortTlc extends UserEvaluatorBase {
             return false;
         }
 
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- cannot upload without this.
+        if (this.variables["short-tlc:killswitch"]) {
+            this.setReason("Evaluator is disabled");
+            return false;
+        }
+
         const userComments = history.filter(item => item instanceof Comment) as Comment[];
 
         if (history.some(item => item instanceof Post && (item.subredditName !== "AskReddit" || item.url.includes("i.redd.it")))) {
@@ -92,7 +95,7 @@ export class EvaluateShortTlc extends UserEvaluatorBase {
         return true;
     }
 
-    private usernameMatchesBotPatterns (username: string, karma?: number): boolean {
+    private usernameMatchesBotPatterns (username: string): boolean {
         const botUsernameRegexes = this.variables["short-tlc:botregexes"] as string[] | undefined ?? [];
 
         // Check against known bot username patterns.
@@ -100,12 +103,6 @@ export class EvaluateShortTlc extends UserEvaluatorBase {
             return false;
         }
 
-        if (!karma || karma > 3) {
-            // LLM bots sometimes use the same keywords as Reddit's autogen algorithm, but too prone to false positives
-            // for established accounts.
-            return !autogenRegex.test(username);
-        }
-
-        return true;
+        return !autogenRegex.test(username);
     }
 }

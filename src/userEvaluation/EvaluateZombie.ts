@@ -5,6 +5,7 @@ import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
 import { isCommentId } from "@devvit/shared-types/tid.js";
 import { subDays, subYears } from "date-fns";
 import { autogenRegex, domainFromUrl } from "./evaluatorHelpers.js";
+import { CONTROL_SUBREDDIT } from "../constants.js";
 
 export class EvaluateZombie extends UserEvaluatorBase {
     override name = "Zombie";
@@ -62,6 +63,11 @@ export class EvaluateZombie extends UserEvaluatorBase {
     }
 
     override evaluate (user: User, history: (Post | Comment)[]): boolean {
+        if (this.variables["zombie:killswitch"] && this.context.subredditName !== CONTROL_SUBREDDIT) {
+            this.setReason("Evaluator is disabled");
+            return false;
+        }
+
         if (!this.preEvaluateUser(user)) {
             return false;
         }

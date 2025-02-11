@@ -57,6 +57,11 @@ export class EvaluateCelebBot extends UserEvaluatorBase {
             return false;
         }
 
+        if (this.variables["celeb:killswitch"]) {
+            this.setReason("Evaluator is disabled");
+            return false;
+        }
+
         const posts = history.filter(item => isLinkId(item.id) && item.body !== "[removed]") as Post[];
         if (!posts.every(post => this.eligiblePost(post))) {
             this.setReason("User has non-eligible posts");

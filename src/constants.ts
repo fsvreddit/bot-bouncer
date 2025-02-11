@@ -32,3 +32,4 @@ export const EVALUATE_KARMA_FARMING_SUBS = "evaluateKarmaFarmingSubs";
  * Job crons
  */
 export const CLEANUP_JOB_CRON = "0 6 * * *";
+export const EXTERNAL_SUBMISSION_JOB_CRON = "17 * * * *";

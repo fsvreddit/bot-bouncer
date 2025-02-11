@@ -2,7 +2,7 @@ import { TriggerContext } from "@devvit/public-api";
 import { ModAction } from "@devvit/protos";
 import { CONTROL_SUBREDDIT, UPDATE_EVALUATOR_VARIABLES } from "./constants.js";
 import { recordWhitelistUnban, removeRecordOfBan } from "./handleClientSubredditWikiUpdate.js";
-import { createExternalSubmissionJob } from "./externalSubmissions.js";
+import { handleExternalSubmissionsPageUpdate } from "./externalSubmissions.js";
 import { validateControlSubConfigChange } from "./settings.js";
 
 export async function handleModAction (event: ModAction, context: TriggerContext) {
@@ -27,7 +27,7 @@ export async function handleModAction (event: ModAction, context: TriggerContext
      */
     if (event.action === "wikirevise" && context.subredditName === CONTROL_SUBREDDIT) {
         if (event.moderator?.name === context.appName || event.moderator?.name === "bot-bouncer-int") {
-            await createExternalSubmissionJob(context);
+            await handleExternalSubmissionsPageUpdate(context);
         } else if (event.moderator) {
             await validateControlSubConfigChange(event.moderator.name, context);
             await context.scheduler.runJob({

@@ -106,6 +106,8 @@ async function handleSetBanned (username: string, subredditName: string, setting
         return;
     }
 
+    const removableContent = recentLocalContent.filter(item => !item.spam && !item.removed);
+
     let message = settings[AppSetting.BanMessage] as string | undefined ?? CONFIGURATION_DEFAULTS.banMessage;
     message = replaceAll(message, "{subreddit}", subredditName);
     message = replaceAll(message, "{account}", username);
@@ -119,12 +121,11 @@ async function handleSetBanned (username: string, subredditName: string, setting
         context.reddit.banUser({
             subredditName,
             username,
-            context: recentLocalContent[0].id,
             message,
             note: banNote,
         }),
         recordBan(username, context),
-        ...recentLocalContent.map(item => item.remove()),
+        ...removableContent.map(item => item.remove()),
         context.redis.del(`removed:${username}`),
     ]);
 
@@ -146,7 +147,7 @@ export async function handleClassificationChanges (event: ScheduledJobEvent<JSON
         return;
     }
 
-    const subredditName = context.subredditName ?? (await context.reddit.getCurrentSubreddit()).name;
+    const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
 
     const promises: Promise<unknown>[] = [];
 

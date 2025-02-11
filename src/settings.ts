@@ -22,6 +22,8 @@ If this account is a bot that you wish to allow, remember to [allowlist](/r/${CO
     appealMessage: `Your classification appeal has been received and will be reviewed by a
 moderator. If accepted, the result of your appeal will apply to any subreddit using /r/${CONTROL_SUBREDDIT}.
 
+If Bot Bouncer has banned you from more than one subreddit, you don't need to appeal separately.
+
 *This is an automated message.*`,
 
     appealShadowbannedMessage: `Your classification appeal has been received. Unfortunately, it is not possible to review your request at this time because you have been shadowbanned by Reddit Admin, which prevents us from reviewing your account contents.
@@ -107,6 +109,7 @@ interface ControlSubSettings {
     trustedSubmitters: string[];
     reporterBlacklist: string[];
     numberOfWikiPages?: number;
+    bulkSubmitters?: string[];
 }
 
 const CONTROL_SUB_SETTINGS_WIKI_PAGE = "controlsubsettings";
@@ -120,6 +123,7 @@ const schema: JSONSchemaType<ControlSubSettings> = {
         trustedSubmitters: { type: "array", items: { type: "string" } },
         reporterBlacklist: { type: "array", items: { type: "string" } },
         numberOfWikiPages: { type: "number", nullable: true },
+        bulkSubmitters: { type: "array", items: { type: "string" }, nullable: true },
     },
     required: ["evaluationDisabled", "trustedSubmitters", "reporterBlacklist"],
 };

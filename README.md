@@ -45,6 +45,14 @@ Write in to [/r/BotBouncer's modmail](https://www.reddit.com/message/compose/?to
 
 # Change History
 
+## v1.3
+
+* Add feature to disable "zombie" evaluator if needed
+* Add evaluator for suspect username patterns
+* Improved message sent to users making appeals
+* Allow certain domains to result in an automatic ban evaluation
+* Internal improvements to reduce the chance of duplicate submissions
+
 ## v1.2
 
 * Changes to support operations on r/BotBouncer

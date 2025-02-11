@@ -1,15 +1,17 @@
 import { JobContext, TriggerContext, WikiPage, WikiPagePermissionLevel } from "@devvit/public-api";
-import { CONTROL_SUBREDDIT, EVALUATE_USER, EXTERNAL_SUBMISSION_JOB, PostFlairTemplate } from "./constants.js";
+import { CONTROL_SUBREDDIT, EVALUATE_USER, EXTERNAL_SUBMISSION_JOB, EXTERNAL_SUBMISSION_JOB_CRON, PostFlairTemplate } from "./constants.js";
 import { getUserStatus, setUserStatus, UserStatus } from "./dataStore.js";
 import { getControlSubSettings } from "./settings.js";
 import Ajv, { JSONSchemaType } from "ajv";
 import { addMinutes, addSeconds } from "date-fns";
 import { getPostOrCommentById, getUserOrUndefined } from "./utility.js";
 import { isLinkId } from "@devvit/shared-types/tid.js";
+import { parseExpression } from "cron-parser";
 
 const WIKI_PAGE = "externalsubmissions";
+export const EXTERNAL_SUBMISSION_QUEUE = "externalSubmissionQueue";
 
-interface ExternalSubmission {
+export interface ExternalSubmission {
     username: string;
     submitter?: string;
     reportContext?: string;
@@ -93,29 +95,45 @@ export async function addExternalSubmission (data: ExternalSubmission, context: 
             listed: true,
         });
     }
+
+    await scheduleAdhocExternalSubmissionsJob(context);
 }
 
-const JOB_BLOCK_REDIS_KEY = "externalSubmissionJobBlock";
-
-export async function createExternalSubmissionJob (context: TriggerContext) {
-    const isBlocked = await context.redis.get(JOB_BLOCK_REDIS_KEY);
-    if (isBlocked) {
-        await context.redis.del(JOB_BLOCK_REDIS_KEY);
+export async function scheduleAdhocExternalSubmissionsJob (context: TriggerContext) {
+    if (context.subredditName !== CONTROL_SUBREDDIT) {
         return;
     }
 
-    const jobs = await context.scheduler.listJobs();
-    if (jobs.some(job => job.name === EXTERNAL_SUBMISSION_JOB)) {
+    const cron = parseExpression(EXTERNAL_SUBMISSION_JOB_CRON);
+    const nextRun = cron.next().toDate();
+
+    if (nextRun < addMinutes(new Date(), 1)) {
+        console.log("External Submissions: Next scheduled run is too soon.");
+        return;
+    }
+
+    const currentJobs = await context.scheduler.listJobs();
+    const externalSubmissionJobs = currentJobs.filter(job => job.name === EXTERNAL_SUBMISSION_JOB);
+    if (externalSubmissionJobs.length > 1) {
+        console.log("External Submissions: Multiple jobs already scheduled.");
+        return;
+    }
+
+    const itemsInQueue = await context.redis.hLen(EXTERNAL_SUBMISSION_QUEUE);
+    if (itemsInQueue === 0) {
+        console.log("External Submissions: No remaining items in the queue.");
         return;
     }
 
     await context.scheduler.runJob({
         name: EXTERNAL_SUBMISSION_JOB,
-        runAt: new Date(),
+        runAt: addSeconds(new Date(), 20),
     });
+
+    console.log("External Submissions: Ad-hoc job scheduled.");
 }
 
-export async function processExternalSubmissions (_: unknown, context: JobContext) {
+export async function handleExternalSubmissionsPageUpdate (context: TriggerContext) {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
         return;
     }
@@ -140,33 +158,29 @@ export async function processExternalSubmissions (_: unknown, context: JobContex
         return;
     }
 
-    let stopLooping = false;
-    let item: ExternalSubmission | undefined;
-
-    // Iterate through list, and find the first user who isn't already being tracked.
-    while (!stopLooping) {
-        item = currentSubmissionList.shift();
-        if (item) {
-            const currentStatus = await getUserStatus(item.username, context);
-            if (!currentStatus) {
-                const user = await getUserOrUndefined(item.username, context);
-                if (user) {
-                    stopLooping = true;
-                }
-            }
-        } else {
-            stopLooping = true;
+    for (const item of currentSubmissionList) {
+        const currentStatus = await getUserStatus(item.username, context);
+        if (currentStatus) {
+            console.log(`External Submissions: Status for ${item.username} already exists.`);
+            continue;
         }
+
+        const itemInQueue = await context.redis.hGet(EXTERNAL_SUBMISSION_QUEUE, item.username);
+        if (itemInQueue) {
+            console.log(`External Submissions: ${item.username} is already in the queue.`);
+            continue;
+        }
+
+        await context.redis.hSet(EXTERNAL_SUBMISSION_QUEUE, { [item.username]: JSON.stringify(item) });
+        console.log(`External Submissions: Added ${item.username} to the queue.`);
     }
 
     // Resave.
     const wikiUpdateOptions = {
         subredditName: CONTROL_SUBREDDIT,
         page: WIKI_PAGE,
-        content: JSON.stringify(currentSubmissionList),
+        content: JSON.stringify([]),
     };
-
-    await context.redis.set(JOB_BLOCK_REDIS_KEY, "true", { expiration: addMinutes(new Date(), 5) });
 
     if (wikiPage) {
         await context.reddit.updateWikiPage(wikiUpdateOptions);
@@ -178,6 +192,44 @@ export async function processExternalSubmissions (_: unknown, context: JobContex
             permLevel: WikiPagePermissionLevel.MODS_ONLY,
             listed: true,
         });
+    }
+
+    await scheduleAdhocExternalSubmissionsJob(context);
+}
+
+export async function processExternalSubmissions (_: unknown, context: JobContext) {
+    const submissionQueue = await context.redis.hGetAll(EXTERNAL_SUBMISSION_QUEUE);
+    const usersInQueue = Object.keys(submissionQueue);
+    if (usersInQueue.length === 0) {
+        console.log("External Submissions: Queue is empty.");
+        return;
+    }
+
+    let stopLooping = false;
+    let username: string | undefined;
+    let item: ExternalSubmission | undefined;
+    // Iterate through list, and find the first user who isn't already being tracked.
+    while (!stopLooping) {
+        username = usersInQueue.shift();
+        if (username) {
+            const user = await getUserOrUndefined(username, context);
+            if (user) {
+                const currentStatus = await getUserStatus(user.username, context);
+                if (!currentStatus) {
+                    stopLooping = true;
+                    item = JSON.parse(submissionQueue[username]) as ExternalSubmission;
+                    item.username = user.username;
+                } else {
+                    console.log(`External Submissions: ${username} is already being tracked, skipping.`);
+                }
+            } else {
+                console.log(`External Submissions: ${username} is deleted or shadowbanned, skipping.`);
+            }
+
+            await context.redis.hDel(EXTERNAL_SUBMISSION_QUEUE, [username]);
+        } else {
+            stopLooping = true;
+        }
     }
 
     if (!item) {
@@ -227,13 +279,5 @@ export async function processExternalSubmissions (_: unknown, context: JobContex
 
     console.log(`External submission created for ${item.username}`);
 
-    if (currentSubmissionList.length === 0) {
-        return;
-    }
-
-    // Schedule a new ad-hoc instance.
-    await context.scheduler.runJob({
-        name: EXTERNAL_SUBMISSION_JOB,
-        runAt: addSeconds(new Date(), 20),
-    });
+    await scheduleAdhocExternalSubmissionsJob(context);
 }

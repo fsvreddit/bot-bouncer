@@ -1,7 +1,7 @@
 import { JobContext, TriggerContext, WikiPagePermissionLevel, WikiPage, ScheduledJobEvent, JSONObject } from "@devvit/public-api";
 import { compact, Dictionary, max, sum, toPairs, uniq } from "lodash";
 import pako from "pako";
-import { scheduleAdhocCleanup, setCleanupForUsers } from "./cleanup.js";
+import { scheduleAdhocCleanup, setCleanupForSubmittersAndMods, setCleanupForUsers } from "./cleanup.js";
 import { CONTROL_SUBREDDIT, HANDLE_CLASSIFICATION_CHANGES_JOB } from "./constants.js";
 import { addSeconds, addWeeks, startOfSecond, subDays, subHours } from "date-fns";
 import pluralize from "pluralize";
@@ -56,6 +56,9 @@ export async function setUserStatus (username: string, details: UserDetails, con
     } else {
         promises.push(setCleanupForUsers([username], context, true));
     }
+
+    const submittersAndMods = uniq(compact([details.submitter, details.operator]));
+    promises.push(setCleanupForSubmittersAndMods(submittersAndMods, context));
 
     if (details.userStatus !== currentStatus?.userStatus) {
         promises.push(updateAggregate(details.userStatus, 1, context));
@@ -115,7 +118,7 @@ export async function writeAggregateToWikiPage (_: unknown, context: JobContext)
     wikiContent += "These statistics update once a day at midnight UTC.";
 
     const wikiPageName = "statistics";
-    const subredditName = context.subredditName ?? (await context.reddit.getCurrentSubreddit()).name;
+    const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
 
     let wikiPage: WikiPage | undefined;
     try {
@@ -235,7 +238,7 @@ export async function updateWikiPage (event: ScheduledJobEvent<JSONObject | unde
         return;
     }
 
-    const subredditName = context.subredditName ?? (await context.reddit.getCurrentSubreddit()).name;
+    const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
 
     let wikiPage: WikiPage | undefined;
     try {
@@ -393,4 +396,23 @@ export async function updateLocalStoreFromWiki (_: unknown, context: JobContext)
     }
 
     await context.redis.set(lastUpdateKey, wikiPage.revisionId);
+}
+
+export async function removeRecordOfSubmitterOrMod (username: string, context: TriggerContext) {
+    const data = await context.redis.hGetAll(USER_STORE);
+    const entries = Object.entries(data).map(([key, value]) => ({ username: key, details: JSON.parse(value) as UserDetails }));
+
+    for (const entry of entries.filter(item => item.details.operator === username || item.details.submitter === username)) {
+        const updatedDetails = { ...entry.details };
+        if (updatedDetails.operator === username) {
+            updatedDetails.operator = "";
+        }
+        if (updatedDetails.submitter === username) {
+            delete updatedDetails.submitter;
+        }
+
+        await setUserStatus(entry.username, updatedDetails, context);
+    }
+
+    console.log(`Cleanup: Removed records of ${username} as submitter or operator`);
 }

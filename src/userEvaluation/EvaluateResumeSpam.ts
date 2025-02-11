@@ -60,14 +60,17 @@ export class EvaluateResumeSpam extends UserEvaluatorBase {
             return false;
         }
 
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+        if (this.variables["resume:killswitch"]) {
+            this.setReason("Killswitch is enabled");
+            return false;
+        }
+
         const userPosts = history.filter(item => item instanceof Post) as Post[];
         if (userPosts.some(post => !this.eligiblePost(post))) {
             this.setReason("User has ineligible posts");
             return false;
         }
 
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- cannot upload without this.
         const userComments = history.filter(item => item instanceof Comment) as Comment[];
 
         const phrases = this.variables["resume:phrases"] as string[] | undefined;

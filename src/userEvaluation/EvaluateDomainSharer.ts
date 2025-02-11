@@ -62,6 +62,11 @@ export class EvaluateDomainSharer extends UserEvaluatorBase {
             return false;
         }
 
+        if (this.variables["domainsharer:killswitch"]) {
+            this.setReason("Evaluator is disabled");
+            return false;
+        }
+
         const recentContent = history.filter(item => item.createdAt > subMonths(new Date(), 6));
 
         if (recentContent.length < 5) {
@@ -88,7 +93,12 @@ export class EvaluateDomainSharer extends UserEvaluatorBase {
 
         const domainAggregate = toPairs(countBy(domains)).map(([domain, count]) => ({ domain, count }));
 
-        if (domainAggregate.some(item => item.count === recentContent.length)) {
+        const dominantDomains = domainAggregate.filter(item => item.count === recentContent.length);
+        if (dominantDomains.length > 0) {
+            const autobanDomains = this.variables["domainsharer:autobandomains"] as string[] | undefined ?? [];
+            if (autobanDomains.some(domain => dominantDomains.some(item => item.domain === domain))) {
+                this.canAutoBan = true;
+            }
             return true;
         } else {
             this.setReason("User content is not dominated by one domain");
