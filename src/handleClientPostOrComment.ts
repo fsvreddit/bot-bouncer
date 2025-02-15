@@ -147,8 +147,12 @@ async function handleContentCreation (username: string, targetId: string, contex
         return;
     }
 
-    await context.reddit.remove(targetId, true);
-    console.log(`Content Create: ${targetId} removed for ${user.username}`);
+    const target = await getPostOrCommentById(targetId, context);
+    if (!target.spam) {
+        await context.reddit.remove(targetId, true);
+        console.log(`Content Create: ${targetId} removed for ${user.username}`);
+        await context.redis.set(`removed:${username}`, targetId, { expiration: addWeeks(new Date(), 4) });
+    }
 
     const isCurrentlyBanned = await isBanned(user.username, context);
 
