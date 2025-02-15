@@ -117,8 +117,6 @@ interface SubmitterStatistic {
 }
 
 export async function writeAggregateToWikiPage (_: unknown, context: JobContext) {
-    await correctAggregateData(context);
-
     let results = await context.redis.zRange(AGGREGATE_STORE, 0, -1);
     results = results.filter(item => item.member !== "pending");
 
