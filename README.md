@@ -50,6 +50,7 @@ Write in to [/r/BotBouncer's modmail](https://www.reddit.com/message/compose/?to
 Note: The app directory may tell you that there is a version available for upgrade but this will fail. 1.3.0 is the latest public version.
 
 * Fully reinstate content removed by bot when a user is marked as human
+* Reduce false positives on one evaluator
 
 ## v1.3
 
