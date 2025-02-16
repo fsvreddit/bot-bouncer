@@ -31,7 +31,7 @@ async function getDistinctAccounts (context: JobContext): Promise<string[]> {
     const lastDateVal = await context.redis.get(CHECK_DATE_KEY);
     const lastDate = lastDateVal ? new Date(parseInt(lastDateVal)) : new Date(0);
 
-    const promises = karmaFarmingSubs.map(sub => getAccountsFromSub(sub, lastDate, context));
+    const promises = uniq(karmaFarmingSubs).map(sub => getAccountsFromSub(sub, lastDate, context));
     const results = await Promise.all(promises);
 
     await context.redis.set(CHECK_DATE_KEY, new Date().getTime().toString());
