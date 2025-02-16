@@ -116,6 +116,13 @@ export class EvaluateSelfLoveBot extends UserEvaluatorBase {
             return false;
         }
 
+        const eligibleSubreddits = this.variables["selflove:subreddits"] as string[] | undefined ?? [];
+        const postsInEligibleSubs = userPosts.filter(post => eligibleSubreddits.includes(post.subredditName));
+        if (postsInEligibleSubs.length / userPosts.length < 0.5) {
+            this.setReason("User has insufficient posts in eligible subreddits");
+            return false;
+        }
+
         return true;
     }
 
