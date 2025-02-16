@@ -51,6 +51,7 @@ Note: The app directory may tell you that there is a version available for upgra
 
 * Fully reinstate content removed by bot when a user is marked as human
 * Reduce false positives on one evaluator
+* Add new evaluator for a class of bot seen on some motivational subreddits
 
 ## v1.3
 
