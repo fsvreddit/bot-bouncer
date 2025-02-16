@@ -38,13 +38,12 @@ export class EvaluateCommentBot extends UserEvaluatorBase {
     }
 
     override evaluate (user: User, history: (Post | Comment)[]): boolean {
-        if (this.variables["comment-bot:killswitch"]) {
-            this.setReason("Killswitch enabled");
+        if (!this.preEvaluateUser(user)) {
             return false;
         }
 
-        if (!this.preEvaluateUser(user)) {
-            this.setReason("User is too old or has too much karma");
+        if (this.variables["comment-bot:killswitch"]) {
+            this.setReason("Killswitch enabled");
             return false;
         }
 

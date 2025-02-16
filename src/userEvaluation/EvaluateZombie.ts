@@ -63,12 +63,12 @@ export class EvaluateZombie extends UserEvaluatorBase {
     }
 
     override evaluate (user: User, history: (Post | Comment)[]): boolean {
-        if (this.variables["zombie:killswitch"] && this.context.subredditName !== CONTROL_SUBREDDIT) {
-            this.setReason("Evaluator is disabled");
+        if (!this.preEvaluateUser(user)) {
             return false;
         }
 
-        if (!this.preEvaluateUser(user)) {
+        if (this.variables["zombie:killswitch"] && this.context.subredditName !== CONTROL_SUBREDDIT) {
+            this.setReason("Evaluator is disabled");
             return false;
         }
 

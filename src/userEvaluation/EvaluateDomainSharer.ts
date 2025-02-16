@@ -58,7 +58,6 @@ export class EvaluateDomainSharer extends UserEvaluatorBase {
 
     override evaluate (user: User, history: (Post | Comment)[]): boolean {
         if (!this.preEvaluateUser(user)) {
-            this.setReason("User checks don't match");
             return false;
         }
 

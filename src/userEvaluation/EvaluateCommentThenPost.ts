@@ -53,7 +53,6 @@ export class EvaluateCommentThenPost extends UserEvaluatorBase {
 
     override evaluate (user: User, history: (Post | Comment)[]): boolean {
         if (!this.preEvaluateUser(user)) {
-            this.setReason("User is too old");
             return false;
         }
 
