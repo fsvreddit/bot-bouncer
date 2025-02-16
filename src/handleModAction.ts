@@ -4,6 +4,7 @@ import { CONTROL_SUBREDDIT, UPDATE_EVALUATOR_VARIABLES } from "./constants.js";
 import { recordWhitelistUnban, removeRecordOfBan } from "./handleClientSubredditWikiUpdate.js";
 import { handleExternalSubmissionsPageUpdate } from "./externalSubmissions.js";
 import { validateControlSubConfigChange } from "./settings.js";
+import { addDays } from "date-fns";
 
 export async function handleModAction (event: ModAction, context: TriggerContext) {
     if (context.subredditName === CONTROL_SUBREDDIT) {
@@ -38,6 +39,7 @@ async function handleModActionClientSub (event: ModAction, context: TriggerConte
         if (targetId) {
             await context.redis.hDel(`removedItems:${event.targetUser.name}`, [targetId]);
         }
+        await context.redis.set(`removedbymod:${targetId}`, "true", { expiration: addDays(new Date(), 1) });
     }
 }
 

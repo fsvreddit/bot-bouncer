@@ -55,6 +55,13 @@ export async function isUserWhitelisted (username: string, context: TriggerConte
     return score !== undefined;
 }
 
+async function approveIfNotRemovedByMod (targetId: string, context: TriggerContext) {
+    const removedByMod = await context.redis.get(`removedbymod:${targetId}`);
+    if (!removedByMod) {
+        await context.reddit.approve(targetId);
+    }
+}
+
 async function handleSetOrganic (username: string, subredditName: string, context: TriggerContext) {
     const contentToReinstate: string[] = [];
 
@@ -67,7 +74,7 @@ async function handleSetOrganic (username: string, subredditName: string, contex
     contentToReinstate.push(...Object.keys(removedItems));
 
     if (contentToReinstate.length > 0) {
-        await Promise.all(contentToReinstate.map(id => context.reddit.approve(id)));
+        await Promise.all(contentToReinstate.map(id => approveIfNotRemovedByMod(id, context)));
         await context.redis.del(`removed:${username}`);
         await context.redis.del(`removedItems:${username}`);
         console.log(`Wiki Update: Reinstated ${contentToReinstate.length} ${pluralize("item", contentToReinstate.length)} for ${username}`);
