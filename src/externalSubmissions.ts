@@ -99,7 +99,7 @@ export async function addExternalSubmission (data: ExternalSubmission, context: 
     await scheduleAdhocExternalSubmissionsJob(context);
 }
 
-export async function scheduleAdhocExternalSubmissionsJob (context: TriggerContext) {
+export async function scheduleAdhocExternalSubmissionsJob (context: TriggerContext, delay = 20) {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
         return;
     }
@@ -127,7 +127,7 @@ export async function scheduleAdhocExternalSubmissionsJob (context: TriggerConte
 
     await context.scheduler.runJob({
         name: EXTERNAL_SUBMISSION_JOB,
-        runAt: addSeconds(new Date(), 20),
+        runAt: addSeconds(new Date(), delay),
     });
 
     console.log("External Submissions: Ad-hoc job scheduled.");
@@ -194,7 +194,7 @@ export async function handleExternalSubmissionsPageUpdate (context: TriggerConte
         });
     }
 
-    await scheduleAdhocExternalSubmissionsJob(context);
+    await scheduleAdhocExternalSubmissionsJob(context, 0);
 }
 
 export async function processExternalSubmissions (_: unknown, context: JobContext) {
