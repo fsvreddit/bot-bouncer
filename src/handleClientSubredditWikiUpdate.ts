@@ -144,7 +144,7 @@ async function handleSetBanned (username: string, subredditName: string, setting
             note: banNote,
         }),
         recordBan(username, context),
-        ...removableContent.map(item => item.remove()),
+        ...recentLocalContent.map(item => item.remove()),
     ]);
 
     const failedPromises = results.filter(result => result.status === "rejected");
