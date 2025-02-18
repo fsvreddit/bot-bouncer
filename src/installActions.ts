@@ -4,7 +4,7 @@ import { CLEANUP_JOB, CLEANUP_JOB_CRON, CONTROL_SUBREDDIT, EVALUATE_KARMA_FARMIN
 import { scheduleAdhocCleanup, setCleanupForSubmittersAndMods } from "./cleanup.js";
 import { handleExternalSubmissionsPageUpdate } from "./externalSubmissions.js";
 import { compact, uniq } from "lodash";
-import { UserDetails } from "./dataStore.js";
+import { correctAggregateData, UserDetails } from "./dataStore.js";
 
 export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, context: TriggerContext) {
     console.log("App Install: Detected an app install or update event");
@@ -97,6 +97,7 @@ async function handleReleaseUpgradeDataMigrationTasks (context: TriggerContext) 
 
     const migrationSteps = [
         "QueueCleanupForSubmittersAndMods",
+        "CorrectAggregateData",
     ];
 
     const pendingSteps = migrationSteps.filter(step => !migrationStepsCompleted.includes(step));
@@ -108,6 +109,8 @@ async function handleReleaseUpgradeDataMigrationTasks (context: TriggerContext) 
             const users = uniq(compact([...values.map(item => item.operator), ...values.map(item => item.submitter)]));
             await setCleanupForSubmittersAndMods(users, context);
             console.log(`Release Upgrade: Queued cleanup for ${users.length} submitters and mods`);
+        } else if (step === "CorrectAggregateData") {
+            await correctAggregateData(context);
         }
 
         await context.redis.zAdd(redisKey, { member: step, score: new Date().getTime() });

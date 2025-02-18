@@ -53,7 +53,6 @@ export class EvaluateCelebBot extends UserEvaluatorBase {
 
     override evaluate (user: User, history: (Post | Comment)[]): boolean {
         if (!this.preEvaluateUser(user)) {
-            this.setReason("User is too old or has too much karma");
             return false;
         }
 

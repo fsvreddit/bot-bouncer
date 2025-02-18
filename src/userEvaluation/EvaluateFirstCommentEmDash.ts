@@ -12,6 +12,8 @@ export class EvaluateFirstCommentEmDash extends UserEvaluatorBase {
 
     override banContentThreshold = 1;
 
+    private readonly emDashRegex = /\w—\w/i;
+
     private eligibleComment (comment: Comment | CommentV2) {
         return isLinkId(comment.parentId);
     }
@@ -89,7 +91,7 @@ export class EvaluateFirstCommentEmDash extends UserEvaluatorBase {
             emDashThreshold = 0.3;
         }
 
-        const emDashThresholdMet = comments.filter(comment => comment.body.includes("—")).length / comments.length > emDashThreshold;
+        const emDashThresholdMet = comments.filter(comment => this.emDashRegex.test(comment.body)).length / comments.length > emDashThreshold;
 
         if (!firstCommentContainsEmDash && !emDashThresholdMet) {
             this.setReason("User's first comment doesn't contain an em dash, or they have insufficient comments with them");

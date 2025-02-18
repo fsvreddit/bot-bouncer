@@ -6,6 +6,7 @@ import { setCleanupForUsers } from "./cleanup.js";
 import { AppSetting, CONFIGURATION_DEFAULTS } from "./settings.js";
 import { isBanned, replaceAll } from "./utility.js";
 import { HANDLE_CLASSIFICATION_CHANGES_JOB } from "./constants.js";
+import { fromPairs } from "lodash";
 
 const UNBAN_WHITELIST = "UnbanWhitelist";
 const BAN_STORE = "BanStore";
@@ -54,11 +55,29 @@ export async function isUserWhitelisted (username: string, context: TriggerConte
     return score !== undefined;
 }
 
+async function approveIfNotRemovedByMod (targetId: string, context: TriggerContext) {
+    const removedByMod = await context.redis.get(`removedbymod:${targetId}`);
+    if (!removedByMod) {
+        await context.reddit.approve(targetId);
+    }
+}
+
 async function handleSetOrganic (username: string, subredditName: string, context: TriggerContext) {
+    const contentToReinstate: string[] = [];
+
     const contentRemovedId = await context.redis.get(`removed:${username}`);
     if (contentRemovedId) {
-        await context.reddit.approve(contentRemovedId);
+        contentToReinstate.push(contentRemovedId);
+    }
+
+    const removedItems = await context.redis.hGetAll(`removedItems:${username}`);
+    contentToReinstate.push(...Object.keys(removedItems));
+
+    if (contentToReinstate.length > 0) {
+        await Promise.all(contentToReinstate.map(id => approveIfNotRemovedByMod(id, context)));
         await context.redis.del(`removed:${username}`);
+        await context.redis.del(`removedItems:${username}`);
+        console.log(`Wiki Update: Reinstated ${contentToReinstate.length} ${pluralize("item", contentToReinstate.length)} for ${username}`);
     }
 
     const userBannedByApp = await wasUserBannedByApp(username, context);
@@ -125,8 +144,7 @@ async function handleSetBanned (username: string, subredditName: string, setting
             note: banNote,
         }),
         recordBan(username, context),
-        ...removableContent.map(item => item.remove()),
-        context.redis.del(`removed:${username}`),
+        ...recentLocalContent.map(item => item.remove()),
     ]);
 
     const failedPromises = results.filter(result => result.status === "rejected");
@@ -134,7 +152,13 @@ async function handleSetBanned (username: string, subredditName: string, setting
         console.error(`Wiki Update: Some errors occurred banning ${username} on ${subredditName}.`);
         console.log(failedPromises);
     } else {
-        console.log(`Wiki Update: ${username} has been banned following wiki update.`);
+        console.log(`Wiki Update: ${username} has been banned following wiki update. ${removableContent.length} ${pluralize("item", removableContent.length)} removed.`);
+    }
+
+    if (removableContent.length > 0) {
+        await context.redis.hSet(`removedItems:${username}`, fromPairs(removableContent.map(item => ([item.id, item.id]))));
+        // Expire key after 28 days
+        await context.redis.expire(`removedItems:${username}`, 60 * 60 * 24 * 28);
     }
 }
 

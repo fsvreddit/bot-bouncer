@@ -7,6 +7,7 @@ import { count } from "@wordpress/wordcount";
 import { isUserPotentiallyBlockingBot } from "./blockChecker.js";
 import pluralize from "pluralize";
 import { isLinkId } from "@devvit/shared-types/tid.js";
+import { getRawUserData } from "../extendedDevvit.js";
 
 function formatDifferenceInDates (start: Date, end: Date) {
     const units: (keyof Duration)[] = ["years", "months", "days"];
@@ -148,6 +149,8 @@ export async function getSummaryTextForUser (username: string, context: TriggerC
         return;
     }
 
+    const extendedUser = await getRawUserData(username, context.debug.metadata);
+
     console.log(`User Summary: Creating summary for ${username}`);
 
     const accountAge = formatDifferenceInDates(user.createdAt, new Date());
@@ -156,6 +159,11 @@ export async function getSummaryTextForUser (username: string, context: TriggerC
     summary += `* Account age: ${accountAge}\n`;
     summary += `* Comment karma: ${user.commentKarma}\n`;
     summary += `* Post karma: ${user.linkKarma}\n`;
+    summary += `* Verified Email: ${extendedUser?.data?.hasVerifiedEmail ? "Yes" : "No"}\n`;
+    const userBio = extendedUser?.data?.subreddit?.publicDescription;
+    if (userBio) {
+        summary += `* Bio: ${userBio}\n`;
+    }
 
     const socialLinks = await user.getSocialLinks();
     summary += `* Social links: ${socialLinks.length}\n`;

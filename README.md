@@ -45,7 +45,14 @@ Write in to [/r/BotBouncer's modmail](https://www.reddit.com/message/compose/?to
 
 # Change History
 
-## v1.3
+## v1.4.0
+
+* Fully reinstate content removed by bot when a user is marked as human
+* Fixed a bug that could result in Bot Bouncer approving a post or comment that had been removed by a mod or Automod
+* Reduce false positives on one evaluator
+* Add new evaluator for a class of bot seen on some motivational subreddits
+
+## v1.3.0
 
 * Add feature to disable "zombie" evaluator if needed
 * Add evaluator for suspect username patterns
@@ -53,13 +60,13 @@ Write in to [/r/BotBouncer's modmail](https://www.reddit.com/message/compose/?to
 * Allow certain domains to result in an automatic ban evaluation
 * Internal improvements to reduce the chance of duplicate submissions
 
-## v1.2
+## v1.2.0
 
 * Changes to support operations on r/BotBouncer
 * Add evaluator for affiliate spam
 * Prevent reapproval of comments for accounts set to "organic" if they were filtered or removed by Automod, Reddit or a mod
 
-## v1.1
+## v1.1.0
 
 * The "CQS Tester" evaluator now checks a wider range of post titles
 * Terminology changed from "whitelist" to "allowlist" or similar throughout user interfaces and documentation

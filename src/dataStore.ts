@@ -1,5 +1,5 @@
 import { JobContext, TriggerContext, WikiPagePermissionLevel, WikiPage, ScheduledJobEvent, JSONObject } from "@devvit/public-api";
-import { compact, Dictionary, max, sum, toPairs, uniq } from "lodash";
+import { compact, countBy, Dictionary, max, sum, toPairs, uniq } from "lodash";
 import pako from "pako";
 import { scheduleAdhocCleanup, setCleanupForSubmittersAndMods, setCleanupForUsers } from "./cleanup.js";
 import { CONTROL_SUBREDDIT, HANDLE_CLASSIFICATION_CHANGES_JOB } from "./constants.js";
@@ -96,6 +96,18 @@ export async function updateAggregate (type: UserStatus, incrBy: number, context
         const newScore = await context.redis.zIncrBy(AGGREGATE_STORE, type, incrBy);
         console.log(`Aggregate for ${type} ${incrBy > 0 ? "increased" : "decreased"} to ${newScore}`);
     }
+}
+
+export async function correctAggregateData (context: TriggerContext) {
+    const data = await context.redis.hGetAll(USER_STORE);
+    const entries = Object.entries(data).map(([, value]) => JSON.parse(value) as UserDetails);
+
+    const statusesToUpdate = [UserStatus.Banned, UserStatus.Pending, UserStatus.Organic, UserStatus.Service, UserStatus.Declined];
+    const statuses = Object.entries(countBy(entries.map(item => item.userStatus)))
+        .map(([key, value]) => ({ member: key, score: value }))
+        .filter(item => statusesToUpdate.includes(item.member as UserStatus));
+
+    await context.redis.zAdd(AGGREGATE_STORE, ...statuses);
 }
 
 interface SubmitterStatistic {

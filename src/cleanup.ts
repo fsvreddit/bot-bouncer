@@ -237,4 +237,6 @@ async function handleDeletedAccountsControlSub (usernames: string[], context: Tr
 async function handleDeletedAccountsClientSub (usernames: string[], context: TriggerContext) {
     await removeRecordOfBan(usernames, context);
     await removeWhitelistUnban(usernames, context);
+    const keysToRemove = [...usernames.map(username => `removed:${username}`), ...usernames.map(username => `removedItems:${username}`)];
+    await Promise.all(keysToRemove.map(key => context.redis.del(key)));
 }
