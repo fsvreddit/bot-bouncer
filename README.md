@@ -45,9 +45,7 @@ Write in to [/r/BotBouncer's modmail](https://www.reddit.com/message/compose/?to
 
 # Change History
 
-## Next version
-
-Note: The app directory may tell you that there is a version available for upgrade but this will fail. 1.3.0 is the latest public version.
+## v1.4.0
 
 * Fully reinstate content removed by bot when a user is marked as human
 * Fixed a bug that could result in Bot Bouncer approving a post or comment that had been removed by a mod or Automod
