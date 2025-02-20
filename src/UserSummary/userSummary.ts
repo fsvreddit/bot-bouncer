@@ -2,7 +2,7 @@ import { Comment, Post, TriggerContext } from "@devvit/public-api";
 import { domainFromUrl, getUserOrUndefined, median } from "../utility.js";
 import { addMilliseconds, differenceInDays, differenceInHours, differenceInMilliseconds, differenceInMinutes, Duration, formatDuration, intervalToDuration, startOfDecade } from "date-fns";
 import { autogenRegex, femaleNameRegex, resemblesAutogen } from "./regexes.js";
-import { compact, countBy, mean } from "lodash";
+import { compact, countBy, mean, uniq } from "lodash";
 import { count } from "@wordpress/wordcount";
 import { isUserPotentiallyBlockingBot } from "./blockChecker.js";
 import pluralize from "pluralize";
@@ -162,7 +162,8 @@ export async function getSummaryTextForUser (username: string, context: TriggerC
     summary += `* Verified Email: ${extendedUser?.data?.hasVerifiedEmail ? "Yes" : "No"}\n`;
 
     const socialLinks = await user.getSocialLinks();
-    summary += `* Social links: ${socialLinks.length}\n`;
+    const uniqueSocialDomains = compact(uniq(socialLinks.map(link => domainFromUrl(link.outboundUrl))));
+    summary += `* Social links: ${socialLinks.length}: ${uniqueSocialDomains.join(", ")}\n`;
 
     if (autogenRegex.test(user.username)) {
         summary += "* Username matches autogen pattern\n";
