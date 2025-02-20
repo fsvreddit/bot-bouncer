@@ -16,8 +16,10 @@ export class EvaluateBannedTitles extends UserEvaluatorBase {
         return false;
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    override preEvaluateUser (_: User): boolean {
+    override preEvaluateUser (user: User): boolean {
+        if (user.commentKarma > 2000 || user.linkKarma > 2000) {
+            return false;
+        }
         return true;
     }
 
