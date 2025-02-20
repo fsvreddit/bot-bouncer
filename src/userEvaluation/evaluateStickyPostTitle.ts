@@ -17,6 +17,10 @@ export class EvaluateBannedTitles extends UserEvaluatorBase {
     }
 
     override preEvaluateUser (user: User): boolean {
+        if (this.variables["pinnedpost:killswitch"]) {
+            return false;
+        }
+
         if (user.commentKarma > 2000 || user.linkKarma > 2000) {
             return false;
         }
@@ -24,6 +28,10 @@ export class EvaluateBannedTitles extends UserEvaluatorBase {
     }
 
     override evaluate (_: User, history: (Post | Comment)[]): boolean {
+        if (this.variables["pinnedpost:killswitch"]) {
+            return false;
+        }
+
         const stickyPosts = history.filter(item => item instanceof Post && item.stickied) as Post[];
         if (stickyPosts.length === 0) {
             this.setReason("User has no sticky posts");
