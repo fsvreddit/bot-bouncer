@@ -21,6 +21,13 @@ export class EvaluateBannedTitles extends UserEvaluatorBase {
             return false;
         }
 
+        const bannableTitles = this.variables["pinnedpost:bantext"] as string[] | undefined ?? [];
+        const reportableTitles = this.variables["pinnedpost:reporttext"] as string[] | undefined ?? [];
+
+        if (bannableTitles.length === 0 && reportableTitles.length === 0) {
+            return false;
+        }
+
         if (user.commentKarma > 2000 || user.linkKarma > 2000) {
             return false;
         }
