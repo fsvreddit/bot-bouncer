@@ -80,7 +80,7 @@ export class EvaluateFirstCommentEmDash extends UserEvaluatorBase {
         }
 
         const firstComment = last(comments);
-        const firstCommentContainsEmDash = firstComment ? firstComment.body.includes("—") : false;
+        const firstCommentContainsEmDash = firstComment ? this.emDashRegex.test(firstComment.body) : false;
 
         let emDashThreshold: number;
         if (comments.length > 80) {
