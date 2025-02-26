@@ -202,7 +202,7 @@ export async function getSummaryTextForUser (username: string, context: TriggerC
 
     const userBio = extendedUser?.data?.subreddit?.publicDescription;
     if (userBio) {
-        summary += `* Bio:\n\n${userBio.split("\n").join("\n> ")}\n`;
+        summary += `* Bio:\n\n> ${userBio.split("\n").join("\n> ")}\n`;
     }
 
     summary += "\n";
