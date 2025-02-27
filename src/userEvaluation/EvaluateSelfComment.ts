@@ -55,15 +55,18 @@ export class EvaluateSelfComment extends UserEvaluatorBase {
         const posts = history.filter(item => isLinkId(item.id) && item.body !== "[removed]") as Post[];
         if (posts.length === 0 || !posts.every(post => this.eligiblePost(post))) {
             this.setReason("User has missing or mismatching posts");
+            return false;
         }
 
         const comments = history.filter(item => isCommentId(item.id)) as Comment[];
         if (comments.length === 0 || !comments.every(comment => this.eligibleComment(comment))) {
             this.setReason("User has missing or mismatching comments");
+            return false;
         }
 
-        if (posts.some(post => !comments.some(comment => comment.parentId === post.id))) {
+        if (!posts.some(post => !comments.some(comment => comment.parentId === post.id))) {
             this.setReason("User has posts without self comments");
+            return false;
         }
 
         const maxCommentAge = this.variables["selfcomment:commentmaxminutes"] as number | undefined ?? 1;
