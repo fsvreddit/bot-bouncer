@@ -37,11 +37,6 @@ export class EvaluateSelfComment extends UserEvaluatorBase {
             return false;
         }
 
-        const usernameRegex = /^(?:[A-Z][a-z]+[-_]?){2}\d{2,4}$/;
-        if (!usernameRegex.test(user.username)) {
-            return false;
-        }
-
         const ageInDays = this.variables["selfcomment:ageindays"] as number | undefined ?? 14;
         const maxKarma = this.variables["selfcomment:maxkarma"] as number | undefined ?? 500;
         return user.createdAt < subDays(new Date(), ageInDays) && user.commentKarma < maxKarma;
