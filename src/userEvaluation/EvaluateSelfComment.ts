@@ -9,6 +9,8 @@ import { domainFromUrl } from "./evaluatorHelpers.js";
 export class EvaluateSelfComment extends UserEvaluatorBase {
     override name = "Self Comment";
 
+    override banContentThreshold = 2;
+
     private eligibleComment (comment: Comment | CommentV2): boolean {
         return isLinkId(comment.parentId)
             && comment.body.split("\n\n").length <= 2;
