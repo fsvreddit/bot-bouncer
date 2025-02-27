@@ -195,6 +195,11 @@ export async function getSummaryTextForUser (username: string, context: TriggerC
         summary += "* User is not blocking u/bot-bouncer\n";
     }
 
+    const userHasGold = extendedUser?.data?.isGold;
+    if (userHasGold) {
+        summary += "* User has Reddit Premium\n";
+    }
+
     const userDisplayName = extendedUser?.data?.subreddit?.title;
     if (userDisplayName) {
         summary += `* Display name: ${userDisplayName}\n`;
