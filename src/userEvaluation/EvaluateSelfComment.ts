@@ -39,11 +39,12 @@ export class EvaluateSelfComment extends UserEvaluatorBase {
 
         const ageInDays = this.variables["selfcomment:ageindays"] as number | undefined ?? 14;
         const maxKarma = this.variables["selfcomment:maxkarma"] as number | undefined ?? 500;
-        return user.createdAt < subDays(new Date(), ageInDays) && user.commentKarma < maxKarma;
+        return user.createdAt > subDays(new Date(), ageInDays) && user.commentKarma < maxKarma;
     }
 
     override evaluate (user: User, history: (Post | Comment)[]): boolean {
         if (!this.preEvaluateUser(user)) {
+            this.setReason("User is too old or has too much karma");
             return false;
         }
 
@@ -64,8 +65,8 @@ export class EvaluateSelfComment extends UserEvaluatorBase {
             return false;
         }
 
-        if (!posts.some(post => !comments.some(comment => comment.parentId === post.id))) {
-            this.setReason("User has posts without self comments");
+        if (!posts.some(post => comments.some(comment => comment.parentId === post.id))) {
+            this.setReason("User has no posts with self comments");
             return false;
         }
 
