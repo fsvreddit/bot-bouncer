@@ -43,7 +43,7 @@ async function handleModmailFromUser (username: string, conversationId: string, 
 
     const user = await getUserOrUndefined(username, context);
 
-    if (currentStatus.userStatus === UserStatus.Banned) {
+    if (currentStatus.userStatus === UserStatus.Banned || currentStatus.userStatus === UserStatus.Purged) {
         const message = user ? CONFIGURATION_DEFAULTS.appealMessage : CONFIGURATION_DEFAULTS.appealShadowbannedMessage;
 
         await context.reddit.modMail.reply({
