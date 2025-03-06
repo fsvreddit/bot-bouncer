@@ -28,6 +28,7 @@ export enum UserStatus {
 export interface UserDetails {
     trackingPostId: string;
     userStatus: UserStatus;
+    lastStatus?: UserStatus;
     lastUpdate: number;
     submitter?: string;
     operator: string;
@@ -44,6 +45,10 @@ export async function getUserStatus (username: string, context: TriggerContext) 
 
 export async function setUserStatus (username: string, details: UserDetails, context: TriggerContext) {
     const currentStatus = await getUserStatus(username, context);
+
+    if (currentStatus?.userStatus === UserStatus.Banned || currentStatus?.userStatus === UserStatus.Service || currentStatus?.userStatus === UserStatus.Organic) {
+        details.lastStatus = currentStatus.userStatus;
+    }
 
     const promises: Promise<unknown>[] = [
         context.redis.hSet(USER_STORE, { [username]: JSON.stringify(details) }),
@@ -235,6 +240,8 @@ function compactDataForWiki (input: string): string {
     const status = JSON.parse(input) as UserDetails;
     status.operator = "";
     delete status.submitter;
+    status.userStatus = status.lastStatus ?? status.userStatus;
+    delete status.lastStatus;
     if (status.lastUpdate < subDays(new Date(), 2).getTime()) {
         status.lastUpdate = 0;
     } else {
