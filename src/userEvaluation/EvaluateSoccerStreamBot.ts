@@ -4,7 +4,6 @@ import { Comment, Post, User } from "@devvit/public-api";
 import { subWeeks, subYears } from "date-fns";
 import { CommentV2 } from "@devvit/protos/types/devvit/reddit/v2alpha/commentv2.js";
 import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
-import { autogenRegex } from "./evaluatorHelpers.js";
 import { compact, uniq } from "lodash";
 
 export class EvaluateSoccerStreamBot extends UserEvaluatorBase {
@@ -42,8 +41,7 @@ export class EvaluateSoccerStreamBot extends UserEvaluatorBase {
     override preEvaluateUser (user: User): boolean {
         return user.createdAt > subYears(new Date(), 2)
             && user.linkKarma < 500
-            && user.commentKarma < 2000
-            && autogenRegex.test(user.username);
+            && user.commentKarma < 2000;
     }
 
     override evaluate (user: User, history: (Post | Comment)[]): boolean {
