@@ -6,6 +6,7 @@ import { getUserStatus } from "./dataStore.js";
 import { evaluateUserAccount } from "./handleControlSubAccountEvaluation.js";
 import { getControlSubSettings } from "./settings.js";
 import { addSeconds } from "date-fns";
+import { getUserOrUndefined } from "./utility.js";
 
 const CHECK_DATE_KEY = "KarmaFarmingSubsCheckDate";
 
@@ -59,22 +60,22 @@ async function evaluateAndHandleUser (username: string, context: JobContext): Pr
         return false;
     }
 
+    const user = await getUserOrUndefined(username, context);
+    if (!user) {
+        return false;
+    }
+
     const newPost = await context.reddit.submitPost({
         subredditName: CONTROL_SUBREDDIT,
         title: `Overview for ${username}`,
         url: `https://www.reddit.com/user/${username}`,
         flairId: PostFlairTemplate.Banned,
+        nsfw: user.nsfw,
     });
 
     let text = "This user was detected automatically through proactive bot hunting activity.\n\n";
     text += `\n\n*I am a bot, and this action was performed automatically. Please [contact the moderators of this subreddit](/message/compose/?to=/r/${CONTROL_SUBREDDIT}) if you have any questions or concerns.*`;
     await newPost.addComment({ text });
-
-    await context.reddit.setPostFlair({
-        subredditName: CONTROL_SUBREDDIT,
-        postId: newPost.id,
-        flairTemplateId: PostFlairTemplate.Banned,
-    });
 
     console.log(`Karma Farming Subs: Banned ${username}`);
 

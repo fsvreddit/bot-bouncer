@@ -208,6 +208,7 @@ export async function processExternalSubmissions (_: unknown, context: JobContex
     let stopLooping = false;
     let username: string | undefined;
     let item: ExternalSubmission | undefined;
+    let nsfw: boolean | undefined;
     // Iterate through list, and find the first user who isn't already being tracked.
     while (!stopLooping) {
         username = usersInQueue.shift();
@@ -219,6 +220,7 @@ export async function processExternalSubmissions (_: unknown, context: JobContex
                     stopLooping = true;
                     item = JSON.parse(submissionQueue[username]) as ExternalSubmission;
                     item.username = user.username;
+                    nsfw = user.nsfw;
                 } else {
                     console.log(`External Submissions: ${username} is already being tracked, skipping.`);
                 }
@@ -245,6 +247,7 @@ export async function processExternalSubmissions (_: unknown, context: JobContex
         title: `Overview for ${item.username}`,
         url: `https://www.reddit.com/user/${item.username}`,
         flairId: newFlair,
+        nsfw,
     });
 
     if (item.reportContext) {

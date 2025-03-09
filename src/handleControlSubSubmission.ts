@@ -79,6 +79,7 @@ export async function handleControlSubSubmission (event: PostCreate, context: Tr
                 title: `Overview for ${user.username}`,
                 url: `https://www.reddit.com/user/${user.username}`,
                 flairId: newFlair,
+                nsfw: user.nsfw,
             });
 
             await setUserStatus(user.username, {
