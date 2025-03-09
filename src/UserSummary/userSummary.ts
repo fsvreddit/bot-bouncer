@@ -163,7 +163,9 @@ export async function getSummaryTextForUser (username: string, context: TriggerC
 
     const socialLinks = await user.getSocialLinks();
     const uniqueSocialDomains = compact(uniq(socialLinks.map(link => domainFromUrl(link.outboundUrl))));
-    summary += `* Social links: ${socialLinks.length}: ${uniqueSocialDomains.join(", ")}\n`;
+    if (uniqueSocialDomains.length > 0) {
+        summary += `* Social links: ${uniqueSocialDomains.join(", ")}\n`;
+    }
 
     if (autogenRegex.test(user.username)) {
         summary += "* Username matches autogen pattern\n";
