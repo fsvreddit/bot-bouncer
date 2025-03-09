@@ -51,6 +51,8 @@ Note: the app directory may show a new version available to upgrade to, but 1.4.
 
 * Changes to support internal r/BotBouncer operations
 * Add new evaluator for bot rings that have identical sticky posts on their profiles
+* Add new evaluator for bots that are shilling specific services with mentions in every comment
+* Add new evaluator for bots that advertise illegal IPTV streams across multiple subreddits
 
 ## v1.4.0
 
