@@ -15,6 +15,7 @@ import { EvaluateBadUsername } from "./EvaluateBadUsername.js";
 import { EvaluateSelfLoveBot } from "./EvaluateSelfLoveBot.js";
 import { EvaluateBannedTitles } from "./evaluateStickyPostTitle.js";
 import { EvaluateSelfComment } from "./EvaluateSelfComment.js";
+import { EvaluateSoccerStreamBot } from "./EvaluateSoccerStreamBot.js";
 
 export const ALL_EVALUATORS = [
     EvaluateShortTlc,
@@ -34,4 +35,5 @@ export const ALL_EVALUATORS = [
     EvaluateSelfLoveBot,
     EvaluateBannedTitles,
     EvaluateSelfComment,
+    EvaluateSoccerStreamBot,
 ];
