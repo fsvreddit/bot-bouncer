@@ -218,13 +218,13 @@ async function handleDeletedAccountsControlSub (usernames: string[], context: Tr
                 const post = await context.reddit.getPostById(status.trackingPostId);
                 await post.delete();
 
-                console.log(`Cleanup: Post deleted for ${username}`);
-
-                await context.redis.set(`ignoreflairchange:${post.id}`, "true", { expiration: addHours(new Date(), 1) });
-
+                const deletedPosts = await context.redis.incrBy("deletedPosts", 1);
+                console.log(`Cleanup: Post deleted for ${username}. Now deleted ${deletedPosts} posts.`);
                 if (status.userStatus === newStatus) {
                     continue;
                 }
+
+                await context.redis.set(`ignoreflairchange:${post.id}`, "true", { expiration: addHours(new Date(), 1) });
 
                 await context.reddit.setPostFlair({
                     postId: post.id,
