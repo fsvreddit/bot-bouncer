@@ -53,8 +53,11 @@ export async function setUserStatus (username: string, details: UserDetails, con
     const promises: Promise<unknown>[] = [
         context.redis.hSet(USER_STORE, { [username]: JSON.stringify(details) }),
         context.redis.hSet(POST_STORE, { [details.trackingPostId]: username }),
-        queueWikiUpdate(context),
     ];
+
+    if (details.userStatus !== UserStatus.Purged && details.userStatus !== UserStatus.Retired) {
+        promises.push(queueWikiUpdate(context));
+    }
 
     if (details.userStatus === UserStatus.Pending) {
         promises.push(setCleanupForUsers([username], context, true, 1));
