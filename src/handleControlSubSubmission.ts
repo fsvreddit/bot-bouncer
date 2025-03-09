@@ -70,6 +70,9 @@ export async function handleControlSubSubmission (event: PostCreate, context: Tr
         if (currentStatus) {
             const post = await context.reddit.getPostById(currentStatus.trackingPostId);
             submissionResponse = `Hi, thanks for your submission.\n\n${username} is already tracked by Bot Bouncer with a current status of ${currentStatus.userStatus}, you can see the submission [here](${post.permalink}).`;
+            if (currentStatus.userStatus === UserStatus.Organic) {
+                submissionResponse += `\n\nIf you have information about how this user is a bot that we may have missed, please [modmail us](https://www.reddit.com/message/compose?to=/r/BotBouncer&subject=More%20information%20about%20/u/${user.username}) with the details, so that we can review again.`;
+            }
         } else {
             const newStatus = controlSubSettings.trustedSubmitters.includes(event.author.name) ? UserStatus.Banned : UserStatus.Pending;
             const newFlair = newStatus === UserStatus.Banned ? PostFlairTemplate.Banned : PostFlairTemplate.Pending;
