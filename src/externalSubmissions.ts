@@ -1,12 +1,13 @@
-import { JobContext, TriggerContext, WikiPage, WikiPagePermissionLevel } from "@devvit/public-api";
-import { CONTROL_SUBREDDIT, EVALUATE_USER, EXTERNAL_SUBMISSION_JOB, EXTERNAL_SUBMISSION_JOB_CRON, PostFlairTemplate } from "./constants.js";
-import { getUserStatus, setUserStatus, UserStatus } from "./dataStore.js";
+import { JobContext, TriggerContext, User, WikiPage, WikiPagePermissionLevel } from "@devvit/public-api";
+import { CONTROL_SUBREDDIT, EVALUATE_USER, EXTERNAL_SUBMISSION_JOB, EXTERNAL_SUBMISSION_JOB_CRON } from "./constants.js";
+import { getUserStatus, setUserStatus, UserDetails, UserStatus } from "./dataStore.js";
 import { getControlSubSettings } from "./settings.js";
 import Ajv, { JSONSchemaType } from "ajv";
 import { addMinutes, addSeconds } from "date-fns";
 import { getPostOrCommentById, getUserOrUndefined } from "./utility.js";
 import { isLinkId } from "@devvit/shared-types/tid.js";
 import { parseExpression } from "cron-parser";
+import { createNewSubmission } from "./postCreation.js";
 
 const WIKI_PAGE = "externalsubmissions";
 export const EXTERNAL_SUBMISSION_QUEUE = "externalSubmissionQueue";
@@ -208,19 +209,18 @@ export async function processExternalSubmissions (_: unknown, context: JobContex
     let stopLooping = false;
     let username: string | undefined;
     let item: ExternalSubmission | undefined;
-    let nsfw: boolean | undefined;
+    let user: User | undefined;
     // Iterate through list, and find the first user who isn't already being tracked.
     while (!stopLooping) {
         username = usersInQueue.shift();
         if (username) {
-            const user = await getUserOrUndefined(username, context);
+            user = await getUserOrUndefined(username, context);
             if (user) {
                 const currentStatus = await getUserStatus(user.username, context);
                 if (!currentStatus) {
                     stopLooping = true;
                     item = JSON.parse(submissionQueue[username]) as ExternalSubmission;
                     item.username = user.username;
-                    nsfw = user.nsfw;
                 } else {
                     console.log(`External Submissions: ${username} is already being tracked, skipping.`);
                 }
@@ -234,21 +234,22 @@ export async function processExternalSubmissions (_: unknown, context: JobContex
         }
     }
 
-    if (!item) {
+    if (!item || !user) {
         return;
     }
 
     const controlSubSettings = await getControlSubSettings(context);
     const newStatus = ((item.submitter && controlSubSettings.trustedSubmitters.includes(item.submitter)) || item.initialStatus === UserStatus.Banned) ? UserStatus.Banned : UserStatus.Pending;
-    const newFlair = newStatus === UserStatus.Banned ? PostFlairTemplate.Banned : PostFlairTemplate.Pending;
 
-    const newPost = await context.reddit.submitPost({
-        subredditName: CONTROL_SUBREDDIT,
-        title: `Overview for ${item.username}`,
-        url: `https://www.reddit.com/user/${item.username}`,
-        flairId: newFlair,
-        nsfw,
-    });
+    const newUserDetails: UserDetails = {
+        userStatus: newStatus,
+        lastUpdate: new Date().getTime(),
+        submitter: item.submitter,
+        operator: context.appName,
+        trackingPostId: "",
+    };
+
+    const newPost = await createNewSubmission(user, newUserDetails, context);
 
     if (item.reportContext) {
         let text = "The submitter added the following context for this submission:\n\n";
@@ -271,14 +272,6 @@ export async function processExternalSubmissions (_: unknown, context: JobContex
             },
         });
     }
-
-    await setUserStatus(item.username, {
-        userStatus: newStatus,
-        lastUpdate: new Date().getTime(),
-        submitter: item.submitter,
-        operator: context.appName,
-        trackingPostId: newPost.id,
-    }, context);
 
     console.log(`External submission created for ${item.username}`);
 

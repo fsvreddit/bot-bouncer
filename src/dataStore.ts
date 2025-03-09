@@ -44,6 +44,10 @@ export async function getUserStatus (username: string, context: TriggerContext) 
 }
 
 export async function setUserStatus (username: string, details: UserDetails, context: TriggerContext) {
+    if (details.trackingPostId === "") {
+        throw new Error(`Tracking post ID is missing for ${username}!`);
+    }
+
     const currentStatus = await getUserStatus(username, context);
 
     if (currentStatus?.userStatus === UserStatus.Banned || currentStatus?.userStatus === UserStatus.Service || currentStatus?.userStatus === UserStatus.Organic) {
