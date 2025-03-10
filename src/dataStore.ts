@@ -6,6 +6,7 @@ import { CONTROL_SUBREDDIT, HANDLE_CLASSIFICATION_CHANGES_JOB } from "./constant
 import { addSeconds, addWeeks, startOfSecond, subDays, subHours } from "date-fns";
 import pluralize from "pluralize";
 import { getControlSubSettings } from "./settings.js";
+import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
 
 const USER_STORE = "UserStore";
 const POST_STORE = "PostStore";
@@ -44,8 +45,8 @@ export async function getUserStatus (username: string, context: TriggerContext) 
 }
 
 export async function setUserStatus (username: string, details: UserDetails, context: TriggerContext) {
-    if (details.trackingPostId === "") {
-        throw new Error(`Tracking post ID is missing for ${username}!`);
+    if (!isLinkId(details.trackingPostId) && !isCommentId(details.trackingPostId)) {
+        throw new Error(`Tracking post ID is missing or invalid for ${username}: ${details.trackingPostId}!`);
     }
 
     const currentStatus = await getUserStatus(username, context);
