@@ -223,7 +223,7 @@ export async function validateControlSubConfigChange (username: string, context:
             await reportControlSubValidationError(username, `Control sub settings are invalid: ${ajv.errorsText(validate.errors)}`, context);
         } else {
             // Check for updates by the app account
-            if (wikiPage.revisionAuthor?.username === context.appName && json.evaluationDisabled && !json.proactiveEvaluationEnabled && !json.bulkSubmitters) {
+            if (wikiPage.revisionAuthor?.username === context.appName) {
                 await context.reddit.modMail.createModInboxConversation({
                     subredditId: context.subredditId,
                     subject: "Control sub settings updated by app account!",
