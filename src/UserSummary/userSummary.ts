@@ -275,7 +275,13 @@ export async function getSummaryTextForUser (username: string, context: TriggerC
     }
 
     summary += "\n";
-    summary += activityByTimeOfDay([...userComments, ...userPosts]);
+
+    if (userComments.length > 0 || userPosts.length > 0) {
+        summary += activityByTimeOfDay([...userComments, ...userPosts]);
+    } else {
+        summary += "## Activity\n\n";
+        summary += "User has no comments or posts visible on their profile\n\n";
+    }
 
     return summary;
 }
