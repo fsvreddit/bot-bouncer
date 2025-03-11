@@ -248,7 +248,9 @@ function compactDataForWiki (input: string): string {
     const status = JSON.parse(input) as UserDetails;
     status.operator = "";
     delete status.submitter;
-    status.userStatus = status.lastStatus ?? status.userStatus;
+    if (status.userStatus === UserStatus.Purged && status.lastStatus) {
+        status.userStatus = status.lastStatus;
+    }
     delete status.lastStatus;
     if (status.lastUpdate < subDays(new Date(), 2).getTime()) {
         status.lastUpdate = 0;
