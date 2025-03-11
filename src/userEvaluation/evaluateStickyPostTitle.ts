@@ -13,7 +13,7 @@ export class EvaluateBannedTitles extends UserEvaluatorBase {
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     override preEvaluatePost (_: Post): boolean {
-        return false;
+        return true;
     }
 
     override preEvaluateUser (user: User): boolean {
@@ -34,7 +34,12 @@ export class EvaluateBannedTitles extends UserEvaluatorBase {
         return true;
     }
 
-    override evaluate (_: User, history: (Post | Comment)[]): boolean {
+    override evaluate (user: User, history: (Post | Comment)[]): boolean {
+        if (!this.preEvaluateUser(user)) {
+            this.setReason("User does not meet pre-evaluation criteria");
+            return false;
+        }
+
         if (this.variables["pinnedpost:killswitch"]) {
             return false;
         }
