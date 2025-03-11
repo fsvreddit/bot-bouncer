@@ -159,7 +159,7 @@ export async function getSummaryTextForUser (username: string, context: TriggerC
     summary += `* Account age: ${accountAge}\n`;
     summary += `* Comment karma: ${user.commentKarma}\n`;
     summary += `* Post karma: ${user.linkKarma}\n`;
-    summary += `* Verified Email: ${extendedUser?.data?.hasVerifiedEmail ? "Yes" : "No"}\n`;
+    summary += `* Verified Email: ${user.hasVerifiedEmail ? "Yes" : "No"}\n`;
 
     const socialLinks = await user.getSocialLinks();
     const uniqueSocialDomains = compact(uniq(socialLinks.map(link => domainFromUrl(link.outboundUrl))));
