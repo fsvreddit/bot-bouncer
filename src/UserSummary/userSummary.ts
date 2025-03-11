@@ -2,7 +2,7 @@ import { Comment, Post, TriggerContext } from "@devvit/public-api";
 import { domainFromUrl, getUserOrUndefined, median } from "../utility.js";
 import { addMilliseconds, differenceInDays, differenceInHours, differenceInMilliseconds, differenceInMinutes, Duration, formatDuration, intervalToDuration, startOfDecade } from "date-fns";
 import { autogenRegex, femaleNameRegex, resemblesAutogen } from "./regexes.js";
-import { compact, countBy, mean } from "lodash";
+import { compact, countBy, mean, uniq } from "lodash";
 import { count } from "@wordpress/wordcount";
 import { isUserPotentiallyBlockingBot } from "./blockChecker.js";
 import pluralize from "pluralize";
@@ -159,14 +159,13 @@ export async function getSummaryTextForUser (username: string, context: TriggerC
     summary += `* Account age: ${accountAge}\n`;
     summary += `* Comment karma: ${user.commentKarma}\n`;
     summary += `* Post karma: ${user.linkKarma}\n`;
-    summary += `* Verified Email: ${extendedUser?.data?.hasVerifiedEmail ? "Yes" : "No"}\n`;
-    const userBio = extendedUser?.data?.subreddit?.publicDescription;
-    if (userBio) {
-        summary += `* Bio: ${userBio}\n`;
-    }
+    summary += `* Verified Email: ${user.hasVerifiedEmail ? "Yes" : "No"}\n`;
 
     const socialLinks = await user.getSocialLinks();
-    summary += `* Social links: ${socialLinks.length}\n`;
+    const uniqueSocialDomains = compact(uniq(socialLinks.map(link => domainFromUrl(link.outboundUrl))));
+    if (uniqueSocialDomains.length > 0) {
+        summary += `* Social links: ${uniqueSocialDomains.join(", ")}\n`;
+    }
 
     if (autogenRegex.test(user.username)) {
         summary += "* Username matches autogen pattern\n";
@@ -196,6 +195,21 @@ export async function getSummaryTextForUser (username: string, context: TriggerC
         summary += "* User is potentially blocking bot u/bot-bouncer (their visible history only shows subs where app is installed)\n";
     } else {
         summary += "* User is not blocking u/bot-bouncer\n";
+    }
+
+    const userHasGold = extendedUser?.data?.isGold;
+    if (userHasGold) {
+        summary += "* User has Reddit Premium\n";
+    }
+
+    const userDisplayName = extendedUser?.data?.subreddit?.title;
+    if (userDisplayName) {
+        summary += `* Display name: ${userDisplayName}\n`;
+    }
+
+    const userBio = extendedUser?.data?.subreddit?.publicDescription?.trim();
+    if (userBio) {
+        summary += `* Bio:\n\n> ${userBio.split("\n").join("\n> ")}\n`;
     }
 
     summary += "\n";
@@ -261,7 +275,13 @@ export async function getSummaryTextForUser (username: string, context: TriggerC
     }
 
     summary += "\n";
-    summary += activityByTimeOfDay([...userComments, ...userPosts]);
+
+    if (userComments.length > 0 || userPosts.length > 0) {
+        summary += activityByTimeOfDay([...userComments, ...userPosts]);
+    } else {
+        summary += "## Activity\n\n";
+        summary += "User has no comments or posts visible on their profile\n\n";
+    }
 
     return summary;
 }

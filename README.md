@@ -45,6 +45,13 @@ Write in to [/r/BotBouncer's modmail](https://www.reddit.com/message/compose/?to
 
 # Change History
 
+## v1.5.0
+
+* Changes to support internal r/BotBouncer operations
+* Add new evaluator for bot rings that have identical sticky posts on their profiles
+* Add new evaluator for bots that are shilling specific services with mentions in every comment
+* Add new evaluator for bots that advertise illegal IPTV streams across multiple subreddits
+
 ## v1.4.0
 
 * Fully reinstate content removed by bot when a user is marked as human

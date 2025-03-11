@@ -12,7 +12,10 @@ import { EvaluateCommentBot } from "./EvaluateCommentBot.js";
 import { EvaluateCelebBot } from "./EvaluateCelebBot.js";
 import { EvaluateAffiliateBot } from "./EvaluateAffiliateBot.js";
 import { EvaluateBadUsername } from "./EvaluateBadUsername.js";
-import { EvaluateSelfLoveBot } from "./EvaluateSelfLoveBot.js";
+import { EvaluateBannedTitles } from "./evaluateStickyPostTitle.js";
+import { EvaluateSelfComment } from "./EvaluateSelfComment.js";
+import { EvaluateSoccerStreamBot } from "./EvaluateSoccerStreamBot.js";
+import { EvaluateRepeatedPhraseBot } from "./EvaluateRepeatedPhraseBot.js";
 
 export const ALL_EVALUATORS = [
     EvaluateShortTlc,
@@ -29,5 +32,8 @@ export const ALL_EVALUATORS = [
     EvaluateCelebBot,
     EvaluateAffiliateBot,
     EvaluateBadUsername,
-    EvaluateSelfLoveBot,
+    EvaluateBannedTitles,
+    EvaluateSelfComment,
+    EvaluateSoccerStreamBot,
+    EvaluateRepeatedPhraseBot,
 ];

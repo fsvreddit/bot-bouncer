@@ -94,14 +94,25 @@ export async function cleanupDeletedAccounts (_: unknown, context: TriggerContex
             await setCleanupForUsers(pendingUsers, context, false, 1);
         }
 
-        // Users who were formerly marked as "purged" or "retired" should be set back to "pending".
+        // Users who were formerly marked as "purged" or "retired" should be set back to "pending" or their last known status.
         for (const username of Object.keys(purgedUsers)) {
             if (context.subredditName === CONTROL_SUBREDDIT) {
+                const currentStatus = await getUserStatus(username, context);
+                let newTemplate = PostFlairTemplate.Pending;
+                if (currentStatus?.lastStatus === UserStatus.Banned) {
+                    newTemplate = PostFlairTemplate.Banned;
+                } else if (currentStatus?.lastStatus === UserStatus.Organic) {
+                    newTemplate = PostFlairTemplate.Organic;
+                } else if (currentStatus?.lastStatus === UserStatus.Service) {
+                    newTemplate = PostFlairTemplate.Service;
+                }
+
                 await context.reddit.setPostFlair({
                     postId: purgedUsers[username].trackingPostId,
                     subredditName: CONTROL_SUBREDDIT,
-                    flairTemplateId: PostFlairTemplate.Pending,
+                    flairTemplateId: newTemplate,
                 });
+
                 const post = await context.reddit.getPostById(purgedUsers[username].trackingPostId);
                 await context.reddit.report(post, { reason: `User has returned to pending status, formerly ${purgedUsers[username].userStatus}.` });
             }
@@ -207,13 +218,13 @@ async function handleDeletedAccountsControlSub (usernames: string[], context: Tr
                 const post = await context.reddit.getPostById(status.trackingPostId);
                 await post.delete();
 
-                console.log(`Cleanup: Post deleted for ${username}`);
-
-                await context.redis.set(`ignoreflairchange:${post.id}`, "true", { expiration: addHours(new Date(), 1) });
-
+                const deletedPosts = await context.redis.incrBy("deletedPosts", 1);
+                console.log(`Cleanup: Post deleted for ${username}. Now deleted ${deletedPosts} posts.`);
                 if (status.userStatus === newStatus) {
                     continue;
                 }
+
+                await context.redis.set(`ignoreflairchange:${post.id}`, "true", { expiration: addHours(new Date(), 1) });
 
                 await context.reddit.setPostFlair({
                     postId: post.id,

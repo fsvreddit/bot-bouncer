@@ -4,7 +4,7 @@ import { CLEANUP_JOB, CLEANUP_JOB_CRON, CONTROL_SUBREDDIT, EVALUATE_KARMA_FARMIN
 import { scheduleAdhocCleanup, setCleanupForSubmittersAndMods } from "./cleanup.js";
 import { handleExternalSubmissionsPageUpdate } from "./externalSubmissions.js";
 import { compact, uniq } from "lodash";
-import { correctAggregateData, UserDetails } from "./dataStore.js";
+import { correctAggregateData, UserDetails, UserStatus } from "./dataStore.js";
 
 export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, context: TriggerContext) {
     console.log("App Install: Detected an app install or update event");
@@ -98,6 +98,7 @@ async function handleReleaseUpgradeDataMigrationTasks (context: TriggerContext) 
     const migrationSteps = [
         "QueueCleanupForSubmittersAndMods",
         "CorrectAggregateData",
+        "RetriggerUnbans",
     ];
 
     const pendingSteps = migrationSteps.filter(step => !migrationStepsCompleted.includes(step));
@@ -111,6 +112,16 @@ async function handleReleaseUpgradeDataMigrationTasks (context: TriggerContext) 
             console.log(`Release Upgrade: Queued cleanup for ${users.length} submitters and mods`);
         } else if (step === "CorrectAggregateData") {
             await correctAggregateData(context);
+        } else if (step === "RetriggerUnbans") {
+            const data = await context.redis.hGetAll("UserStore");
+            const entries = Object.entries(data).map(([username, value]) => ({ username, value: JSON.parse(value) as UserDetails }));
+            const recentUnbans = entries.filter(entry => entry.value.userStatus === UserStatus.Organic && entry.value.lastStatus);
+            for (const entry of recentUnbans) {
+                entry.value.lastUpdate = new Date().getTime();
+                await context.redis.hSet("UserStore", { [entry.username]: JSON.stringify(entry.value) });
+            }
+            console.log(`Release Upgrade: Retriggered unbans for ${recentUnbans.length} users`);
+            await context.redis.set("WikiUpdateDue", "true");
         }
 
         await context.redis.zAdd(redisKey, { member: step, score: new Date().getTime() });

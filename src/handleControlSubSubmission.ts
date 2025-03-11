@@ -1,10 +1,11 @@
 import { TriggerContext, User } from "@devvit/public-api";
 import { PostCreate } from "@devvit/protos";
-import { CONTROL_SUBREDDIT, EVALUATE_USER, PostFlairTemplate } from "./constants.js";
+import { CONTROL_SUBREDDIT, EVALUATE_USER } from "./constants.js";
 import { getUsernameFromUrl, getUserOrUndefined, isModerator } from "./utility.js";
-import { getUserStatus, setUserStatus, UserStatus } from "./dataStore.js";
+import { getUserStatus, UserDetails, UserStatus } from "./dataStore.js";
 import { subMonths } from "date-fns";
 import { getControlSubSettings } from "./settings.js";
+import { createNewSubmission } from "./postCreation.js";
 
 export async function handleControlSubSubmission (event: PostCreate, context: TriggerContext) {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
@@ -70,24 +71,21 @@ export async function handleControlSubSubmission (event: PostCreate, context: Tr
         if (currentStatus) {
             const post = await context.reddit.getPostById(currentStatus.trackingPostId);
             submissionResponse = `Hi, thanks for your submission.\n\n${username} is already tracked by Bot Bouncer with a current status of ${currentStatus.userStatus}, you can see the submission [here](${post.permalink}).`;
+            if (currentStatus.userStatus === UserStatus.Organic) {
+                submissionResponse += `\n\nIf you have information about how this user is a bot that we may have missed, please [modmail us](https://www.reddit.com/message/compose?to=/r/BotBouncer&subject=More%20information%20about%20/u/${user.username}) with the details, so that we can review again.`;
+            }
         } else {
             const newStatus = controlSubSettings.trustedSubmitters.includes(event.author.name) ? UserStatus.Banned : UserStatus.Pending;
-            const newFlair = newStatus === UserStatus.Banned ? PostFlairTemplate.Banned : PostFlairTemplate.Pending;
 
-            const newPost = await context.reddit.submitPost({
-                subredditName: CONTROL_SUBREDDIT,
-                title: `Overview for ${user.username}`,
-                url: `https://www.reddit.com/user/${user.username}`,
-                flairId: newFlair,
-            });
-
-            await setUserStatus(user.username, {
+            const newDetails: UserDetails = {
                 userStatus: newStatus,
                 lastUpdate: new Date().getTime(),
                 submitter: event.author.name,
                 operator: context.appName,
-                trackingPostId: newPost.id,
-            }, context);
+                trackingPostId: "",
+            };
+
+            const newPost = await createNewSubmission(user, newDetails, context);
 
             console.log(`Created new post for ${username}`);
 

@@ -6,6 +6,7 @@ import { CONTROL_SUBREDDIT, HANDLE_CLASSIFICATION_CHANGES_JOB } from "./constant
 import { addSeconds, addWeeks, startOfSecond, subDays, subHours } from "date-fns";
 import pluralize from "pluralize";
 import { getControlSubSettings } from "./settings.js";
+import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
 
 const USER_STORE = "UserStore";
 const POST_STORE = "PostStore";
@@ -28,6 +29,7 @@ export enum UserStatus {
 export interface UserDetails {
     trackingPostId: string;
     userStatus: UserStatus;
+    lastStatus?: UserStatus;
     lastUpdate: number;
     submitter?: string;
     operator: string;
@@ -43,13 +45,24 @@ export async function getUserStatus (username: string, context: TriggerContext) 
 }
 
 export async function setUserStatus (username: string, details: UserDetails, context: TriggerContext) {
+    if (!isLinkId(details.trackingPostId) && !isCommentId(details.trackingPostId)) {
+        throw new Error(`Tracking post ID is missing or invalid for ${username}: ${details.trackingPostId}!`);
+    }
+
     const currentStatus = await getUserStatus(username, context);
+
+    if (currentStatus?.userStatus === UserStatus.Banned || currentStatus?.userStatus === UserStatus.Service || currentStatus?.userStatus === UserStatus.Organic) {
+        details.lastStatus = currentStatus.userStatus;
+    }
 
     const promises: Promise<unknown>[] = [
         context.redis.hSet(USER_STORE, { [username]: JSON.stringify(details) }),
         context.redis.hSet(POST_STORE, { [details.trackingPostId]: username }),
-        queueWikiUpdate(context),
     ];
+
+    if (details.userStatus !== UserStatus.Purged && details.userStatus !== UserStatus.Retired) {
+        promises.push(queueWikiUpdate(context));
+    }
 
     if (details.userStatus === UserStatus.Pending) {
         promises.push(setCleanupForUsers([username], context, true, 1));
@@ -235,6 +248,10 @@ function compactDataForWiki (input: string): string {
     const status = JSON.parse(input) as UserDetails;
     status.operator = "";
     delete status.submitter;
+    if (status.userStatus === UserStatus.Purged && status.lastStatus) {
+        status.userStatus = status.lastStatus;
+    }
+    delete status.lastStatus;
     if (status.lastUpdate < subDays(new Date(), 2).getTime()) {
         status.lastUpdate = 0;
     } else {

@@ -5,7 +5,6 @@ import { getUserOrUndefined } from "../utility.js";
 import { CONFIGURATION_DEFAULTS, getControlSubSettings } from "../settings.js";
 import Ajv, { JSONSchemaType } from "ajv";
 import { EXTERNAL_SUBMISSION_QUEUE, ExternalSubmission, scheduleAdhocExternalSubmissionsJob } from "../externalSubmissions.js";
-import pluralize from "pluralize";
 import { uniq } from "lodash";
 
 export async function handleControlSubredditModmail (username: string, conversationId: string, message: string | undefined, context: TriggerContext): Promise<boolean> {
@@ -44,7 +43,7 @@ async function handleModmailFromUser (username: string, conversationId: string, 
 
     const user = await getUserOrUndefined(username, context);
 
-    if (currentStatus.userStatus === UserStatus.Banned) {
+    if (currentStatus.userStatus === UserStatus.Banned || currentStatus.userStatus === UserStatus.Purged) {
         const message = user ? CONFIGURATION_DEFAULTS.appealMessage : CONFIGURATION_DEFAULTS.appealShadowbannedMessage;
 
         await context.reddit.modMail.reply({
@@ -116,23 +115,15 @@ async function handleBulkSubmission (username: string, trusted: boolean, convers
     const externalSubmissions = uniq(data.usernames).map(botUsername => ({ username: botUsername, reportContext: data.reason, submitter: username, initialStatus } as ExternalSubmission));
 
     let queued = 0;
-    let alreadyKnown = 0;
 
     for (const entry of externalSubmissions) {
         const currentStatus = await getUserStatus(entry.username, context);
         if (!currentStatus) {
             queued++;
             await context.redis.hSet(EXTERNAL_SUBMISSION_QUEUE, { [entry.username]: JSON.stringify(entry) });
-        } else {
-            alreadyKnown++;
         }
     }
 
-    await context.reddit.modMail.reply({
-        conversationId,
-        body: `Submission processed. ${queued} new ${pluralize("submission", queued)} queued, ${alreadyKnown} already known.`,
-        isAuthorHidden: false,
-    });
     await context.reddit.modMail.archiveConversation(conversationId);
 
     if (queued > 0) {

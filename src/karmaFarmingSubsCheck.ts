@@ -1,11 +1,13 @@
 import { JobContext, JSONObject, Post, ScheduledJobEvent } from "@devvit/public-api";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { uniq } from "lodash";
-import { CONTROL_SUBREDDIT, EVALUATE_KARMA_FARMING_SUBS, PostFlairTemplate } from "./constants.js";
-import { getUserStatus } from "./dataStore.js";
+import { CONTROL_SUBREDDIT, EVALUATE_KARMA_FARMING_SUBS } from "./constants.js";
+import { getUserStatus, UserDetails, UserStatus } from "./dataStore.js";
 import { evaluateUserAccount } from "./handleControlSubAccountEvaluation.js";
 import { getControlSubSettings } from "./settings.js";
 import { addSeconds } from "date-fns";
+import { getUserOrUndefined } from "./utility.js";
+import { createNewSubmission } from "./postCreation.js";
 
 const CHECK_DATE_KEY = "KarmaFarmingSubsCheckDate";
 
@@ -59,22 +61,24 @@ async function evaluateAndHandleUser (username: string, context: JobContext): Pr
         return false;
     }
 
-    const newPost = await context.reddit.submitPost({
-        subredditName: CONTROL_SUBREDDIT,
-        title: `Overview for ${username}`,
-        url: `https://www.reddit.com/user/${username}`,
-        flairId: PostFlairTemplate.Banned,
-    });
+    const user = await getUserOrUndefined(username, context);
+    if (!user) {
+        return false;
+    }
+
+    const newDetails: UserDetails = {
+        userStatus: UserStatus.Banned,
+        lastUpdate: new Date().getTime(),
+        submitter: context.appName,
+        operator: context.appName,
+        trackingPostId: "",
+    };
+
+    const newPost = await createNewSubmission(user, newDetails, context);
 
     let text = "This user was detected automatically through proactive bot hunting activity.\n\n";
     text += `\n\n*I am a bot, and this action was performed automatically. Please [contact the moderators of this subreddit](/message/compose/?to=/r/${CONTROL_SUBREDDIT}) if you have any questions or concerns.*`;
     await newPost.addComment({ text });
-
-    await context.reddit.setPostFlair({
-        subredditName: CONTROL_SUBREDDIT,
-        postId: newPost.id,
-        flairTemplateId: PostFlairTemplate.Banned,
-    });
 
     console.log(`Karma Farming Subs: Banned ${username}`);
 
