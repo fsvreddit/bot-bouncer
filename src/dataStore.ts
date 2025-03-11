@@ -45,7 +45,7 @@ export async function getUserStatus (username: string, context: TriggerContext) 
 }
 
 export async function setUserStatus (username: string, details: UserDetails, context: TriggerContext) {
-    if (!isLinkId(details.trackingPostId) && !isCommentId(details.trackingPostId)) {
+    if (context.subredditName === CONTROL_SUBREDDIT && !isLinkId(details.trackingPostId) && !isCommentId(details.trackingPostId)) {
         throw new Error(`Tracking post ID is missing or invalid for ${username}: ${details.trackingPostId}!`);
     }
 

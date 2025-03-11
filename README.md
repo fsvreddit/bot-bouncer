@@ -45,7 +45,7 @@ Write in to [/r/BotBouncer's modmail](https://www.reddit.com/message/compose/?to
 
 # Change History
 
-## v1.5.0
+## v1.5.2
 
 * Changes to support internal r/BotBouncer operations
 * Add new evaluator for bot rings that have identical sticky posts on their profiles

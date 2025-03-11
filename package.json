@@ -9,9 +9,9 @@
     "test:unit": "vitest --run"
   },
   "dependencies": {
-    "@devvit/protos": "0.11.8",
-    "@devvit/public-api": "0.11.8",
-    "@devvit/shared-types": "0.11.8",
+    "@devvit/protos": "0.11.9",
+    "@devvit/public-api": "0.11.9",
+    "@devvit/shared-types": "0.11.9",
     "@types/lodash": "^4.17.13",
     "@types/pako": "^2.0.3",
     "@types/pluralize": "^0.0.33",
