@@ -45,6 +45,12 @@ Write in to [/r/BotBouncer's modmail](https://www.reddit.com/message/compose/?to
 
 # Change History
 
+## Next
+
+Note: There may appear to be a version available for upgrade, but 1.5.2 is the latest public release.
+
+* Improve sticky post evaluator to evaluate on all subs using Bot Bouncer, not just r/BotBouncer itself
+
 ## v1.5.2
 
 * Changes to support internal r/BotBouncer operations
