@@ -45,9 +45,7 @@ Write in to [/r/BotBouncer's modmail](https://www.reddit.com/message/compose/?to
 
 # Change History
 
-## Next version
-
-Note: the app directory may show a new version available to upgrade to, but 1.4.0 is the current public version.
+## v1.5.0
 
 * Changes to support internal r/BotBouncer operations
 * Add new evaluator for bot rings that have identical sticky posts on their profiles
