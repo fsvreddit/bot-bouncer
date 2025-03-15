@@ -1,6 +1,7 @@
 import { Comment, Post, User } from "@devvit/public-api";
 import { CommentCreate } from "@devvit/protos";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
+import { domainFromUrl } from "../utility.js";
 
 export class EvaluateBannedTitles extends UserEvaluatorBase {
     override name = "Sticky Post Title Bot";
@@ -11,9 +12,9 @@ export class EvaluateBannedTitles extends UserEvaluatorBase {
         return false;
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    override preEvaluatePost (_: Post): boolean {
-        return false;
+    override preEvaluatePost (post: Post): boolean {
+        const domain = domainFromUrl(post.url);
+        return domain === "reddit.com";
     }
 
     override preEvaluateUser (user: User): boolean {
@@ -34,7 +35,12 @@ export class EvaluateBannedTitles extends UserEvaluatorBase {
         return true;
     }
 
-    override evaluate (_: User, history: (Post | Comment)[]): boolean {
+    override evaluate (user: User, history: (Post | Comment)[]): boolean {
+        if (!this.preEvaluateUser(user)) {
+            this.setReason("User does not meet pre-evaluation criteria");
+            return false;
+        }
+
         if (this.variables["pinnedpost:killswitch"]) {
             return false;
         }

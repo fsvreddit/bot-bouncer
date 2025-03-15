@@ -8,6 +8,7 @@ import { getControlSubSettings } from "./settings.js";
 import { addSeconds } from "date-fns";
 import { getUserOrUndefined } from "./utility.js";
 import { createNewSubmission } from "./postCreation.js";
+import pluralize from "pluralize";
 
 const CHECK_DATE_KEY = "KarmaFarmingSubsCheckDate";
 
@@ -98,10 +99,15 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
         console.log("Karma Farming Subs: First batch starting.");
     }
 
-    const batchSize = 10;
+    const batchSize = 20;
     let processed = 0;
+    let userBanned = false;
 
-    console.log(`Karma Farming Subs: Checking up to ten accounts out of ${accounts.length}`);
+    if (accounts.length > batchSize) {
+        console.log(`Karma Farming Subs: Checking ${batchSize} accounts out of ${accounts.length}`);
+    } else {
+        console.log(`Karma Farming Subs: Checking final ${accounts.length} ${pluralize("account", accounts.length)}`);
+    }
 
     while (processed < batchSize) {
         const username = accounts.shift();
@@ -110,7 +116,7 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
         }
 
         try {
-            const userBanned = await evaluateAndHandleUser(username, context);
+            userBanned = await evaluateAndHandleUser(username, context);
             if (userBanned) {
                 // Only let one user be banned per run to avoid rate limiting
                 break;
@@ -123,9 +129,10 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
     }
 
     if (accounts.length > 0) {
+        const nextRunSeconds = userBanned ? 30 : 10;
         await context.scheduler.runJob({
             name: EVALUATE_KARMA_FARMING_SUBS,
-            runAt: addSeconds(new Date(), 30),
+            runAt: addSeconds(new Date(), nextRunSeconds),
             data: { accounts },
         });
     } else {
