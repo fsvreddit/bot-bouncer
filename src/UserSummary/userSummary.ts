@@ -6,7 +6,7 @@ import { compact, countBy, mean, uniq } from "lodash";
 import { count } from "@wordpress/wordcount";
 import { isUserPotentiallyBlockingBot } from "./blockChecker.js";
 import pluralize from "pluralize";
-import { isLinkId } from "@devvit/shared-types/tid.js";
+import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
 import { getRawUserData } from "../extendedDevvit.js";
 
 function formatDifferenceInDates (start: Date, end: Date) {
@@ -142,6 +142,58 @@ function activityByTimeOfDay (history: (Post | Comment)[]) {
     return `##Activity by time of day:\n\n${line1}\n${line2}\n${line3}\n\n`;
 }
 
+function domainsFromComment (comment: string): string[] {
+    // eslint-disable-next-line no-useless-escape
+    const domainRegex = /(https?:\/\/[\w\.]+)[\/\)]/g;
+    const matches = comment.matchAll(domainRegex);
+
+    const domains: (string | undefined)[] = [];
+    const redditDomains = [
+        "i.redd.it",
+        "v.redd.it",
+        "reddit.com",
+        "old.reddit.com",
+        "new.reddit.com",
+        "sh.reddit.com",
+    ];
+
+    for (const match of matches) {
+        const [, url] = match;
+        const domain = domainFromUrl(url);
+        if (domain && !redditDomains.includes(domain)) {
+            domains.push(domainFromUrl(url));
+        }
+    }
+
+    return uniq(compact((domains)).filter(domain => !redditDomains.includes(domain)));
+}
+
+function getCommonDomainsFromContent (history: Post[] | Comment[]): Record<string, number> {
+    const posts = history.filter(item => isLinkId(item.id)) as Post[];
+    if (posts.length > 0) {
+        return countBy(compact(posts.map(post => domainFromUrl(post.url))));
+    }
+
+    const comments = history.filter(item => isCommentId(item.id)) as Comment[];
+    if (comments.length > 0) {
+        return countBy(compact(comments.flatMap(comment => domainsFromComment(comment.body))));
+    }
+
+    return {};
+}
+
+function getHighCountDomains (history: Post[] | Comment[]): string {
+    const commonDomains = getCommonDomainsFromContent(history);
+
+    const domainEntries = Object.entries(commonDomains).map(([domain, count]) => ({ domain, count }));
+    const highCountDomains = domainEntries.filter(item => item.count > history.length / 5);
+    if (highCountDomains.length === 0) {
+        return "";
+    }
+
+    return highCountDomains.map(item => `* Frequently shared domains: ${item.domain}: ${Math.round(100 * item.count / history.length)}%`).join(", ") + "\n";
+}
+
 export async function getSummaryTextForUser (username: string, context: TriggerContext): Promise<string | undefined> {
     const user = await getUserOrUndefined(username, context);
     if (!user) {
@@ -239,6 +291,8 @@ export async function getSummaryTextForUser (username: string, context: TriggerC
 
         const commentsPerPost = countBy(Object.values(countBy(userComments.map(comment => comment.postId))));
         summary += `* Comments per post: ${Object.entries(commentsPerPost).map(([count, posts]) => `${count} comments: ${posts}`).join(", ")}\n`;
+
+        summary += getHighCountDomains(userComments);
 
         if (userComments.length < 90) {
             summary += `* First comment was ${formatDifferenceInDates(user.createdAt, userComments[userComments.length - 1].createdAt)} after account creation\n`;
