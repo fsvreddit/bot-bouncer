@@ -99,6 +99,7 @@ async function handleReleaseUpgradeDataMigrationTasks (context: TriggerContext) 
         "QueueCleanupForSubmittersAndMods",
         "CorrectAggregateData",
         "RetriggerUnbans",
+        "DeleteGlobalDateKey",
     ];
 
     const pendingSteps = migrationSteps.filter(step => !migrationStepsCompleted.includes(step));
@@ -122,6 +123,8 @@ async function handleReleaseUpgradeDataMigrationTasks (context: TriggerContext) 
             }
             console.log(`Release Upgrade: Retriggered unbans for ${recentUnbans.length} users`);
             await context.redis.set("WikiUpdateDue", "true");
+        } else if (step === "DeleteGlobalDateKey") {
+            await context.redis.del("KarmaFarmingSubsCheckDate");
         }
 
         await context.redis.zAdd(redisKey, { member: step, score: new Date().getTime() });

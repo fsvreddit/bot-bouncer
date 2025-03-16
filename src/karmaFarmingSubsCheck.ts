@@ -9,8 +9,9 @@ import { addSeconds } from "date-fns";
 import { getUserOrUndefined } from "./utility.js";
 import { createNewSubmission } from "./postCreation.js";
 import pluralize from "pluralize";
+import { ZMember } from "@devvit/protos";
 
-const CHECK_DATE_KEY = "KarmaFarmingSubsCheckDate";
+const CHECK_DATE_KEY = "KarmaFarmingSubsCheckDates";
 
 async function getAccountsFromSub (subredditName: string, since: Date, context: JobContext): Promise<string[]> {
     let posts: Post[];
@@ -27,17 +28,21 @@ async function getAccountsFromSub (subredditName: string, since: Date, context: 
     return uniq(posts.filter(post => post.createdAt > since).map(post => post.authorName));
 }
 
+function lastCheckDateForSub (subredditName: string, lastCheckDates: ZMember[]): Date {
+    const lastCheckDate = lastCheckDates.find(item => item.member === subredditName);
+    return new Date(lastCheckDate?.score ?? new Date(2025, 3, 16, 14, 35).getTime());
+}
+
 async function getDistinctAccounts (context: JobContext): Promise<string[]> {
     const variables = await getEvaluatorVariables(context);
     const karmaFarmingSubs = variables["generic:karmafarminglinksubs"] as string[] | undefined ?? [];
 
-    const lastDateVal = await context.redis.get(CHECK_DATE_KEY);
-    const lastDate = lastDateVal ? new Date(parseInt(lastDateVal)) : new Date(0);
+    const lastDates = await context.redis.zRange(CHECK_DATE_KEY, 0, -1);
 
-    const promises = uniq(karmaFarmingSubs).map(sub => getAccountsFromSub(sub, lastDate, context));
+    const promises = uniq(karmaFarmingSubs).map(sub => getAccountsFromSub(sub, lastCheckDateForSub(sub, lastDates), context));
     const results = await Promise.all(promises);
 
-    await context.redis.set(CHECK_DATE_KEY, new Date().getTime().toString());
+    await context.redis.zAdd(CHECK_DATE_KEY, ...karmaFarmingSubs.map(sub => ({ member: sub, score: new Date().getTime() })));
 
     return uniq(results.flat());
 }
