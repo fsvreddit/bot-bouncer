@@ -96,6 +96,12 @@ export const reportForm = Devvit.createForm({
             lineHeight: 4,
             name: "reportContext",
         },
+        {
+            type: "boolean",
+            label: "Show the above text publicly on the post on r/BotBouncer",
+            defaultValue: true,
+            name: "publicContext",
+        },
     ],
 }, reportFormHandler);
 

@@ -16,6 +16,7 @@ export interface ExternalSubmission {
     username: string;
     submitter?: string;
     reportContext?: string;
+    publicContext?: boolean;
     targetId?: string;
     initialStatus?: UserStatus;
 };
@@ -28,6 +29,7 @@ const schema: JSONSchemaType<ExternalSubmission[]> = {
             username: { type: "string" },
             submitter: { type: "string", nullable: true },
             reportContext: { type: "string", nullable: true },
+            publicContext: { type: "boolean", nullable: true },
             targetId: { type: "string", nullable: true },
             initialStatus: { type: "string", nullable: true, enum: Object.values(UserStatus) },
         },
@@ -259,7 +261,11 @@ export async function processExternalSubmissions (_: unknown, context: JobContex
             text += `\n\nUser was reported via [this ${isLinkId(target.id) ? "post" : "comment"}](${target.permalink})`;
         }
         text += `\n\n*I am a bot, and this action was performed automatically. Please [contact the moderators of this subreddit](/message/compose/?to=/r/${CONTROL_SUBREDDIT}) if you have any questions or concerns.*`;
-        await newPost.addComment({ text });
+        const newComment = await newPost.addComment({ text });
+
+        if (item.publicContext === false) {
+            await newComment.remove();
+        }
     }
 
     if (!controlSubSettings.evaluationDisabled && newStatus === UserStatus.Pending) {
