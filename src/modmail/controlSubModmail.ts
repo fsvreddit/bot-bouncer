@@ -27,12 +27,14 @@ async function handleModmailFromUser (username: string, conversationId: string, 
 
     const post = await context.reddit.getPostById(currentStatus.trackingPostId);
 
-    let message = `/u/${username} is currently listed as ${currentStatus.userStatus}, set by ${currentStatus.operator} at ${new Date(currentStatus.lastUpdate).toUTCString()}\n\n`;
+    let message = `/u/${username} is currently listed as ${currentStatus.userStatus}, set by ${currentStatus.operator} at ${new Date(currentStatus.lastUpdate).toUTCString()} and reported by ${currentStatus.submitter ?? "unknown"}\n\n`;
     message += `[Link to submission](${post.permalink})`;
 
-    const userSummary = await getSummaryTextForUser(username, context);
-    if (userSummary) {
-        message += `\n\n${userSummary}`;
+    if (currentStatus.userStatus === UserStatus.Banned || currentStatus.userStatus === UserStatus.Purged) {
+        const userSummary = await getSummaryTextForUser(username, context);
+        if (userSummary) {
+            message += `\n\n${userSummary}`;
+        }
     }
 
     await context.reddit.modMail.reply({
