@@ -1,10 +1,8 @@
 import { AppInstall, AppUpgrade } from "@devvit/protos";
 import { TriggerContext } from "@devvit/public-api";
 import { CLEANUP_JOB, CLEANUP_JOB_CRON, CONTROL_SUBREDDIT, EVALUATE_KARMA_FARMING_SUBS, EXTERNAL_SUBMISSION_JOB, EXTERNAL_SUBMISSION_JOB_CRON, UPDATE_DATASTORE_FROM_WIKI, UPDATE_EVALUATOR_VARIABLES, UPDATE_STATISTICS_PAGE, UPDATE_WIKI_PAGE_JOB } from "./constants.js";
-import { scheduleAdhocCleanup, setCleanupForSubmittersAndMods } from "./cleanup.js";
+import { scheduleAdhocCleanup } from "./cleanup.js";
 import { handleExternalSubmissionsPageUpdate } from "./externalSubmissions.js";
-import { compact, uniq } from "lodash";
-import { correctAggregateData, UserDetails, UserStatus } from "./dataStore.js";
 
 export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, context: TriggerContext) {
     console.log("App Install: Detected an app install or update event");
@@ -58,7 +56,6 @@ async function addControlSubredditJobs (context: TriggerContext) {
         cron: EXTERNAL_SUBMISSION_JOB_CRON,
     });
 
-    await handleReleaseUpgradeDataMigrationTasks(context);
     await handleExternalSubmissionsPageUpdate(context);
 
     console.log("App Install: Control subreddit jobs added");
@@ -89,44 +86,4 @@ async function addClientSubredditJobs (context: TriggerContext) {
     });
 
     console.log("App Install: Client subreddit jobs added");
-}
-
-async function handleReleaseUpgradeDataMigrationTasks (context: TriggerContext) {
-    const redisKey = "ReleaseUpgradeMigrationSteps";
-    const migrationStepsCompleted = (await context.redis.zRange(redisKey, 0, -1)).map(step => step.member);
-
-    const migrationSteps = [
-        "QueueCleanupForSubmittersAndMods",
-        "CorrectAggregateData",
-        "RetriggerUnbans",
-        "DeleteGlobalDateKey",
-    ];
-
-    const pendingSteps = migrationSteps.filter(step => !migrationStepsCompleted.includes(step));
-
-    for (const step of pendingSteps) {
-        if (step === "QueueCleanupForSubmittersAndMods") {
-            const data = await context.redis.hGetAll("UserStore");
-            const values = Object.values(data).map(value => JSON.parse(value) as UserDetails);
-            const users = uniq(compact([...values.map(item => item.operator), ...values.map(item => item.submitter)]));
-            await setCleanupForSubmittersAndMods(users, context);
-            console.log(`Release Upgrade: Queued cleanup for ${users.length} submitters and mods`);
-        } else if (step === "CorrectAggregateData") {
-            await correctAggregateData(context);
-        } else if (step === "RetriggerUnbans") {
-            const data = await context.redis.hGetAll("UserStore");
-            const entries = Object.entries(data).map(([username, value]) => ({ username, value: JSON.parse(value) as UserDetails }));
-            const recentUnbans = entries.filter(entry => entry.value.userStatus === UserStatus.Organic && entry.value.lastStatus);
-            for (const entry of recentUnbans) {
-                entry.value.lastUpdate = new Date().getTime();
-                await context.redis.hSet("UserStore", { [entry.username]: JSON.stringify(entry.value) });
-            }
-            console.log(`Release Upgrade: Retriggered unbans for ${recentUnbans.length} users`);
-            await context.redis.set("WikiUpdateDue", "true");
-        } else if (step === "DeleteGlobalDateKey") {
-            await context.redis.del("KarmaFarmingSubsCheckDate");
-        }
-
-        await context.redis.zAdd(redisKey, { member: step, score: new Date().getTime() });
-    }
 }
