@@ -50,8 +50,9 @@ Write in to [/r/BotBouncer's modmail](https://www.reddit.com/message/compose/?to
 Note: There may appear to be a version available for upgrade, but 1.5.2 is the latest public release.
 
 * Prevent items that were removed by Reddit, Automod or a subreddit moderator from being reinstated if an account is reclassified as human
+* Add option to make the "extra information" about a submission private
 * Improve sticky post evaluator to evaluate on all subs using Bot Bouncer, not just r/BotBouncer itself
-
+* Changes to support internal r/BotBouncer operations
 
 ## v1.5.2
 
