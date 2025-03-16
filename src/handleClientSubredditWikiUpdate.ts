@@ -158,7 +158,7 @@ async function handleSetBanned (username: string, subredditName: string, setting
     if (removableContent.length > 0) {
         await context.redis.hSet(`removedItems:${username}`, fromPairs(removableContent.map(item => ([item.id, item.id]))));
         // Expire key after 28 days
-        await context.redis.expire(`removedItems:${username}`, 60 * 60 * 24 * 28);
+        await context.redis.expire(`removedItems:${username}`, 60 * 60 * 24 * 14);
     }
 }
 

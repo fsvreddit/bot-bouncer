@@ -152,7 +152,7 @@ async function handleContentCreation (username: string, targetId: string, contex
     if (!removedByMod && !target.spam && !target.removed) {
         await context.reddit.remove(targetId, true);
         console.log(`Content Create: ${targetId} removed for ${user.username}`);
-        await context.redis.set(`removed:${username}`, targetId, { expiration: addWeeks(new Date(), 4) });
+        await context.redis.set(`removed:${username}`, targetId, { expiration: addWeeks(new Date(), 2) });
     }
 
     const isCurrentlyBanned = await isBanned(user.username, context);
@@ -255,7 +255,7 @@ async function checkAndReportPotentialBot (username: string, thingId: string, se
     if (settings[AppSetting.RemoveContentWhenReporting]) {
         const removedByMod = await context.redis.get(`removedbymod:${target.id}`);
         if (!removedByMod && !target.spam) {
-            await context.redis.set(`removed:${target.authorName}`, target.id, { expiration: addWeeks(new Date(), 4) });
+            await context.redis.set(`removed:${target.authorName}`, target.id, { expiration: addWeeks(new Date(), 2) });
             await target.remove();
         }
     }
