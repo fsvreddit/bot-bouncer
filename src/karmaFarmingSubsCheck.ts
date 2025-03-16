@@ -20,6 +20,7 @@ async function getAccountsFromSub (subredditName: string, since: Date, context: 
             subredditName,
             limit: 100,
         }).all();
+        await context.redis.zAdd(CHECK_DATE_KEY, { member: subredditName, score: new Date().getTime() });
     } catch (error) {
         console.error(`Karma Farming Subs: Error getting posts from ${subredditName}: ${error}`);
         return [];
@@ -30,7 +31,7 @@ async function getAccountsFromSub (subredditName: string, since: Date, context: 
 
 function lastCheckDateForSub (subredditName: string, lastCheckDates: ZMember[]): Date {
     const lastCheckDate = lastCheckDates.find(item => item.member === subredditName);
-    return new Date(lastCheckDate?.score ?? new Date(2025, 3, 16, 14, 35).getTime());
+    return new Date(lastCheckDate?.score ?? 0);
 }
 
 async function getDistinctAccounts (context: JobContext): Promise<string[]> {
@@ -41,8 +42,6 @@ async function getDistinctAccounts (context: JobContext): Promise<string[]> {
 
     const promises = uniq(karmaFarmingSubs).map(sub => getAccountsFromSub(sub, lastCheckDateForSub(sub, lastDates), context));
     const results = await Promise.all(promises);
-
-    await context.redis.zAdd(CHECK_DATE_KEY, ...karmaFarmingSubs.map(sub => ({ member: sub, score: new Date().getTime() })));
 
     return uniq(results.flat());
 }
