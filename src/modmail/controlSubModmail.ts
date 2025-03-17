@@ -130,6 +130,10 @@ async function handleBulkSubmission (username: string, trusted: boolean, convers
             if (!overrideStatus) {
                 continue;
             }
+            if (entry.initialStatus !== overrideStatus) {
+                console.log(`Trusted submitter override: ${entry.username} has been set to ${overrideStatus}`);
+                entry.initialStatus = overrideStatus;
+            }
             entry.initialStatus = overrideStatus;
         }
 
@@ -152,7 +156,10 @@ async function trustedSubmitterInitialStatus (username: string, context: Trigger
         return;
     }
 
+    console.log(`Checking trusted submitter status for ${username}`);
+
     if (user.commentKarma > 10000 || user.linkKarma > 10000 || user.createdAt < subMonths(new Date(), 6)) {
+        console.log(`Trusted submitter override: ${username} has high karma or is older than 6 months`);
         return UserStatus.Pending;
     }
 
@@ -169,12 +176,14 @@ async function trustedSubmitterInitialStatus (username: string, context: Trigger
     const recentHistory = history.filter(item => item.createdAt > subMonths(new Date(), 3));
 
     if (recentHistory.some(item => item.edited)) {
+        console.log(`Trusted submitter override: ${username} has edited comments or posts`);
         return UserStatus.Pending;
     }
 
     const recentComments = recentHistory.filter(item => item instanceof Comment) as Comment[];
     const commentPosts = countBy(recentComments.map(comment => comment.postId));
     if (Object.values(commentPosts).some(count => count > 1)) {
+        console.log(`Trusted submitter override: ${username} has commented multiple times in the same post`);
         return UserStatus.Pending;
     }
 

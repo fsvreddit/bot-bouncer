@@ -241,7 +241,13 @@ export async function processExternalSubmissions (_: unknown, context: JobContex
     }
 
     const controlSubSettings = await getControlSubSettings(context);
-    const newStatus = ((item.submitter && controlSubSettings.trustedSubmitters.includes(item.submitter)) || item.initialStatus === UserStatus.Banned) ? UserStatus.Banned : UserStatus.Pending;
+
+    let newStatus: UserStatus;
+    if (item.initialStatus) {
+        newStatus = item.initialStatus;
+    } else {
+        newStatus = item.submitter && controlSubSettings.trustedSubmitters.includes(item.submitter) ? UserStatus.Banned : UserStatus.Pending;
+    }
 
     const newUserDetails: UserDetails = {
         userStatus: newStatus,
