@@ -45,9 +45,7 @@ Write in to [/r/BotBouncer's modmail](https://www.reddit.com/message/compose/?to
 
 # Change History
 
-## Next
-
-Note: There may appear to be a version available for upgrade, but 1.5.2 is the latest public release.
+## v1.6.1
 
 * Prevent items that were removed by Reddit, Automod or a subreddit moderator from being reinstated if an account is reclassified as human
 * Add option to make the "extra information" about a submission private
