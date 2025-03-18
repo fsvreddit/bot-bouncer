@@ -41,6 +41,7 @@ export async function handleReportUser (event: MenuItemOnPressEvent, context: Co
 
 export async function reportFormHandler (event: FormOnSubmitEvent<JSONObject>, context: Context) {
     const targetId = context.commentId ?? context.postId;
+    const publicContext = event.values.publicContext as boolean | undefined ?? true;
     if (!targetId) {
         context.ui.showToast("Sorry, could not report user.");
         console.log("Error handling report form", context);
@@ -75,6 +76,7 @@ export async function reportFormHandler (event: FormOnSubmitEvent<JSONObject>, c
         username: target.authorName,
         submitter: currentUser?.username,
         reportContext,
+        publicContext,
         targetId: target.id,
     }, context);
 

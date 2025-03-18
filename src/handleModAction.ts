@@ -38,7 +38,7 @@ async function handleModActionClientSub (event: ModAction, context: TriggerConte
         const targetId = event.targetComment?.id ?? event.targetPost?.id;
         if (targetId) {
             await context.redis.hDel(`removedItems:${event.targetUser.name}`, [targetId]);
-            await context.redis.set(`removedbymod:${targetId}`, "true", { expiration: addDays(new Date(), 1) });
+            await context.redis.set(`removedbymod:${targetId}`, "true", { expiration: addDays(new Date(), 28) });
         }
     }
 }

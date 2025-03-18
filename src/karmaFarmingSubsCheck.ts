@@ -8,8 +8,10 @@ import { getControlSubSettings } from "./settings.js";
 import { addSeconds } from "date-fns";
 import { getUserOrUndefined } from "./utility.js";
 import { createNewSubmission } from "./postCreation.js";
+import pluralize from "pluralize";
+import { ZMember } from "@devvit/protos";
 
-const CHECK_DATE_KEY = "KarmaFarmingSubsCheckDate";
+const CHECK_DATE_KEY = "KarmaFarmingSubsCheckDates";
 
 async function getAccountsFromSub (subredditName: string, since: Date, context: JobContext): Promise<string[]> {
     let posts: Post[];
@@ -18,6 +20,7 @@ async function getAccountsFromSub (subredditName: string, since: Date, context: 
             subredditName,
             limit: 100,
         }).all();
+        await context.redis.zAdd(CHECK_DATE_KEY, { member: subredditName, score: new Date().getTime() });
     } catch (error) {
         console.error(`Karma Farming Subs: Error getting posts from ${subredditName}: ${error}`);
         return [];
@@ -26,17 +29,19 @@ async function getAccountsFromSub (subredditName: string, since: Date, context: 
     return uniq(posts.filter(post => post.createdAt > since).map(post => post.authorName));
 }
 
+function lastCheckDateForSub (subredditName: string, lastCheckDates: ZMember[]): Date {
+    const lastCheckDate = lastCheckDates.find(item => item.member === subredditName);
+    return new Date(lastCheckDate?.score ?? 0);
+}
+
 async function getDistinctAccounts (context: JobContext): Promise<string[]> {
     const variables = await getEvaluatorVariables(context);
     const karmaFarmingSubs = variables["generic:karmafarminglinksubs"] as string[] | undefined ?? [];
 
-    const lastDateVal = await context.redis.get(CHECK_DATE_KEY);
-    const lastDate = lastDateVal ? new Date(parseInt(lastDateVal)) : new Date(0);
+    const lastDates = await context.redis.zRange(CHECK_DATE_KEY, 0, -1);
 
-    const promises = uniq(karmaFarmingSubs).map(sub => getAccountsFromSub(sub, lastDate, context));
+    const promises = uniq(karmaFarmingSubs).map(sub => getAccountsFromSub(sub, lastCheckDateForSub(sub, lastDates), context));
     const results = await Promise.all(promises);
-
-    await context.redis.set(CHECK_DATE_KEY, new Date().getTime().toString());
 
     return uniq(results.flat());
 }
@@ -98,10 +103,15 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
         console.log("Karma Farming Subs: First batch starting.");
     }
 
-    const batchSize = 10;
+    const batchSize = 20;
     let processed = 0;
+    let userBanned = false;
 
-    console.log(`Karma Farming Subs: Checking up to ten accounts out of ${accounts.length}`);
+    if (accounts.length > batchSize) {
+        console.log(`Karma Farming Subs: Checking ${batchSize} accounts out of ${accounts.length}`);
+    } else {
+        console.log(`Karma Farming Subs: Checking final ${accounts.length} ${pluralize("account", accounts.length)}`);
+    }
 
     while (processed < batchSize) {
         const username = accounts.shift();
@@ -110,7 +120,7 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
         }
 
         try {
-            const userBanned = await evaluateAndHandleUser(username, context);
+            userBanned = await evaluateAndHandleUser(username, context);
             if (userBanned) {
                 // Only let one user be banned per run to avoid rate limiting
                 break;
@@ -123,9 +133,10 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
     }
 
     if (accounts.length > 0) {
+        const nextRunSeconds = userBanned ? 30 : 10;
         await context.scheduler.runJob({
             name: EVALUATE_KARMA_FARMING_SUBS,
-            runAt: addSeconds(new Date(), 30),
+            runAt: addSeconds(new Date(), nextRunSeconds),
             data: { accounts },
         });
     } else {
