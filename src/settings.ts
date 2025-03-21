@@ -1,6 +1,7 @@
 import { SettingsFormField, TriggerContext, WikiPage } from "@devvit/public-api";
 import { CONTROL_SUBREDDIT } from "./constants.js";
 import Ajv, { JSONSchemaType } from "ajv";
+import { addHours } from "date-fns";
 
 export const CONFIGURATION_DEFAULTS = {
     banMessage: `Bots and bot-like accounts are not welcome on /r/{subreddit}.
@@ -129,6 +130,14 @@ const schema: JSONSchemaType<ControlSubSettings> = {
 };
 
 export async function getControlSubSettings (context: TriggerContext): Promise<ControlSubSettings> {
+    const redisKey = "controlSubSettings";
+    if (context.subredditName !== CONTROL_SUBREDDIT) {
+        const cachedSettings = await context.redis.get(redisKey);
+        if (cachedSettings) {
+            return JSON.parse(cachedSettings) as ControlSubSettings;
+        }
+    }
+
     const defaultConfig: ControlSubSettings = {
         evaluationDisabled: false,
         proactiveEvaluationEnabled: true,
@@ -161,6 +170,9 @@ export async function getControlSubSettings (context: TriggerContext): Promise<C
             console.error("Control sub settings are invalid. Default values will be returned.", ajv.errorsText(validate.errors));
             return defaultConfig;
         } else {
+            if (context.subredditName !== CONTROL_SUBREDDIT) {
+                await context.redis.set(redisKey, wikiPage.content, { expiration: addHours(new Date(), 1) });
+            }
             return JSON.parse(wikiPage.content) as ControlSubSettings;
         }
     }

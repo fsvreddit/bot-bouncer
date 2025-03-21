@@ -22,6 +22,9 @@ export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, contex
     });
 
     await scheduleAdhocCleanup(context);
+
+    // Delete cached control sub settings
+    await context.redis.del("controlSubSettings");
 }
 
 async function addControlSubredditJobs (context: TriggerContext) {
