@@ -186,6 +186,7 @@ async function checkAndReportPotentialBot (username: string, thingId: string, se
 
     let userItems: (Post | Comment)[] | undefined;
     let isLikelyBot = false;
+    let anyEvaluatorsChecked = false;
     let botName: string | undefined;
 
     for (const Evaluator of ALL_EVALUATORS) {
@@ -208,11 +209,17 @@ async function checkAndReportPotentialBot (username: string, thingId: string, se
             }
         }
 
+        anyEvaluatorsChecked = true;
         if (evaluator.evaluate(user, userItems)) {
             isLikelyBot = true;
             botName = evaluator.name;
             break;
         }
+    }
+
+    if (!anyEvaluatorsChecked) {
+        // No evaluators passed user pre-evaluation.
+        return;
     }
 
     if (!isLikelyBot) {
