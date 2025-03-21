@@ -1,4 +1,4 @@
-import { SettingsFormField, TriggerContext, WikiPage, WikiPagePermissionLevel } from "@devvit/public-api";
+import { SettingsFormField, TriggerContext, WikiPage } from "@devvit/public-api";
 import { CONTROL_SUBREDDIT } from "./constants.js";
 import Ajv, { JSONSchemaType } from "ajv";
 
@@ -163,21 +163,6 @@ export async function getControlSubSettings (context: TriggerContext): Promise<C
         } else {
             return JSON.parse(wikiPage.content) as ControlSubSettings;
         }
-    }
-
-    if (context.subredditName === CONTROL_SUBREDDIT) {
-        await context.reddit.createWikiPage({
-            subredditName: CONTROL_SUBREDDIT,
-            page: CONTROL_SUB_SETTINGS_WIKI_PAGE,
-            content: JSON.stringify(defaultConfig),
-        });
-
-        await context.reddit.updateWikiPageSettings({
-            subredditName: CONTROL_SUBREDDIT,
-            page: CONTROL_SUB_SETTINGS_WIKI_PAGE,
-            listed: true,
-            permLevel: WikiPagePermissionLevel.MODS_ONLY,
-        });
     }
 
     return defaultConfig;
