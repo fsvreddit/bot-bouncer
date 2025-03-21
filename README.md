@@ -45,6 +45,13 @@ Write in to [/r/BotBouncer's modmail](https://www.reddit.com/message/compose/?to
 
 # Change History
 
+## Next
+
+Note: v1.6.1 is the current public release. An upgrade may appear to be available but not be installable.
+
+* Fix bug that prevented auto allowlisting on unban from working properly
+* Performance improvements
+
 ## v1.6.1
 
 * Prevent items that were removed by Reddit, Automod or a subreddit moderator from being reinstated if an account is reclassified as human

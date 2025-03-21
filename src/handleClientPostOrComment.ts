@@ -1,7 +1,7 @@
-import { Post, Comment, TriggerContext, SettingsValues } from "@devvit/public-api";
+import { Post, Comment, TriggerContext, SettingsValues, JSONValue } from "@devvit/public-api";
 import { CommentCreate, PostCreate } from "@devvit/protos";
 import { addDays, addMinutes, addWeeks, formatDate, subMinutes } from "date-fns";
-import { getUserStatus, UserStatus } from "./dataStore.js";
+import { getUserStatus, UserDetails, UserStatus } from "./dataStore.js";
 import { isUserWhitelisted, recordBan } from "./handleClientSubredditWikiUpdate.js";
 import { CONTROL_SUBREDDIT } from "./constants.js";
 import { getPostOrCommentById, getUserOrUndefined, isApproved, isBanned, isModerator, replaceAll } from "./utility.js";
@@ -24,10 +24,9 @@ export async function handleClientPostCreate (event: PostCreate, context: Trigge
         return;
     }
 
-    await handleContentCreation(event.author.name, event.post.id, context);
-
     const currentStatus = await getUserStatus(event.author.name, context);
     if (currentStatus) {
+        await handleContentCreation(event.author.name, currentStatus, event.post.id, context);
         return;
     }
 
@@ -49,7 +48,7 @@ export async function handleClientPostCreate (event: PostCreate, context: Trigge
     }
 
     if (possibleBot) {
-        await checkAndReportPotentialBot(event.author.name, event.post.id, settings, context);
+        await checkAndReportPotentialBot(event.author.name, event.post.id, settings, variables, context);
     }
 }
 
@@ -66,10 +65,9 @@ export async function handleClientCommentCreate (event: CommentCreate, context: 
         return;
     }
 
-    await handleContentCreation(event.author.name, event.comment.id, context);
-
     const currentStatus = await getUserStatus(event.author.name, context);
     if (currentStatus) {
+        await handleContentCreation(event.author.name, currentStatus, event.comment.id, context);
         return;
     }
 
@@ -104,23 +102,23 @@ export async function handleClientCommentCreate (event: CommentCreate, context: 
         }
     }
 
-    await checkAndReportPotentialBot(event.author.name, event.comment.id, settings, context);
+    await checkAndReportPotentialBot(event.author.name, event.comment.id, settings, variables, context);
 
     await context.redis.set(redisKey, new Date().getTime().toString(), { expiration: addDays(new Date(), 2) });
 }
 
-async function handleContentCreation (username: string, targetId: string, context: TriggerContext) {
-    const currentStatus = await getUserStatus(username, context);
-    if (currentStatus?.userStatus !== UserStatus.Banned) {
+async function handleContentCreation (username: string, currentStatus: UserDetails, targetId: string, context: TriggerContext) {
+    if (currentStatus.userStatus !== UserStatus.Banned) {
         return;
     }
 
     const userWhitelisted = await isUserWhitelisted(username, context);
     if (userWhitelisted) {
         console.log(`${username} is allowlisted after a previous unban, so will not be actioned.`);
+        return;
     }
 
-    console.log(`Content Create: Status for ${username} is ${currentStatus.userStatus}`);
+    console.log(`Content Create: Status for ${username} is banned`);
 
     const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
 
@@ -180,43 +178,36 @@ async function handleContentCreation (username: string, targetId: string, contex
     }
 }
 
-async function checkAndReportPotentialBot (username: string, thingId: string, settings: SettingsValues, context: TriggerContext) {
+async function checkAndReportPotentialBot (username: string, thingId: string, settings: SettingsValues, variables: Record<string, JSONValue>, context: TriggerContext) {
     const user = await getUserOrUndefined(username, context);
     if (!user) {
         return;
     }
 
-    const variables = await getEvaluatorVariables(context);
-
-    let userEligible = false;
-    for (const Evaluator of ALL_EVALUATORS) {
-        const evaluator = new Evaluator(context, variables);
-        if (evaluator.preEvaluateUser(user)) {
-            userEligible = true;
-            break;
-        }
-    }
-
-    if (!userEligible) {
-        return;
-    }
-
-    let userItems: (Post | Comment)[];
-    try {
-        userItems = await context.reddit.getCommentsAndPostsByUser({
-            username,
-            sort: "new",
-            limit: 100,
-        }).all();
-    } catch {
-        console.log(`Bot check: couldn't read history for ${username}.`);
-        return;
-    }
-
+    let userItems: (Post | Comment)[] | undefined;
     let isLikelyBot = false;
     let botName: string | undefined;
+
     for (const Evaluator of ALL_EVALUATORS) {
         const evaluator = new Evaluator(context, variables);
+        if (!evaluator.preEvaluateUser(user)) {
+            continue;
+        }
+
+        // Get user's history if it hasn't been fetched yet.
+        if (userItems === undefined) {
+            try {
+                userItems = await context.reddit.getCommentsAndPostsByUser({
+                    username,
+                    sort: "new",
+                    limit: 100,
+                }).all();
+            } catch {
+                console.log(`Bot check: couldn't read history for ${username}.`);
+                return;
+            }
+        }
+
         if (evaluator.evaluate(user, userItems)) {
             isLikelyBot = true;
             botName = evaluator.name;
