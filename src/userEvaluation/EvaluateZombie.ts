@@ -9,6 +9,7 @@ import { CONTROL_SUBREDDIT } from "../constants.js";
 
 export class EvaluateZombie extends UserEvaluatorBase {
     override name = "Zombie";
+    override killswitch = "zombie:killswitch";
 
     override canAutoBan = false;
 
@@ -62,16 +63,12 @@ export class EvaluateZombie extends UserEvaluatorBase {
         return true;
     }
 
-    override evaluate (user: User, history: (Post | Comment)[]): boolean {
-        if (!this.preEvaluateUser(user)) {
-            return false;
-        }
+    override evaluatorDisabled (): boolean {
+        const killswitchSet = this.variables[this.killswitch] as boolean | undefined ?? false;
+        return killswitchSet && this.context.subredditName !== CONTROL_SUBREDDIT;
+    }
 
-        if (this.variables["zombie:killswitch"] && this.context.subredditName !== CONTROL_SUBREDDIT) {
-            this.setReason("Evaluator is disabled");
-            return false;
-        }
-
+    override evaluate (_: User, history: (Post | Comment)[]): boolean {
         const oldContent = history.filter(item => !item.stickied && item.createdAt < subYears(new Date(), 6));
         if (oldContent.length === 0) {
             this.setReason("User doesn't have old content");

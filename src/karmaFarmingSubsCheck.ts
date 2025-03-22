@@ -103,7 +103,7 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
         console.log("Karma Farming Subs: First batch starting.");
     }
 
-    const batchSize = 20;
+    const batchSize = 10;
     let processed = 0;
     let userBanned = false;
 
@@ -133,7 +133,7 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
     }
 
     if (accounts.length > 0) {
-        const nextRunSeconds = userBanned ? 30 : 10;
+        const nextRunSeconds = userBanned ? 30 : 0;
         await context.scheduler.runJob({
             name: EVALUATE_KARMA_FARMING_SUBS,
             runAt: addSeconds(new Date(), nextRunSeconds),

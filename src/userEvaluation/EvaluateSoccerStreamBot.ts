@@ -8,6 +8,7 @@ import { compact, uniq } from "lodash";
 
 export class EvaluateSoccerStreamBot extends UserEvaluatorBase {
     override name = "Soccer Stream Bot";
+    override killswitch = "soccerstreams:killswitch";
     override banContentThreshold = 20;
     override canAutoBan = true;
 
@@ -44,17 +45,7 @@ export class EvaluateSoccerStreamBot extends UserEvaluatorBase {
             && user.commentKarma < 2000;
     }
 
-    override evaluate (user: User, history: (Post | Comment)[]): boolean {
-        if (!this.preEvaluateUser(user)) {
-            this.setReason("User does not pass pre-evaluation checks");
-            return false;
-        }
-
-        if (this.variables["soccerstreams:killswitch"]) {
-            this.setReason("Evaluator is disabled");
-            return false;
-        }
-
+    override evaluate (_: User, history: (Post | Comment)[]): boolean {
         const posts = history.filter(item => isLinkId(item.id) && item.body !== "[removed]") as Post[];
         if (posts.some(post => post.createdAt > subWeeks(new Date(), 1))) {
             this.setReason("User has non-eligible posts");

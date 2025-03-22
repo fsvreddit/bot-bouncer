@@ -7,6 +7,7 @@ import { domainFromUrl } from "./evaluatorHelpers.js";
 
 export class EvaluateAffiliateBot extends UserEvaluatorBase {
     override name = "Affiliate Bot";
+    override killswitch = "affiliate:killswitch";
 
     private domainsFromContent (content: string): string[] {
         // eslint-disable-next-line no-useless-escape
@@ -70,16 +71,7 @@ export class EvaluateAffiliateBot extends UserEvaluatorBase {
         return true;
     }
 
-    override evaluate (user: User, history: (Post | Comment)[]): boolean {
-        if (!this.preEvaluateUser(user)) {
-            return false;
-        }
-
-        if (this.variables["affiliate:killswitch"]) {
-            this.setReason("Evaluator is disabled");
-            return false;
-        }
-
+    override evaluate (_: User, history: (Post | Comment)[]): boolean {
         const userComments = history.filter(item => item instanceof Comment) as Comment[];
         const userDomains = uniq(userComments.map(comment => this.domainsFromContent(comment.body)).flat());
 

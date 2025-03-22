@@ -3,7 +3,7 @@ import { compact, countBy, Dictionary, max, sum, toPairs, uniq } from "lodash";
 import pako from "pako";
 import { scheduleAdhocCleanup, setCleanupForSubmittersAndMods, setCleanupForUsers } from "./cleanup.js";
 import { CONTROL_SUBREDDIT, HANDLE_CLASSIFICATION_CHANGES_JOB } from "./constants.js";
-import { addSeconds, addWeeks, startOfSecond, subDays, subHours } from "date-fns";
+import { addSeconds, addWeeks, startOfSecond, subDays, subHours, subWeeks } from "date-fns";
 import pluralize from "pluralize";
 import { getControlSubSettings } from "./settings.js";
 import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
@@ -13,7 +13,7 @@ const POST_STORE = "PostStore";
 const AGGREGATE_STORE = "AggregateStore";
 const WIKI_UPDATE_DUE = "WikiUpdateDue";
 const WIKI_PAGE = "botbouncer";
-const MAX_WIKI_PAGE_SIZE = 524288;
+const MAX_WIKI_PAGE_SIZE = 512 * 1024;
 
 export enum UserStatus {
     Pending = "pending",
@@ -183,9 +183,9 @@ export async function writeAggregateToWikiPage (_: unknown, context: JobContext)
             continue;
         }
 
-        if (status.userStatus === UserStatus.Organic) {
+        if (status.userStatus === UserStatus.Organic || status.userStatus === UserStatus.Service || status.userStatus === UserStatus.Declined) {
             organicStatuses[status.submitter] = (organicStatuses[status.submitter] ?? 0) + 1;
-        } else if (status.userStatus === UserStatus.Banned) {
+        } else if (status.userStatus === UserStatus.Banned || (status.userStatus === UserStatus.Purged && status.lastStatus === UserStatus.Banned)) {
             bannedStatuses[status.submitter] = (bannedStatuses[status.submitter] ?? 0) + 1;
         }
     }
@@ -244,8 +244,22 @@ function compressData (value: Record<string, string>): string {
     return Buffer.from(pako.deflate(JSON.stringify(value), { level: 9 })).toString("base64");
 }
 
-function compactDataForWiki (input: string): string {
+function compactDataForWiki (input: string): string | undefined {
     const status = JSON.parse(input) as UserDetails;
+
+    // Exclude entries for users marked as "retired"
+    if (status.userStatus === UserStatus.Retired) {
+        return;
+    }
+
+    // Exclude status for users marked as organic/declined that haven't been updated in a week
+    if ((status.userStatus === UserStatus.Organic || status.userStatus === UserStatus.Declined) && status.lastUpdate < subWeeks(new Date(), 1).getTime()) {
+        return;
+    }
+
+    /* Future potential: Exclude entries for organic/declined/service users
+       after a certain period of time, to keep the wiki page size down. */
+
     status.operator = "";
     delete status.submitter;
     if (status.userStatus === UserStatus.Purged && status.lastStatus) {
@@ -261,9 +275,8 @@ function compactDataForWiki (input: string): string {
 }
 
 export async function updateWikiPage (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
-    const forceUpdate = event.data?.force as boolean | undefined ?? false;
     const updateDue = await context.redis.get(WIKI_UPDATE_DUE);
-    if (!updateDue && !forceUpdate) {
+    if (!updateDue) {
         return;
     }
 
@@ -276,12 +289,8 @@ export async function updateWikiPage (event: ScheduledJobEvent<JSONObject | unde
         //
     }
 
-    if (wikiPage?.revisionDate && wikiPage.revisionDate > subDays(new Date(), 1) && forceUpdate) {
-        // No need to run the monthly forced update, the page has been updated recently.
-        return;
-    }
-
     const data = await context.redis.hGetAll(USER_STORE);
+    const dataToWrite: Record<string, string> = {};
     const entries = Object.entries(data);
     if (entries.length === 0) {
         return;
@@ -289,10 +298,13 @@ export async function updateWikiPage (event: ScheduledJobEvent<JSONObject | unde
 
     for (const entry of entries) {
         const [username, jsonData] = entry;
-        data[username] = compactDataForWiki(jsonData);
+        const compactedData = compactDataForWiki(jsonData);
+        if (compactedData) {
+            dataToWrite[username] = compactedData;
+        }
     }
 
-    const content = compressData(data);
+    const content = compressData(dataToWrite);
     if (content === wikiPage?.content) {
         return;
     }
@@ -317,9 +329,9 @@ export async function updateWikiPage (event: ScheduledJobEvent<JSONObject | unde
 
     await context.redis.del(WIKI_UPDATE_DUE);
 
-    console.log(`Wiki page has been updated with ${entries.length} entries`);
+    console.log(`Wiki page has been updated with ${Object.keys(dataToWrite).length} entries`);
 
-    if (content.length > MAX_WIKI_PAGE_SIZE * 0.5) {
+    if (content.length > MAX_WIKI_PAGE_SIZE * 0.7) {
         const spaceAlertKey = "wikiSpaceAlert";
         const alertDone = await context.redis.get(spaceAlertKey);
         if (!alertDone) {

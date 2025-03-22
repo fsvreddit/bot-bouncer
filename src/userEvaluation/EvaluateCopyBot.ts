@@ -7,6 +7,7 @@ import { CommentCreate } from "@devvit/protos";
 
 export class EvaluateCopyBot extends UserEvaluatorBase {
     override name = "Copy Bot";
+    override killswitch = "copy-bot:killswitch";
 
     private readonly emDashRegex = /\w—\w/i;
 
@@ -68,16 +69,7 @@ export class EvaluateCopyBot extends UserEvaluatorBase {
         return true;
     }
 
-    override evaluate (user: User, history: (Post | Comment)[]): boolean {
-        if (!this.preEvaluateUser(user)) {
-            return false;
-        }
-
-        if (this.variables["copy-bot:killswitch"]) {
-            this.setReason("Evaluator is disabled");
-            return false;
-        }
-
+    override evaluate (_: User, history: (Post | Comment)[]): boolean {
         const userPosts = history.filter(item => item.body !== "[removed]" && item instanceof Post && item.createdAt > subMonths(new Date(), 1)) as Post[];
 
         if (userPosts.length < 2) {

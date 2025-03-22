@@ -8,6 +8,7 @@ import { domainFromUrl } from "./evaluatorHelpers.js";
 
 export class EvaluateResumeSpam extends UserEvaluatorBase {
     override name = "Resume Spam";
+    override killswitch = "resume:killswitch";
 
     private eligibleComment (comment: Comment | CommentV2) {
         if (isCommentId(comment.parentId)) {
@@ -55,16 +56,7 @@ export class EvaluateResumeSpam extends UserEvaluatorBase {
         return true;
     }
 
-    override evaluate (user: User, history: (Post | Comment)[]): boolean {
-        if (!this.preEvaluateUser(user)) {
-            return false;
-        }
-
-        if (this.variables["resume:killswitch"]) {
-            this.setReason("Killswitch is enabled");
-            return false;
-        }
-
+    override evaluate (_: User, history: (Post | Comment)[]): boolean {
         const userPosts = history.filter(item => item instanceof Post) as Post[];
         if (userPosts.some(post => !this.eligiblePost(post))) {
             this.setReason("User has ineligible posts");

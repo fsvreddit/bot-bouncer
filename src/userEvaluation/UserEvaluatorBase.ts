@@ -7,6 +7,7 @@ export abstract class UserEvaluatorBase {
     protected variables: Record<string, unknown> = {};
 
     abstract name: string;
+    abstract killswitch: string;
 
     public setReason (reason: string) {
         this.reasons.push(reason);
@@ -22,6 +23,10 @@ export abstract class UserEvaluatorBase {
     constructor (context: TriggerContext, variables: Record<string, unknown>) {
         this.context = context;
         this.variables = variables;
+    }
+
+    public evaluatorDisabled () {
+        return this.variables[this.killswitch] as boolean | undefined ?? false;
     }
 
     abstract preEvaluateComment (event: CommentCreate): boolean;

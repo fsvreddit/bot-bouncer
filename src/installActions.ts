@@ -3,6 +3,7 @@ import { TriggerContext } from "@devvit/public-api";
 import { CLEANUP_JOB, CLEANUP_JOB_CRON, CONTROL_SUBREDDIT, EVALUATE_KARMA_FARMING_SUBS, EXTERNAL_SUBMISSION_JOB, EXTERNAL_SUBMISSION_JOB_CRON, UPDATE_DATASTORE_FROM_WIKI, UPDATE_EVALUATOR_VARIABLES, UPDATE_STATISTICS_PAGE, UPDATE_WIKI_PAGE_JOB } from "./constants.js";
 import { scheduleAdhocCleanup } from "./cleanup.js";
 import { handleExternalSubmissionsPageUpdate } from "./externalSubmissions.js";
+import { removeRetiredEvaluatorsFromStats } from "./userEvaluation/evaluatorHelpers.js";
 
 export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, context: TriggerContext) {
     console.log("App Install: Detected an app install or update event");
@@ -22,18 +23,15 @@ export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, contex
     });
 
     await scheduleAdhocCleanup(context);
+
+    // Delete cached control sub settings
+    await context.redis.del("controlSubSettings");
 }
 
 async function addControlSubredditJobs (context: TriggerContext) {
     await context.scheduler.runJob({
         name: UPDATE_WIKI_PAGE_JOB,
         cron: "0/5 * * * *",
-    });
-
-    await context.scheduler.runJob({
-        name: UPDATE_WIKI_PAGE_JOB,
-        cron: "5 5 1 * *",
-        data: { force: true },
     });
 
     await context.scheduler.runJob({
@@ -57,6 +55,7 @@ async function addControlSubredditJobs (context: TriggerContext) {
     });
 
     await handleExternalSubmissionsPageUpdate(context);
+    await removeRetiredEvaluatorsFromStats(context);
 
     console.log("App Install: Control subreddit jobs added");
 }

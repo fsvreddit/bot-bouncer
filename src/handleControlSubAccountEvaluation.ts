@@ -6,6 +6,8 @@ import { ALL_EVALUATORS } from "./userEvaluation/allEvaluators.js";
 import { UserEvaluatorBase } from "./userEvaluation/UserEvaluatorBase.js";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { createUserSummary } from "./UserSummary/userSummary.js";
+import pluralize from "pluralize";
+import { format } from "date-fns";
 
 interface EvaluatorStats {
     hitCount: number;
@@ -29,45 +31,38 @@ export async function evaluateUserAccount (username: string, context: JobContext
 
     const variables = await getEvaluatorVariables(context);
 
-    let userEligible = false;
-    for (const Evaluator of ALL_EVALUATORS) {
-        const evaluator = new Evaluator(context, variables);
-        if (evaluator.preEvaluateUser(user)) {
-            userEligible = true;
-        }
-    }
-
-    if (!userEligible) {
-        if (verbose) {
-            console.log(`Evaluator: ${username} does not pass any user pre-checks.`);
-        }
-        return [];
-    }
-
-    let userItems: (Post | Comment)[];
-    try {
-        userItems = await context.reddit.getCommentsAndPostsByUser({
-            username,
-            sort: "new",
-            limit: 100,
-        }).all();
-    } catch {
-        // Error retrieving user history, likely shadowbanned.
-        if (verbose) {
-            console.log(`Evaluator: ${username} appears to have been shadowbanned since post made.`);
-        }
-        return [];
-    }
-
+    let userItems: (Post | Comment)[] | undefined;
     const detectedBots: UserEvaluatorBase[] = [];
 
     for (const Evaluator of ALL_EVALUATORS) {
         const evaluator = new Evaluator(context, variables);
+        if (evaluator.evaluatorDisabled()) {
+            continue;
+        }
+
+        if (!evaluator.preEvaluateUser(user)) {
+            continue;
+        }
+
+        if (userItems === undefined) {
+            try {
+                userItems = await context.reddit.getCommentsAndPostsByUser({
+                    username,
+                    sort: "new",
+                    limit: 100,
+                }).all();
+            } catch {
+                // Error retrieving user history, likely shadowbanned.
+                if (verbose) {
+                    console.log(`Evaluator: ${username} appears to be shadowbanned.`);
+                }
+                return [];
+            }
+        }
+
         const isABot = evaluator.evaluate(user, userItems);
         if (isABot) {
-            if (verbose) {
-                console.log(`Evaluator: ${username} appears to be a bot via the evaluator: ${evaluator.name}`);
-            }
+            console.log(`Evaluator: ${username} appears to be a bot via the evaluator: ${evaluator.name} 💥`);
             detectedBots.push(evaluator);
         } else if (verbose) {
             console.log(`Evaluator: ${evaluator.name} did not match: ${evaluator.getReasons().join(", ")}`);
@@ -91,9 +86,12 @@ export async function evaluateUserAccount (username: string, context: JobContext
     }
 
     await context.redis.set(redisKey, JSON.stringify(allStats));
-    console.log("Evaluator: Stats updated", allStats);
+    for (const entry of Object.entries(allStats).map(([name, value]) => ({ name, value }))) {
+        console.log(`* ${entry.name}: ${entry.value.hitCount} ${pluralize("hit", entry.value.hitCount)}, last hit ${format(new Date(entry.value.lastHit), "yyyy-MM-dd HH:mm")}`);
+    }
 
-    return detectedBots.map(bot => ({ botName: bot.name, canAutoBan: bot.canAutoBan, metThreshold: userItems.length >= bot.banContentThreshold }));
+    const itemCount = userItems?.length ?? 0;
+    return detectedBots.map(bot => ({ botName: bot.name, canAutoBan: bot.canAutoBan, metThreshold: itemCount >= bot.banContentThreshold }));
 }
 
 export async function handleControlSubAccountEvaluation (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
