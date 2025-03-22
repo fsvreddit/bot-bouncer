@@ -269,9 +269,8 @@ function compactDataForWiki (input: string): string | undefined {
 }
 
 export async function updateWikiPage (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
-    const forceUpdate = event.data?.force as boolean | undefined ?? false;
     const updateDue = await context.redis.get(WIKI_UPDATE_DUE);
-    if (!updateDue && !forceUpdate) {
+    if (!updateDue) {
         return;
     }
 
@@ -282,11 +281,6 @@ export async function updateWikiPage (event: ScheduledJobEvent<JSONObject | unde
         wikiPage = await context.reddit.getWikiPage(subredditName, WIKI_PAGE);
     } catch {
         //
-    }
-
-    if (wikiPage?.revisionDate && wikiPage.revisionDate > subDays(new Date(), 1) && forceUpdate) {
-        // No need to run the monthly forced update, the page has been updated recently.
-        return;
     }
 
     const data = await context.redis.hGetAll(USER_STORE);
