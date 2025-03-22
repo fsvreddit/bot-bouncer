@@ -8,7 +8,7 @@ import { EvaluateFirstCommentEmDash } from "./EvaluateFirstCommentEmDash.js";
 import { EvaluateResumeSpam } from "./EvaluateResumeSpam.js";
 import { EvaluateAffiliateBot } from "./EvaluateAffiliateBot.js";
 import { EvaluateBadUsername } from "./EvaluateBadUsername.js";
-import { EvaluateBannedTitles } from "./evaluateStickyPostTitle.js";
+import { EvaluatePinnedPostTitles } from "./EvaluatePinnedPostTitle.js";
 import { EvaluateSelfComment } from "./EvaluateSelfComment.js";
 import { EvaluateSoccerStreamBot } from "./EvaluateSoccerStreamBot.js";
 import { EvaluateRepeatedPhraseBot } from "./EvaluateRepeatedPhraseBot.js";
@@ -24,7 +24,7 @@ export const ALL_EVALUATORS = [
     EvaluateResumeSpam,
     EvaluateAffiliateBot,
     EvaluateBadUsername,
-    EvaluateBannedTitles,
+    EvaluatePinnedPostTitles,
     EvaluateSelfComment,
     EvaluateSoccerStreamBot,
     EvaluateRepeatedPhraseBot,

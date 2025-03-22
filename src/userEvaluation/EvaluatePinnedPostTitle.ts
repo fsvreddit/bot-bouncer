@@ -3,7 +3,7 @@ import { CommentCreate } from "@devvit/protos";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
 import { domainFromUrl } from "../utility.js";
 
-export class EvaluateBannedTitles extends UserEvaluatorBase {
+export class EvaluatePinnedPostTitles extends UserEvaluatorBase {
     override name = "Sticky Post Title Bot";
     override killswitch = "pinnedpost:killswitch";
     override banContentThreshold = 1;
