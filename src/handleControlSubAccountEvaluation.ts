@@ -6,6 +6,8 @@ import { ALL_EVALUATORS } from "./userEvaluation/allEvaluators.js";
 import { UserEvaluatorBase } from "./userEvaluation/UserEvaluatorBase.js";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { createUserSummary } from "./UserSummary/userSummary.js";
+import pluralize from "pluralize";
+import { format } from "date-fns";
 
 interface EvaluatorStats {
     hitCount: number;
@@ -60,9 +62,7 @@ export async function evaluateUserAccount (username: string, context: JobContext
 
         const isABot = evaluator.evaluate(user, userItems);
         if (isABot) {
-            if (verbose) {
-                console.log(`Evaluator: ${username} appears to be a bot via the evaluator: ${evaluator.name}`);
-            }
+            console.log(`Evaluator: ${username} appears to be a bot via the evaluator: ${evaluator.name} 💥`);
             detectedBots.push(evaluator);
         } else if (verbose) {
             console.log(`Evaluator: ${evaluator.name} did not match: ${evaluator.getReasons().join(", ")}`);
@@ -86,6 +86,9 @@ export async function evaluateUserAccount (username: string, context: JobContext
     }
 
     await context.redis.set(redisKey, JSON.stringify(allStats));
+    for (const entry of Object.entries(allStats).map(([name, value]) => ({ name, value }))) {
+        console.log(`* ${entry.name}: ${entry.value.hitCount} ${pluralize("hit", entry.value.hitCount)}, last hit ${format(new Date(entry.value.lastHit), "yyyy-MM-dd HH:mm")}`);
+    }
     console.log("Evaluator: Stats updated", allStats);
 
     const itemCount = userItems?.length ?? 0;

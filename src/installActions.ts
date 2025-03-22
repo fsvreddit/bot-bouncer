@@ -3,6 +3,7 @@ import { TriggerContext } from "@devvit/public-api";
 import { CLEANUP_JOB, CLEANUP_JOB_CRON, CONTROL_SUBREDDIT, EVALUATE_KARMA_FARMING_SUBS, EXTERNAL_SUBMISSION_JOB, EXTERNAL_SUBMISSION_JOB_CRON, UPDATE_DATASTORE_FROM_WIKI, UPDATE_EVALUATOR_VARIABLES, UPDATE_STATISTICS_PAGE, UPDATE_WIKI_PAGE_JOB } from "./constants.js";
 import { scheduleAdhocCleanup } from "./cleanup.js";
 import { handleExternalSubmissionsPageUpdate } from "./externalSubmissions.js";
+import { removeRetiredEvaluatorsFromStats } from "./userEvaluation/evaluatorHelpers.js";
 
 export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, context: TriggerContext) {
     console.log("App Install: Detected an app install or update event");
@@ -60,6 +61,7 @@ async function addControlSubredditJobs (context: TriggerContext) {
     });
 
     await handleExternalSubmissionsPageUpdate(context);
+    await removeRetiredEvaluatorsFromStats(context);
 
     console.log("App Install: Control subreddit jobs added");
 }

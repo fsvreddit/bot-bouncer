@@ -13,7 +13,7 @@ const POST_STORE = "PostStore";
 const AGGREGATE_STORE = "AggregateStore";
 const WIKI_UPDATE_DUE = "WikiUpdateDue";
 const WIKI_PAGE = "botbouncer";
-const MAX_WIKI_PAGE_SIZE = 524288;
+const MAX_WIKI_PAGE_SIZE = 512 * 1024;
 
 export enum UserStatus {
     Pending = "pending",

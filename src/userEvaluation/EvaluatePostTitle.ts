@@ -12,16 +12,20 @@ export class EvaluatePostTitle extends UserEvaluatorBase {
         return false;
     }
 
-    override preEvaluatePost (post: Post): boolean {
+    private getTitles () {
         const bannableTitles = this.variables["posttitle:bantext"] as string[] | undefined ?? [];
         const reportableTitles = this.variables["posttitle:reporttext"] as string[] | undefined ?? [];
+        return { bannableTitles, reportableTitles };
+    }
+
+    override preEvaluatePost (post: Post): boolean {
+        const { bannableTitles, reportableTitles } = this.getTitles();
         const problematicTitles = [...bannableTitles, ...reportableTitles];
         return problematicTitles.some(title => new RegExp(title).test(post.title));
     }
 
     override preEvaluateUser (user: User): boolean {
-        const bannableTitles = this.variables["pinnedpost:bantext"] as string[] | undefined ?? [];
-        const reportableTitles = this.variables["pinnedpost:reporttext"] as string[] | undefined ?? [];
+        const { bannableTitles, reportableTitles } = this.getTitles();
 
         if (bannableTitles.length === 0 && reportableTitles.length === 0) {
             return false;
@@ -40,16 +44,16 @@ export class EvaluatePostTitle extends UserEvaluatorBase {
             return false;
         }
 
-        const bannableTitles = this.variables["pinnedpost:bantext"] as string[] | undefined ?? [];
-        const bannableStickyPosts = userPosts.filter(post => bannableTitles.some(regex => new RegExp(regex).test(post.title)));
-        if (bannableStickyPosts.length > 0) {
+        const { bannableTitles, reportableTitles } = this.getTitles();
+
+        const bannablePosts = userPosts.filter(post => bannableTitles.some(regex => new RegExp(regex).test(post.title)));
+        if (bannablePosts.length > 0) {
             this.canAutoBan = true;
             return true;
         }
 
-        const reportableTitles = this.variables["pinnedpost:reporttext"] as string[] | undefined ?? [];
-        const reportableStickyPosts = userPosts.filter(post => reportableTitles.some(regex => new RegExp(regex).test(post.title)));
-        if (reportableStickyPosts.length > 0) {
+        const reportablePosts = userPosts.filter(post => reportableTitles.some(regex => new RegExp(regex).test(post.title)));
+        if (reportablePosts.length > 0) {
             this.canAutoBan = false;
             return true;
         }
