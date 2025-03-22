@@ -71,11 +71,7 @@ export class EvaluateAffiliateBot extends UserEvaluatorBase {
         return true;
     }
 
-    override evaluate (user: User, history: (Post | Comment)[]): boolean {
-        if (!this.preEvaluateUser(user)) {
-            return false;
-        }
-
+    override evaluate (_: User, history: (Post | Comment)[]): boolean {
         const userComments = history.filter(item => item instanceof Comment) as Comment[];
         const userDomains = uniq(userComments.map(comment => this.domainsFromContent(comment.body)).flat());
 

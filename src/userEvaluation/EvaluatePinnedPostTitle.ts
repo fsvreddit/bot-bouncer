@@ -32,12 +32,7 @@ export class EvaluatePinnedPostTitles extends UserEvaluatorBase {
         return true;
     }
 
-    override evaluate (user: User, history: (Post | Comment)[]): boolean {
-        if (!this.preEvaluateUser(user)) {
-            this.setReason("User does not meet pre-evaluation criteria");
-            return false;
-        }
-
+    override evaluate (_: User, history: (Post | Comment)[]): boolean {
         const stickyPosts = history.filter(item => item instanceof Post && item.stickied) as Post[];
         if (stickyPosts.length === 0) {
             this.setReason("User has no sticky posts");

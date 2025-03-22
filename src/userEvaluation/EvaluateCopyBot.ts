@@ -70,10 +70,6 @@ export class EvaluateCopyBot extends UserEvaluatorBase {
     }
 
     override evaluate (user: User, history: (Post | Comment)[]): boolean {
-        if (!this.preEvaluateUser(user)) {
-            return false;
-        }
-
         const userPosts = history.filter(item => item.body !== "[removed]" && item instanceof Post && item.createdAt > subMonths(new Date(), 1)) as Post[];
 
         if (userPosts.length < 2) {

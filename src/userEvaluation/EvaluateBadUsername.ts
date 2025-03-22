@@ -42,11 +42,7 @@ export class EvaluateBadUsername extends UserEvaluatorBase {
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    override evaluate (user: User, history: (Post | Comment)[]): boolean {
-        if (!this.preEvaluateUser(user)) {
-            return false;
-        }
-
+    override evaluate (_user: User, _history: (Post | Comment)[]): boolean {
         return true;
     }
 }

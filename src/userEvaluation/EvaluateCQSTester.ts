@@ -63,11 +63,7 @@ export class EvaluateCQSTester extends UserEvaluatorBase {
         return true;
     }
 
-    override evaluate (user: User, history: (Post | Comment)[]): boolean {
-        if (!this.preEvaluateUser(user)) {
-            return false;
-        }
-
+    override evaluate (_: User, history: (Post | Comment)[]): boolean {
         const userPosts = history.filter(item => isLinkId(item.id)) as Post[];
         const titlesToCheck = ["Test", "test", "T", "t"];
         if (!userPosts.some(item => item.subredditName === "WhatIsMyCQS" && titlesToCheck.includes(item.title))) {

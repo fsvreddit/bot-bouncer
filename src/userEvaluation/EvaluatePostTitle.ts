@@ -33,12 +33,7 @@ export class EvaluatePostTitle extends UserEvaluatorBase {
         return true;
     }
 
-    override evaluate (user: User, history: (Post | Comment)[]): boolean {
-        if (!this.preEvaluateUser(user)) {
-            this.setReason("User does not meet pre-evaluation criteria");
-            return false;
-        }
-
+    override evaluate (_: User, history: (Post | Comment)[]): boolean {
         const userPosts = history.filter(item => item instanceof Post && item.stickied) as Post[];
         if (userPosts.length === 0) {
             this.setReason("User has no posts");

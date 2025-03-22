@@ -58,11 +58,7 @@ export class EvaluateDomainSharer extends UserEvaluatorBase {
         return user.commentKarma < 1000 && user.linkKarma < 1000;
     }
 
-    override evaluate (user: User, history: (Post | Comment)[]): boolean {
-        if (!this.preEvaluateUser(user)) {
-            return false;
-        }
-
+    override evaluate (_: User, history: (Post | Comment)[]): boolean {
         const recentContent = history.filter(item => item.createdAt > subMonths(new Date(), 6));
 
         if (recentContent.length < 5) {

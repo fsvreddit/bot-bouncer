@@ -62,10 +62,6 @@ export class EvaluateMixedBot extends UserEvaluatorBase {
     }
 
     override evaluate (user: User, history: (Post | Comment)[]): boolean {
-        if (!this.preEvaluateUser(user)) {
-            return false;
-        }
-
         if (history.length > 90) {
             this.setReason("User has too many items in history");
             return false;

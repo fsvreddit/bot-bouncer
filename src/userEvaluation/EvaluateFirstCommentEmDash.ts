@@ -48,10 +48,6 @@ export class EvaluateFirstCommentEmDash extends UserEvaluatorBase {
     }
 
     override evaluate (user: User, history: (Post | Comment)[]): boolean {
-        if (!this.preEvaluateUser(user)) {
-            return false;
-        }
-
         const comments = history.filter(item => isCommentId(item.id)) as Comment[];
         const posts = history.filter(item => isLinkId(item.id)) as Post[];
 
