@@ -52,7 +52,7 @@ export async function handleClientPostCreate (event: PostCreate, context: Trigge
     }
 
     if (possibleBot) {
-        await checkAndReportPotentialBot(event.author.name, event.post.id, settings, variables, context);
+        await checkAndReportPotentialBot(event.author.name, post, settings, variables, context);
     }
 }
 
@@ -110,7 +110,7 @@ export async function handleClientCommentCreate (event: CommentCreate, context: 
         }
     }
 
-    await checkAndReportPotentialBot(event.author.name, event.comment.id, settings, variables, context);
+    await checkAndReportPotentialBot(event.author.name, event, settings, variables, context);
 
     await context.redis.set(redisKey, new Date().getTime().toString(), { expiration: addDays(new Date(), 2) });
 }
@@ -186,9 +186,14 @@ async function handleContentCreation (username: string, currentStatus: UserDetai
     }
 }
 
-async function checkAndReportPotentialBot (username: string, thingId: string, settings: SettingsValues, variables: Record<string, JSONValue>, context: TriggerContext) {
+async function checkAndReportPotentialBot (username: string, target: Post | CommentCreate, settings: SettingsValues, variables: Record<string, JSONValue>, context: TriggerContext) {
     const user = await getUserOrUndefined(username, context);
     if (!user) {
+        return;
+    }
+
+    const targetId = target instanceof Post ? target.id : target.comment?.id;
+    if (!targetId) {
         return;
     }
 
@@ -201,6 +206,16 @@ async function checkAndReportPotentialBot (username: string, thingId: string, se
         const evaluator = new Evaluator(context, variables);
         if (evaluator.evaluatorDisabled()) {
             continue;
+        }
+
+        if (target instanceof Post) {
+            if (!evaluator.preEvaluatePost(target)) {
+                continue;
+            }
+        } else {
+            if (!evaluator.preEvaluateComment(target)) {
+                continue;
+            }
         }
 
         if (!evaluator.preEvaluateUser(user)) {
@@ -252,8 +267,8 @@ async function checkAndReportPotentialBot (username: string, thingId: string, se
 
     const currentUser = await context.reddit.getCurrentUser();
 
-    const target = await getPostOrCommentById(thingId, context);
-    const reportContext = `Automatically reported via a [${isLinkId(target.id) ? "post" : "comment"}](${target.permalink}) on /r/${target.subredditName}`;
+    const targetItem = await getPostOrCommentById(targetId, context);
+    const reportContext = `Automatically reported via a [${isLinkId(targetItem.id) ? "post" : "comment"}](${targetItem.permalink}) on /r/${targetItem.subredditName}`;
     await addExternalSubmission({
         username: user.username,
         submitter: currentUser?.username,
@@ -263,10 +278,10 @@ async function checkAndReportPotentialBot (username: string, thingId: string, se
     console.log(`Created external submission via automated evaluation for ${user.username} for bot style ${botName}`);
 
     if (settings[AppSetting.RemoveContentWhenReporting]) {
-        const removedByMod = await context.redis.get(`removedbymod:${target.id}`);
-        if (!removedByMod && !target.spam) {
-            await context.redis.set(`removed:${target.authorName}`, target.id, { expiration: addWeeks(new Date(), 2) });
-            await target.remove();
+        const removedByMod = await context.redis.get(`removedbymod:${targetItem.id}`);
+        if (!removedByMod && !targetItem.spam) {
+            await context.redis.set(`removed:${targetItem.authorName}`, targetItem.id, { expiration: addWeeks(new Date(), 2) });
+            await targetItem.remove();
         }
     }
 }
