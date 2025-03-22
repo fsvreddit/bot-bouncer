@@ -183,9 +183,9 @@ export async function writeAggregateToWikiPage (_: unknown, context: JobContext)
             continue;
         }
 
-        if (status.userStatus === UserStatus.Organic) {
+        if (status.userStatus === UserStatus.Organic || status.userStatus === UserStatus.Service || status.userStatus === UserStatus.Declined) {
             organicStatuses[status.submitter] = (organicStatuses[status.submitter] ?? 0) + 1;
-        } else if (status.userStatus === UserStatus.Banned) {
+        } else if (status.userStatus === UserStatus.Banned || (status.userStatus === UserStatus.Purged && status.lastStatus === UserStatus.Banned)) {
             bannedStatuses[status.submitter] = (bannedStatuses[status.submitter] ?? 0) + 1;
         }
     }
