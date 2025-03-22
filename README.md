@@ -50,6 +50,7 @@ Write in to [/r/BotBouncer's modmail](https://www.reddit.com/message/compose/?to
 Note: v1.6.1 is the current public release. An upgrade may appear to be available but not be installable.
 
 * Fix bug that prevented auto allowlisting on unban from working properly
+* Removed three redundant evaluators for bot styles no longer seen in the wild
 * Performance improvements
 
 ## v1.6.1
