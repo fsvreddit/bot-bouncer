@@ -16,6 +16,6 @@ test("All evaluators have a unique killswitch name", () => {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
         const evaluator = new Evaluator({} as any, {});
         expect(evaluatorKillswitches.has(evaluator.killswitch)).toBe(false);
-        evaluatorKillswitches.add(evaluator.name);
+        evaluatorKillswitches.add(evaluator.killswitch);
     }
 });
