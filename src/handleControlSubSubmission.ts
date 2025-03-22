@@ -41,6 +41,11 @@ export async function handleControlSubSubmission (event: PostCreate, context: Tr
         submissionResponse = "You are not currently permitted to submit bots to r/BotBouncer. Please write in to modmail if you believe this is a mistake";
     }
 
+    const submitterStatus = await getUserStatus(event.author.name, context);
+    if (submitterStatus && submitterStatus.userStatus === UserStatus.Banned) {
+        submissionResponse = "You are currently listed as a bot on r/BotBouncer, so we cannot accept submissions from you. Please write in to modmail if you believe this is a mistake";
+    }
+
     let user: User | undefined;
     if (username) {
         user = await getUserOrUndefined(username, context);
