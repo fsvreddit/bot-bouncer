@@ -319,7 +319,7 @@ export async function updateWikiPage (event: ScheduledJobEvent<JSONObject | unde
 
     console.log(`Wiki page has been updated with ${entries.length} entries`);
 
-    if (content.length > MAX_WIKI_PAGE_SIZE * 0.5) {
+    if (content.length > MAX_WIKI_PAGE_SIZE * 0.7) {
         const spaceAlertKey = "wikiSpaceAlert";
         const alertDone = await context.redis.get(spaceAlertKey);
         if (!alertDone) {
