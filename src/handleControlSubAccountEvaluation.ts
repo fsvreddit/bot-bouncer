@@ -89,7 +89,6 @@ export async function evaluateUserAccount (username: string, context: JobContext
     for (const entry of Object.entries(allStats).map(([name, value]) => ({ name, value }))) {
         console.log(`* ${entry.name}: ${entry.value.hitCount} ${pluralize("hit", entry.value.hitCount)}, last hit ${format(new Date(entry.value.lastHit), "yyyy-MM-dd HH:mm")}`);
     }
-    console.log("Evaluator: Stats updated", allStats);
 
     const itemCount = userItems?.length ?? 0;
     return detectedBots.map(bot => ({ botName: bot.name, canAutoBan: bot.canAutoBan, metThreshold: itemCount >= bot.banContentThreshold }));
