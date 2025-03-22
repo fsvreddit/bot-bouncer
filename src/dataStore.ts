@@ -3,7 +3,7 @@ import { compact, countBy, Dictionary, max, sum, toPairs, uniq } from "lodash";
 import pako from "pako";
 import { scheduleAdhocCleanup, setCleanupForSubmittersAndMods, setCleanupForUsers } from "./cleanup.js";
 import { CONTROL_SUBREDDIT, HANDLE_CLASSIFICATION_CHANGES_JOB } from "./constants.js";
-import { addSeconds, addWeeks, startOfSecond, subDays, subHours } from "date-fns";
+import { addSeconds, addWeeks, startOfSecond, subDays, subHours, subWeeks } from "date-fns";
 import pluralize from "pluralize";
 import { getControlSubSettings } from "./settings.js";
 import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
@@ -246,8 +246,14 @@ function compressData (value: Record<string, string>): string {
 
 function compactDataForWiki (input: string): string | undefined {
     const status = JSON.parse(input) as UserDetails;
+
     // Exclude entries for users marked as "retired"
     if (status.userStatus === UserStatus.Retired) {
+        return;
+    }
+
+    // Exclude status for users marked as organic/declined that haven't been updated in a week
+    if ((status.userStatus === UserStatus.Organic || status.userStatus === UserStatus.Declined) && status.lastUpdate < subWeeks(new Date(), 1).getTime()) {
         return;
     }
 
@@ -284,6 +290,7 @@ export async function updateWikiPage (event: ScheduledJobEvent<JSONObject | unde
     }
 
     const data = await context.redis.hGetAll(USER_STORE);
+    const dataToWrite: Record<string, string> = {};
     const entries = Object.entries(data);
     if (entries.length === 0) {
         return;
@@ -293,11 +300,11 @@ export async function updateWikiPage (event: ScheduledJobEvent<JSONObject | unde
         const [username, jsonData] = entry;
         const compactedData = compactDataForWiki(jsonData);
         if (compactedData) {
-            data[username] = compactedData;
+            dataToWrite[username] = compactedData;
         }
     }
 
-    const content = compressData(data);
+    const content = compressData(dataToWrite);
     if (content === wikiPage?.content) {
         return;
     }
@@ -322,7 +329,7 @@ export async function updateWikiPage (event: ScheduledJobEvent<JSONObject | unde
 
     await context.redis.del(WIKI_UPDATE_DUE);
 
-    console.log(`Wiki page has been updated with ${Object.keys(data)} entries`);
+    console.log(`Wiki page has been updated with ${Object.keys(dataToWrite).length} entries`);
 
     if (content.length > MAX_WIKI_PAGE_SIZE * 0.7) {
         const spaceAlertKey = "wikiSpaceAlert";
