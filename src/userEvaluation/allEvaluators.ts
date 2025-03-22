@@ -12,6 +12,7 @@ import { EvaluatePinnedPostTitles } from "./EvaluatePinnedPostTitle.js";
 import { EvaluateSelfComment } from "./EvaluateSelfComment.js";
 import { EvaluateSoccerStreamBot } from "./EvaluateSoccerStreamBot.js";
 import { EvaluateRepeatedPhraseBot } from "./EvaluateRepeatedPhraseBot.js";
+import { EvaluatePostTitle } from "./EvaluatePostTitle.js";
 
 export const ALL_EVALUATORS = [
     EvaluateShortTlc,
@@ -28,4 +29,5 @@ export const ALL_EVALUATORS = [
     EvaluateSelfComment,
     EvaluateSoccerStreamBot,
     EvaluateRepeatedPhraseBot,
+    EvaluatePostTitle,
 ];
