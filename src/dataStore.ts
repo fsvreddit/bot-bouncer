@@ -244,8 +244,16 @@ function compressData (value: Record<string, string>): string {
     return Buffer.from(pako.deflate(JSON.stringify(value), { level: 9 })).toString("base64");
 }
 
-function compactDataForWiki (input: string): string {
+function compactDataForWiki (input: string): string | undefined {
     const status = JSON.parse(input) as UserDetails;
+    // Exclude entries for users marked as "retired"
+    if (status.userStatus === UserStatus.Retired) {
+        return;
+    }
+
+    /* Future potential: Exclude entries for organic/declined/service users
+       after a certain period of time, to keep the wiki page size down. */
+
     status.operator = "";
     delete status.submitter;
     if (status.userStatus === UserStatus.Purged && status.lastStatus) {
@@ -289,7 +297,10 @@ export async function updateWikiPage (event: ScheduledJobEvent<JSONObject | unde
 
     for (const entry of entries) {
         const [username, jsonData] = entry;
-        data[username] = compactDataForWiki(jsonData);
+        const compactedData = compactDataForWiki(jsonData);
+        if (compactedData) {
+            data[username] = compactedData;
+        }
     }
 
     const content = compressData(data);
@@ -317,7 +328,7 @@ export async function updateWikiPage (event: ScheduledJobEvent<JSONObject | unde
 
     await context.redis.del(WIKI_UPDATE_DUE);
 
-    console.log(`Wiki page has been updated with ${entries.length} entries`);
+    console.log(`Wiki page has been updated with ${Object.keys(data)} entries`);
 
     if (content.length > MAX_WIKI_PAGE_SIZE * 0.7) {
         const spaceAlertKey = "wikiSpaceAlert";
