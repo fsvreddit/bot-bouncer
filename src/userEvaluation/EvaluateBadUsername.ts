@@ -5,6 +5,7 @@ import { subWeeks } from "date-fns";
 
 export class EvaluateBadUsername extends UserEvaluatorBase {
     override name = "Bad Username Bot";
+    override killswitch = "badusername:killswitch";
 
     public override banContentThreshold = 1;
 
@@ -43,11 +44,6 @@ export class EvaluateBadUsername extends UserEvaluatorBase {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     override evaluate (user: User, history: (Post | Comment)[]): boolean {
         if (!this.preEvaluateUser(user)) {
-            return false;
-        }
-
-        if (this.variables["badusername:killswitch"]) {
-            this.setReason("Evaluator is disabled");
             return false;
         }
 

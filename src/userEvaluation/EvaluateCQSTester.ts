@@ -8,6 +8,7 @@ import { domainFromUrl } from "./evaluatorHelpers.js";
 
 export class EvaluateCQSTester extends UserEvaluatorBase {
     override name = "CQS Tester";
+    override killswitch = "cqstester:killswitch";
 
     override canAutoBan = false;
 
@@ -64,11 +65,6 @@ export class EvaluateCQSTester extends UserEvaluatorBase {
 
     override evaluate (user: User, history: (Post | Comment)[]): boolean {
         if (!this.preEvaluateUser(user)) {
-            return false;
-        }
-
-        if (this.variables["cqstester:killswitch"]) {
-            this.setReason("Evaluator is disabled");
             return false;
         }
 

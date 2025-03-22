@@ -9,6 +9,7 @@ import { autogenRegex } from "./evaluatorHelpers.js";
 
 export class EvaluateShortTlc extends UserEvaluatorBase {
     override name = "Short TLC Bot";
+    override killswitch = "short-tlc:killswitch";
 
     private eligibleComment (comment: Comment | CommentV2) {
         if (isCommentId(comment.parentId)) {
@@ -57,11 +58,6 @@ export class EvaluateShortTlc extends UserEvaluatorBase {
 
     override evaluate (user: User, history: (Post | Comment)[]): boolean {
         if (!this.preEvaluateUser(user)) {
-            return false;
-        }
-
-        if (this.variables["short-tlc:killswitch"]) {
-            this.setReason("Evaluator is disabled");
             return false;
         }
 

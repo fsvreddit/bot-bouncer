@@ -8,6 +8,7 @@ import { domainFromUrl } from "./evaluatorHelpers.js";
 
 export class EvaluateMixedBot extends UserEvaluatorBase {
     override name = "Mixed Bot";
+    override killswitch = "mixed-bot:killswitch";
 
     private readonly emDashRegex = /\w—\w/i;
 
@@ -62,11 +63,6 @@ export class EvaluateMixedBot extends UserEvaluatorBase {
 
     override evaluate (user: User, history: (Post | Comment)[]): boolean {
         if (!this.preEvaluateUser(user)) {
-            return false;
-        }
-
-        if (this.variables["mixed-bot:killswitch"]) {
-            this.setReason("Killswitch is enabled");
             return false;
         }
 

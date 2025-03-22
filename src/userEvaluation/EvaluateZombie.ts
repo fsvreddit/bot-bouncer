@@ -9,6 +9,7 @@ import { CONTROL_SUBREDDIT } from "../constants.js";
 
 export class EvaluateZombie extends UserEvaluatorBase {
     override name = "Zombie";
+    override killswitch = "zombie:killswitch";
 
     override canAutoBan = false;
 
@@ -62,13 +63,13 @@ export class EvaluateZombie extends UserEvaluatorBase {
         return true;
     }
 
+    override evaluatorDisabled (): boolean {
+        const killswitchSet = this.variables[this.killswitch] as boolean | undefined ?? false;
+        return killswitchSet && this.context.subredditName !== CONTROL_SUBREDDIT;
+    }
+
     override evaluate (user: User, history: (Post | Comment)[]): boolean {
         if (!this.preEvaluateUser(user)) {
-            return false;
-        }
-
-        if (this.variables["zombie:killswitch"] && this.context.subredditName !== CONTROL_SUBREDDIT) {
-            this.setReason("Evaluator is disabled");
             return false;
         }
 

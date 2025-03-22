@@ -8,6 +8,7 @@ import { domainFromUrl } from "./evaluatorHelpers.js";
 
 export class EvaluateDomainSharer extends UserEvaluatorBase {
     override name = "Domain Sharer";
+    override killswitch = "domainsharer:killswitch";
     override canAutoBan = false;
 
     private domainsFromContent (content: string): string[] {
@@ -59,11 +60,6 @@ export class EvaluateDomainSharer extends UserEvaluatorBase {
 
     override evaluate (user: User, history: (Post | Comment)[]): boolean {
         if (!this.preEvaluateUser(user)) {
-            return false;
-        }
-
-        if (this.variables["domainsharer:killswitch"]) {
-            this.setReason("Evaluator is disabled");
             return false;
         }
 

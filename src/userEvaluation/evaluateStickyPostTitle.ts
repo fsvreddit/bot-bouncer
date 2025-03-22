@@ -5,6 +5,7 @@ import { domainFromUrl } from "../utility.js";
 
 export class EvaluateBannedTitles extends UserEvaluatorBase {
     override name = "Sticky Post Title Bot";
+    override killswitch = "pinnedpost:killswitch";
     override banContentThreshold = 1;
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -18,10 +19,6 @@ export class EvaluateBannedTitles extends UserEvaluatorBase {
     }
 
     override preEvaluateUser (user: User): boolean {
-        if (this.variables["pinnedpost:killswitch"]) {
-            return false;
-        }
-
         const bannableTitles = this.variables["pinnedpost:bantext"] as string[] | undefined ?? [];
         const reportableTitles = this.variables["pinnedpost:reporttext"] as string[] | undefined ?? [];
 
@@ -38,10 +35,6 @@ export class EvaluateBannedTitles extends UserEvaluatorBase {
     override evaluate (user: User, history: (Post | Comment)[]): boolean {
         if (!this.preEvaluateUser(user)) {
             this.setReason("User does not meet pre-evaluation criteria");
-            return false;
-        }
-
-        if (this.variables["pinnedpost:killswitch"]) {
             return false;
         }
 

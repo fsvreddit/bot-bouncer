@@ -8,6 +8,7 @@ import { domainFromUrl } from "./evaluatorHelpers.js";
 
 export class EvaluateSelfComment extends UserEvaluatorBase {
     override name = "Self Comment";
+    override killswitch = "selfcomment:killswitch";
 
     override banContentThreshold = 2;
 
@@ -33,10 +34,6 @@ export class EvaluateSelfComment extends UserEvaluatorBase {
     }
 
     override preEvaluateUser (user: User): boolean {
-        if (this.variables["selfcomment:killswitch"]) {
-            return false;
-        }
-
         const ageInDays = this.variables["selfcomment:ageindays"] as number | undefined ?? 14;
         const maxKarma = this.variables["selfcomment:maxkarma"] as number | undefined ?? 500;
         return user.createdAt > subDays(new Date(), ageInDays) && user.commentKarma < maxKarma;
@@ -45,11 +42,6 @@ export class EvaluateSelfComment extends UserEvaluatorBase {
     override evaluate (user: User, history: (Post | Comment)[]): boolean {
         if (!this.preEvaluateUser(user)) {
             this.setReason("User is too old or has too much karma");
-            return false;
-        }
-
-        if (this.variables["selfcomment:killswitch"]) {
-            this.setReason("Killswitch enabled");
             return false;
         }
 

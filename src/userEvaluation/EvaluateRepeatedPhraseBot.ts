@@ -7,6 +7,7 @@ import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
 
 export class EvaluateRepeatedPhraseBot extends UserEvaluatorBase {
     override name = "Repeated Phrase Bot";
+    override killswitch = "repeatedphrase:killswitch";
     override banContentThreshold = 3;
     override canAutoBan = true;
 
@@ -43,11 +44,6 @@ export class EvaluateRepeatedPhraseBot extends UserEvaluatorBase {
     override evaluate (user: User, history: (Post | Comment)[]): boolean {
         if (!this.preEvaluateUser(user)) {
             this.setReason("User does not pass pre-evaluation checks");
-            return false;
-        }
-
-        if (this.variables["repeatedphrase:killswitch"]) {
-            this.setReason("Evaluator is disabled");
             return false;
         }
 

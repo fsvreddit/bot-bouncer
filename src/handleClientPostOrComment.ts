@@ -41,6 +41,10 @@ export async function handleClientPostCreate (event: PostCreate, context: Trigge
     let possibleBot = false;
     for (const Evaluator of ALL_EVALUATORS) {
         const evaluator = new Evaluator(context, variables);
+        if (evaluator.evaluatorDisabled()) {
+            continue;
+        }
+
         if (evaluator.preEvaluatePost(post)) {
             possibleBot = true;
             break;
@@ -81,6 +85,10 @@ export async function handleClientCommentCreate (event: CommentCreate, context: 
     let possibleBot = false;
     for (const Evaluator of ALL_EVALUATORS) {
         const evaluator = new Evaluator(context, variables);
+        if (evaluator.evaluatorDisabled()) {
+            continue;
+        }
+
         if (evaluator.preEvaluateComment(event)) {
             possibleBot = true;
             break;
@@ -191,6 +199,10 @@ async function checkAndReportPotentialBot (username: string, thingId: string, se
 
     for (const Evaluator of ALL_EVALUATORS) {
         const evaluator = new Evaluator(context, variables);
+        if (evaluator.evaluatorDisabled()) {
+            continue;
+        }
+
         if (!evaluator.preEvaluateUser(user)) {
             continue;
         }

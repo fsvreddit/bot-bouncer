@@ -9,6 +9,7 @@ import { domainFromUrl } from "./evaluatorHelpers.js";
 
 export class EvaluateFirstCommentEmDash extends UserEvaluatorBase {
     override name = "First Comment Em Dash";
+    override killswitch = "em-dash:killswitch";
 
     override banContentThreshold = 1;
 
@@ -48,11 +49,6 @@ export class EvaluateFirstCommentEmDash extends UserEvaluatorBase {
 
     override evaluate (user: User, history: (Post | Comment)[]): boolean {
         if (!this.preEvaluateUser(user)) {
-            return false;
-        }
-
-        if (this.variables["em-dash:killswitch"]) {
-            this.setReason("Killswitch is enabled");
             return false;
         }
 

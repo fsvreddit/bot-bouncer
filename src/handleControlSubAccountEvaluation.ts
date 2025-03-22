@@ -34,6 +34,10 @@ export async function evaluateUserAccount (username: string, context: JobContext
 
     for (const Evaluator of ALL_EVALUATORS) {
         const evaluator = new Evaluator(context, variables);
+        if (evaluator.evaluatorDisabled()) {
+            continue;
+        }
+
         if (!evaluator.preEvaluateUser(user)) {
             continue;
         }

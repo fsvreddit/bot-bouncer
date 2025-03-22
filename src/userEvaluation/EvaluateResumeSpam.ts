@@ -8,6 +8,7 @@ import { domainFromUrl } from "./evaluatorHelpers.js";
 
 export class EvaluateResumeSpam extends UserEvaluatorBase {
     override name = "Resume Spam";
+    override killswitch = "resume:killswitch";
 
     private eligibleComment (comment: Comment | CommentV2) {
         if (isCommentId(comment.parentId)) {
@@ -57,11 +58,6 @@ export class EvaluateResumeSpam extends UserEvaluatorBase {
 
     override evaluate (user: User, history: (Post | Comment)[]): boolean {
         if (!this.preEvaluateUser(user)) {
-            return false;
-        }
-
-        if (this.variables["resume:killswitch"]) {
-            this.setReason("Killswitch is enabled");
             return false;
         }
 

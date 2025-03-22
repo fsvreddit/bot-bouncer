@@ -9,6 +9,7 @@ import { uniq } from "lodash";
 
 export class EvaluateCelebBot extends UserEvaluatorBase {
     override name = "Celeb Bot"; // Why this? It always has old-school celeb pictures in the post history.
+    override killswitch = "celeb:killswitch";
     override banContentThreshold = 20;
     override canAutoBan = true;
 
@@ -53,11 +54,6 @@ export class EvaluateCelebBot extends UserEvaluatorBase {
 
     override evaluate (user: User, history: (Post | Comment)[]): boolean {
         if (!this.preEvaluateUser(user)) {
-            return false;
-        }
-
-        if (this.variables["celeb:killswitch"]) {
-            this.setReason("Evaluator is disabled");
             return false;
         }
 
