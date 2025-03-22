@@ -6,7 +6,6 @@ import { EvaluateZombie } from "./EvaluateZombie.js";
 import { EvaluateCQSTester } from "./EvaluateCQSTester.js";
 import { EvaluateFirstCommentEmDash } from "./EvaluateFirstCommentEmDash.js";
 import { EvaluateResumeSpam } from "./EvaluateResumeSpam.js";
-import { EvaluateCelebBot } from "./EvaluateCelebBot.js";
 import { EvaluateAffiliateBot } from "./EvaluateAffiliateBot.js";
 import { EvaluateBadUsername } from "./EvaluateBadUsername.js";
 import { EvaluateBannedTitles } from "./evaluateStickyPostTitle.js";
@@ -23,7 +22,6 @@ export const ALL_EVALUATORS = [
     EvaluateCQSTester,
     EvaluateFirstCommentEmDash,
     EvaluateResumeSpam,
-    EvaluateCelebBot,
     EvaluateAffiliateBot,
     EvaluateBadUsername,
     EvaluateBannedTitles,
