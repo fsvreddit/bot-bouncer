@@ -15,7 +15,8 @@ export class EvaluatePostTitle extends UserEvaluatorBase {
     override preEvaluatePost (post: Post): boolean {
         const bannableTitles = this.variables["posttitle:bantext"] as string[] | undefined ?? [];
         const reportableTitles = this.variables["posttitle:reporttext"] as string[] | undefined ?? [];
-        return bannableTitles.some(title => new RegExp(title).test(post.title)) || reportableTitles.some(title => new RegExp(title).test(post.title));
+        const problematicTitles = [...bannableTitles, ...reportableTitles];
+        return problematicTitles.some(title => new RegExp(title).test(post.title));
     }
 
     override preEvaluateUser (user: User): boolean {
