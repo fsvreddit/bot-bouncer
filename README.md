@@ -52,6 +52,7 @@ Note: v1.6.1 is the current public release. An upgrade may appear to be availabl
 * Fix bug that prevented auto allowlisting on unban from working properly
 * Removed four redundant evaluators for bot styles no longer seen in the wild
 * Add new evaluator for posts that match certain title patterns
+* Add new evaluator for short top level comments in certain scenarios
 * Performance improvements
 
 ## v1.6.1
