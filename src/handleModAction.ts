@@ -35,7 +35,12 @@ async function handleModActionClientSub (event: ModAction, context: TriggerConte
     const actions = ["removecomment", "removelink", "spamcomment", "spamlink"];
     if (actions.includes(event.action) && event.moderator?.name !== context.appName && event.targetUser) {
         await context.redis.del(`removed:${event.targetUser.name}`);
-        const targetId = event.targetComment?.id ?? event.targetPost?.id;
+        let targetId: string | undefined;
+        if (event.action === "removecomment" || event.action === "spamcomment") {
+            targetId = event.targetComment?.id;
+        } else {
+            targetId = event.targetPost?.id;
+        }
         if (targetId) {
             await context.redis.hDel(`removedItems:${event.targetUser.name}`, [targetId]);
             await context.redis.set(`removedbymod:${targetId}`, "true", { expiration: addDays(new Date(), 28) });
