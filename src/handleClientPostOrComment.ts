@@ -25,13 +25,16 @@ export async function handleClientPostCreate (event: PostCreate, context: Trigge
         return;
     }
 
+    const settings = await context.settings.getAll();
+
     const currentStatus = await getUserStatus(event.author.name, context);
     if (currentStatus) {
-        await handleContentCreation(event.author.name, currentStatus, event.post.id, context);
+        if (!settings[AppSetting.HoneypotMode]) {
+            await handleContentCreation(event.author.name, currentStatus, event.post.id, context);
+        }
         return;
     }
 
-    const settings = await context.settings.getAll();
     if (!settings[AppSetting.ReportPotentialBots]) {
         return;
     }

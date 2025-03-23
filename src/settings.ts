@@ -43,6 +43,7 @@ export enum AppSetting {
     RemoveContentWhenReporting = "removeContentWhenReporting",
     DailyDigest = "dailyDigest",
     UpgradeNotifier = "upgradeNotifier",
+    HoneypotMode = "honeypotMode",
 }
 
 export const appSettings: SettingsFormField[] = [
@@ -104,18 +105,38 @@ export const appSettings: SettingsFormField[] = [
         ],
     },
     {
-        type: "boolean",
-        label: "Send a daily digest of actions taken by Bot Bouncer, if any occur",
-        name: AppSetting.DailyDigest,
-        helpText: "If enabled, you will receive a daily message with a summary of actions taken by Bot Bouncer in the previous 24 hours, if any.",
-        defaultValue: false,
+        type: "group",
+        label: "Notifications",
+        helpText: "Options for receiving notifications from Bot Bouncer",
+        fields: [
+            {
+                type: "boolean",
+                label: "Send a daily digest of actions taken by Bot Bouncer, if any occur",
+                name: AppSetting.DailyDigest,
+                helpText: "If enabled, you will receive a daily message with a summary of actions taken by Bot Bouncer in the previous 24 hours, if any.",
+                defaultValue: false,
+            },
+            {
+                type: "boolean",
+                label: "Upgrade notifications",
+                name: AppSetting.UpgradeNotifier,
+                helpText: "Receive a message when a new version of Bot Bouncer is released",
+                defaultValue: false,
+            },
+        ],
     },
     {
-        type: "boolean",
-        label: "Upgrade notifications",
-        name: AppSetting.UpgradeNotifier,
-        helpText: "Receive a message when a new version of Bot Bouncer is released",
-        defaultValue: false,
+        type: "group",
+        label: "Advanced Options",
+        fields: [
+            {
+                type: "boolean",
+                label: "Honeypot Mode",
+                name: AppSetting.HoneypotMode,
+                helpText: "If enabled, Bot Bouncer will NOT take action on accounts that are classified as bots, but will still report them. This may be useful for rare subreddits that might not want to tip users off.",
+                defaultValue: false,
+            },
+        ],
     },
 ];
 
