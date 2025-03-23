@@ -41,6 +41,7 @@ export enum AppSetting {
     RemoveRecentContent = "removeRecentContent",
     ReportPotentialBots = "reportPotentialBots",
     RemoveContentWhenReporting = "removeContentWhenReporting",
+    UpgradeNotifier = "upgradeNotifier",
 }
 
 export const appSettings: SettingsFormField[] = [
@@ -100,6 +101,13 @@ export const appSettings: SettingsFormField[] = [
                 defaultValue: false,
             },
         ],
+    },
+    {
+        type: "boolean",
+        label: "Upgrade notifications",
+        name: AppSetting.UpgradeNotifier,
+        helpText: "Receive a message when a new version of Bot Bouncer is released",
+        defaultValue: false,
     },
 ];
 

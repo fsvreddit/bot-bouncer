@@ -1,6 +1,6 @@
 import { AppInstall, AppUpgrade } from "@devvit/protos";
 import { TriggerContext } from "@devvit/public-api";
-import { CLEANUP_JOB, CLEANUP_JOB_CRON, CONTROL_SUBREDDIT, EVALUATE_KARMA_FARMING_SUBS, EXTERNAL_SUBMISSION_JOB, EXTERNAL_SUBMISSION_JOB_CRON, UPDATE_DATASTORE_FROM_WIKI, UPDATE_EVALUATOR_VARIABLES, UPDATE_STATISTICS_PAGE, UPDATE_WIKI_PAGE_JOB } from "./constants.js";
+import { CLEANUP_JOB, CLEANUP_JOB_CRON, CONTROL_SUBREDDIT, EVALUATE_KARMA_FARMING_SUBS, EXTERNAL_SUBMISSION_JOB, EXTERNAL_SUBMISSION_JOB_CRON, UPDATE_DATASTORE_FROM_WIKI, UPDATE_EVALUATOR_VARIABLES, UPDATE_STATISTICS_PAGE, UPDATE_WIKI_PAGE_JOB, UPGRADE_NOTIFIER_JOB } from "./constants.js";
 import { scheduleAdhocCleanup } from "./cleanup.js";
 import { handleExternalSubmissionsPageUpdate } from "./externalSubmissions.js";
 import { removeRetiredEvaluatorsFromStats } from "./userEvaluation/evaluatorHelpers.js";
@@ -73,7 +73,7 @@ async function addClientSubredditJobs (context: TriggerContext) {
     });
 
     randomMinute = Math.floor(Math.random() * 60);
-    const randomHour = Math.floor(Math.random() * 3);
+    let randomHour = Math.floor(Math.random() * 3);
     await context.scheduler.runJob({
         name: UPDATE_EVALUATOR_VARIABLES,
         cron: `${randomMinute} ${randomHour}/3 * * *`,
@@ -82,6 +82,13 @@ async function addClientSubredditJobs (context: TriggerContext) {
     await context.scheduler.runJob({
         name: UPDATE_EVALUATOR_VARIABLES,
         runAt: new Date(),
+    });
+
+    randomMinute = Math.floor(Math.random() * 60);
+    randomHour = Math.floor(Math.random() * 24);
+    await context.scheduler.runJob({
+        name: UPGRADE_NOTIFIER_JOB,
+        cron: `${randomMinute} ${randomHour} * * *`,
     });
 
     console.log("App Install: Client subreddit jobs added");
