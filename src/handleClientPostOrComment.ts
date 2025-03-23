@@ -176,7 +176,6 @@ async function handleContentCreation (username: string, currentStatus: UserDetai
         await context.reddit.banUser({
             subredditName,
             username: user.username,
-            context: targetId,
             message,
             note: banNote,
         });
