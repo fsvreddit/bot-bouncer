@@ -52,8 +52,12 @@ export async function checkForUpdates (_: unknown, context: JobContext) {
         return;
     }
 
-    let message = "A new version of Bot Bouncer is available to install. Here's what's new:\n\n";
-    message += update.whatsNewBullets.map(bullet => `* ${bullet}`).join("\n");
+    let message = "A new version of Bot Bouncer is available to install.\n\n";
+    if (update.whatsNewBullets.length > 0) {
+        message += "Here's what's new:\n\n";
+        message += update.whatsNewBullets.map(bullet => `* ${bullet}`).join("\n");
+    }
+
     message += `\n\nTo install this update, or to disable these notifications, visit the [Bot Bouncer Configuration Page](https://developers.reddit.com/r/${subredditName}/apps/bot-bouncer) for /r/${subredditName}.`;
 
     await context.reddit.modMail.createModNotification({
