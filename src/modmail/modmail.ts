@@ -41,6 +41,9 @@ export async function handleModmail (event: ModMail, context: TriggerContext) {
     }
 
     const messagesInConversation = Object.values(conversationResponse.conversation.messages);
+    const firstMessage = messagesInConversation[0];
+    const isFirstMessage = firstMessage.id !== undefined && event.messageId.includes(firstMessage.id);
+
     const currentMessage = messagesInConversation.find(message => message.id && event.messageId.includes(message.id));
     const isSummaryCommand = context.subredditName === CONTROL_SUBREDDIT && currentMessage?.bodyMarkdown?.startsWith("!summary");
 
@@ -57,7 +60,7 @@ export async function handleModmail (event: ModMail, context: TriggerContext) {
     await setConversationHandled(event.conversationId, context);
 
     if (context.subredditName === CONTROL_SUBREDDIT) {
-        await handleControlSubredditModmail(username, event.conversationId, currentMessage?.bodyMarkdown, context);
+        await handleControlSubredditModmail(username, event.conversationId, isFirstMessage, currentMessage?.bodyMarkdown, context);
     } else {
         if (conversationResponse.conversation.state === ModMailConversationState.Archived) {
             return;

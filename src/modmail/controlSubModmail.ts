@@ -8,14 +8,16 @@ import { EXTERNAL_SUBMISSION_QUEUE, ExternalSubmission, scheduleAdhocExternalSub
 import { countBy, uniq } from "lodash";
 import { subMonths } from "date-fns";
 
-export async function handleControlSubredditModmail (username: string, conversationId: string, message: string | undefined, context: TriggerContext): Promise<boolean> {
+export async function handleControlSubredditModmail (username: string, conversationId: string, isFirstMessage: boolean, message: string | undefined, context: TriggerContext): Promise<boolean> {
     const controlSubSettings = await getControlSubSettings(context);
 
     if (controlSubSettings.bulkSubmitters?.includes(username) && message?.startsWith("{")) {
         const isTrusted = controlSubSettings.trustedSubmitters.includes(username);
         return handleBulkSubmission(username, isTrusted, conversationId, message, context);
-    } else {
+    } else if (isFirstMessage) {
         return handleModmailFromUser(username, conversationId, context);
+    } else {
+        return false;
     }
 }
 
