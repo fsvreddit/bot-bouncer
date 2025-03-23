@@ -37,10 +37,18 @@ function lastCheckDateForSub (subredditName: string, lastCheckDates: ZMember[]):
 async function getDistinctAccounts (context: JobContext): Promise<string[]> {
     const variables = await getEvaluatorVariables(context);
     const karmaFarmingSubs = variables["generic:karmafarminglinksubs"] as string[] | undefined ?? [];
+    const karmaFarmingSubsNSFW = variables["generic:karmafarminglinksubsnsfw"] as string[] | undefined ?? [];
+
+    const distinctSubs: string[] = [];
+    for (const sub of [...karmaFarmingSubs, ...karmaFarmingSubsNSFW]) {
+        if (!distinctSubs.some(item => item.toLowerCase() === sub.toLowerCase())) {
+            distinctSubs.push(sub);
+        }
+    }
 
     const lastDates = await context.redis.zRange(CHECK_DATE_KEY, 0, -1);
 
-    const promises = uniq(karmaFarmingSubs).map(sub => getAccountsFromSub(sub, lastCheckDateForSub(sub, lastDates), context));
+    const promises = distinctSubs.map(sub => getAccountsFromSub(sub, lastCheckDateForSub(sub, lastDates), context));
     const results = await Promise.all(promises);
 
     return uniq(results.flat());
