@@ -15,8 +15,11 @@ import { EvaluateRepeatedPhraseBot } from "./EvaluateRepeatedPhraseBot.js";
 import { EvaluatePostTitle } from "./EvaluatePostTitle.js";
 import { EvaluateShortTlcNew } from "./EvaluateShortTlcNew.js";
 import { EvaluateZombieNSFW } from "./EvaluateZombieNSFWPoster.js";
+import { EvaluateBioText } from "./EvaluateBioText.js";
 
 export const ALL_EVALUATORS = [
+    EvaluateBadUsername,
+    EvaluateBioText,
     EvaluateShortTlc,
     EvaluateCopyBot,
     EvaluateMixedBot,
@@ -26,7 +29,6 @@ export const ALL_EVALUATORS = [
     EvaluateFirstCommentEmDash,
     EvaluateResumeSpam,
     EvaluateAffiliateBot,
-    EvaluateBadUsername,
     EvaluatePinnedPostTitles,
     EvaluateSelfComment,
     EvaluateSoccerStreamBot,
