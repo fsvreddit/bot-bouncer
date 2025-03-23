@@ -257,9 +257,6 @@ function compactDataForWiki (input: string): string | undefined {
         return;
     }
 
-    /* Future potential: Exclude entries for organic/declined/service users
-       after a certain period of time, to keep the wiki page size down. */
-
     status.operator = "";
     delete status.submitter;
     if (status.userStatus === UserStatus.Purged && status.lastStatus) {
