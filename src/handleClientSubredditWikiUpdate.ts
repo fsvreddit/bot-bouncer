@@ -82,7 +82,6 @@ async function handleSetOrganic (username: string, subredditName: string, contex
 
     const userBannedByApp = await wasUserBannedByApp(username, context);
     if (!userBannedByApp) {
-        console.log(`Wiki Update: ${username} was not banned by this app.`);
         return;
     }
 
@@ -109,14 +108,12 @@ async function handleSetBanned (username: string, subredditName: string, setting
             timeframe: "week",
         }).all();
     } catch {
-        console.log(`Wiki Update: Couldn't retrieve content for ${username}, likely shadowbanned.`);
         return;
     }
 
     const recentLocalContent = userContent.filter(item => item.subredditName === subredditName && item.createdAt > subWeeks(new Date(), 1));
 
     if (recentLocalContent.length === 0) {
-        console.log(`Wiki Update: ${username} has no recent content on ${subredditName} to remove.`);
         return;
     }
 
@@ -176,7 +173,6 @@ export async function handleClassificationChanges (event: ScheduledJobEvent<JSON
     const promises: Promise<unknown>[] = [];
 
     if (unbannedUsers.length > 0) {
-        console.log(`Wiki Update: Checking unbans for ${unbannedUsers.length} ${pluralize("user", unbannedUsers.length)}`);
         promises.push(...unbannedUsers.map(username => handleSetOrganic(username, subredditName, context)));
     }
 
