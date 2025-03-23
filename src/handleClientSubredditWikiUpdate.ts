@@ -195,6 +195,4 @@ export async function handleClassificationChanges (event: ScheduledJobEvent<JSON
     }
 
     await Promise.all(promises);
-
-    console.log("Wiki Update: Classification changes handled");
 }
