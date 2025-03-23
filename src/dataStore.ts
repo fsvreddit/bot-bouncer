@@ -248,7 +248,7 @@ function compactDataForWiki (input: string): string | undefined {
     const status = JSON.parse(input) as UserDetails;
 
     // Exclude entries for users marked as "retired"
-    if (status.userStatus === UserStatus.Retired) {
+    if (status.userStatus === UserStatus.Retired && status.lastUpdate < subDays(new Date(), 1).getTime()) {
         return;
     }
 
