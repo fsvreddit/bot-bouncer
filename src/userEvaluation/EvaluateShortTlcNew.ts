@@ -32,6 +32,12 @@ export class EvaluateShortTlcNew extends UserEvaluatorBase {
     }
 
     override preEvaluateUser (user: User): boolean {
+        const usernameRegexVal = this.variables["short-tlc-new:usernameregex"] as string[] | undefined ?? [];
+        const regexes = usernameRegexVal.map(val => new RegExp(val));
+        if (!regexes.some(regex => regex.test(user.username))) {
+            return false;
+        }
+
         return user.createdAt > subDays(new Date(), 2)
             && user.linkKarma < 5
             && user.commentKarma < 20;
