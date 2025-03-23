@@ -56,6 +56,7 @@ Note: v1.6.1 is the current public release. An upgrade may appear to be availabl
 * Add new evaluator for posts that match certain title patterns
 * Add new evaluator for short top level comments in certain scenarios
 * No longer link to comment/post that triggers a ban for bots to avoid user confusion
+* Add "honeypot mode" for unusual subs that may want to report potential bots but not take action on the sub itself
 * Performance improvements
 
 ## v1.6.1
