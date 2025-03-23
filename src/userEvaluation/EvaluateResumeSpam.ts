@@ -1,10 +1,11 @@
-import { Comment, Post, User } from "@devvit/public-api";
+import { Comment, Post } from "@devvit/public-api";
 import { CommentCreate } from "@devvit/protos";
 import { CommentV2 } from "@devvit/protos/types/devvit/reddit/v2alpha/commentv2.js";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
 import { isCommentId } from "@devvit/shared-types/tid.js";
 import { subYears } from "date-fns";
 import { domainFromUrl } from "./evaluatorHelpers.js";
+import { UserExtended } from "../extendedDevvit.js";
 
 export class EvaluateResumeSpam extends UserEvaluatorBase {
     override name = "Resume Spam";
@@ -37,7 +38,7 @@ export class EvaluateResumeSpam extends UserEvaluatorBase {
         return false;
     }
 
-    override preEvaluateUser (user: User): boolean {
+    override preEvaluateUser (user: UserExtended): boolean {
         if (user.commentKarma > 500) {
             this.setReason("User has too much karma");
             return false;
@@ -56,7 +57,7 @@ export class EvaluateResumeSpam extends UserEvaluatorBase {
         return true;
     }
 
-    override evaluate (_: User, history: (Post | Comment)[]): boolean {
+    override evaluate (_: UserExtended, history: (Post | Comment)[]): boolean {
         const userPosts = history.filter(item => item instanceof Post) as Post[];
         if (userPosts.some(post => !this.eligiblePost(post))) {
             this.setReason("User has ineligible posts");

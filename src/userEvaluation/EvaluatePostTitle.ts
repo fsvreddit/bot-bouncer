@@ -1,6 +1,7 @@
-import { Comment, Post, User } from "@devvit/public-api";
+import { Comment, Post } from "@devvit/public-api";
 import { CommentCreate } from "@devvit/protos";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
+import { UserExtended } from "../extendedDevvit.js";
 
 export class EvaluatePostTitle extends UserEvaluatorBase {
     override name = "Bad Post Title Bot";
@@ -24,7 +25,7 @@ export class EvaluatePostTitle extends UserEvaluatorBase {
         return problematicTitles.some(title => new RegExp(title).test(post.title));
     }
 
-    override preEvaluateUser (user: User): boolean {
+    override preEvaluateUser (user: UserExtended): boolean {
         const { bannableTitles, reportableTitles } = this.getTitles();
 
         if (bannableTitles.length === 0 && reportableTitles.length === 0) {
@@ -37,7 +38,7 @@ export class EvaluatePostTitle extends UserEvaluatorBase {
         return true;
     }
 
-    override evaluate (_: User, history: (Post | Comment)[]): boolean {
+    override evaluate (_: UserExtended, history: (Post | Comment)[]): boolean {
         const userPosts = history.filter(item => item instanceof Post && item.stickied) as Post[];
         if (userPosts.length === 0) {
             this.setReason("User has no posts");

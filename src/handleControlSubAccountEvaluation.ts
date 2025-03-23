@@ -1,12 +1,12 @@
 import { Comment, JobContext, JSONObject, Post, ScheduledJobEvent } from "@devvit/public-api";
 import { getUserStatus, UserStatus } from "./dataStore.js";
 import { CONTROL_SUBREDDIT, PostFlairTemplate } from "./constants.js";
-import { getUserOrUndefined } from "./utility.js";
 import { ALL_EVALUATORS } from "./userEvaluation/allEvaluators.js";
 import { UserEvaluatorBase } from "./userEvaluation/UserEvaluatorBase.js";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { createUserSummary } from "./UserSummary/userSummary.js";
 import { format } from "date-fns";
+import { getUserExtended } from "./extendedDevvit.js";
 
 interface EvaluatorStats {
     hitCount: number;
@@ -20,7 +20,7 @@ interface EvaluationResult {
 }
 
 export async function evaluateUserAccount (username: string, context: JobContext, verbose: boolean): Promise<EvaluationResult[]> {
-    const user = await getUserOrUndefined(username, context);
+    const user = await getUserExtended(username, context);
     if (!user) {
         if (verbose) {
             console.log(`Evaluation: ${username} has already been shadowbanned`);

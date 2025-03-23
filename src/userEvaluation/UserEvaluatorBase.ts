@@ -1,5 +1,6 @@
 import { CommentCreate } from "@devvit/protos";
-import { Comment, Post, TriggerContext, User } from "@devvit/public-api";
+import { Comment, Post, TriggerContext } from "@devvit/public-api";
+import { UserExtended } from "../extendedDevvit.js";
 
 export abstract class UserEvaluatorBase {
     protected reasons: string[] = [];
@@ -33,7 +34,7 @@ export abstract class UserEvaluatorBase {
 
     abstract preEvaluatePost (post: Post): boolean;
 
-    abstract preEvaluateUser (user: User): boolean;
+    abstract preEvaluateUser (user: UserExtended): boolean;
 
-    abstract evaluate (user: User, history: (Post | Comment)[]): boolean;
+    abstract evaluate (user: UserExtended, history: (Post | Comment)[]): boolean;
 }

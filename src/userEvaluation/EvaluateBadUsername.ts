@@ -1,7 +1,8 @@
-import { Comment, Post, User } from "@devvit/public-api";
+import { Comment, Post } from "@devvit/public-api";
 import { CommentCreate } from "@devvit/protos";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
 import { subWeeks } from "date-fns";
+import { UserExtended } from "../extendedDevvit.js";
 
 export class EvaluateBadUsername extends UserEvaluatorBase {
     override name = "Bad Username Bot";
@@ -26,7 +27,7 @@ export class EvaluateBadUsername extends UserEvaluatorBase {
         return this.isBadUsername(post.authorName);
     }
 
-    override preEvaluateUser (user: User): boolean {
+    override preEvaluateUser (user: UserExtended): boolean {
         if (!this.isBadUsername(user.username)) {
             this.setReason("Username does not match regexes");
             return false;
@@ -42,7 +43,7 @@ export class EvaluateBadUsername extends UserEvaluatorBase {
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    override evaluate (_user: User, _history: (Post | Comment)[]): boolean {
+    override evaluate (_user: UserExtended, _history: (Post | Comment)[]): boolean {
         return true;
     }
 }

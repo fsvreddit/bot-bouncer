@@ -1,8 +1,9 @@
-import { Comment, Post, User } from "@devvit/public-api";
+import { Comment, Post } from "@devvit/public-api";
 import { CommentCreate } from "@devvit/protos";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
 import { isLinkId } from "@devvit/shared-types/tid.js";
 import { subYears } from "date-fns";
+import { UserExtended } from "../extendedDevvit.js";
 
 export class EvaluateZombieNSFW extends UserEvaluatorBase {
     override name = "Zombie NSFW Poster";
@@ -29,13 +30,13 @@ export class EvaluateZombieNSFW extends UserEvaluatorBase {
         return this.eligiblePost(post);
     }
 
-    override preEvaluateUser (user: User): boolean {
+    override preEvaluateUser (user: UserExtended): boolean {
         const minAccountAgeInYears = this.variables["zombiensfw:minaccountage"] as number | undefined ?? 10;
 
         return user.createdAt < subYears(new Date(), minAccountAgeInYears);
     }
 
-    override evaluate (_: User, history: (Post | Comment)[]): boolean {
+    override evaluate (_: UserExtended, history: (Post | Comment)[]): boolean {
         const posts = history.filter(item => isLinkId(item.id)) as Post[];
         const eligiblePosts = posts.filter(post => this.eligiblePost(post));
 

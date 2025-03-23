@@ -1,10 +1,11 @@
 import { CommentCreate } from "@devvit/protos";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
-import { Comment, Post, User } from "@devvit/public-api";
+import { Comment, Post } from "@devvit/public-api";
 import { addMinutes, subDays } from "date-fns";
 import { CommentV2 } from "@devvit/protos/types/devvit/reddit/v2alpha/commentv2.js";
 import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
 import { domainFromUrl } from "./evaluatorHelpers.js";
+import { UserExtended } from "../extendedDevvit.js";
 
 export class EvaluateSelfComment extends UserEvaluatorBase {
     override name = "Self Comment";
@@ -33,13 +34,13 @@ export class EvaluateSelfComment extends UserEvaluatorBase {
         return this.eligiblePost(post);
     }
 
-    override preEvaluateUser (user: User): boolean {
+    override preEvaluateUser (user: UserExtended): boolean {
         const ageInDays = this.variables["selfcomment:ageindays"] as number | undefined ?? 14;
         const maxKarma = this.variables["selfcomment:maxkarma"] as number | undefined ?? 500;
         return user.createdAt > subDays(new Date(), ageInDays) && user.commentKarma < maxKarma;
     }
 
-    override evaluate (user: User, history: (Post | Comment)[]): boolean {
+    override evaluate (user: UserExtended, history: (Post | Comment)[]): boolean {
         const posts = history.filter(item => isLinkId(item.id) && item.body !== "[removed]") as Post[];
         if (posts.length === 0 || !posts.every(post => this.eligiblePost(post))) {
             this.setReason("User has missing or mismatching posts");

@@ -1,4 +1,4 @@
-import { Comment, Post, User } from "@devvit/public-api";
+import { Comment, Post } from "@devvit/public-api";
 import { CommentCreate } from "@devvit/protos";
 import { CommentV2 } from "@devvit/protos/types/devvit/reddit/v2alpha/commentv2.js";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
@@ -6,6 +6,7 @@ import { isCommentId } from "@devvit/shared-types/tid.js";
 import { subDays, subYears } from "date-fns";
 import { autogenRegex, domainFromUrl } from "./evaluatorHelpers.js";
 import { CONTROL_SUBREDDIT } from "../constants.js";
+import { UserExtended } from "../extendedDevvit.js";
 
 export class EvaluateZombie extends UserEvaluatorBase {
     override name = "Zombie";
@@ -44,7 +45,7 @@ export class EvaluateZombie extends UserEvaluatorBase {
             || redditDomains.includes(domain);
     }
 
-    override preEvaluateUser (user: User): boolean {
+    override preEvaluateUser (user: UserExtended): boolean {
         if (user.createdAt > subYears(new Date(), 7)) {
             this.setReason("Account is too young");
             return false;
@@ -68,7 +69,7 @@ export class EvaluateZombie extends UserEvaluatorBase {
         return killswitchSet && this.context.subredditName !== CONTROL_SUBREDDIT;
     }
 
-    override evaluate (_: User, history: (Post | Comment)[]): boolean {
+    override evaluate (_: UserExtended, history: (Post | Comment)[]): boolean {
         const oldContent = history.filter(item => !item.stickied && item.createdAt < subYears(new Date(), 6));
         if (oldContent.length === 0) {
             this.setReason("User doesn't have old content");

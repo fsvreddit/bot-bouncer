@@ -1,7 +1,8 @@
-import { Comment, Post, User } from "@devvit/public-api";
+import { Comment, Post } from "@devvit/public-api";
 import { CommentCreate } from "@devvit/protos";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
 import { domainFromUrl } from "../utility.js";
+import { UserExtended } from "../extendedDevvit.js";
 
 export class EvaluatePinnedPostTitles extends UserEvaluatorBase {
     override name = "Sticky Post Title Bot";
@@ -18,7 +19,7 @@ export class EvaluatePinnedPostTitles extends UserEvaluatorBase {
         return domain === "reddit.com";
     }
 
-    override preEvaluateUser (user: User): boolean {
+    override preEvaluateUser (user: UserExtended): boolean {
         const bannableTitles = this.variables["pinnedpost:bantext"] as string[] | undefined ?? [];
         const reportableTitles = this.variables["pinnedpost:reporttext"] as string[] | undefined ?? [];
 
@@ -32,7 +33,7 @@ export class EvaluatePinnedPostTitles extends UserEvaluatorBase {
         return true;
     }
 
-    override evaluate (_: User, history: (Post | Comment)[]): boolean {
+    override evaluate (_: UserExtended, history: (Post | Comment)[]): boolean {
         const stickyPosts = history.filter(item => item instanceof Post && item.stickied) as Post[];
         if (stickyPosts.length === 0) {
             this.setReason("User has no sticky posts");

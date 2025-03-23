@@ -1,9 +1,10 @@
 import { CommentCreate } from "@devvit/protos";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
-import { Comment, Post, User } from "@devvit/public-api";
+import { Comment, Post } from "@devvit/public-api";
 import { subMonths, subYears } from "date-fns";
 import { CommentV2 } from "@devvit/protos/types/devvit/reddit/v2alpha/commentv2.js";
 import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
+import { UserExtended } from "../extendedDevvit.js";
 
 export class EvaluateRepeatedPhraseBot extends UserEvaluatorBase {
     override name = "Repeated Phrase Bot";
@@ -35,13 +36,13 @@ export class EvaluateRepeatedPhraseBot extends UserEvaluatorBase {
         return false;
     }
 
-    override preEvaluateUser (user: User): boolean {
+    override preEvaluateUser (user: UserExtended): boolean {
         return user.createdAt > subYears(new Date(), 2)
             && user.linkKarma < 100
             && user.commentKarma < 500;
     }
 
-    override evaluate (_: User, history: (Post | Comment)[]): boolean {
+    override evaluate (_: UserExtended, history: (Post | Comment)[]): boolean {
         const posts = history.filter(item => isLinkId(item.id) && item.createdAt > subMonths(new Date(), 1)) as Post[];
         if (posts.length > 0) {
             this.setReason("User has recent posts");

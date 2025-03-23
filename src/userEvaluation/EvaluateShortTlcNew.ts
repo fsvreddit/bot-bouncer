@@ -1,8 +1,9 @@
 import { CommentCreate } from "@devvit/protos";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
-import { Comment, Post, User } from "@devvit/public-api";
+import { Comment, Post } from "@devvit/public-api";
 import { addHours, subDays } from "date-fns";
 import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
+import { UserExtended } from "../extendedDevvit.js";
 
 export class EvaluateShortTlcNew extends UserEvaluatorBase {
     override name = "Short TLC New";
@@ -31,7 +32,7 @@ export class EvaluateShortTlcNew extends UserEvaluatorBase {
         return false;
     }
 
-    override preEvaluateUser (user: User): boolean {
+    override preEvaluateUser (user: UserExtended): boolean {
         const usernameRegexVal = this.variables["short-tlc-new:usernameregex"] as string[] | undefined ?? [];
         const regexes = usernameRegexVal.map(val => new RegExp(val));
         if (!regexes.some(regex => regex.test(user.username))) {
@@ -43,7 +44,7 @@ export class EvaluateShortTlcNew extends UserEvaluatorBase {
             && user.commentKarma < 20;
     }
 
-    override evaluate (user: User, history: (Post | Comment)[]): boolean {
+    override evaluate (user: UserExtended, history: (Post | Comment)[]): boolean {
         if (history.filter(item => isLinkId(item.id)).length > 0) {
             this.setReason("User has posts");
             return false;

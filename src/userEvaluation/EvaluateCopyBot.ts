@@ -1,9 +1,10 @@
-import { Comment, Post, User } from "@devvit/public-api";
+import { Comment, Post } from "@devvit/public-api";
 import { CommentV2 } from "@devvit/protos/types/devvit/reddit/v2alpha/commentv2.js";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
 import { isLinkId } from "@devvit/shared-types/tid.js";
 import { subMonths } from "date-fns";
 import { CommentCreate } from "@devvit/protos";
+import { UserExtended } from "../extendedDevvit.js";
 
 export class EvaluateCopyBot extends UserEvaluatorBase {
     override name = "Copy Bot";
@@ -50,7 +51,7 @@ export class EvaluateCopyBot extends UserEvaluatorBase {
         return this.eligiblePost(post);
     }
 
-    override preEvaluateUser (user: User): boolean {
+    override preEvaluateUser (user: UserExtended): boolean {
         if (!this.usernameRegex.test(user.username)) {
             this.setReason("Username does not match regex");
             return false;
@@ -69,7 +70,7 @@ export class EvaluateCopyBot extends UserEvaluatorBase {
         return true;
     }
 
-    override evaluate (_: User, history: (Post | Comment)[]): boolean {
+    override evaluate (_: UserExtended, history: (Post | Comment)[]): boolean {
         const userPosts = history.filter(item => item.body !== "[removed]" && item instanceof Post && item.createdAt > subMonths(new Date(), 1)) as Post[];
 
         if (userPosts.length < 2) {

@@ -1,10 +1,11 @@
-import { Comment, Post, User } from "@devvit/public-api";
+import { Comment, Post } from "@devvit/public-api";
 import { CommentCreate } from "@devvit/protos";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
 import { compact, countBy, toPairs, uniq } from "lodash";
 import { subMonths } from "date-fns";
 import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
 import { domainFromUrl } from "./evaluatorHelpers.js";
+import { UserExtended } from "../extendedDevvit.js";
 
 export class EvaluateDomainSharer extends UserEvaluatorBase {
     override name = "Domain Sharer";
@@ -54,11 +55,11 @@ export class EvaluateDomainSharer extends UserEvaluatorBase {
         return this.domainsFromPost(post).length > 0;
     }
 
-    override preEvaluateUser (user: User): boolean {
+    override preEvaluateUser (user: UserExtended): boolean {
         return user.commentKarma < 1000 && user.linkKarma < 1000;
     }
 
-    override evaluate (_: User, history: (Post | Comment)[]): boolean {
+    override evaluate (_: UserExtended, history: (Post | Comment)[]): boolean {
         const recentContent = history.filter(item => item.createdAt > subMonths(new Date(), 6));
 
         if (recentContent.length < 5) {

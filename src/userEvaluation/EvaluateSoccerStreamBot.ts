@@ -1,10 +1,11 @@
 import { CommentCreate } from "@devvit/protos";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
-import { Comment, Post, User } from "@devvit/public-api";
+import { Comment, Post } from "@devvit/public-api";
 import { subWeeks, subYears } from "date-fns";
 import { CommentV2 } from "@devvit/protos/types/devvit/reddit/v2alpha/commentv2.js";
 import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
 import { compact, uniq } from "lodash";
+import { UserExtended } from "../extendedDevvit.js";
 
 export class EvaluateSoccerStreamBot extends UserEvaluatorBase {
     override name = "Soccer Stream Bot";
@@ -39,13 +40,13 @@ export class EvaluateSoccerStreamBot extends UserEvaluatorBase {
         return false;
     }
 
-    override preEvaluateUser (user: User): boolean {
+    override preEvaluateUser (user: UserExtended): boolean {
         return user.createdAt > subYears(new Date(), 2)
             && user.linkKarma < 500
             && user.commentKarma < 2000;
     }
 
-    override evaluate (_: User, history: (Post | Comment)[]): boolean {
+    override evaluate (_: UserExtended, history: (Post | Comment)[]): boolean {
         const posts = history.filter(item => isLinkId(item.id) && item.body !== "[removed]") as Post[];
         if (posts.some(post => post.createdAt > subWeeks(new Date(), 1))) {
             this.setReason("User has non-eligible posts");

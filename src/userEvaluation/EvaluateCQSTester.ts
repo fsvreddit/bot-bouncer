@@ -1,10 +1,11 @@
-import { Comment, Post, User } from "@devvit/public-api";
+import { Comment, Post } from "@devvit/public-api";
 import { CommentCreate } from "@devvit/protos";
 import { CommentV2 } from "@devvit/protos/types/devvit/reddit/v2alpha/commentv2.js";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
 import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
 import { subDays, subMonths } from "date-fns";
 import { domainFromUrl } from "./evaluatorHelpers.js";
+import { UserExtended } from "../extendedDevvit.js";
 
 export class EvaluateCQSTester extends UserEvaluatorBase {
     override name = "CQS Tester";
@@ -40,7 +41,7 @@ export class EvaluateCQSTester extends UserEvaluatorBase {
             || redditDomains.includes(domain);
     }
 
-    override preEvaluateUser (user: User): boolean {
+    override preEvaluateUser (user: UserExtended): boolean {
         if (user.createdAt < subDays(new Date(), 7) && user.commentKarma < 50) {
             return true;
         }
@@ -63,7 +64,7 @@ export class EvaluateCQSTester extends UserEvaluatorBase {
         return true;
     }
 
-    override evaluate (_: User, history: (Post | Comment)[]): boolean {
+    override evaluate (_: UserExtended, history: (Post | Comment)[]): boolean {
         const userPosts = history.filter(item => isLinkId(item.id)) as Post[];
         const titlesToCheck = ["Test", "test", "T", "t"];
         if (!userPosts.some(item => item.subredditName === "WhatIsMyCQS" && titlesToCheck.includes(item.title))) {

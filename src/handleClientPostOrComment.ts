@@ -11,6 +11,7 @@ import { addExternalSubmission } from "./externalSubmissions.js";
 import { isLinkId } from "@devvit/shared-types/tid.js";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { recordBanForDigest, recordReportForDigest } from "./modmail/dailyDigest.js";
+import { getUserExtended } from "./extendedDevvit.js";
 
 export async function handleClientPostCreate (event: PostCreate, context: TriggerContext) {
     if (context.subredditName === CONTROL_SUBREDDIT) {
@@ -191,7 +192,7 @@ async function handleContentCreation (username: string, currentStatus: UserDetai
 }
 
 async function checkAndReportPotentialBot (username: string, target: Post | CommentCreate, settings: SettingsValues, variables: Record<string, JSONValue>, context: TriggerContext) {
-    const user = await getUserOrUndefined(username, context);
+    const user = await getUserExtended(username, context);
     if (!user) {
         return;
     }
