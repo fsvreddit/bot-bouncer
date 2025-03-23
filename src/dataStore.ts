@@ -7,6 +7,7 @@ import { addSeconds, addWeeks, startOfSecond, subDays, subHours, subWeeks } from
 import pluralize from "pluralize";
 import { getControlSubSettings } from "./settings.js";
 import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
+import { updateEvaluatorHitsWikiPage } from "./handleControlSubAccountEvaluation.js";
 
 const USER_STORE = "UserStore";
 const POST_STORE = "PostStore";
@@ -129,7 +130,7 @@ interface SubmitterStatistic {
     ratio: number;
 }
 
-export async function writeAggregateToWikiPage (_: unknown, context: JobContext) {
+async function updateMainStatisticsPage (context: JobContext) {
     let results = await context.redis.zRange(AGGREGATE_STORE, 0, -1);
     results = results.filter(item => item.member !== "pending");
 
@@ -171,7 +172,9 @@ export async function writeAggregateToWikiPage (_: unknown, context: JobContext)
             permLevel: WikiPagePermissionLevel.SUBREDDIT_PERMISSIONS,
         });
     }
+}
 
+async function updateSubmitterStatistics (context: JobContext) {
     const allData = await context.redis.hGetAll(USER_STORE);
     const allStatuses = Object.values(allData).map(item => JSON.parse(item) as UserDetails);
 
@@ -200,17 +203,19 @@ export async function writeAggregateToWikiPage (_: unknown, context: JobContext)
         submitterStatistics.push({ submitter: user, count: totalCount, ratio });
     }
 
-    wikiContent = "Submitter statistics\n\n";
+    let wikiContent = "Submitter statistics\n\n";
 
     for (const item of submitterStatistics.sort((a, b) => a.count - b.count)) {
         wikiContent += `* **${item.submitter}**: ${item.count} (${item.ratio}% banned)\n`;
     }
 
+    const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
+    let wikiPage: WikiPage | undefined;
     const submitterStatisticsWikiPage = "submitter-statistics";
     try {
         wikiPage = await context.reddit.getWikiPage(subredditName, submitterStatisticsWikiPage);
     } catch {
-        wikiPage = undefined;
+        //
     }
 
     const submitterStatisticsWikiPageSaveOptions = {
@@ -230,6 +235,14 @@ export async function writeAggregateToWikiPage (_: unknown, context: JobContext)
             permLevel: WikiPagePermissionLevel.MODS_ONLY,
         });
     }
+}
+
+export async function updateStatisticsPages (_: unknown, context: JobContext) {
+    await Promise.all([
+        updateMainStatisticsPage(context),
+        updateSubmitterStatistics(context),
+        updateEvaluatorHitsWikiPage(context),
+    ]);
 }
 
 async function queueWikiUpdate (context: TriggerContext) {

@@ -6,7 +6,6 @@ import { ALL_EVALUATORS } from "./userEvaluation/allEvaluators.js";
 import { UserEvaluatorBase } from "./userEvaluation/UserEvaluatorBase.js";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { createUserSummary } from "./UserSummary/userSummary.js";
-import pluralize from "pluralize";
 import { format } from "date-fns";
 
 interface EvaluatorStats {
@@ -86,9 +85,6 @@ export async function evaluateUserAccount (username: string, context: JobContext
     }
 
     await context.redis.set(redisKey, JSON.stringify(allStats));
-    for (const entry of Object.entries(allStats).map(([name, value]) => ({ name, value }))) {
-        console.log(`* ${entry.name}: ${entry.value.hitCount} ${pluralize("hit", entry.value.hitCount)}, last hit ${format(new Date(entry.value.lastHit), "yyyy-MM-dd HH:mm")}`);
-    }
 
     const itemCount = userItems?.length ?? 0;
     return detectedBots.map(bot => ({ botName: bot.name, canAutoBan: bot.canAutoBan, metThreshold: itemCount >= bot.banContentThreshold }));
@@ -140,4 +136,25 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
     });
 
     console.log(`Evaluator: Post flair changed for ${username}`);
+}
+
+export async function updateEvaluatorHitsWikiPage (context: JobContext) {
+    const redisKey = "EvaluatorStats";
+    const existingStatsVal = await context.redis.get(redisKey);
+
+    const allStats: Record<string, EvaluatorStats> = existingStatsVal ? JSON.parse(existingStatsVal) as Record<string, EvaluatorStats> : {};
+
+    let wikicontent = "Evaluator Name|Hit Count|Last Hit\n";
+    wikicontent += ":-|:-|:-\n";
+
+    for (const entry of Object.entries(allStats).map(([name, value]) => ({ name, value }))) {
+        wikicontent += `${entry.name}|${entry.value.hitCount}|${format(new Date(entry.value.lastHit), "yyyy-MM-dd HH:mm")}\n`;
+    }
+
+    const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
+    await context.reddit.updateWikiPage({
+        subredditName,
+        page: "evaluator-hits",
+        content: wikicontent,
+    });
 }
