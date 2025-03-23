@@ -1,6 +1,6 @@
 import { AppInstall, AppUpgrade } from "@devvit/protos";
 import { TriggerContext } from "@devvit/public-api";
-import { CLEANUP_JOB, CLEANUP_JOB_CRON, CONTROL_SUBREDDIT, EVALUATE_KARMA_FARMING_SUBS, EXTERNAL_SUBMISSION_JOB, EXTERNAL_SUBMISSION_JOB_CRON, UPDATE_DATASTORE_FROM_WIKI, UPDATE_EVALUATOR_VARIABLES, UPDATE_STATISTICS_PAGE, UPDATE_WIKI_PAGE_JOB, UPGRADE_NOTIFIER_JOB } from "./constants.js";
+import { CLEANUP_JOB, CLEANUP_JOB_CRON, CONTROL_SUBREDDIT, EVALUATE_KARMA_FARMING_SUBS, EXTERNAL_SUBMISSION_JOB, EXTERNAL_SUBMISSION_JOB_CRON, SEND_DAILY_DIGEST, UPDATE_DATASTORE_FROM_WIKI, UPDATE_EVALUATOR_VARIABLES, UPDATE_STATISTICS_PAGE, UPDATE_WIKI_PAGE_JOB, UPGRADE_NOTIFIER_JOB } from "./constants.js";
 import { scheduleAdhocCleanup } from "./cleanup.js";
 import { handleExternalSubmissionsPageUpdate } from "./externalSubmissions.js";
 import { removeRetiredEvaluatorsFromStats } from "./userEvaluation/evaluatorHelpers.js";
@@ -89,6 +89,12 @@ async function addClientSubredditJobs (context: TriggerContext) {
     await context.scheduler.runJob({
         name: UPGRADE_NOTIFIER_JOB,
         cron: `${randomMinute} ${randomHour} * * *`,
+    });
+
+    randomMinute = Math.floor(Math.random() * 60);
+    await context.scheduler.runJob({
+        name: SEND_DAILY_DIGEST,
+        cron: `${randomMinute} 0 * * *`,
     });
 
     console.log("App Install: Client subreddit jobs added");

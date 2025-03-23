@@ -7,6 +7,7 @@ import { reportForm } from "./main.js";
 import { subMonths } from "date-fns";
 import { getControlSubSettings } from "./settings.js";
 import { handleControlSubReportUser } from "./handleControlSubMenu.js";
+import { recordReportForDigest } from "./modmail/dailyDigest.js";
 
 export async function handleReportUser (event: MenuItemOnPressEvent, context: Context) {
     const target = await getPostOrCommentById(event.targetId, context);
@@ -72,13 +73,17 @@ export async function reportFormHandler (event: FormOnSubmitEvent<JSONObject>, c
 
     const currentUser = await context.reddit.getCurrentUser();
     const reportContext = event.values.reportContext as string | undefined;
-    await addExternalSubmission({
-        username: target.authorName,
-        submitter: currentUser?.username,
-        reportContext,
-        publicContext,
-        targetId: target.id,
-    }, context);
+
+    await Promise.all([
+        addExternalSubmission({
+            username: target.authorName,
+            submitter: currentUser?.username,
+            reportContext,
+            publicContext,
+            targetId: target.id,
+        }, context),
+        recordReportForDigest(target.authorName, "manually", context),
+    ]);
 
     context.ui.showToast(`${target.authorName} has been submitted to /r/${CONTROL_SUBREDDIT}. A tracking post will be created shortly.`);
 }

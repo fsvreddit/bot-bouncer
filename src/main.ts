@@ -1,7 +1,7 @@
 import { Devvit, FormField } from "@devvit/public-api";
 import { handleControlSubSubmission } from "./handleControlSubSubmission.js";
 import { updateLocalStoreFromWiki, updateWikiPage, updateStatisticsPages } from "./dataStore.js";
-import { ADHOC_CLEANUP_JOB, CLEANUP_JOB, CONTROL_SUBREDDIT, EVALUATE_KARMA_FARMING_SUBS, EVALUATE_USER, EXTERNAL_SUBMISSION_JOB, HANDLE_CLASSIFICATION_CHANGES_JOB, UPDATE_DATASTORE_FROM_WIKI, UPDATE_EVALUATOR_VARIABLES, UPDATE_STATISTICS_PAGE, UPDATE_WIKI_PAGE_JOB, UPGRADE_NOTIFIER_JOB } from "./constants.js";
+import { ADHOC_CLEANUP_JOB, CLEANUP_JOB, CONTROL_SUBREDDIT, EVALUATE_KARMA_FARMING_SUBS, EVALUATE_USER, EXTERNAL_SUBMISSION_JOB, HANDLE_CLASSIFICATION_CHANGES_JOB, SEND_DAILY_DIGEST, UPDATE_DATASTORE_FROM_WIKI, UPDATE_EVALUATOR_VARIABLES, UPDATE_STATISTICS_PAGE, UPDATE_WIKI_PAGE_JOB, UPGRADE_NOTIFIER_JOB } from "./constants.js";
 import { handleInstallOrUpgrade } from "./installActions.js";
 import { handleControlSubFlairUpdate } from "./handleControlSubFlairUpdate.js";
 import { appSettings } from "./settings.js";
@@ -19,6 +19,7 @@ import { updateEvaluatorVariablesFromWikiHandler } from "./userEvaluation/evalua
 import { evaluateKarmaFarmingSubs } from "./karmaFarmingSubsCheck.js";
 import { handleControlSubForm } from "./handleControlSubMenu.js";
 import { checkForUpdates } from "./upgradeNotifier.js";
+import { sendDailyDigest } from "./modmail/dailyDigest.js";
 
 Devvit.addSettings(appSettings);
 
@@ -161,6 +162,11 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: UPGRADE_NOTIFIER_JOB,
     onRun: checkForUpdates,
+});
+
+Devvit.addSchedulerJob({
+    name: SEND_DAILY_DIGEST,
+    onRun: sendDailyDigest,
 });
 
 Devvit.configure({

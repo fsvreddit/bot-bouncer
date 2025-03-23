@@ -41,6 +41,7 @@ export enum AppSetting {
     RemoveRecentContent = "removeRecentContent",
     ReportPotentialBots = "reportPotentialBots",
     RemoveContentWhenReporting = "removeContentWhenReporting",
+    DailyDigest = "dailyDigest",
     UpgradeNotifier = "upgradeNotifier",
 }
 
@@ -101,6 +102,13 @@ export const appSettings: SettingsFormField[] = [
                 defaultValue: false,
             },
         ],
+    },
+    {
+        type: "boolean",
+        label: "Send a daily digest of actions taken by Bot Bouncer, if any occur",
+        name: AppSetting.DailyDigest,
+        helpText: "If enabled, you will receive a daily message with a summary of actions taken by Bot Bouncer in the previous 24 hours, if any.",
+        defaultValue: false,
     },
     {
         type: "boolean",

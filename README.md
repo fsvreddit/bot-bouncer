@@ -51,6 +51,7 @@ Note: v1.6.1 is the current public release. An upgrade may appear to be availabl
 
 * Fix bug that prevented auto allowlisting on unban from working properly
 * Add new opt-in upgrade notification system. If you would like to be notified of new upgrades, you can do it from the app settings page.
+* Add new opt-in feature to send a daily digest of bot detections and bans
 * Removed four redundant evaluators for bot styles no longer seen in the wild
 * Add new evaluator for posts that match certain title patterns
 * Add new evaluator for short top level comments in certain scenarios

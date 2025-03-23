@@ -10,6 +10,7 @@ import { ALL_EVALUATORS } from "./userEvaluation/allEvaluators.js";
 import { addExternalSubmission } from "./externalSubmissions.js";
 import { isLinkId } from "@devvit/shared-types/tid.js";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
+import { recordBanForDigest, recordReportForDigest } from "./modmail/dailyDigest.js";
 
 export async function handleClientPostCreate (event: PostCreate, context: TriggerContext) {
     if (context.subredditName === CONTROL_SUBREDDIT) {
@@ -181,6 +182,7 @@ async function handleContentCreation (username: string, currentStatus: UserDetai
         });
 
         await recordBan(username, context);
+        await recordBanForDigest(username, context);
         console.log(`Content Create: ${user.username} banned from ${subredditName}`);
     }
 }
@@ -268,21 +270,30 @@ async function checkAndReportPotentialBot (username: string, target: Post | Comm
 
     const targetItem = await getPostOrCommentById(targetId, context);
     const reportContext = `Automatically reported via a [${isLinkId(targetItem.id) ? "post" : "comment"}](${targetItem.permalink}) on /r/${targetItem.subredditName}`;
-    await addExternalSubmission({
-        username: user.username,
-        submitter: currentUser?.username,
-        reportContext,
-    }, context);
+    const promises: Promise<unknown>[] = [];
+
+    promises.push(
+        addExternalSubmission({
+            username: user.username,
+            submitter: currentUser?.username,
+            reportContext,
+        }, context),
+        recordReportForDigest(user.username, "automatically", context),
+    );
 
     console.log(`Created external submission via automated evaluation for ${user.username} for bot style ${botName}`);
 
     if (settings[AppSetting.RemoveContentWhenReporting]) {
         const removedByMod = await context.redis.get(`removedbymod:${targetItem.id}`);
         if (!removedByMod && !targetItem.spam) {
-            await context.redis.set(`removed:${targetItem.authorName}`, targetItem.id, { expiration: addWeeks(new Date(), 2) });
-            await targetItem.remove();
+            promises.push(
+                context.redis.set(`removed:${targetItem.authorName}`, targetItem.id, { expiration: addWeeks(new Date(), 2) }),
+                targetItem.remove(),
+            );
         }
     }
+
+    await Promise.all(promises);
 }
 
 async function checkForBotMentions (event: CommentCreate, context: TriggerContext) {

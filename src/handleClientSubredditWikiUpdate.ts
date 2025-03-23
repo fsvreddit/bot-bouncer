@@ -7,6 +7,7 @@ import { AppSetting, CONFIGURATION_DEFAULTS } from "./settings.js";
 import { isBanned, replaceAll } from "./utility.js";
 import { HANDLE_CLASSIFICATION_CHANGES_JOB } from "./constants.js";
 import { fromPairs } from "lodash";
+import { recordBanForDigest } from "./modmail/dailyDigest.js";
 
 const UNBAN_WHITELIST = "UnbanWhitelist";
 const BAN_STORE = "BanStore";
@@ -141,6 +142,7 @@ async function handleSetBanned (username: string, subredditName: string, setting
             note: banNote,
         }),
         recordBan(username, context),
+        recordBanForDigest(username, context),
         ...recentLocalContent.map(item => item.remove()),
     ]);
 
