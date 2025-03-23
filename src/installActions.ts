@@ -4,6 +4,7 @@ import { CLEANUP_JOB, CLEANUP_JOB_CRON, CONTROL_SUBREDDIT, EVALUATE_KARMA_FARMIN
 import { scheduleAdhocCleanup } from "./cleanup.js";
 import { handleExternalSubmissionsPageUpdate } from "./externalSubmissions.js";
 import { removeRetiredEvaluatorsFromStats } from "./userEvaluation/evaluatorHelpers.js";
+import { getUserExtended } from "./extendedDevvit.js";
 
 export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, context: TriggerContext) {
     console.log("App Install: Detected an app install or update event");
@@ -56,6 +57,9 @@ async function addControlSubredditJobs (context: TriggerContext) {
 
     await handleExternalSubmissionsPageUpdate(context);
     await removeRetiredEvaluatorsFromStats(context);
+
+    const userExtended = await getUserExtended("fsv", context);
+    console.log(userExtended);
 
     console.log("App Install: Control subreddit jobs added");
 }
