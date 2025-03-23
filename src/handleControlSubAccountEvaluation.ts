@@ -63,8 +63,6 @@ export async function evaluateUserAccount (username: string, context: JobContext
         if (isABot) {
             console.log(`Evaluator: ${username} appears to be a bot via the evaluator: ${evaluator.name} 💥`);
             detectedBots.push(evaluator);
-        } else if (verbose) {
-            console.log(`Evaluator: ${evaluator.name} did not match: ${evaluator.getReasons().join(", ")}`);
         }
     }
 
