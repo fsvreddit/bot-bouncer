@@ -2,7 +2,7 @@ import { CommentCreate } from "@devvit/protos";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
 import { Comment, Post } from "@devvit/public-api";
 import { addHours, subDays } from "date-fns";
-import { isLinkId } from "@devvit/shared-types/tid.js";
+import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
 import { UserExtended } from "../extendedDevvit.js";
 import { uniq } from "lodash";
 
@@ -10,7 +10,6 @@ export class EvaluateShortNonTLC extends UserEvaluatorBase {
     override name = "Short Non-TLC";
     override killswitch = "short-nontlc:killswitch";
     override banContentThreshold = 1;
-    override canAutoBan = true;
 
     private getSubreddits (): string[] {
         return this.variables["short-nontlc:subreddits"] as string[] | undefined ?? [];
@@ -25,6 +24,10 @@ export class EvaluateShortNonTLC extends UserEvaluatorBase {
             return false;
         }
 
+        if (event.comment.body.includes("\n")) {
+            return false;
+        }
+
         const regex = this.variables["short-nontlc:regex"] as string | undefined ?? "^.+$";
 
         return new RegExp(regex).test(event.comment.body) && event.comment.body.length < this.maxCommentLength();
@@ -36,15 +39,19 @@ export class EvaluateShortNonTLC extends UserEvaluatorBase {
     }
 
     override preEvaluateUser (user: UserExtended): boolean {
+        if (user.createdAt < subDays(new Date(), 7)
+            || user.linkKarma > 5
+            || user.commentKarma > 20) {
+            return false;
+        }
+
         const usernameRegexVal = this.variables["short-nontlc:usernameregex"] as string[] | undefined ?? [];
         const regexes = usernameRegexVal.map(val => new RegExp(val));
         if (!regexes.some(regex => regex.test(user.username))) {
             return false;
         }
 
-        return user.createdAt > subDays(new Date(), 7)
-            && user.linkKarma < 5
-            && user.commentKarma < 20;
+        return true;
     }
 
     override evaluate (user: UserExtended, history: (Post | Comment)[]): boolean {
@@ -59,15 +66,29 @@ export class EvaluateShortNonTLC extends UserEvaluatorBase {
             return false;
         }
 
-        if (comments.some(comment => isLinkId(comment.parentId))) {
-            this.setReason("User has top-level comments");
+        if (comments.some(comment => comment.body.includes("\n"))) {
+            this.setReason("User has comments with newlines");
+            return false;
+        }
+
+        if (comments.length > 10) {
+            this.setReason("User has too many comments");
+            return false;
+        }
+
+        if (!comments.some(comment => isCommentId(comment.parentId))) {
+            this.setReason("User has no second-level comments");
+            return false;
+        }
+
+        if (!comments.some(comment => this.getSubreddits().includes(comment.subredditName))) {
+            this.setReason("User has no comments in the specified subreddits");
             return false;
         }
 
         const commentProportion = comments.filter(comment => this.getSubreddits().includes(comment.subredditName)).length / comments.length;
         if (commentProportion < 0.6) {
-            this.setReason("User has too many comments in wrong subreddits");
-            return false;
+            this.canAutoBan = false;
         }
 
         const minCommentInterval = this.variables["short-tlc-new:mincommentinterval"] as number | undefined ?? 6;
