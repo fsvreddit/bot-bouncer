@@ -265,8 +265,8 @@ function compactDataForWiki (input: string): string | undefined {
         return;
     }
 
-    // Exclude status for users marked as organic/declined that haven't been updated in a week
-    if ((status.userStatus === UserStatus.Organic || status.userStatus === UserStatus.Declined) && status.lastUpdate < subWeeks(new Date(), 1).getTime()) {
+    // Exclude entries for users marked as "purged" after a week
+    if (status.userStatus === UserStatus.Purged && status.lastUpdate < subWeeks(new Date(), 1).getTime()) {
         return;
     }
 
@@ -282,6 +282,7 @@ function compactDataForWiki (input: string): string | undefined {
         // Truncate the last update date/time to the end of the second.
         status.lastUpdate = addSeconds(startOfSecond(new Date(status.lastUpdate)), 1).getTime();
     }
+
     return JSON.stringify(status);
 }
 
