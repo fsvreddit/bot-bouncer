@@ -260,7 +260,7 @@ function compressData (value: Record<string, string>): string {
 function compactDataForWiki (input: string): string | undefined {
     const status = JSON.parse(input) as UserDetails;
 
-    // Exclude entries for users marked as "retired"
+    // Exclude entries for users marked as "retired" after a day
     if (status.userStatus === UserStatus.Retired && status.lastUpdate < subDays(new Date(), 1).getTime()) {
         return;
     }
@@ -279,6 +279,7 @@ function compactDataForWiki (input: string): string | undefined {
     if (status.lastUpdate < subDays(new Date(), 2).getTime()) {
         status.lastUpdate = 0;
     } else {
+        // Truncate the last update date/time to the end of the second.
         status.lastUpdate = addSeconds(startOfSecond(new Date(status.lastUpdate)), 1).getTime();
     }
     return JSON.stringify(status);
