@@ -82,3 +82,8 @@ export async function recordBanForDigest (username: string, context: TriggerCont
     await context.redis.zAdd(key, { member: username, score: new Date().getTime() });
     await context.redis.expire(key, 60 * 60 * 24 * 2);
 }
+
+export async function removeRecordOfBanForDigest (username: string, context: TriggerContext | JobContext) {
+    const key = getBansKey(new Date());
+    await context.redis.zRem(key, [username]);
+}
