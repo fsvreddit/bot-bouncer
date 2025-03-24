@@ -13,7 +13,7 @@ import { EvaluateSelfComment } from "./EvaluateSelfComment.js";
 import { EvaluateSoccerStreamBot } from "./EvaluateSoccerStreamBot.js";
 import { EvaluateRepeatedPhraseBot } from "./EvaluateRepeatedPhraseBot.js";
 import { EvaluatePostTitle } from "./EvaluatePostTitle.js";
-import { EvaluateShortTlcNew } from "./EvaluateShortTlcNew.js";
+import { EvaluateShortNonTLC } from "./EvaluateShortNonTLC.js";
 import { EvaluateZombieNSFW } from "./EvaluateZombieNSFWPoster.js";
 import { EvaluateBioText } from "./EvaluateBioText.js";
 
@@ -34,6 +34,6 @@ export const ALL_EVALUATORS = [
     EvaluateSoccerStreamBot,
     EvaluateRepeatedPhraseBot,
     EvaluatePostTitle,
-    EvaluateShortTlcNew,
+    EvaluateShortNonTLC,
     EvaluateZombieNSFW,
 ];

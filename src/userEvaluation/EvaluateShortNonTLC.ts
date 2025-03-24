@@ -2,21 +2,21 @@ import { CommentCreate } from "@devvit/protos";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
 import { Comment, Post } from "@devvit/public-api";
 import { addHours, subDays } from "date-fns";
-import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
+import { isLinkId } from "@devvit/shared-types/tid.js";
 import { UserExtended } from "../extendedDevvit.js";
 
-export class EvaluateShortTlcNew extends UserEvaluatorBase {
-    override name = "Short TLC New";
-    override killswitch = "short-tlc-new:killswitch";
+export class EvaluateShortNonTLC extends UserEvaluatorBase {
+    override name = "Short Non-TLC";
+    override killswitch = "short-nontlc:killswitch";
     override banContentThreshold = 1;
     override canAutoBan = true;
 
     private getSubreddits (): string[] {
-        return this.variables["short-tlc-new:subreddits"] as string[] | undefined ?? [];
+        return this.variables["short-nontlc:subreddits"] as string[] | undefined ?? [];
     }
 
     private maxCommentLength (): number {
-        return this.variables["short-tlc-new:maxcommentlength"] as number | undefined ?? 50;
+        return this.variables["short-nontlc:maxcommentlength"] as number | undefined ?? 50;
     }
 
     override preEvaluateComment (event: CommentCreate): boolean {
@@ -33,7 +33,7 @@ export class EvaluateShortTlcNew extends UserEvaluatorBase {
     }
 
     override preEvaluateUser (user: UserExtended): boolean {
-        const usernameRegexVal = this.variables["short-tlc-new:usernameregex"] as string[] | undefined ?? [];
+        const usernameRegexVal = this.variables["short-nontlc:usernameregex"] as string[] | undefined ?? [];
         const regexes = usernameRegexVal.map(val => new RegExp(val));
         if (!regexes.some(regex => regex.test(user.username))) {
             return false;
@@ -56,8 +56,8 @@ export class EvaluateShortTlcNew extends UserEvaluatorBase {
             return false;
         }
 
-        if (comments.some(comment => isCommentId(comment.parentId))) {
-            this.setReason("User has non-top-level comments");
+        if (comments.some(comment => isLinkId(comment.parentId))) {
+            this.setReason("User has top-level comments");
             return false;
         }
 
@@ -73,7 +73,7 @@ export class EvaluateShortTlcNew extends UserEvaluatorBase {
             return false;
         }
 
-        const regexVal = this.variables["short-tlc-new:regex"] as string | undefined ?? "^.+$";
+        const regexVal = this.variables["short-nontlc:regex"] as string | undefined ?? "^.+$";
         const regex = new RegExp(regexVal);
         if (comments.some(comment => !regex.test(comment.body))) {
             this.setReason("User has comments that don't match the regular expression");
