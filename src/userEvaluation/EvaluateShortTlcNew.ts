@@ -39,7 +39,7 @@ export class EvaluateShortTlcNew extends UserEvaluatorBase {
             return false;
         }
 
-        return user.createdAt > subDays(new Date(), 2)
+        return user.createdAt > subDays(new Date(), 7)
             && user.linkKarma < 5
             && user.commentKarma < 20;
     }
@@ -61,8 +61,9 @@ export class EvaluateShortTlcNew extends UserEvaluatorBase {
             return false;
         }
 
-        if (comments.some(comment => !this.getSubreddits().includes(comment.subredditName))) {
-            this.setReason("User has comments in wrong subreddits");
+        const commentProportion = comments.filter(comment => this.getSubreddits().includes(comment.subredditName)).length / comments.length;
+        if (commentProportion < 0.6) {
+            this.setReason("User has too many comments in wrong subreddits");
             return false;
         }
 
