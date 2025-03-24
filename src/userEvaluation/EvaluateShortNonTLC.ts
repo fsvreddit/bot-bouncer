@@ -4,6 +4,7 @@ import { Comment, Post } from "@devvit/public-api";
 import { addHours, subDays } from "date-fns";
 import { isLinkId } from "@devvit/shared-types/tid.js";
 import { UserExtended } from "../extendedDevvit.js";
+import { uniq } from "lodash";
 
 export class EvaluateShortNonTLC extends UserEvaluatorBase {
     override name = "Short Non-TLC";
@@ -72,6 +73,12 @@ export class EvaluateShortNonTLC extends UserEvaluatorBase {
         const minCommentInterval = this.variables["short-tlc-new:mincommentinterval"] as number | undefined ?? 6;
         if (comments.some(comment => comment.createdAt < addHours(user.createdAt, minCommentInterval))) {
             this.setReason("User has comments too soon after account creation");
+            return false;
+        }
+
+        const distinctSubs = uniq(comments.map(comment => comment.subredditName));
+        if (distinctSubs.length !== comments.length) {
+            this.setReason("User has more than one comment in the same subreddit");
             return false;
         }
 
