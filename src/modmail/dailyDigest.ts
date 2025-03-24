@@ -54,6 +54,8 @@ export async function sendDailyDigest (_: unknown, context: JobContext) {
             message += "\n";
         }
 
+        message += `If you no longer want to receive these notifications, you can turn them off on the [app configuration page](https://developers.reddit.com/r/${subredditName}/apps/${context.appName}).`;
+
         promises.push(context.reddit.modMail.createModInboxConversation({
             subredditId: context.subredditId,
             subject,
