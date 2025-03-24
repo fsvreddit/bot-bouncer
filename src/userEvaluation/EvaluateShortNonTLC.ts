@@ -24,7 +24,9 @@ export class EvaluateShortNonTLC extends UserEvaluatorBase {
             return false;
         }
 
-        return event.comment.body.length < this.maxCommentLength();
+        const regex = this.variables["short-nontlc:regex"] as string | undefined ?? "^.+$";
+
+        return new RegExp(regex).test(event.comment.body) && event.comment.body.length < this.maxCommentLength();
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
