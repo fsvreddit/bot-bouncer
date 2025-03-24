@@ -2,6 +2,7 @@ import { TriggerContext, WikiPage, WikiPagePermissionLevel } from "@devvit/publi
 import { UserDetails, UserStatus } from "../dataStore.js";
 import Ajv, { JSONSchemaType } from "ajv";
 import { fromPairs } from "lodash";
+import pluralize from "pluralize";
 
 interface ModmailDataExtract {
     status?: UserStatus;
@@ -124,7 +125,7 @@ export async function dataExtract (message: string | undefined, conversationId: 
 
     await context.reddit.modMail.reply({
         conversationId,
-        body: `Data exported to [wiki page](https://www.reddit.com/r/BotBouncer/wiki/${wikiPageName}).`,
+        body: `Data for ${data.length} ${pluralize("user", data.length)} exported to [wiki page](https://www.reddit.com/r/BotBouncer/wiki/${wikiPageName}).`,
         isAuthorHidden: false,
     });
 }
