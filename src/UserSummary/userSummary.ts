@@ -231,17 +231,26 @@ export async function getSummaryTextForUser (username: string, context: TriggerC
         }
     }
 
-    const userComments = await context.reddit.getCommentsByUser({
-        username,
-        sort: "new",
-        limit: 100,
-    }).all();
+    let userComments: Comment[];
+    let userPosts: Post[];
 
-    const userPosts = await context.reddit.getPostsByUser({
-        username,
-        sort: "new",
-        limit: 100,
-    }).all();
+    try {
+        [userComments, userPosts] = await Promise.all([
+            context.reddit.getCommentsByUser({
+                username,
+                sort: "new",
+                limit: 100,
+            }).all(),
+            context.reddit.getPostsByUser({
+                username,
+                sort: "new",
+                limit: 100,
+            }).all(),
+        ]);
+    } catch {
+        console.log(`User Summary: Error retrieving user history for ${username}. User may have been shadowbanned while account was being processed.`);
+        return;
+    }
 
     const potentiallyBlocking = await isUserPotentiallyBlockingBot([...userComments, ...userPosts], context);
     if (potentiallyBlocking) {
