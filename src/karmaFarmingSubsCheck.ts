@@ -31,6 +31,7 @@ async function getAccountsFromSub (subredditName: string, since: Date, context: 
 
 function lastCheckDateForSub (subredditName: string, lastCheckDates: ZMember[]): Date {
     const lastCheckDate = lastCheckDates.find(item => item.member === subredditName);
+    console.log(`Last check date for ${subredditName}: ${lastCheckDate?.score}`);
     return new Date(lastCheckDate?.score ?? 0);
 }
 
@@ -45,6 +46,8 @@ async function getDistinctAccounts (context: JobContext): Promise<string[]> {
             distinctSubs.push(sub);
         }
     }
+
+    console.log(`Karma Farming Subs: Checking ${distinctSubs.length} distinct subs`);
 
     const lastDates = await context.redis.zRange(CHECK_DATE_KEY, 0, -1);
 
