@@ -45,9 +45,7 @@ Write in to [/r/BotBouncer's modmail](https://www.reddit.com/message/compose/?to
 
 # Change History
 
-## Next
-
-Note: v1.6.1 is the current public release. An upgrade may appear to be available but not be installable.
+## v1.7.0
 
 * Fix bug that prevented auto allowlisting on unban from working properly
 * Fix bug where Bot Bouncer might resurface posts that had been previously removed by a moderator, Automod or Reddit
