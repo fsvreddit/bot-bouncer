@@ -3,17 +3,18 @@ import { compact, countBy, Dictionary, max, sum, toPairs, uniq } from "lodash";
 import pako from "pako";
 import { scheduleAdhocCleanup, setCleanupForSubmittersAndMods, setCleanupForUsers } from "./cleanup.js";
 import { CONTROL_SUBREDDIT, HANDLE_CLASSIFICATION_CHANGES_JOB } from "./constants.js";
-import { addSeconds, addWeeks, startOfSecond, subDays, subHours } from "date-fns";
+import { addSeconds, addWeeks, startOfSecond, subDays, subHours, subWeeks } from "date-fns";
 import pluralize from "pluralize";
 import { getControlSubSettings } from "./settings.js";
 import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
+import { updateEvaluatorHitsWikiPage } from "./handleControlSubAccountEvaluation.js";
 
 const USER_STORE = "UserStore";
 const POST_STORE = "PostStore";
 const AGGREGATE_STORE = "AggregateStore";
 const WIKI_UPDATE_DUE = "WikiUpdateDue";
 const WIKI_PAGE = "botbouncer";
-const MAX_WIKI_PAGE_SIZE = 524288;
+const MAX_WIKI_PAGE_SIZE = 512 * 1024;
 
 export enum UserStatus {
     Pending = "pending",
@@ -129,7 +130,7 @@ interface SubmitterStatistic {
     ratio: number;
 }
 
-export async function writeAggregateToWikiPage (_: unknown, context: JobContext) {
+async function updateMainStatisticsPage (context: JobContext) {
     let results = await context.redis.zRange(AGGREGATE_STORE, 0, -1);
     results = results.filter(item => item.member !== "pending");
 
@@ -171,7 +172,9 @@ export async function writeAggregateToWikiPage (_: unknown, context: JobContext)
             permLevel: WikiPagePermissionLevel.SUBREDDIT_PERMISSIONS,
         });
     }
+}
 
+async function updateSubmitterStatistics (context: JobContext) {
     const allData = await context.redis.hGetAll(USER_STORE);
     const allStatuses = Object.values(allData).map(item => JSON.parse(item) as UserDetails);
 
@@ -183,9 +186,9 @@ export async function writeAggregateToWikiPage (_: unknown, context: JobContext)
             continue;
         }
 
-        if (status.userStatus === UserStatus.Organic) {
+        if (status.userStatus === UserStatus.Organic || status.userStatus === UserStatus.Service || status.userStatus === UserStatus.Declined) {
             organicStatuses[status.submitter] = (organicStatuses[status.submitter] ?? 0) + 1;
-        } else if (status.userStatus === UserStatus.Banned) {
+        } else if (status.userStatus === UserStatus.Banned || (status.userStatus === UserStatus.Purged && status.lastStatus === UserStatus.Banned)) {
             bannedStatuses[status.submitter] = (bannedStatuses[status.submitter] ?? 0) + 1;
         }
     }
@@ -200,17 +203,19 @@ export async function writeAggregateToWikiPage (_: unknown, context: JobContext)
         submitterStatistics.push({ submitter: user, count: totalCount, ratio });
     }
 
-    wikiContent = "Submitter statistics\n\n";
+    let wikiContent = "Submitter statistics\n\n";
 
     for (const item of submitterStatistics.sort((a, b) => a.count - b.count)) {
         wikiContent += `* **${item.submitter}**: ${item.count} (${item.ratio}% banned)\n`;
     }
 
+    const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
+    let wikiPage: WikiPage | undefined;
     const submitterStatisticsWikiPage = "submitter-statistics";
     try {
         wikiPage = await context.reddit.getWikiPage(subredditName, submitterStatisticsWikiPage);
     } catch {
-        wikiPage = undefined;
+        //
     }
 
     const submitterStatisticsWikiPageSaveOptions = {
@@ -232,6 +237,14 @@ export async function writeAggregateToWikiPage (_: unknown, context: JobContext)
     }
 }
 
+export async function updateStatisticsPages (_: unknown, context: JobContext) {
+    await Promise.all([
+        updateMainStatisticsPage(context),
+        updateSubmitterStatistics(context),
+        updateEvaluatorHitsWikiPage(context),
+    ]);
+}
+
 async function queueWikiUpdate (context: TriggerContext) {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
         return;
@@ -244,8 +257,19 @@ function compressData (value: Record<string, string>): string {
     return Buffer.from(pako.deflate(JSON.stringify(value), { level: 9 })).toString("base64");
 }
 
-function compactDataForWiki (input: string): string {
+function compactDataForWiki (input: string): string | undefined {
     const status = JSON.parse(input) as UserDetails;
+
+    // Exclude entries for users marked as "retired" after a day
+    if (status.userStatus === UserStatus.Retired && status.lastUpdate < subDays(new Date(), 1).getTime()) {
+        return;
+    }
+
+    // Exclude entries for users marked as "purged" after a week
+    if (status.userStatus === UserStatus.Purged && status.lastUpdate < subWeeks(new Date(), 1).getTime()) {
+        return;
+    }
+
     status.operator = "";
     delete status.submitter;
     if (status.userStatus === UserStatus.Purged && status.lastStatus) {
@@ -255,15 +279,16 @@ function compactDataForWiki (input: string): string {
     if (status.lastUpdate < subDays(new Date(), 2).getTime()) {
         status.lastUpdate = 0;
     } else {
+        // Truncate the last update date/time to the end of the second.
         status.lastUpdate = addSeconds(startOfSecond(new Date(status.lastUpdate)), 1).getTime();
     }
+
     return JSON.stringify(status);
 }
 
 export async function updateWikiPage (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
-    const forceUpdate = event.data?.force as boolean | undefined ?? false;
     const updateDue = await context.redis.get(WIKI_UPDATE_DUE);
-    if (!updateDue && !forceUpdate) {
+    if (!updateDue) {
         return;
     }
 
@@ -276,12 +301,8 @@ export async function updateWikiPage (event: ScheduledJobEvent<JSONObject | unde
         //
     }
 
-    if (wikiPage?.revisionDate && wikiPage.revisionDate > subDays(new Date(), 1) && forceUpdate) {
-        // No need to run the monthly forced update, the page has been updated recently.
-        return;
-    }
-
     const data = await context.redis.hGetAll(USER_STORE);
+    const dataToWrite: Record<string, string> = {};
     const entries = Object.entries(data);
     if (entries.length === 0) {
         return;
@@ -289,10 +310,13 @@ export async function updateWikiPage (event: ScheduledJobEvent<JSONObject | unde
 
     for (const entry of entries) {
         const [username, jsonData] = entry;
-        data[username] = compactDataForWiki(jsonData);
+        const compactedData = compactDataForWiki(jsonData);
+        if (compactedData) {
+            dataToWrite[username] = compactedData;
+        }
     }
 
-    const content = compressData(data);
+    const content = compressData(dataToWrite);
     if (content === wikiPage?.content) {
         return;
     }
@@ -317,9 +341,9 @@ export async function updateWikiPage (event: ScheduledJobEvent<JSONObject | unde
 
     await context.redis.del(WIKI_UPDATE_DUE);
 
-    console.log(`Wiki page has been updated with ${entries.length} entries`);
+    console.log(`Wiki page has been updated with ${Object.keys(dataToWrite).length} entries`);
 
-    if (content.length > MAX_WIKI_PAGE_SIZE * 0.5) {
+    if (content.length > MAX_WIKI_PAGE_SIZE * 0.7) {
         const spaceAlertKey = "wikiSpaceAlert";
         const alertDone = await context.redis.get(spaceAlertKey);
         if (!alertDone) {

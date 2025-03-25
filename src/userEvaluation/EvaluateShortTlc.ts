@@ -1,4 +1,4 @@
-import { Comment, Post, User } from "@devvit/public-api";
+import { Comment, Post } from "@devvit/public-api";
 import { CommentCreate } from "@devvit/protos";
 import { CommentV2 } from "@devvit/protos/types/devvit/reddit/v2alpha/commentv2.js";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
@@ -6,9 +6,11 @@ import { isCommentId } from "@devvit/shared-types/tid.js";
 import { subMonths } from "date-fns";
 import { uniq } from "lodash";
 import { autogenRegex } from "./evaluatorHelpers.js";
+import { UserExtended } from "../extendedDevvit.js";
 
 export class EvaluateShortTlc extends UserEvaluatorBase {
     override name = "Short TLC Bot";
+    override killswitch = "short-tlc:killswitch";
 
     private eligibleComment (comment: Comment | CommentV2) {
         if (isCommentId(comment.parentId)) {
@@ -36,7 +38,7 @@ export class EvaluateShortTlc extends UserEvaluatorBase {
         return false;
     }
 
-    override preEvaluateUser (user: User): boolean {
+    override preEvaluateUser (user: UserExtended): boolean {
         if (user.commentKarma > 500) {
             this.setReason("User has too much karma");
             return false;
@@ -55,16 +57,7 @@ export class EvaluateShortTlc extends UserEvaluatorBase {
         return true;
     }
 
-    override evaluate (user: User, history: (Post | Comment)[]): boolean {
-        if (!this.preEvaluateUser(user)) {
-            return false;
-        }
-
-        if (this.variables["short-tlc:killswitch"]) {
-            this.setReason("Evaluator is disabled");
-            return false;
-        }
-
+    override evaluate (_: UserExtended, history: (Post | Comment)[]): boolean {
         const userComments = history.filter(item => item instanceof Comment) as Comment[];
 
         if (history.some(item => item instanceof Post && (item.subredditName !== "AskReddit" || item.url.includes("i.redd.it")))) {

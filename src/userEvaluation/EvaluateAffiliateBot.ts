@@ -1,12 +1,14 @@
-import { Comment, Post, User } from "@devvit/public-api";
+import { Comment, Post } from "@devvit/public-api";
 import { CommentCreate } from "@devvit/protos";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
 import { subYears } from "date-fns";
 import { compact, uniq } from "lodash";
 import { domainFromUrl } from "./evaluatorHelpers.js";
+import { UserExtended } from "../extendedDevvit.js";
 
 export class EvaluateAffiliateBot extends UserEvaluatorBase {
     override name = "Affiliate Bot";
+    override killswitch = "affiliate:killswitch";
 
     private domainsFromContent (content: string): string[] {
         // eslint-disable-next-line no-useless-escape
@@ -45,7 +47,7 @@ export class EvaluateAffiliateBot extends UserEvaluatorBase {
         return this.eligiblePost(post);
     }
 
-    override preEvaluateUser (user: User): boolean {
+    override preEvaluateUser (user: UserExtended): boolean {
         if (user.commentKarma > 500) {
             this.setReason("User has too much comment karma");
             return false;
@@ -70,16 +72,7 @@ export class EvaluateAffiliateBot extends UserEvaluatorBase {
         return true;
     }
 
-    override evaluate (user: User, history: (Post | Comment)[]): boolean {
-        if (!this.preEvaluateUser(user)) {
-            return false;
-        }
-
-        if (this.variables["affiliate:killswitch"]) {
-            this.setReason("Evaluator is disabled");
-            return false;
-        }
-
+    override evaluate (_: UserExtended, history: (Post | Comment)[]): boolean {
         const userComments = history.filter(item => item instanceof Comment) as Comment[];
         const userDomains = uniq(userComments.map(comment => this.domainsFromContent(comment.body)).flat());
 

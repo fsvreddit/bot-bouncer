@@ -1,4 +1,4 @@
-import { Comment, Post, User } from "@devvit/public-api";
+import { Comment, Post } from "@devvit/public-api";
 import { CommentCreate } from "@devvit/protos";
 import { CommentV2 } from "@devvit/protos/types/devvit/reddit/v2alpha/commentv2.js";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
@@ -6,9 +6,11 @@ import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
 import { subMonths } from "date-fns";
 import { last, uniq } from "lodash";
 import { domainFromUrl } from "./evaluatorHelpers.js";
+import { UserExtended } from "../extendedDevvit.js";
 
 export class EvaluateFirstCommentEmDash extends UserEvaluatorBase {
     override name = "First Comment Em Dash";
+    override killswitch = "em-dash:killswitch";
 
     override banContentThreshold = 1;
 
@@ -37,7 +39,7 @@ export class EvaluateFirstCommentEmDash extends UserEvaluatorBase {
         return this.eligiblePost(post);
     }
 
-    override preEvaluateUser (user: User): boolean {
+    override preEvaluateUser (user: UserExtended): boolean {
         if (user.createdAt < subMonths(new Date(), 2)) {
             this.setReason("Account is too old");
             return false;
@@ -46,16 +48,7 @@ export class EvaluateFirstCommentEmDash extends UserEvaluatorBase {
         return true;
     }
 
-    override evaluate (user: User, history: (Post | Comment)[]): boolean {
-        if (!this.preEvaluateUser(user)) {
-            return false;
-        }
-
-        if (this.variables["em-dash:killswitch"]) {
-            this.setReason("Killswitch is enabled");
-            return false;
-        }
-
+    override evaluate (_: UserExtended, history: (Post | Comment)[]): boolean {
         const comments = history.filter(item => isCommentId(item.id)) as Comment[];
         const posts = history.filter(item => isLinkId(item.id)) as Post[];
 

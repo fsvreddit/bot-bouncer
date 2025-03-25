@@ -1,10 +1,12 @@
-import { Comment, Post, User } from "@devvit/public-api";
+import { Comment, Post } from "@devvit/public-api";
 import { CommentCreate } from "@devvit/protos";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
 import { domainFromUrl } from "../utility.js";
+import { UserExtended } from "../extendedDevvit.js";
 
-export class EvaluateBannedTitles extends UserEvaluatorBase {
+export class EvaluatePinnedPostTitles extends UserEvaluatorBase {
     override name = "Sticky Post Title Bot";
+    override killswitch = "pinnedpost:killswitch";
     override banContentThreshold = 1;
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -17,11 +19,7 @@ export class EvaluateBannedTitles extends UserEvaluatorBase {
         return domain === "reddit.com";
     }
 
-    override preEvaluateUser (user: User): boolean {
-        if (this.variables["pinnedpost:killswitch"]) {
-            return false;
-        }
-
+    override preEvaluateUser (user: UserExtended): boolean {
         const bannableTitles = this.variables["pinnedpost:bantext"] as string[] | undefined ?? [];
         const reportableTitles = this.variables["pinnedpost:reporttext"] as string[] | undefined ?? [];
 
@@ -35,16 +33,7 @@ export class EvaluateBannedTitles extends UserEvaluatorBase {
         return true;
     }
 
-    override evaluate (user: User, history: (Post | Comment)[]): boolean {
-        if (!this.preEvaluateUser(user)) {
-            this.setReason("User does not meet pre-evaluation criteria");
-            return false;
-        }
-
-        if (this.variables["pinnedpost:killswitch"]) {
-            return false;
-        }
-
+    override evaluate (_: UserExtended, history: (Post | Comment)[]): boolean {
         const stickyPosts = history.filter(item => item instanceof Post && item.stickied) as Post[];
         if (stickyPosts.length === 0) {
             this.setReason("User has no sticky posts");

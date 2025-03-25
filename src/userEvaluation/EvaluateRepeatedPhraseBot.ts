@@ -1,12 +1,14 @@
 import { CommentCreate } from "@devvit/protos";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
-import { Comment, Post, User } from "@devvit/public-api";
+import { Comment, Post } from "@devvit/public-api";
 import { subMonths, subYears } from "date-fns";
 import { CommentV2 } from "@devvit/protos/types/devvit/reddit/v2alpha/commentv2.js";
 import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
+import { UserExtended } from "../extendedDevvit.js";
 
 export class EvaluateRepeatedPhraseBot extends UserEvaluatorBase {
     override name = "Repeated Phrase Bot";
+    override killswitch = "repeatedphrase:killswitch";
     override banContentThreshold = 3;
     override canAutoBan = true;
 
@@ -34,23 +36,13 @@ export class EvaluateRepeatedPhraseBot extends UserEvaluatorBase {
         return false;
     }
 
-    override preEvaluateUser (user: User): boolean {
+    override preEvaluateUser (user: UserExtended): boolean {
         return user.createdAt > subYears(new Date(), 2)
             && user.linkKarma < 100
             && user.commentKarma < 500;
     }
 
-    override evaluate (user: User, history: (Post | Comment)[]): boolean {
-        if (!this.preEvaluateUser(user)) {
-            this.setReason("User does not pass pre-evaluation checks");
-            return false;
-        }
-
-        if (this.variables["repeatedphrase:killswitch"]) {
-            this.setReason("Evaluator is disabled");
-            return false;
-        }
-
+    override evaluate (_: UserExtended, history: (Post | Comment)[]): boolean {
         const posts = history.filter(item => isLinkId(item.id) && item.createdAt > subMonths(new Date(), 1)) as Post[];
         if (posts.length > 0) {
             this.setReason("User has recent posts");

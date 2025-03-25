@@ -7,6 +7,7 @@ import { AppSetting, CONFIGURATION_DEFAULTS } from "./settings.js";
 import { isBanned, replaceAll } from "./utility.js";
 import { HANDLE_CLASSIFICATION_CHANGES_JOB } from "./constants.js";
 import { fromPairs } from "lodash";
+import { recordBanForDigest, removeRecordOfBanForDigest } from "./modmail/dailyDigest.js";
 
 const UNBAN_WHITELIST = "UnbanWhitelist";
 const BAN_STORE = "BanStore";
@@ -23,6 +24,7 @@ export async function removeRecordOfBan (usernames: string[], context: TriggerCo
     }
 
     const actuallyRemoved = await context.redis.zRem(BAN_STORE, usernames);
+    await Promise.all(usernames.map(username => removeRecordOfBanForDigest(username, context)));
     console.log(`Removed record of ban for ${actuallyRemoved}: ${usernames.join(", ")}`);
 }
 
@@ -82,7 +84,6 @@ async function handleSetOrganic (username: string, subredditName: string, contex
 
     const userBannedByApp = await wasUserBannedByApp(username, context);
     if (!userBannedByApp) {
-        console.log(`Wiki Update: ${username} was not banned by this app.`);
         return;
     }
 
@@ -109,14 +110,12 @@ async function handleSetBanned (username: string, subredditName: string, setting
             timeframe: "week",
         }).all();
     } catch {
-        console.log(`Wiki Update: Couldn't retrieve content for ${username}, likely shadowbanned.`);
         return;
     }
 
     const recentLocalContent = userContent.filter(item => item.subredditName === subredditName && item.createdAt > subWeeks(new Date(), 1));
 
     if (recentLocalContent.length === 0) {
-        console.log(`Wiki Update: ${username} has no recent content on ${subredditName} to remove.`);
         return;
     }
 
@@ -144,6 +143,7 @@ async function handleSetBanned (username: string, subredditName: string, setting
             note: banNote,
         }),
         recordBan(username, context),
+        recordBanForDigest(username, context),
         ...recentLocalContent.map(item => item.remove()),
     ]);
 
@@ -176,13 +176,12 @@ export async function handleClassificationChanges (event: ScheduledJobEvent<JSON
     const promises: Promise<unknown>[] = [];
 
     if (unbannedUsers.length > 0) {
-        console.log(`Wiki Update: Checking unbans for ${unbannedUsers.length} ${pluralize("user", unbannedUsers.length)}`);
         promises.push(...unbannedUsers.map(username => handleSetOrganic(username, subredditName, context)));
     }
 
     const settings = await context.settings.getAll();
 
-    if (bannedUsers.length > 0 && settings[AppSetting.RemoveRecentContent]) {
+    if (bannedUsers.length > 0 && settings[AppSetting.RemoveRecentContent] && !settings[AppSetting.HoneypotMode]) {
         // Take 5 users to process immediately, and schedule the rest
         const userCount = 5;
         const usersToProcess = bannedUsers.slice(0, userCount);
@@ -199,6 +198,4 @@ export async function handleClassificationChanges (event: ScheduledJobEvent<JSON
     }
 
     await Promise.all(promises);
-
-    console.log("Wiki Update: Classification changes handled");
 }

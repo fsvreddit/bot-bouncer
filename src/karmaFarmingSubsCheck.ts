@@ -37,10 +37,20 @@ function lastCheckDateForSub (subredditName: string, lastCheckDates: ZMember[]):
 async function getDistinctAccounts (context: JobContext): Promise<string[]> {
     const variables = await getEvaluatorVariables(context);
     const karmaFarmingSubs = variables["generic:karmafarminglinksubs"] as string[] | undefined ?? [];
+    const karmaFarmingSubsNSFW = variables["generic:karmafarminglinksubsnsfw"] as string[] | undefined ?? [];
+
+    const distinctSubs: string[] = [];
+    for (const sub of [...karmaFarmingSubs, ...karmaFarmingSubsNSFW]) {
+        if (!distinctSubs.some(item => item.toLowerCase() === sub.toLowerCase())) {
+            distinctSubs.push(sub);
+        }
+    }
+
+    console.log(`Karma Farming Subs: Checking ${distinctSubs.length} distinct subs`);
 
     const lastDates = await context.redis.zRange(CHECK_DATE_KEY, 0, -1);
 
-    const promises = uniq(karmaFarmingSubs).map(sub => getAccountsFromSub(sub, lastCheckDateForSub(sub, lastDates), context));
+    const promises = distinctSubs.map(sub => getAccountsFromSub(sub, lastCheckDateForSub(sub, lastDates), context));
     const results = await Promise.all(promises);
 
     return uniq(results.flat());
@@ -103,7 +113,7 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
         console.log("Karma Farming Subs: First batch starting.");
     }
 
-    const batchSize = 20;
+    const batchSize = 10;
     let processed = 0;
     let userBanned = false;
 
@@ -133,7 +143,7 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
     }
 
     if (accounts.length > 0) {
-        const nextRunSeconds = userBanned ? 30 : 10;
+        const nextRunSeconds = userBanned ? 30 : 0;
         await context.scheduler.runJob({
             name: EVALUATE_KARMA_FARMING_SUBS,
             runAt: addSeconds(new Date(), nextRunSeconds),

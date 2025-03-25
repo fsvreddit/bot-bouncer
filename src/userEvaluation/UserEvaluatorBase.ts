@@ -1,5 +1,6 @@
 import { CommentCreate } from "@devvit/protos";
-import { Comment, Post, TriggerContext, User } from "@devvit/public-api";
+import { Comment, Post, TriggerContext } from "@devvit/public-api";
+import { UserExtended } from "../extendedDevvit.js";
 
 export abstract class UserEvaluatorBase {
     protected reasons: string[] = [];
@@ -7,6 +8,7 @@ export abstract class UserEvaluatorBase {
     protected variables: Record<string, unknown> = {};
 
     abstract name: string;
+    abstract killswitch: string;
 
     public setReason (reason: string) {
         this.reasons.push(reason);
@@ -24,11 +26,15 @@ export abstract class UserEvaluatorBase {
         this.variables = variables;
     }
 
+    public evaluatorDisabled () {
+        return this.variables[this.killswitch] as boolean | undefined ?? false;
+    }
+
     abstract preEvaluateComment (event: CommentCreate): boolean;
 
     abstract preEvaluatePost (post: Post): boolean;
 
-    abstract preEvaluateUser (user: User): boolean;
+    abstract preEvaluateUser (user: UserExtended): boolean;
 
-    abstract evaluate (user: User, history: (Post | Comment)[]): boolean;
+    abstract evaluate (user: UserExtended, history: (Post | Comment)[]): boolean;
 }

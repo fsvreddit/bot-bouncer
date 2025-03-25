@@ -45,6 +45,20 @@ Write in to [/r/BotBouncer's modmail](https://www.reddit.com/message/compose/?to
 
 # Change History
 
+## v1.7.0
+
+* Fix bug that prevented auto allowlisting on unban from working properly
+* Fix bug where Bot Bouncer might resurface posts that had been previously removed by a moderator, Automod or Reddit
+* Add new opt-in upgrade notification system. If you would like to be notified of new upgrades, you can do it from the app settings page.
+* Add new opt-in feature to send a daily digest of bot detections and bans
+* Removed four redundant evaluators for bot styles no longer seen in the wild
+* Add new evaluator for posts that match certain title patterns
+* Add new evaluator for short top level comments in certain scenarios
+* Add new evaluator for users with bio text that matches certain patterns
+* No longer link to comment/post that triggers a ban for bots to avoid user confusion
+* Add "honeypot mode" for unusual subs that may want to report potential bots but not take action on the sub itself
+* Performance improvements
+
 ## v1.6.1
 
 * Prevent items that were removed by Reddit, Automod or a subreddit moderator from being reinstated if an account is reclassified as human

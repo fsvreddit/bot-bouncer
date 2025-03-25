@@ -1,6 +1,7 @@
-import { SettingsFormField, TriggerContext, WikiPage, WikiPagePermissionLevel } from "@devvit/public-api";
+import { SettingsFormField, TriggerContext, WikiPage } from "@devvit/public-api";
 import { CONTROL_SUBREDDIT } from "./constants.js";
 import Ajv, { JSONSchemaType } from "ajv";
+import { addHours } from "date-fns";
 
 export const CONFIGURATION_DEFAULTS = {
     banMessage: `Bots and bot-like accounts are not welcome on /r/{subreddit}.
@@ -40,6 +41,9 @@ export enum AppSetting {
     RemoveRecentContent = "removeRecentContent",
     ReportPotentialBots = "reportPotentialBots",
     RemoveContentWhenReporting = "removeContentWhenReporting",
+    DailyDigest = "dailyDigest",
+    UpgradeNotifier = "upgradeNotifier",
+    HoneypotMode = "honeypotMode",
 }
 
 export const appSettings: SettingsFormField[] = [
@@ -100,6 +104,40 @@ export const appSettings: SettingsFormField[] = [
             },
         ],
     },
+    {
+        type: "group",
+        label: "Notifications",
+        helpText: "Options for receiving notifications from Bot Bouncer",
+        fields: [
+            {
+                type: "boolean",
+                label: "Send a daily digest of actions taken by Bot Bouncer, if any occur",
+                name: AppSetting.DailyDigest,
+                helpText: "If enabled, you will receive a daily message with a summary of actions taken by Bot Bouncer in the previous 24 hours, if any.",
+                defaultValue: false,
+            },
+            {
+                type: "boolean",
+                label: "Upgrade notifications",
+                name: AppSetting.UpgradeNotifier,
+                helpText: "Receive a message when a new version of Bot Bouncer is released",
+                defaultValue: false,
+            },
+        ],
+    },
+    {
+        type: "group",
+        label: "Advanced Options",
+        fields: [
+            {
+                type: "boolean",
+                label: "Honeypot Mode",
+                name: AppSetting.HoneypotMode,
+                helpText: "If enabled, Bot Bouncer will NOT take action on accounts that are classified as bots, but will still report them. This may be useful for rare subreddits that might not want to tip users off.",
+                defaultValue: false,
+            },
+        ],
+    },
 ];
 
 interface ControlSubSettings {
@@ -129,6 +167,14 @@ const schema: JSONSchemaType<ControlSubSettings> = {
 };
 
 export async function getControlSubSettings (context: TriggerContext): Promise<ControlSubSettings> {
+    const redisKey = "controlSubSettings";
+    if (context.subredditName !== CONTROL_SUBREDDIT) {
+        const cachedSettings = await context.redis.get(redisKey);
+        if (cachedSettings) {
+            return JSON.parse(cachedSettings) as ControlSubSettings;
+        }
+    }
+
     const defaultConfig: ControlSubSettings = {
         evaluationDisabled: false,
         proactiveEvaluationEnabled: true,
@@ -161,23 +207,11 @@ export async function getControlSubSettings (context: TriggerContext): Promise<C
             console.error("Control sub settings are invalid. Default values will be returned.", ajv.errorsText(validate.errors));
             return defaultConfig;
         } else {
+            if (context.subredditName !== CONTROL_SUBREDDIT) {
+                await context.redis.set(redisKey, wikiPage.content, { expiration: addHours(new Date(), 1) });
+            }
             return JSON.parse(wikiPage.content) as ControlSubSettings;
         }
-    }
-
-    if (context.subredditName === CONTROL_SUBREDDIT) {
-        await context.reddit.createWikiPage({
-            subredditName: CONTROL_SUBREDDIT,
-            page: CONTROL_SUB_SETTINGS_WIKI_PAGE,
-            content: JSON.stringify(defaultConfig),
-        });
-
-        await context.reddit.updateWikiPageSettings({
-            subredditName: CONTROL_SUBREDDIT,
-            page: CONTROL_SUB_SETTINGS_WIKI_PAGE,
-            listed: true,
-            permLevel: WikiPagePermissionLevel.MODS_ONLY,
-        });
     }
 
     return defaultConfig;

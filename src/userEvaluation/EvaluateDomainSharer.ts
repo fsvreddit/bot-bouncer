@@ -1,13 +1,15 @@
-import { Comment, Post, User } from "@devvit/public-api";
+import { Comment, Post } from "@devvit/public-api";
 import { CommentCreate } from "@devvit/protos";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
 import { compact, countBy, toPairs, uniq } from "lodash";
 import { subMonths } from "date-fns";
 import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
 import { domainFromUrl } from "./evaluatorHelpers.js";
+import { UserExtended } from "../extendedDevvit.js";
 
 export class EvaluateDomainSharer extends UserEvaluatorBase {
     override name = "Domain Sharer";
+    override killswitch = "domainsharer:killswitch";
     override canAutoBan = false;
 
     private domainsFromContent (content: string): string[] {
@@ -38,7 +40,8 @@ export class EvaluateDomainSharer extends UserEvaluatorBase {
         }
 
         const redditDomains = this.variables["generic:redditdomains"] as string[] | undefined ?? [];
-        return uniq(compact(domains).filter(domain => !redditDomains.includes(domain)));
+        const ignoredDomains = this.variables["domainsharer:ignoreddomains"] as string[] | undefined ?? [];
+        return uniq(compact(domains).filter(domain => !redditDomains.includes(domain) && !ignoredDomains.includes(domain)));
     }
 
     override preEvaluateComment (event: CommentCreate): boolean {
@@ -53,20 +56,11 @@ export class EvaluateDomainSharer extends UserEvaluatorBase {
         return this.domainsFromPost(post).length > 0;
     }
 
-    override preEvaluateUser (user: User): boolean {
+    override preEvaluateUser (user: UserExtended): boolean {
         return user.commentKarma < 1000 && user.linkKarma < 1000;
     }
 
-    override evaluate (user: User, history: (Post | Comment)[]): boolean {
-        if (!this.preEvaluateUser(user)) {
-            return false;
-        }
-
-        if (this.variables["domainsharer:killswitch"]) {
-            this.setReason("Evaluator is disabled");
-            return false;
-        }
-
+    override evaluate (_: UserExtended, history: (Post | Comment)[]): boolean {
         const recentContent = history.filter(item => item.createdAt > subMonths(new Date(), 6));
 
         if (recentContent.length < 5) {

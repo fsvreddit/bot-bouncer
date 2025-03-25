@@ -5,6 +5,7 @@ import { CONTROL_SUBREDDIT } from "../constants.js";
 import { getSummaryTextForUser } from "../UserSummary/userSummary.js";
 import { handleClientSubredditModmail } from "./clientSubModmail.js";
 import { handleControlSubredditModmail } from "./controlSubModmail.js";
+import { dataExtract } from "./dataExtract.js";
 
 function conversationHandledRedisKey (conversationId: string) {
     return `conversationHandled~${conversationId}`;
@@ -35,13 +36,23 @@ export async function handleModmail (event: ModMail, context: TriggerContext) {
         return;
     }
 
+    const messagesInConversation = Object.values(conversationResponse.conversation.messages);
+    const firstMessage = messagesInConversation[0];
+    const isFirstMessage = firstMessage.id !== undefined && event.messageId.includes(firstMessage.id);
+
+    const currentMessage = messagesInConversation.find(message => message.id && event.messageId.includes(message.id));
+
+    const isExtracttCommand = context.subredditName === CONTROL_SUBREDDIT && currentMessage?.bodyMarkdown?.startsWith("!extract");
+    if (isExtracttCommand) {
+        await dataExtract(currentMessage?.bodyMarkdown, event.conversationId, context);
+        return;
+    }
+
     const username = conversationResponse.conversation.participant?.name;
     if (!username) {
         return;
     }
 
-    const messagesInConversation = Object.values(conversationResponse.conversation.messages);
-    const currentMessage = messagesInConversation.find(message => message.id && event.messageId.includes(message.id));
     const isSummaryCommand = context.subredditName === CONTROL_SUBREDDIT && currentMessage?.bodyMarkdown?.startsWith("!summary");
 
     if (isSummaryCommand) {
@@ -57,7 +68,7 @@ export async function handleModmail (event: ModMail, context: TriggerContext) {
     await setConversationHandled(event.conversationId, context);
 
     if (context.subredditName === CONTROL_SUBREDDIT) {
-        await handleControlSubredditModmail(username, event.conversationId, currentMessage?.bodyMarkdown, context);
+        await handleControlSubredditModmail(username, event.conversationId, isFirstMessage, currentMessage?.bodyMarkdown, context);
     } else {
         if (conversationResponse.conversation.state === ModMailConversationState.Archived) {
             return;

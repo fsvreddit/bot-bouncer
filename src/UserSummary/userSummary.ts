@@ -7,7 +7,7 @@ import { count } from "@wordpress/wordcount";
 import { isUserPotentiallyBlockingBot } from "./blockChecker.js";
 import pluralize from "pluralize";
 import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
-import { getRawUserData } from "../extendedDevvit.js";
+import { getUserExtended } from "../extendedDevvit.js";
 
 function formatDifferenceInDates (start: Date, end: Date) {
     const units: (keyof Duration)[] = ["years", "months", "days"];
@@ -201,7 +201,7 @@ export async function getSummaryTextForUser (username: string, context: TriggerC
         return;
     }
 
-    const extendedUser = await getRawUserData(username, context.debug.metadata);
+    const extendedUser = await getUserExtended(username, context);
 
     console.log(`User Summary: Creating summary for ${username}`);
 
@@ -212,6 +212,7 @@ export async function getSummaryTextForUser (username: string, context: TriggerC
     summary += `* Comment karma: ${user.commentKarma}\n`;
     summary += `* Post karma: ${user.linkKarma}\n`;
     summary += `* Verified Email: ${user.hasVerifiedEmail ? "Yes" : "No"}\n`;
+    summary += `* Subreddit Moderator: ${extendedUser?.isModerator ? "Yes" : "No"}\n`;
 
     const socialLinks = await user.getSocialLinks();
     const uniqueSocialDomains = compact(uniq(socialLinks.map(link => domainFromUrl(link.outboundUrl))));
@@ -230,17 +231,26 @@ export async function getSummaryTextForUser (username: string, context: TriggerC
         }
     }
 
-    const userComments = await context.reddit.getCommentsByUser({
-        username,
-        sort: "new",
-        limit: 100,
-    }).all();
+    let userComments: Comment[];
+    let userPosts: Post[];
 
-    const userPosts = await context.reddit.getPostsByUser({
-        username,
-        sort: "new",
-        limit: 100,
-    }).all();
+    try {
+        [userComments, userPosts] = await Promise.all([
+            context.reddit.getCommentsByUser({
+                username,
+                sort: "new",
+                limit: 100,
+            }).all(),
+            context.reddit.getPostsByUser({
+                username,
+                sort: "new",
+                limit: 100,
+            }).all(),
+        ]);
+    } catch {
+        console.log(`User Summary: Error retrieving user history for ${username}. User may have been shadowbanned while account was being processed.`);
+        return;
+    }
 
     const potentiallyBlocking = await isUserPotentiallyBlockingBot([...userComments, ...userPosts], context);
     if (potentiallyBlocking) {
@@ -249,17 +259,17 @@ export async function getSummaryTextForUser (username: string, context: TriggerC
         summary += "* User is not blocking u/bot-bouncer\n";
     }
 
-    const userHasGold = extendedUser?.data?.isGold;
+    const userHasGold = extendedUser?.isGold;
     if (userHasGold) {
         summary += "* User has Reddit Premium\n";
     }
 
-    const userDisplayName = extendedUser?.data?.subreddit?.title;
+    const userDisplayName = extendedUser?.displayName;
     if (userDisplayName) {
         summary += `* Display name: ${userDisplayName}\n`;
     }
 
-    const userBio = extendedUser?.data?.subreddit?.publicDescription?.trim();
+    const userBio = extendedUser?.userDescription;
     if (userBio) {
         if (userBio.includes("\n")) {
             summary += `* Bio:\n\n> ${userBio.split("\n").join("\n> ")}\n`;

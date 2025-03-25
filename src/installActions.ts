@@ -1,8 +1,9 @@
 import { AppInstall, AppUpgrade } from "@devvit/protos";
 import { TriggerContext } from "@devvit/public-api";
-import { CLEANUP_JOB, CLEANUP_JOB_CRON, CONTROL_SUBREDDIT, EVALUATE_KARMA_FARMING_SUBS, EXTERNAL_SUBMISSION_JOB, EXTERNAL_SUBMISSION_JOB_CRON, UPDATE_DATASTORE_FROM_WIKI, UPDATE_EVALUATOR_VARIABLES, UPDATE_STATISTICS_PAGE, UPDATE_WIKI_PAGE_JOB } from "./constants.js";
+import { CLEANUP_JOB, CLEANUP_JOB_CRON, CONTROL_SUBREDDIT, EVALUATE_KARMA_FARMING_SUBS, EXTERNAL_SUBMISSION_JOB, EXTERNAL_SUBMISSION_JOB_CRON, SEND_DAILY_DIGEST, UPDATE_DATASTORE_FROM_WIKI, UPDATE_EVALUATOR_VARIABLES, UPDATE_STATISTICS_PAGE, UPDATE_WIKI_PAGE_JOB, UPGRADE_NOTIFIER_JOB } from "./constants.js";
 import { scheduleAdhocCleanup } from "./cleanup.js";
 import { handleExternalSubmissionsPageUpdate } from "./externalSubmissions.js";
+import { removeRetiredEvaluatorsFromStats } from "./userEvaluation/evaluatorHelpers.js";
 
 export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, context: TriggerContext) {
     console.log("App Install: Detected an app install or update event");
@@ -22,18 +23,15 @@ export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, contex
     });
 
     await scheduleAdhocCleanup(context);
+
+    // Delete cached control sub settings
+    await context.redis.del("controlSubSettings");
 }
 
 async function addControlSubredditJobs (context: TriggerContext) {
     await context.scheduler.runJob({
         name: UPDATE_WIKI_PAGE_JOB,
         cron: "0/5 * * * *",
-    });
-
-    await context.scheduler.runJob({
-        name: UPDATE_WIKI_PAGE_JOB,
-        cron: "5 5 1 * *",
-        data: { force: true },
     });
 
     await context.scheduler.runJob({
@@ -57,6 +55,7 @@ async function addControlSubredditJobs (context: TriggerContext) {
     });
 
     await handleExternalSubmissionsPageUpdate(context);
+    await removeRetiredEvaluatorsFromStats(context);
 
     console.log("App Install: Control subreddit jobs added");
 }
@@ -74,7 +73,7 @@ async function addClientSubredditJobs (context: TriggerContext) {
     });
 
     randomMinute = Math.floor(Math.random() * 60);
-    const randomHour = Math.floor(Math.random() * 3);
+    let randomHour = Math.floor(Math.random() * 3);
     await context.scheduler.runJob({
         name: UPDATE_EVALUATOR_VARIABLES,
         cron: `${randomMinute} ${randomHour}/3 * * *`,
@@ -83,6 +82,19 @@ async function addClientSubredditJobs (context: TriggerContext) {
     await context.scheduler.runJob({
         name: UPDATE_EVALUATOR_VARIABLES,
         runAt: new Date(),
+    });
+
+    randomMinute = Math.floor(Math.random() * 60);
+    randomHour = Math.floor(Math.random() * 24);
+    await context.scheduler.runJob({
+        name: UPGRADE_NOTIFIER_JOB,
+        cron: `${randomMinute} ${randomHour} * * *`,
+    });
+
+    randomMinute = Math.floor(Math.random() * 60);
+    await context.scheduler.runJob({
+        name: SEND_DAILY_DIGEST,
+        cron: `${randomMinute} 0 * * *`,
     });
 
     console.log("App Install: Client subreddit jobs added");

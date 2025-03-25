@@ -1,11 +1,12 @@
 import { Comment, JobContext, JSONObject, Post, ScheduledJobEvent } from "@devvit/public-api";
 import { getUserStatus, UserStatus } from "./dataStore.js";
 import { CONTROL_SUBREDDIT, PostFlairTemplate } from "./constants.js";
-import { getUserOrUndefined } from "./utility.js";
 import { ALL_EVALUATORS } from "./userEvaluation/allEvaluators.js";
 import { UserEvaluatorBase } from "./userEvaluation/UserEvaluatorBase.js";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { createUserSummary } from "./UserSummary/userSummary.js";
+import { format, subDays } from "date-fns";
+import { getUserExtended } from "./extendedDevvit.js";
 
 interface EvaluatorStats {
     hitCount: number;
@@ -19,7 +20,7 @@ interface EvaluationResult {
 }
 
 export async function evaluateUserAccount (username: string, context: JobContext, verbose: boolean): Promise<EvaluationResult[]> {
-    const user = await getUserOrUndefined(username, context);
+    const user = await getUserExtended(username, context);
     if (!user) {
         if (verbose) {
             console.log(`Evaluation: ${username} has already been shadowbanned`);
@@ -29,48 +30,45 @@ export async function evaluateUserAccount (username: string, context: JobContext
 
     const variables = await getEvaluatorVariables(context);
 
-    let userEligible = false;
-    for (const Evaluator of ALL_EVALUATORS) {
-        const evaluator = new Evaluator(context, variables);
-        if (evaluator.preEvaluateUser(user)) {
-            userEligible = true;
-        }
-    }
-
-    if (!userEligible) {
-        if (verbose) {
-            console.log(`Evaluator: ${username} does not pass any user pre-checks.`);
-        }
-        return [];
-    }
-
-    let userItems: (Post | Comment)[];
-    try {
-        userItems = await context.reddit.getCommentsAndPostsByUser({
-            username,
-            sort: "new",
-            limit: 100,
-        }).all();
-    } catch {
-        // Error retrieving user history, likely shadowbanned.
-        if (verbose) {
-            console.log(`Evaluator: ${username} appears to have been shadowbanned since post made.`);
-        }
-        return [];
-    }
-
+    let userItems: (Post | Comment)[] | undefined;
     const detectedBots: UserEvaluatorBase[] = [];
 
     for (const Evaluator of ALL_EVALUATORS) {
         const evaluator = new Evaluator(context, variables);
+        if (evaluator.evaluatorDisabled()) {
+            continue;
+        }
+
+        if (!evaluator.preEvaluateUser(user)) {
+            continue;
+        }
+
+        if (userItems === undefined) {
+            try {
+                userItems = await context.reddit.getCommentsAndPostsByUser({
+                    username,
+                    sort: "new",
+                    limit: 100,
+                }).all();
+            } catch {
+                // Error retrieving user history, likely shadowbanned.
+                if (verbose) {
+                    console.log(`Evaluator: ${username} appears to be shadowbanned.`);
+                }
+                return [];
+            }
+        }
+
         const isABot = evaluator.evaluate(user, userItems);
         if (isABot) {
-            if (verbose) {
-                console.log(`Evaluator: ${username} appears to be a bot via the evaluator: ${evaluator.name}`);
-            }
+            console.log(`Evaluator: ${username} appears to be a bot via the evaluator: ${evaluator.name} 💥`);
             detectedBots.push(evaluator);
-        } else if (verbose) {
-            console.log(`Evaluator: ${evaluator.name} did not match: ${evaluator.getReasons().join(", ")}`);
+        } else {
+            const regex = /^(?:[A-Z][a-z]+[_-]?){2}\\d{2,4}$/;
+            if (evaluator.name === "Short Non-TLC" && userItems.some(item => item.subredditName === "Frieren" || item.subredditName === "justgalsbeingchicks") && regex.test(username) && user.createdAt > subDays(new Date(), 7)) {
+                console.log(`Evaluator: ${username} didn't match ${evaluator.name}, but maybe should have done`);
+                console.log(evaluator.getReasons().join(", "));
+            }
         }
     }
 
@@ -91,9 +89,9 @@ export async function evaluateUserAccount (username: string, context: JobContext
     }
 
     await context.redis.set(redisKey, JSON.stringify(allStats));
-    console.log("Evaluator: Stats updated", allStats);
 
-    return detectedBots.map(bot => ({ botName: bot.name, canAutoBan: bot.canAutoBan, metThreshold: userItems.length >= bot.banContentThreshold }));
+    const itemCount = userItems?.length ?? 0;
+    return detectedBots.map(bot => ({ botName: bot.name, canAutoBan: bot.canAutoBan, metThreshold: itemCount >= bot.banContentThreshold }));
 }
 
 export async function handleControlSubAccountEvaluation (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
@@ -142,4 +140,25 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
     });
 
     console.log(`Evaluator: Post flair changed for ${username}`);
+}
+
+export async function updateEvaluatorHitsWikiPage (context: JobContext) {
+    const redisKey = "EvaluatorStats";
+    const existingStatsVal = await context.redis.get(redisKey);
+
+    const allStats: Record<string, EvaluatorStats> = existingStatsVal ? JSON.parse(existingStatsVal) as Record<string, EvaluatorStats> : {};
+
+    let wikicontent = "Evaluator Name|Hit Count|Last Hit\n";
+    wikicontent += ":-|:-|:-\n";
+
+    for (const entry of Object.entries(allStats).map(([name, value]) => ({ name, value }))) {
+        wikicontent += `${entry.name}|${entry.value.hitCount}|${format(new Date(entry.value.lastHit), "yyyy-MM-dd HH:mm")}\n`;
+    }
+
+    const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
+    await context.reddit.updateWikiPage({
+        subredditName,
+        page: "evaluator-hits",
+        content: wikicontent,
+    });
 }
