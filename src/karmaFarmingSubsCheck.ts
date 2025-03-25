@@ -31,7 +31,6 @@ async function getAccountsFromSub (subredditName: string, since: Date, context: 
 
 function lastCheckDateForSub (subredditName: string, lastCheckDates: ZMember[]): Date {
     const lastCheckDate = lastCheckDates.find(item => item.member === subredditName);
-    console.log(`Last check date for ${subredditName}: ${lastCheckDate?.score}`);
     return new Date(lastCheckDate?.score ?? 0);
 }
 
