@@ -5,7 +5,7 @@ import { ALL_EVALUATORS } from "./userEvaluation/allEvaluators.js";
 import { UserEvaluatorBase } from "./userEvaluation/UserEvaluatorBase.js";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { createUserSummary } from "./UserSummary/userSummary.js";
-import { format } from "date-fns";
+import { format, subDays } from "date-fns";
 import { getUserExtended } from "./extendedDevvit.js";
 
 interface EvaluatorStats {
@@ -63,6 +63,12 @@ export async function evaluateUserAccount (username: string, context: JobContext
         if (isABot) {
             console.log(`Evaluator: ${username} appears to be a bot via the evaluator: ${evaluator.name} 💥`);
             detectedBots.push(evaluator);
+        } else {
+            const regex = /^(?:[A-Z][a-z]+[_-]?){2}\\d{2,4}$/;
+            if (evaluator.name === "Short Non-TLC" && userItems.some(item => item.subredditName === "Frieren" || item.subredditName === "justgalsbeingchicks") && regex.test(username) && user.createdAt > subDays(new Date(), 7)) {
+                console.log(`Evaluator: ${username} didn't match ${evaluator.name}, but maybe should have done`);
+                console.log(evaluator.getReasons().join(", "));
+            }
         }
     }
 
