@@ -40,7 +40,8 @@ export class EvaluateDomainSharer extends UserEvaluatorBase {
         }
 
         const redditDomains = this.variables["generic:redditdomains"] as string[] | undefined ?? [];
-        return uniq(compact(domains).filter(domain => !redditDomains.includes(domain)));
+        const ignoredDomains = this.variables["domainsharer:ignoreddomains"] as string[] | undefined ?? [];
+        return uniq(compact(domains).filter(domain => !redditDomains.includes(domain) && !ignoredDomains.includes(domain)));
     }
 
     override preEvaluateComment (event: CommentCreate): boolean {
