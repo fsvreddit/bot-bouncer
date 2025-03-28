@@ -8,6 +8,7 @@ import { getPostOrCommentById, getUserOrUndefined } from "./utility.js";
 import { isLinkId } from "@devvit/shared-types/tid.js";
 import { parseExpression } from "cron-parser";
 import { createNewSubmission } from "./postCreation.js";
+import pluralize from "pluralize";
 
 const WIKI_PAGE = "externalsubmissions";
 export const EXTERNAL_SUBMISSION_QUEUE = "externalSubmissionQueue";
@@ -133,7 +134,7 @@ export async function scheduleAdhocExternalSubmissionsJob (context: TriggerConte
         runAt: addSeconds(new Date(), delay),
     });
 
-    console.log("External Submissions: Ad-hoc job scheduled.");
+    console.log(`External Submissions: Ad-hoc job scheduled, ${itemsInQueue} ${pluralize("user", itemsInQueue)} remain in queue.`);
 }
 
 export async function handleExternalSubmissionsPageUpdate (context: TriggerContext) {

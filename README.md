@@ -47,6 +47,12 @@ Write in to [/r/BotBouncer's modmail](https://www.reddit.com/message/compose/?to
 
 # Change History
 
+## Next
+
+Note: v1.7.0 is the current public release.
+
+* Internal changes to support operations on /r/BotBouncer
+
 ## v1.7.0
 
 * Fix bug that prevented auto allowlisting on unban from working properly
