@@ -158,12 +158,25 @@ async function handleContentCreation (username: string, currentStatus: UserDetai
         return;
     }
 
+    const promises: Promise<unknown>[] = [];
+
     const removedByMod = await context.redis.get(`removedbymod:${targetId}`);
     const target = await getPostOrCommentById(targetId, context);
     if (!removedByMod && !target.spam && !target.removed) {
-        await context.reddit.remove(targetId, true);
+        promises.push(context.reddit.remove(targetId, true));
         console.log(`Content Create: ${targetId} removed for ${user.username}`);
-        await context.redis.set(`removed:${username}`, targetId, { expiration: addWeeks(new Date(), 2) });
+        promises.push(context.redis.set(`removed:${username}`, targetId, { expiration: addWeeks(new Date(), 2) }));
+    } else {
+        // Might be in the modqueue.
+        const modQueue = await context.reddit.getModQueue({
+            subreddit: subredditName,
+            type: "all",
+        }).all();
+        const foundInModQueue = modQueue.find(item => item.id === targetId);
+        if (foundInModQueue) {
+            promises.push(context.reddit.remove(foundInModQueue.id, true));
+            console.log(`Content Create: ${foundInModQueue.id} removed via mod queue for ${user.username}`);
+        }
     }
 
     const isCurrentlyBanned = await isBanned(user.username, context);
@@ -178,17 +191,19 @@ async function handleContentCreation (username: string, currentStatus: UserDetai
         banNote = replaceAll(banNote, "{me}", context.appName);
         banNote = replaceAll(banNote, "{date}", formatDate(new Date(), "yyyy-MM-dd"));
 
-        await context.reddit.banUser({
+        promises.push(context.reddit.banUser({
             subredditName,
             username: user.username,
             message,
             note: banNote,
-        });
+        }));
 
-        await recordBan(username, context);
-        await recordBanForDigest(username, context);
+        promises.push(recordBan(username, context));
+        promises.push(recordBanForDigest(username, context));
         console.log(`Content Create: ${user.username} banned from ${subredditName}`);
     }
+
+    await Promise.all(promises);
 }
 
 async function checkAndReportPotentialBot (username: string, target: Post | CommentCreate, settings: SettingsValues, variables: Record<string, JSONValue>, context: TriggerContext) {
