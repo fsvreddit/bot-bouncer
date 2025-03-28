@@ -44,7 +44,7 @@ async function handleClientSubContentDelete (event: PostDelete | CommentDelete, 
         submitter: context.appName,
         reportContext: "User reported due to deleting a post or comment immediately after a 'Bot' accusation",
         targetId: thingId,
-    }, context);
+    }, "automatic", context);
 
     console.log(`External submission created for ${botMentionForUser} due to bot accusation`);
 }

@@ -281,7 +281,7 @@ async function checkAndReportPotentialBot (username: string, target: Post | Comm
             username: user.username,
             submitter: currentUser?.username,
             reportContext,
-        }, context),
+        }, "automatic", context),
         recordReportForDigest(user.username, "automatically", context),
     );
 

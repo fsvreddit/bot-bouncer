@@ -38,7 +38,7 @@ const schema: JSONSchemaType<ExternalSubmission[]> = {
     },
 };
 
-export async function addExternalSubmission (data: ExternalSubmission, context: TriggerContext) {
+export async function addExternalSubmission (data: ExternalSubmission, submissionType: "automatic" | "manual", context: TriggerContext) {
     if (context.subredditName === CONTROL_SUBREDDIT) {
         return;
     }
@@ -82,23 +82,12 @@ export async function addExternalSubmission (data: ExternalSubmission, context: 
 
     currentUserList.push(data);
 
-    const wikiUpdateOptions = {
+    await context.reddit.updateWikiPage({
         subredditName: CONTROL_SUBREDDIT,
         page: WIKI_PAGE,
         content: JSON.stringify(currentUserList),
-    };
-
-    if (wikiPage) {
-        await context.reddit.updateWikiPage(wikiUpdateOptions);
-    } else {
-        await context.reddit.createWikiPage(wikiUpdateOptions);
-        await context.reddit.updateWikiPageSettings({
-            subredditName: CONTROL_SUBREDDIT,
-            page: WIKI_PAGE,
-            permLevel: WikiPagePermissionLevel.MODS_ONLY,
-            listed: true,
-        });
-    }
+        reason: `Added a user via ${context.subredditName ? `/r/${context.subredditName}` : "an unknown subreddit"}. Type: ${submissionType}`,
+    });
 
     await scheduleAdhocExternalSubmissionsJob(context);
 }
