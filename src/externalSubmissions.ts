@@ -1,4 +1,4 @@
-import { JobContext, TriggerContext, User, WikiPage, WikiPagePermissionLevel } from "@devvit/public-api";
+import { JobContext, TriggerContext, User, WikiPage } from "@devvit/public-api";
 import { CONTROL_SUBREDDIT, EVALUATE_USER, EXTERNAL_SUBMISSION_JOB, EXTERNAL_SUBMISSION_JOB_CRON } from "./constants.js";
 import { getUserStatus, setUserStatus, UserDetails, UserStatus } from "./dataStore.js";
 import { getControlSubSettings } from "./settings.js";
@@ -169,23 +169,12 @@ export async function handleExternalSubmissionsPageUpdate (context: TriggerConte
     }
 
     // Resave.
-    const wikiUpdateOptions = {
+    await context.reddit.updateWikiPage({
         subredditName: CONTROL_SUBREDDIT,
         page: WIKI_PAGE,
         content: JSON.stringify([]),
-    };
-
-    if (wikiPage) {
-        await context.reddit.updateWikiPage(wikiUpdateOptions);
-    } else {
-        await context.reddit.createWikiPage(wikiUpdateOptions);
-        await context.reddit.updateWikiPageSettings({
-            subredditName: CONTROL_SUBREDDIT,
-            page: WIKI_PAGE,
-            permLevel: WikiPagePermissionLevel.MODS_ONLY,
-            listed: true,
-        });
-    }
+        reason: "Cleared the external submission list",
+    });
 
     await scheduleAdhocExternalSubmissionsJob(context, 0);
 }
