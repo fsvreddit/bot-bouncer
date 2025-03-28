@@ -81,6 +81,14 @@ export async function setUserStatus (username: string, details: UserDetails, con
         }
     }
 
+    if (context.subredditName === CONTROL_SUBREDDIT && currentStatus?.userStatus !== details.userStatus) {
+        promises.push(context.reddit.addModNote({
+            subreddit: context.subredditName,
+            user: username,
+            note: `Status changed to ${details.userStatus} by ${details.operator}.`,
+        }));
+    }
+
     await Promise.all(promises);
     await scheduleAdhocCleanup(context);
 }
