@@ -3,7 +3,7 @@ import { CONTROL_SUBREDDIT, EVALUATE_USER, EXTERNAL_SUBMISSION_JOB, EXTERNAL_SUB
 import { getUserStatus, setUserStatus, UserDetails, UserStatus } from "./dataStore.js";
 import { getControlSubSettings } from "./settings.js";
 import Ajv, { JSONSchemaType } from "ajv";
-import { addMinutes, addSeconds } from "date-fns";
+import { addDays, addMinutes, addSeconds } from "date-fns";
 import { getPostOrCommentById, getUserOrUndefined } from "./utility.js";
 import { isLinkId } from "@devvit/shared-types/tid.js";
 import { parseExpression } from "cron-parser";
@@ -37,6 +37,10 @@ const schema: JSONSchemaType<ExternalSubmission[]> = {
         required: ["username"],
     },
 };
+
+function getExternalSubmissionDataKey (username: string) {
+    return `externalSubmission:${username}`;
+}
 
 export async function addExternalSubmission (data: ExternalSubmission, submissionType: "automatic" | "manual", context: TriggerContext) {
     if (context.subredditName === CONTROL_SUBREDDIT) {
@@ -112,7 +116,7 @@ export async function scheduleAdhocExternalSubmissionsJob (context: TriggerConte
         return;
     }
 
-    const itemsInQueue = await context.redis.hLen(EXTERNAL_SUBMISSION_QUEUE);
+    const itemsInQueue = await context.redis.zCard(EXTERNAL_SUBMISSION_QUEUE);
     if (itemsInQueue === 0) {
         console.log("External Submissions: No remaining items in the queue.");
         return;
@@ -158,13 +162,14 @@ export async function handleExternalSubmissionsPageUpdate (context: TriggerConte
             continue;
         }
 
-        const itemInQueue = await context.redis.hGet(EXTERNAL_SUBMISSION_QUEUE, item.username);
+        const itemInQueue = await context.redis.zScore(EXTERNAL_SUBMISSION_QUEUE, item.username);
         if (itemInQueue) {
             console.log(`External Submissions: ${item.username} is already in the queue.`);
             continue;
         }
 
-        await context.redis.hSet(EXTERNAL_SUBMISSION_QUEUE, { [item.username]: JSON.stringify(item) });
+        await context.redis.set(getExternalSubmissionDataKey(item.username), JSON.stringify(item), { expiration: addDays(new Date(), 28) });
+        await context.redis.zAdd(EXTERNAL_SUBMISSION_QUEUE, { member: item.username, score: new Date().getTime() });
         console.log(`External Submissions: Added ${item.username} to the queue.`);
     }
 
@@ -180,7 +185,7 @@ export async function handleExternalSubmissionsPageUpdate (context: TriggerConte
 }
 
 export async function processExternalSubmissions (_: unknown, context: JobContext) {
-    const submissionQueue = await context.redis.hGetAll(EXTERNAL_SUBMISSION_QUEUE);
+    const submissionQueue = await context.redis.zRange(EXTERNAL_SUBMISSION_QUEUE, 0, -1);
     const usersInQueue = Object.keys(submissionQueue);
     if (usersInQueue.length === 0) {
         console.log("External Submissions: Queue is empty.");
@@ -199,8 +204,14 @@ export async function processExternalSubmissions (_: unknown, context: JobContex
             if (user) {
                 const currentStatus = await getUserStatus(user.username, context);
                 if (!currentStatus) {
+                    const submissionData = await context.redis.get(getExternalSubmissionDataKey(username));
+                    if (!submissionData) {
+                        console.log(`External Submissions: ${username} is not in the database, skipping.`);
+                        await context.redis.zRem(EXTERNAL_SUBMISSION_QUEUE, [username]);
+                        continue;
+                    }
                     stopLooping = true;
-                    item = JSON.parse(submissionQueue[username]) as ExternalSubmission;
+                    item = JSON.parse(submissionData) as ExternalSubmission;
                     item.username = user.username;
                 } else {
                     console.log(`External Submissions: ${username} is already being tracked, skipping.`);
@@ -209,7 +220,8 @@ export async function processExternalSubmissions (_: unknown, context: JobContex
                 console.log(`External Submissions: ${username} is deleted or shadowbanned, skipping.`);
             }
 
-            await context.redis.hDel(EXTERNAL_SUBMISSION_QUEUE, [username]);
+            await context.redis.zRem(EXTERNAL_SUBMISSION_QUEUE, [username]);
+            await context.redis.del(getExternalSubmissionDataKey(username));
         } else {
             stopLooping = true;
         }
