@@ -41,7 +41,7 @@ export class EvaluateShortNonTLC extends UserEvaluatorBase {
     override preEvaluateUser (user: UserExtended): boolean {
         if (user.createdAt < subDays(new Date(), 7)
             || user.linkKarma > 5
-            || user.commentKarma > 20) {
+            || user.commentKarma > 50) {
             return false;
         }
 
