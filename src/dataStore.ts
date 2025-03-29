@@ -1,4 +1,4 @@
-import { JobContext, TriggerContext, WikiPagePermissionLevel, WikiPage, ScheduledJobEvent, JSONObject } from "@devvit/public-api";
+import { JobContext, TriggerContext, WikiPagePermissionLevel, WikiPage, ScheduledJobEvent, JSONObject, CreateModNoteOptions } from "@devvit/public-api";
 import { compact, countBy, Dictionary, max, sum, toPairs, uniq } from "lodash";
 import pako from "pako";
 import { scheduleAdhocCleanup, setCleanupForSubmittersAndMods, setCleanupForUsers } from "./cleanup.js";
@@ -45,6 +45,14 @@ export async function getUserStatus (username: string, context: TriggerContext) 
     return JSON.parse(value) as UserDetails;
 }
 
+async function addModNote (options: CreateModNoteOptions, context: TriggerContext) {
+    try {
+        await context.reddit.addModNote(options);
+    } catch {
+        console.error(`Failed to add mod note for ${options.user}`);
+    }
+}
+
 export async function setUserStatus (username: string, details: UserDetails, context: TriggerContext) {
     if (context.subredditName === CONTROL_SUBREDDIT && !isLinkId(details.trackingPostId) && !isCommentId(details.trackingPostId)) {
         throw new Error(`Tracking post ID is missing or invalid for ${username}: ${details.trackingPostId}!`);
@@ -82,11 +90,11 @@ export async function setUserStatus (username: string, details: UserDetails, con
     }
 
     if (context.subredditName === CONTROL_SUBREDDIT && currentStatus?.userStatus !== details.userStatus && details.userStatus !== UserStatus.Pending) {
-        promises.push(context.reddit.addModNote({
+        promises.push(addModNote({
             subreddit: context.subredditName,
             user: username,
             note: `Status changed to ${details.userStatus} by ${details.operator}.`,
-        }));
+        }, context));
     }
 
     await Promise.all(promises);
