@@ -85,7 +85,17 @@ export async function dataExtract (message: string | undefined, conversationId: 
     }
 
     if (request.usernameRegex) {
-        const regex = new RegExp(request.usernameRegex);
+        let regex: RegExp;
+        try {
+            regex = new RegExp(request.usernameRegex);
+        } catch {
+            await context.reddit.modMail.reply({
+                conversationId,
+                body: "Invalid regex provided for `usernameRegex`.",
+                isAuthorHidden: false,
+            });
+            return;
+        }
         data = data.filter(entry => regex.test(entry.username));
     }
 
