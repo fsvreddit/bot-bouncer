@@ -100,7 +100,7 @@ export const reportForm = Devvit.createForm({
         },
         {
             type: "boolean",
-            label: "Show the above text publicly on the post on r/BotBouncer",
+            label: "Show the above text publicly on the post on r/BotBouncer. Your username will be kept private.",
             defaultValue: true,
             name: "publicContext",
         },
