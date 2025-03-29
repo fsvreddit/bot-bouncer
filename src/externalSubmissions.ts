@@ -38,7 +38,7 @@ const schema: JSONSchemaType<ExternalSubmission[]> = {
     },
 };
 
-function getExternalSubmissionDataKey (username: string) {
+export function getExternalSubmissionDataKey (username: string) {
     return `externalSubmission:${username}`;
 }
 
