@@ -29,7 +29,30 @@ const schema: JSONSchemaType<BulkSubmission> = {
     additionalProperties: false,
 };
 
-export async function handleBulkSubmission (username: string, trusted: boolean, conversationId: string, message: string, context: TriggerContext): Promise<boolean> {
+async function queueExternalSubmission (entry: ExternalSubmission, context: TriggerContext): Promise<boolean> {
+    const currentStatus = await getUserStatus(entry.username, context);
+    if (currentStatus) {
+        return false;
+    }
+
+    if (entry.initialStatus === UserStatus.Banned) {
+        const overrideStatus = await trustedSubmitterInitialStatus(entry.username, context);
+        if (!overrideStatus) {
+            return false;
+        }
+        if (entry.initialStatus !== overrideStatus) {
+            console.log(`Trusted submitter override: ${entry.username} has been set to ${overrideStatus}`);
+            entry.initialStatus = overrideStatus;
+        }
+        entry.initialStatus = overrideStatus;
+    }
+
+    await context.redis.set(getExternalSubmissionDataKey(entry.username), JSON.stringify(entry));
+    await context.redis.zAdd(EXTERNAL_SUBMISSION_QUEUE, { member: entry.username, score: new Date().getTime() });
+    return true;
+}
+
+export async function handleBulkSubmission (submitter: string, trusted: boolean, conversationId: string, message: string, context: TriggerContext): Promise<boolean> {
     let data: BulkSubmission;
     try {
         data = JSON.parse(message) as BulkSubmission;
@@ -57,37 +80,16 @@ export async function handleBulkSubmission (username: string, trusted: boolean, 
     }
 
     const initialStatus = trusted ? UserStatus.Banned : UserStatus.Pending;
-    const externalSubmissions = uniq(data.usernames).map(botUsername => ({ username: botUsername, reportContext: data.reason, submitter: username, initialStatus } as ExternalSubmission));
+    const externalSubmissions = uniq(data.usernames).map(botUsername => ({ username: botUsername, reportContext: data.reason, submitter, initialStatus } as ExternalSubmission));
 
-    let queued = 0;
-
-    for (const entry of externalSubmissions) {
-        const currentStatus = await getUserStatus(entry.username, context);
-        if (currentStatus) {
-            continue;
-        }
-
-        if (entry.initialStatus === UserStatus.Banned) {
-            const overrideStatus = await trustedSubmitterInitialStatus(entry.username, context);
-            if (!overrideStatus) {
-                continue;
-            }
-            if (entry.initialStatus !== overrideStatus) {
-                console.log(`Trusted submitter override: ${entry.username} has been set to ${overrideStatus}`);
-                entry.initialStatus = overrideStatus;
-            }
-            entry.initialStatus = overrideStatus;
-        }
-
-        queued++;
-        await context.redis.set(getExternalSubmissionDataKey(entry.username), JSON.stringify(entry));
-        await context.redis.zAdd(EXTERNAL_SUBMISSION_QUEUE, { member: entry.username, score: new Date().getTime() });
-    }
+    const results = await Promise.all(externalSubmissions.map(entry => queueExternalSubmission(entry, context)));
+    const queued = results.filter(result => result).length;
 
     await context.reddit.modMail.archiveConversation(conversationId);
 
     if (queued > 0) {
         await scheduleAdhocExternalSubmissionsJob(context);
+        console.log(`Queued ${queued} external submissions via bulk submission from ${submitter}`);
     }
 
     return true;
