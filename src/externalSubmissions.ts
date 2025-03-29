@@ -127,7 +127,7 @@ export async function scheduleAdhocExternalSubmissionsJob (context: TriggerConte
         runAt: addSeconds(new Date(), delay),
     });
 
-    console.log(`External Submissions: Ad-hoc job scheduled, ${itemsInQueue} ${pluralize("user", itemsInQueue)} remain in queue.`);
+    console.log(`External Submissions: Ad-hoc job scheduled, ${itemsInQueue} ${pluralize("user", itemsInQueue)} still in queue.`);
 }
 
 export async function handleExternalSubmissionsPageUpdate (context: TriggerContext) {
@@ -186,7 +186,7 @@ export async function handleExternalSubmissionsPageUpdate (context: TriggerConte
 
 export async function processExternalSubmissions (_: unknown, context: JobContext) {
     const submissionQueue = await context.redis.zRange(EXTERNAL_SUBMISSION_QUEUE, 0, -1);
-    const usersInQueue = Object.keys(submissionQueue);
+    const usersInQueue = submissionQueue.map(item => item.member);
     if (usersInQueue.length === 0) {
         console.log("External Submissions: Queue is empty.");
         return;
