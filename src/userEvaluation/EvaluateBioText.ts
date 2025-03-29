@@ -43,7 +43,19 @@ export class EvaluateBioText extends UserEvaluatorBase {
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    override evaluate (_: UserExtended, _history: (Post | Comment)[]): boolean {
+    override evaluate (user: UserExtended, _history: (Post | Comment)[]): boolean {
+        const { bannableBioText, reportableBioText } = this.getBioText();
+
+        if (bannableBioText.length === 0 && reportableBioText.length === 0) {
+            return false;
+        }
+
+        if (bannableBioText.some(bio => user.userDescription && new RegExp(bio).test(user.userDescription))) {
+            this.canAutoBan = true;
+        } else if (reportableBioText.some(bio => user.userDescription && new RegExp(bio).test(user.userDescription))) {
+            this.canAutoBan = false;
+        }
+
         return true;
     }
 }
