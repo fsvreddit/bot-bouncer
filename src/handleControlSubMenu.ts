@@ -64,6 +64,10 @@ export async function handleControlSubReportUser (target: Post | Comment, contex
 }
 
 export async function handleControlSubForm (event: FormOnSubmitEvent<JSONObject>, context: Context) {
+    if (!event.values.action) {
+        return;
+    }
+
     const [action] = event.values.action as ControlSubAction[];
     const postId = context.postId;
 
