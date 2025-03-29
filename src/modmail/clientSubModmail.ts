@@ -7,10 +7,7 @@ import { CONFIGURATION_DEFAULTS } from "../settings.js";
 export async function handleClientSubredditModmail (username: string, conversationId: string, context: TriggerContext): Promise<boolean> {
     const currentStatus = await getUserStatus(username, context);
 
-    const conversation = await context.reddit.modMail.getConversation({ conversationId });
-    const currentState = conversation.conversation?.state;
-
-    if (!currentStatus || currentStatus.userStatus === UserStatus.Pending) {
+    if (!currentStatus || currentStatus.userStatus !== UserStatus.Banned) {
         return false;
     }
 
@@ -38,6 +35,8 @@ export async function handleClientSubredditModmail (username: string, conversati
         isInternal: true,
     });
 
+    const conversation = await context.reddit.modMail.getConversation({ conversationId });
+    const currentState = conversation.conversation?.state;
     if (currentState === ModMailConversationState.Archived) {
         await context.reddit.modMail.archiveConversation(conversationId);
     }
