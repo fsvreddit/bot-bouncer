@@ -81,7 +81,7 @@ export async function setUserStatus (username: string, details: UserDetails, con
         }
     }
 
-    if (context.subredditName === CONTROL_SUBREDDIT && currentStatus?.userStatus !== details.userStatus) {
+    if (context.subredditName === CONTROL_SUBREDDIT && currentStatus?.userStatus !== details.userStatus && details.userStatus !== UserStatus.Pending) {
         promises.push(context.reddit.addModNote({
             subreddit: context.subredditName,
             user: username,
