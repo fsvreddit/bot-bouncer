@@ -30,8 +30,9 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
     }
 
     if (context.subredditName === CONTROL_SUBREDDIT && event.data?.username) {
+        let variables: Record<string, JSONValue>;
         try {
-            JSON.parse(wikiPage.content) as Record<string, JSONValue>;
+            variables = JSON.parse(wikiPage.content) as Record<string, JSONValue>;
         } catch (error) {
             console.error("Evaluator Variables: Error parsing evaluator variables from wiki", error);
 
@@ -46,10 +47,76 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
 
             return;
         }
+
+        const invalidRegexes = invalidEvaluatorVariablesRegexes(variables);
+        if (invalidRegexes.length > 0) {
+            console.error("Evaluator Variables: Invalid regexes in evaluator variables", invalidRegexes);
+
+            let errorMessage = `There are invalid regexes in the evaluator variables. Please check the wiki page and try again.`;
+            errorMessage += `\n\nInvalid regexes:\n\n* ${invalidRegexes.join("\n* ")}`;
+
+            await context.reddit.sendPrivateMessage({
+                subject: "Invalid regexes in evaluator variables",
+                to: event.data.username as string,
+                text: errorMessage,
+            });
+
+            return;
+        }
     }
 
     await context.redis.set(EVALUATOR_VARIABLES_KEY, wikiPage.content);
     await context.redis.set(EVALUATOR_VARIABLES_LAST_REVISION_KEY, wikiPage.revisionId);
 
     console.log("Evaluator Variables: Updated from wiki");
+}
+
+interface InvalidRegex {
+    key: string;
+    regex: string;
+}
+
+function isValidRegex (regex: string): boolean {
+    try {
+        new RegExp(regex);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+function invalidEvaluatorVariablesRegexes (variables: Record<string, JSONValue>): string[] {
+    const stringVariablesWithRegexes = [
+        "short-nontlc:regex",
+        "short-nontlc:usernameregex",
+    ];
+
+    const arrayVariablesWithRegexes = [
+        "badusername:regexes",
+        "biotext:bantext",
+        "pinnedpost:bantext",
+        "pinnedpost:reporttext",
+        "posttitle:bantext",
+        "posttitle:reporttext",
+        "short-tlc:botregexes",
+        "zombiensfw:regexes",
+    ];
+
+    const invalidRegexes: InvalidRegex[] = [];
+    for (const key of stringVariablesWithRegexes) {
+        const value = variables[key] as string;
+        if (!isValidRegex(value)) {
+            invalidRegexes.push({ key, regex: value });
+        }
+    }
+
+    for (const key of arrayVariablesWithRegexes) {
+        const value = variables[key] as string[];
+        for (const regex of value) {
+            if (!isValidRegex(regex)) {
+                invalidRegexes.push({ key, regex });
+            }
+        }
+    }
+    return invalidRegexes.map(({ key, regex }) => `${key}: \`${regex}\``);
 }
