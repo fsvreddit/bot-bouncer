@@ -15,6 +15,7 @@ import { EvaluatePostTitle } from "./EvaluatePostTitle.js";
 import { EvaluateShortNonTLC } from "./EvaluateShortNonTLC.js";
 import { EvaluateZombieNSFW } from "./EvaluateZombieNSFWPoster.js";
 import { EvaluateBioText } from "./EvaluateBioText.js";
+import { EvaluateObfuscatedBioKeywords } from "./EvaluateObfuscatedBioKeywords.js";
 
 export const ALL_EVALUATORS = [
     EvaluateBadUsername,
@@ -34,4 +35,5 @@ export const ALL_EVALUATORS = [
     EvaluatePostTitle,
     EvaluateShortNonTLC,
     EvaluateZombieNSFW,
+    EvaluateObfuscatedBioKeywords,
 ];
