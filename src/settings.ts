@@ -1,4 +1,4 @@
-import { SettingsFormField, TriggerContext, WikiPage } from "@devvit/public-api";
+import { SettingsFormField, SettingsFormFieldValidatorEvent, TriggerContext, WikiPage } from "@devvit/public-api";
 import { CONTROL_SUBREDDIT } from "./constants.js";
 import Ajv, { JSONSchemaType } from "ajv";
 import { addHours } from "date-fns";
@@ -135,10 +135,38 @@ export const appSettings: SettingsFormField[] = [
                 name: AppSetting.HoneypotMode,
                 helpText: "If enabled, Bot Bouncer will NOT take action on accounts that are classified as bots, but will still report them. This may be useful for rare subreddits that might not want to tip users off.",
                 defaultValue: false,
+                onValidate: handleHoneypotModeEnable,
             },
         ],
     },
 ];
+
+async function handleHoneypotModeEnable (event: SettingsFormFieldValidatorEvent<boolean>, context: TriggerContext) {
+    if (!event.value) {
+        return;
+    }
+
+    // Honeypot mode is turned on. Has subreddit been warned?
+    const redisKey = "honeypotModeWarning";
+    const hasBeenWarned = await context.redis.exists(redisKey);
+    if (hasBeenWarned) {
+        return;
+    }
+
+    const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
+
+    // Send warning message
+    let message = "Honeypot mode has been enabled for Bot Bouncer. Please be aware that this means that Bot Bouncer will not ban or remove content from users listed as banned on /r/BotBouncer.\n\n";
+    message += `Most subs will not want this. If this was a mistake, you can turn Honeypot mode back off on the [app settings page](https://developers.reddit.com/r/${subredditName}/apps/${context.appName})`;
+
+    await context.reddit.modMail.createModInboxConversation({
+        subredditId: context.subredditId,
+        subject: "Honeypot mode enabled for Bot Bouncer",
+        bodyMarkdown: message,
+    });
+
+    await context.redis.set(redisKey, new Date().getTime().toString());
+}
 
 interface ControlSubSettings {
     evaluationDisabled: boolean;
