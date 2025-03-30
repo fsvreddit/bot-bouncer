@@ -1,6 +1,7 @@
 import { Comment, Post, TriggerContext } from "@devvit/public-api";
 import { EvaluateRepeatedPhraseBot } from "./EvaluateRepeatedPhraseBot.js";
 import { UserExtended } from "../extendedDevvit.js";
+import { subYears } from "date-fns";
 
 const mockTriggerContext = {} as unknown as TriggerContext;
 const mockUser = {} as unknown as UserExtended;
@@ -64,6 +65,21 @@ test("User with a recent post", () => {
 
     const result = evaluator.evaluate(mockUser, history);
     expect(result).toBeFalsy();
+});
+
+test("User with an old recent post", () => {
+    const evaluator = new EvaluateRepeatedPhraseBot(mockTriggerContext, variables);
+    const history = [
+        ...mockHistory,
+        {
+            createdAt: subYears(new Date(), 1),
+            id: "t3_fake",
+            body: "This is a test post.",
+        } as unknown as Post,
+    ] as unknown as (Comment | Post)[];
+
+    const result = evaluator.evaluate(mockUser, history);
+    expect(result).toBeTruthy();
 });
 
 test("User with insufficient history", () => {
