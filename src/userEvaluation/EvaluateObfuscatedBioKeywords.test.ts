@@ -36,6 +36,13 @@ test("Bio text that should not be banned", () => {
     expect(evaluator.preEvaluateUser(fakeUser)).toBeFalsy();
 });
 
+test("Bio text that should not be banned 2", () => {
+    const fakeUser = createFakeUser("my Whatsapp: carla18");
+    const mockTriggerContext = {} as unknown as TriggerContext;
+    const evaluator = new EvaluateObfuscatedBioKeywords(mockTriggerContext, variables);
+    expect(evaluator.preEvaluateUser(fakeUser)).toBeFalsy();
+});
+
 test("Bio text that has no related keywords at all", () => {
     const fakeUser = createFakeUser("Just here for the memes!");
     const mockTriggerContext = {} as unknown as TriggerContext;

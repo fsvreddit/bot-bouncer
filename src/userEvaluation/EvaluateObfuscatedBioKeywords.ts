@@ -26,7 +26,7 @@ export class EvaluateObfuscatedBioKeywords extends UserEvaluatorBase {
                 continue;
             }
 
-            if (matches[0] === keyword) {
+            if (matches[0].toLowerCase() === keyword.toLowerCase()) {
                 continue;
             }
 
