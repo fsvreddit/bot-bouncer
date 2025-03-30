@@ -130,6 +130,23 @@ export async function scheduleAdhocExternalSubmissionsJob (context: TriggerConte
     console.log(`External Submissions: Ad-hoc job scheduled, ${itemsInQueue} ${pluralize("user", itemsInQueue)} still in queue.`);
 }
 
+export async function addExternalSubmissionsToQueue (items: ExternalSubmission[], context: TriggerContext, scheduleJob = true) {
+    if (context.subredditName !== CONTROL_SUBREDDIT) {
+        throw new Error("This function can only be called from the control subreddit.");
+    }
+
+    if (items.length === 0) {
+        return;
+    }
+
+    await Promise.all(items.map(item => context.redis.set(getExternalSubmissionDataKey(item.username), JSON.stringify(item), { expiration: addDays(new Date(), 28) })));
+    await context.redis.zAdd(EXTERNAL_SUBMISSION_QUEUE, ...items.map(item => ({ member: item.username, score: new Date().getTime() })));
+
+    if (scheduleJob) {
+        await scheduleAdhocExternalSubmissionsJob(context, 0);
+    }
+}
+
 export async function handleExternalSubmissionsPageUpdate (context: TriggerContext) {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
         return;
@@ -155,6 +172,8 @@ export async function handleExternalSubmissionsPageUpdate (context: TriggerConte
         return;
     }
 
+    const itemsToAdd: ExternalSubmission[] = [];
+
     for (const item of currentSubmissionList) {
         const currentStatus = await getUserStatus(item.username, context);
         if (currentStatus) {
@@ -168,9 +187,9 @@ export async function handleExternalSubmissionsPageUpdate (context: TriggerConte
             continue;
         }
 
-        await context.redis.set(getExternalSubmissionDataKey(item.username), JSON.stringify(item), { expiration: addDays(new Date(), 28) });
-        await context.redis.zAdd(EXTERNAL_SUBMISSION_QUEUE, { member: item.username, score: new Date().getTime() });
-        console.log(`External Submissions: Added ${item.username} to the queue.`);
+        itemsToAdd.push(item);
+
+        console.log(`External Submissions: Adding ${item.username} to the queue.`);
     }
 
     // Resave.
@@ -181,7 +200,7 @@ export async function handleExternalSubmissionsPageUpdate (context: TriggerConte
         reason: "Cleared the external submission list",
     });
 
-    await scheduleAdhocExternalSubmissionsJob(context, 0);
+    await addExternalSubmissionsToQueue(itemsToAdd, context);
 }
 
 export async function processExternalSubmissions (_: unknown, context: JobContext) {

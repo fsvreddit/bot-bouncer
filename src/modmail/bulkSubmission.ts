@@ -2,7 +2,7 @@ import { Comment, Post, TriggerContext } from "@devvit/public-api";
 import Ajv, { JSONSchemaType } from "ajv";
 import { getUserStatus, UserStatus } from "../dataStore.js";
 import { countBy, uniq } from "lodash";
-import { EXTERNAL_SUBMISSION_QUEUE, ExternalSubmission, getExternalSubmissionDataKey, scheduleAdhocExternalSubmissionsJob } from "../externalSubmissions.js";
+import { addExternalSubmissionsToQueue, ExternalSubmission, scheduleAdhocExternalSubmissionsJob } from "../externalSubmissions.js";
 import { getUserOrUndefined } from "../utility.js";
 import { subMonths } from "date-fns";
 
@@ -47,8 +47,7 @@ async function queueExternalSubmission (entry: ExternalSubmission, context: Trig
         entry.initialStatus = overrideStatus;
     }
 
-    await context.redis.set(getExternalSubmissionDataKey(entry.username), JSON.stringify(entry));
-    await context.redis.zAdd(EXTERNAL_SUBMISSION_QUEUE, { member: entry.username, score: new Date().getTime() });
+    await addExternalSubmissionsToQueue([entry], context, false);
     return true;
 }
 
