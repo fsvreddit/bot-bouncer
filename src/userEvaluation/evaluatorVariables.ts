@@ -29,11 +29,14 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
         return;
     }
 
-    if (context.subredditName === CONTROL_SUBREDDIT && event.data?.username) {
-        let variables: Record<string, JSONValue>;
-        try {
-            variables = JSON.parse(wikiPage.content) as Record<string, JSONValue>;
-        } catch (error) {
+    let variables: Record<string, JSONValue>;
+    try {
+        variables = JSON.parse(wikiPage.content) as Record<string, JSONValue>;
+    } catch (error) {
+        if (context.subredditName !== CONTROL_SUBREDDIT || !event.data?.username) {
+            console.error("Evaluator Variables: Error parsing evaluator variables from wiki. Will fall back to cached values.");
+            return;
+        } else {
             console.error("Evaluator Variables: Error parsing evaluator variables from wiki", error);
 
             let errorMessage = `There was an error parsing the evaluator variables from the wiki. Please check the wiki page and try again.`;
@@ -47,9 +50,14 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
 
             return;
         }
+    }
 
-        const invalidRegexes = invalidEvaluatorVariablesRegexes(variables);
-        if (invalidRegexes.length > 0) {
+    const invalidRegexes = invalidEvaluatorVariablesRegexes(variables);
+    if (invalidRegexes.length > 0) {
+        if (context.subredditName !== CONTROL_SUBREDDIT || !event.data?.username) {
+            console.error("Evaluator Variables: Evaluator variables contain invalid regexes. Will fall back to cached values.");
+            return;
+        } else {
             console.error("Evaluator Variables: Invalid regexes in evaluator variables", invalidRegexes);
 
             let errorMessage = `There are invalid regexes in the evaluator variables. Please check the wiki page and try again.`;
