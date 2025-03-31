@@ -334,7 +334,7 @@ export async function getSummaryTextForUser (username: string, context: TriggerC
 
         const editedPostPercentage = Math.round(100 * userPosts.filter(post => post.edited).length / userPosts.length);
         if (editedPostPercentage > 0) {
-            summary += `* Edited comments: ${editedPostPercentage}% of total\n`;
+            summary += `* Edited posts: ${editedPostPercentage}% of total\n`;
         }
 
         const domains = countBy(compact(userPosts.map(post => domainFromUrl(post.url))));
