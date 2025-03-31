@@ -34,6 +34,7 @@ export interface UserDetails {
     lastUpdate: number;
     submitter?: string;
     operator: string;
+    reportedAt?: number;
 }
 
 export async function getUserStatus (username: string, context: TriggerContext) {
@@ -63,6 +64,9 @@ export async function setUserStatus (username: string, details: UserDetails, con
     if (currentStatus?.userStatus === UserStatus.Banned || currentStatus?.userStatus === UserStatus.Service || currentStatus?.userStatus === UserStatus.Organic) {
         details.lastStatus = currentStatus.userStatus;
     }
+
+    // Set the reported at date from the original date, or current date/time if not set.
+    details.reportedAt ??= currentStatus?.reportedAt ?? new Date().getTime();
 
     const promises: Promise<unknown>[] = [
         context.redis.hSet(USER_STORE, { [username]: JSON.stringify(details) }),
@@ -298,6 +302,8 @@ function compactDataForWiki (input: string): string | undefined {
         // Truncate the last update date/time to the end of the second.
         status.lastUpdate = addSeconds(startOfSecond(new Date(status.lastUpdate)), 1).getTime();
     }
+
+    delete status.reportedAt;
 
     return JSON.stringify(status);
 }
