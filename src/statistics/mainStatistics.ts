@@ -1,4 +1,4 @@
-import { JobContext, WikiPage } from "@devvit/public-api";
+import { JobContext, WikiPage, WikiPagePermissionLevel } from "@devvit/public-api";
 import { AGGREGATE_STORE } from "../dataStore.js";
 import { sum } from "lodash";
 
@@ -30,6 +30,15 @@ export async function updateMainStatisticsPage (context: JobContext) {
             subredditName,
             page: wikiPageName,
             content: wikiContent,
+        });
+    }
+
+    if (!wikiPage) {
+        await context.reddit.updateWikiPageSettings({
+            listed: true,
+            page: wikiPageName,
+            subredditName,
+            permLevel: WikiPagePermissionLevel.MODS_ONLY,
         });
     }
 }

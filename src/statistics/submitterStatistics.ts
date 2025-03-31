@@ -1,6 +1,6 @@
 import { JobContext, WikiPage, WikiPagePermissionLevel } from "@devvit/public-api";
-import { USER_STORE, UserDetails, UserStatus } from "../dataStore.js";
-import { Dictionary, uniq } from "lodash";
+import { UserDetails, UserStatus } from "../dataStore.js";
+import { uniq } from "lodash";
 
 interface SubmitterStatistic {
     submitter: string;
@@ -8,12 +8,11 @@ interface SubmitterStatistic {
     ratio: number;
 }
 
-export async function updateSubmitterStatistics (context: JobContext) {
-    const allData = await context.redis.hGetAll(USER_STORE);
+export async function updateSubmitterStatistics (allData: Record<string, string>, context: JobContext) {
     const allStatuses = Object.values(allData).map(item => JSON.parse(item) as UserDetails);
 
-    const organicStatuses: Dictionary<number> = {};
-    const bannedStatuses: Dictionary<number> = {};
+    const organicStatuses: Record<string, number> = {};
+    const bannedStatuses: Record<string, number> = {};
 
     for (const status of allStatuses) {
         if (!status.submitter) {
