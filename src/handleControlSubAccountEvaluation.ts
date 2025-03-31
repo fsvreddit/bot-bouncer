@@ -5,10 +5,10 @@ import { ALL_EVALUATORS } from "./userEvaluation/allEvaluators.js";
 import { UserEvaluatorBase } from "./userEvaluation/UserEvaluatorBase.js";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { createUserSummary } from "./UserSummary/userSummary.js";
-import { format, subDays } from "date-fns";
+import { subDays } from "date-fns";
 import { getUserExtended } from "./extendedDevvit.js";
 
-interface EvaluatorStats {
+export interface EvaluatorStats {
     hitCount: number;
     lastHit: number;
 }
@@ -140,25 +140,4 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
     });
 
     console.log(`Evaluator: Post flair changed for ${username}`);
-}
-
-export async function updateEvaluatorHitsWikiPage (context: JobContext) {
-    const redisKey = "EvaluatorStats";
-    const existingStatsVal = await context.redis.get(redisKey);
-
-    const allStats: Record<string, EvaluatorStats> = existingStatsVal ? JSON.parse(existingStatsVal) as Record<string, EvaluatorStats> : {};
-
-    let wikicontent = "Evaluator Name|Hit Count|Last Hit\n";
-    wikicontent += ":-|:-|:-\n";
-
-    for (const entry of Object.entries(allStats).map(([name, value]) => ({ name, value }))) {
-        wikicontent += `${entry.name}|${entry.value.hitCount}|${format(new Date(entry.value.lastHit), "yyyy-MM-dd HH:mm")}\n`;
-    }
-
-    const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
-    await context.reddit.updateWikiPage({
-        subredditName,
-        page: "evaluator-hits",
-        content: wikicontent,
-    });
 }
