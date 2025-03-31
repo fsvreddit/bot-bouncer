@@ -5,7 +5,7 @@ import { CONTROL_SUBREDDIT, EVALUATE_KARMA_FARMING_SUBS } from "./constants.js";
 import { getUserStatus, UserDetails, UserStatus } from "./dataStore.js";
 import { evaluateUserAccount } from "./handleControlSubAccountEvaluation.js";
 import { getControlSubSettings } from "./settings.js";
-import { addSeconds } from "date-fns";
+import { addMinutes, addSeconds } from "date-fns";
 import { getUserOrUndefined } from "./utility.js";
 import { createNewSubmission } from "./postCreation.js";
 import pluralize from "pluralize";
@@ -101,6 +101,8 @@ async function evaluateAndHandleUser (username: string, context: JobContext): Pr
 }
 
 export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
+    const sweepInProgressKey = "KarmaFarmingSubsSweepInProgress";
+
     const controlSubSettings = await getControlSubSettings(context);
     if (!controlSubSettings.proactiveEvaluationEnabled || controlSubSettings.evaluationDisabled) {
         console.log("Karma Farming Subs: Proactive evaluation is disabled.");
@@ -109,9 +111,17 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
 
     let accounts = event.data?.accounts as string[] | undefined;
     if (!accounts) {
+        const sweepInProgress = await context.redis.exists(sweepInProgressKey);
+        if (sweepInProgress) {
+            console.log("Karma Farming Subs: Sweep already in progress. Skipping this run.");
+            return;
+        }
+
         accounts = await getDistinctAccounts(context);
         console.log("Karma Farming Subs: First batch starting.");
     }
+
+    await context.redis.set(sweepInProgressKey, new Date().getTime().toString(), { expiration: addMinutes(new Date(), 5) });
 
     const batchSize = 10;
     let processed = 0;
@@ -150,6 +160,7 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
             data: { accounts },
         });
     } else {
+        await context.redis.del(sweepInProgressKey);
         console.log("Karma Farming Subs: Finished checking all accounts.");
     }
 }
