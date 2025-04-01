@@ -13,6 +13,11 @@ export class EvaluateSelfComment extends UserEvaluatorBase {
 
     override banContentThreshold = 2;
 
+    private isSubIgnored () {
+        const ignoredSubreddits = this.variables["selfcomment:ignoredsubs"] as string[] | undefined ?? [];
+        return this.context.subredditName && ignoredSubreddits.includes(this.context.subredditName);
+    }
+
     private eligibleComment (comment: Comment | CommentV2): boolean {
         return isLinkId(comment.parentId)
             && comment.body.split("\n\n").length <= 2;
@@ -24,6 +29,10 @@ export class EvaluateSelfComment extends UserEvaluatorBase {
     }
 
     override preEvaluateComment (event: CommentCreate): boolean {
+        if (this.isSubIgnored()) {
+            return false;
+        }
+
         if (!event.comment) {
             return false;
         }
@@ -31,6 +40,10 @@ export class EvaluateSelfComment extends UserEvaluatorBase {
     }
 
     override preEvaluatePost (post: Post): boolean {
+        if (this.isSubIgnored()) {
+            return false;
+        }
+
         return this.eligiblePost(post);
     }
 
@@ -41,6 +54,8 @@ export class EvaluateSelfComment extends UserEvaluatorBase {
     }
 
     override evaluate (user: UserExtended, history: (Post | Comment)[]): boolean {
+        const ignoredSubreddits = this.variables["selfcomment:ignoredsubs"] as string[] | undefined ?? [];
+
         const posts = history.filter(item => isLinkId(item.id) && item.body !== "[removed]") as Post[];
         if (posts.length === 0 || !posts.every(post => this.eligiblePost(post))) {
             this.setReason("User has missing or mismatching posts");
@@ -53,13 +68,13 @@ export class EvaluateSelfComment extends UserEvaluatorBase {
             return false;
         }
 
-        if (!posts.some(post => comments.some(comment => comment.parentId === post.id))) {
+        if (!posts.some(post => comments.some(comment => comment.parentId === post.id && !ignoredSubreddits.includes(post.subredditName)))) {
             this.setReason("User has no posts with self comments");
             return false;
         }
 
         const maxCommentAge = this.variables["selfcomment:commentmaxminutes"] as number | undefined ?? 1;
-        for (const comment of comments) {
+        for (const comment of comments.filter(comment => !ignoredSubreddits.includes(comment.subredditName))) {
             const post = posts.find(post => post.id === comment.parentId);
             if (!post || post.authorId !== user.id) {
                 this.setReason("Comment on someone else's post");
