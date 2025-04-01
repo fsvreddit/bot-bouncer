@@ -9,7 +9,6 @@ export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, contex
     console.log("App Install: Detected an app install or update event");
 
     const currentJobs = await context.scheduler.listJobs();
-    console.log(currentJobs);
     await Promise.all(currentJobs.map(job => context.scheduler.cancelJob(job.id)));
 
     if (context.subredditName === CONTROL_SUBREDDIT) {
