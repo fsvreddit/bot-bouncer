@@ -4,7 +4,6 @@ import { CLEANUP_JOB, CLEANUP_JOB_CRON, CONTROL_SUBREDDIT, EVALUATE_KARMA_FARMIN
 import { scheduleAdhocCleanup } from "./cleanup.js";
 import { handleExternalSubmissionsPageUpdate } from "./externalSubmissions.js";
 import { removeRetiredEvaluatorsFromStats } from "./userEvaluation/evaluatorHelpers.js";
-import { addHours } from "date-fns";
 
 export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, context: TriggerContext) {
     console.log("App Install: Detected an app install or update event");
@@ -28,9 +27,6 @@ export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, contex
 
     // Delete cached control sub settings
     await context.redis.del("controlSubSettings");
-
-    const cleanupEntries = await context.redis.zRange("CleanupLog", 0, addHours(new Date(), 1).getTime(), { by: "score" });
-    console.log(cleanupEntries.map(entry => ({ username: entry.member, date: new Date(entry.score).toUTCString() })));
 }
 
 async function addControlSubredditJobs (context: TriggerContext) {
