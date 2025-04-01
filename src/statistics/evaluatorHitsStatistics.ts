@@ -18,7 +18,7 @@ export async function updateEvaluatorHitsWikiPage (context: JobContext) {
     const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
     await context.reddit.updateWikiPage({
         subredditName,
-        page: "evaluator-hits",
+        page: "statistics/evaluator-hits",
         content: wikicontent,
     });
 }

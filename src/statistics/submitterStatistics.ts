@@ -44,7 +44,7 @@ export async function updateSubmitterStatistics (allData: Record<string, string>
 
     const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
     let wikiPage: WikiPage | undefined;
-    const submitterStatisticsWikiPage = "submitter-statistics";
+    const submitterStatisticsWikiPage = "statistics/submitters";
     try {
         wikiPage = await context.reddit.getWikiPage(subredditName, submitterStatisticsWikiPage);
     } catch {
