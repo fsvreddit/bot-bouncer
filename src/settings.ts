@@ -267,6 +267,15 @@ export async function validateControlSubConfigChange (username: string, context:
         //
     }
 
+    // Check for updates by the app account
+    if (wikiPage?.revisionAuthor?.username === context.appName) {
+        await context.reddit.modMail.createModInboxConversation({
+            subredditId: context.subredditId,
+            subject: "Control sub settings updated by app account!",
+            bodyMarkdown: `The control sub settings have been updated by the app account ${context.appName}. Please check and revert if necessary.`,
+        });
+    }
+
     if (!wikiPage || wikiPage.revisionId === lastRevision) {
         return;
     }
@@ -283,15 +292,6 @@ export async function validateControlSubConfigChange (username: string, context:
         const validate = ajv.compile(schema);
         if (!validate(json)) {
             await reportControlSubValidationError(username, `Control sub settings are invalid: ${ajv.errorsText(validate.errors)}`, context);
-        } else {
-            // Check for updates by the app account
-            if (wikiPage.revisionAuthor?.username === context.appName) {
-                await context.reddit.modMail.createModInboxConversation({
-                    subredditId: context.subredditId,
-                    subject: "Control sub settings updated by app account!",
-                    bodyMarkdown: `The control sub settings have been updated by the app account ${context.appName}. Please check and revert if necessary.`,
-                });
-            }
         }
     }
 
