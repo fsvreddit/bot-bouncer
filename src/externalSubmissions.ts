@@ -143,7 +143,7 @@ export async function addExternalSubmissionsToQueue (items: ExternalSubmission[]
     await context.redis.zAdd(EXTERNAL_SUBMISSION_QUEUE, ...items.map(item => ({ member: item.username, score: new Date().getTime() })));
 
     if (scheduleJob) {
-        await scheduleAdhocExternalSubmissionsJob(context, 0);
+        await scheduleAdhocExternalSubmissionsJob(context);
     }
 }
 
@@ -234,6 +234,7 @@ export async function processExternalSubmissions (_: unknown, context: JobContex
                     item.username = user.username;
                 } else {
                     console.log(`External Submissions: ${username} is already being tracked, skipping.`);
+                    await context.redis.zRem(EXTERNAL_SUBMISSION_QUEUE, [username]);
                 }
             } else {
                 console.log(`External Submissions: ${username} is deleted or shadowbanned, skipping.`);
