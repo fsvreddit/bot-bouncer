@@ -176,6 +176,7 @@ interface ControlSubSettings {
     reporterBlacklist: string[];
     numberOfWikiPages?: number;
     bulkSubmitters?: string[];
+    cleanupDisabled?: boolean;
 }
 
 const CONTROL_SUB_SETTINGS_WIKI_PAGE = "controlsubsettings";
@@ -190,6 +191,7 @@ const schema: JSONSchemaType<ControlSubSettings> = {
         reporterBlacklist: { type: "array", items: { type: "string" } },
         numberOfWikiPages: { type: "number", nullable: true },
         bulkSubmitters: { type: "array", items: { type: "string" }, nullable: true },
+        cleanupDisabled: { type: "boolean", nullable: true },
     },
     required: ["evaluationDisabled", "trustedSubmitters", "reporterBlacklist"],
 };

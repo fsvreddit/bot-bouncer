@@ -5,6 +5,7 @@ import { ADHOC_CLEANUP_JOB, CLEANUP_JOB, CLEANUP_JOB_CRON, CONTROL_SUBREDDIT, Po
 import { deleteUserStatus, getUserStatus, removeRecordOfSubmitterOrMod, updateAggregate, UserDetails, UserStatus } from "./dataStore.js";
 import { getUserOrUndefined } from "./utility.js";
 import { removeRecordOfBan, removeWhitelistUnban } from "./handleClientSubredditWikiUpdate.js";
+import { getControlSubSettings } from "./settings.js";
 
 const CLEANUP_LOG_KEY = "CleanupLog";
 const SUB_OR_MOD_LOG_KEY = "SubOrModLog";
@@ -146,6 +147,12 @@ export async function scheduleAdhocCleanup (context: TriggerContext) {
     const nextEntries = await context.redis.zRange(CLEANUP_LOG_KEY, 0, 0, { by: "rank" });
 
     if (nextEntries.length === 0) {
+        return;
+    }
+
+    const controlSubSettings = await getControlSubSettings(context);
+    if (controlSubSettings.cleanupDisabled) {
+        console.log("Cleanup: Cleanup disabled in control subreddit settings.");
         return;
     }
 
