@@ -116,8 +116,8 @@ export async function scheduleAdhocExternalSubmissionsJob (context: TriggerConte
         return;
     }
 
-    const itemsInQueue = await context.redis.zCard(EXTERNAL_SUBMISSION_QUEUE);
-    if (itemsInQueue === 0) {
+    const itemsInQueue = await context.redis.zRange(EXTERNAL_SUBMISSION_QUEUE, 0, -1);
+    if (itemsInQueue.length === 0) {
         console.log("External Submissions: No remaining items in the queue.");
         return;
     }
@@ -127,7 +127,7 @@ export async function scheduleAdhocExternalSubmissionsJob (context: TriggerConte
         runAt: addSeconds(new Date(), delay),
     });
 
-    console.log(`External Submissions: Ad-hoc job scheduled, ${itemsInQueue} ${pluralize("user", itemsInQueue)} still in queue.`);
+    console.log(`External Submissions: Ad-hoc job scheduled, ${itemsInQueue.length} ${pluralize("user", itemsInQueue.length)} still in queue.`);
 }
 
 export async function addExternalSubmissionsToQueue (items: ExternalSubmission[], context: TriggerContext, scheduleJob = true) {
