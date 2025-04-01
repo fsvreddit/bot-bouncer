@@ -16,12 +16,21 @@ export class EvaluateFirstCommentEmDash extends UserEvaluatorBase {
 
     private readonly emDashRegex = /\w—\w/i;
 
+    private isNoCheckSub () {
+        const noCheckSubs = this.variables["em-dash:nochecksubs"] as string[] | undefined ?? [];
+        return this.context.subredditName && noCheckSubs.includes(this.context.subredditName);
+    }
+
     private eligibleComment (comment: Comment | CommentV2) {
         return isLinkId(comment.parentId);
     }
 
     override preEvaluateComment (event: CommentCreate): boolean {
         if (!event.comment) {
+            return false;
+        }
+
+        if (this.isNoCheckSub()) {
             return false;
         }
 
@@ -36,12 +45,22 @@ export class EvaluateFirstCommentEmDash extends UserEvaluatorBase {
     }
 
     override preEvaluatePost (post: Post): boolean {
+        if (this.isNoCheckSub()) {
+            return false;
+        }
+
         return this.eligiblePost(post);
     }
 
     override preEvaluateUser (user: UserExtended): boolean {
         if (user.createdAt < subMonths(new Date(), 2)) {
             this.setReason("Account is too old");
+            return false;
+        }
+
+        const noCheckSubs = this.variables["em-dash:nochecksubs"] as string[] | undefined ?? [];
+        if (this.context.subredditName && noCheckSubs.includes(this.context.subredditName)) {
+            this.setReason("User is in a no-check subreddit");
             return false;
         }
 
