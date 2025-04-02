@@ -1,8 +1,10 @@
 import { JobContext, WikiPage, WikiPagePermissionLevel } from "@devvit/public-api";
-import { AGGREGATE_STORE } from "../dataStore.js";
-import { sum } from "lodash";
+import { AGGREGATE_STORE, UserDetails, UserStatus } from "../dataStore.js";
+import { countBy, sum } from "lodash";
 
-export async function updateMainStatisticsPage (context: JobContext) {
+export async function updateMainStatisticsPage (allData: Record<string, string>, context: JobContext) {
+    await correctAggregateData(allData, context);
+
     let results = await context.redis.zRange(AGGREGATE_STORE, 0, -1);
     results = results.filter(item => item.member !== "pending");
 
@@ -41,4 +43,20 @@ export async function updateMainStatisticsPage (context: JobContext) {
             permLevel: WikiPagePermissionLevel.MODS_ONLY,
         });
     }
+}
+
+async function correctAggregateData (data: Record<string, string>, context: JobContext) {
+    const entries = Object.entries(data).map(([, value]) => JSON.parse(value) as UserDetails);
+
+    const statusesToUpdate = [UserStatus.Banned, UserStatus.Pending, UserStatus.Organic, UserStatus.Service, UserStatus.Declined];
+    const statuses = Object.entries(countBy(entries.map(item => item.userStatus)))
+        .map(([key, value]) => ({ member: key, score: value }))
+        .filter(item => statusesToUpdate.includes(item.member as UserStatus));
+
+    const storedBannedCount = await context.redis.zScore(AGGREGATE_STORE, UserStatus.Banned);
+    const actualBannedCount = statuses.find(item => item.member === UserStatus.Banned as string)?.score ?? 0;
+
+    console.log({ currentBannedCount: storedBannedCount, newBannedCount: actualBannedCount });
+
+    await context.redis.zAdd(AGGREGATE_STORE, ...statuses);
 }

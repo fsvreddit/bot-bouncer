@@ -9,7 +9,7 @@ export async function updateStatisticsPages (_: unknown, context: JobContext) {
     const allData = await context.redis.hGetAll(USER_STORE);
 
     await Promise.all([
-        updateMainStatisticsPage(context),
+        updateMainStatisticsPage(allData, context),
         updateSubmitterStatistics(allData, context),
         updateEvaluatorHitsWikiPage(context),
         createTimeOfSubmissionStatistics(allData, context),
