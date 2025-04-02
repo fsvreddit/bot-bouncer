@@ -48,7 +48,7 @@ export async function addExternalSubmission (data: ExternalSubmission, submissio
     }
 
     const redisKey = `externalSubmission:${data.username}`;
-    const alreadyDone = await context.redis.get(redisKey);
+    const alreadyDone = await context.redis.exists(redisKey);
     if (alreadyDone) {
         return;
     }

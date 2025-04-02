@@ -160,7 +160,7 @@ async function handleContentCreation (username: string, currentStatus: UserDetai
 
     const promises: Promise<unknown>[] = [];
 
-    const removedByMod = await context.redis.get(`removedbymod:${targetId}`);
+    const removedByMod = await context.redis.exists(`removedbymod:${targetId}`);
     const target = await getPostOrCommentById(targetId, context);
     if (!removedByMod && !target.spam && !target.removed) {
         promises.push(context.reddit.remove(targetId, true));
@@ -303,7 +303,7 @@ async function checkAndReportPotentialBot (username: string, target: Post | Comm
     console.log(`Created external submission via automated evaluation for ${user.username} for bot style ${botName}`);
 
     if (settings[AppSetting.RemoveContentWhenReporting]) {
-        const removedByMod = await context.redis.get(`removedbymod:${targetItem.id}`);
+        const removedByMod = await context.redis.exists(`removedbymod:${targetItem.id}`);
         if (!removedByMod && !targetItem.spam) {
             promises.push(
                 context.redis.set(`removed:${targetItem.authorName}`, targetItem.id, { expiration: addWeeks(new Date(), 2) }),

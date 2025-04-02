@@ -1,4 +1,4 @@
-import { JobContext, TriggerContext, WikiPagePermissionLevel, WikiPage, ScheduledJobEvent, JSONObject, CreateModNoteOptions } from "@devvit/public-api";
+import { JobContext, TriggerContext, WikiPagePermissionLevel, WikiPage, CreateModNoteOptions } from "@devvit/public-api";
 import { compact, max, toPairs, uniq } from "lodash";
 import pako from "pako";
 import { scheduleAdhocCleanup, setCleanupForSubmittersAndMods, setCleanupForUsers } from "./cleanup.js";
@@ -175,8 +175,8 @@ function compactDataForWiki (input: string): string | undefined {
     return JSON.stringify(status);
 }
 
-export async function updateWikiPage (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
-    const updateDue = await context.redis.get(WIKI_UPDATE_DUE);
+export async function updateWikiPage (_: unknown, context: JobContext) {
+    const updateDue = await context.redis.exists(WIKI_UPDATE_DUE);
     if (!updateDue) {
         return;
     }
@@ -234,7 +234,7 @@ export async function updateWikiPage (event: ScheduledJobEvent<JSONObject | unde
 
     if (content.length > MAX_WIKI_PAGE_SIZE * 0.7) {
         const spaceAlertKey = "wikiSpaceAlert";
-        const alertDone = await context.redis.get(spaceAlertKey);
+        const alertDone = await context.redis.exists(spaceAlertKey);
         if (!alertDone) {
             const message = `The botbouncer wiki page is now at ${Math.round(content.length / MAX_WIKI_PAGE_SIZE * 100)}% of its maximum size. It's time to rethink how data is stored.\n\nI will modmail you again in a week.`;
             await context.reddit.modMail.createModInboxConversation({
