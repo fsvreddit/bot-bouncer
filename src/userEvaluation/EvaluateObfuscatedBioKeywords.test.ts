@@ -19,7 +19,12 @@ function createFakeUser (bioText: string): UserExtended {
 }
 
 const variables = {
-    "obfuscatedbiowords:keywords": ["whatsapp"],
+    "obfuscatedbiowords:keywords": [
+        "telegram",
+        "snapchat",
+        "whatsapp",
+        "Zangi",
+    ],
 };
 
 test("Bio text that should be banned", () => {
@@ -59,6 +64,13 @@ test("Bio text that should not be banned 3", () => {
 
 test("Bio text that should not be banned 4", () => {
     const fakeUser = createFakeUser("23M looking for fun 👉👌 dm me NO I DON'T HAVE TELEGRAM OR WHATSAPP AND I NEVER WILL if you add on snap, just mention you found me through reddit");
+    const mockTriggerContext = {} as unknown as TriggerContext;
+    const evaluator = new EvaluateObfuscatedBioKeywords(mockTriggerContext, variables);
+    expect(evaluator.preEvaluateUser(fakeUser)).toBeFalsy();
+});
+
+test("Bio text that should not be banned 5", () => {
+    const fakeUser = createFakeUser("kinky redditor playing on Reddit, telegram, snap, discord and session. Message for my username on those apps! Open to anything legal and 18+");
     const mockTriggerContext = {} as unknown as TriggerContext;
     const evaluator = new EvaluateObfuscatedBioKeywords(mockTriggerContext, variables);
     expect(evaluator.preEvaluateUser(fakeUser)).toBeFalsy();

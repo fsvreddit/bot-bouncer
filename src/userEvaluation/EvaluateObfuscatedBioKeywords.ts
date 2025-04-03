@@ -2,7 +2,6 @@ import { Comment, Post } from "@devvit/public-api";
 import { CommentCreate } from "@devvit/protos";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
 import { UserExtended } from "../extendedDevvit.js";
-import { replaceAll } from "../utility.js";
 
 export class EvaluateObfuscatedBioKeywords extends UserEvaluatorBase {
     override name = "Obfuscated Bio Keywords Bot";
@@ -20,19 +19,26 @@ export class EvaluateObfuscatedBioKeywords extends UserEvaluatorBase {
 
         const keywords = this.getKeywords();
         for (const originalKeyword of keywords) {
-            let keyword = originalKeyword.toLowerCase();
-            keyword = replaceAll(keyword, "i", "[i1]");
-            keyword = replaceAll(keyword, "o", "[o0]");
-            keyword = replaceAll(keyword, "a", "[a4]");
-            keyword = replaceAll(keyword, "e", "[e3]");
-            keyword = replaceAll(keyword, "s", "[s5]");
-            keyword = replaceAll(keyword, "t", "[t7]");
-            keyword = replaceAll(keyword, "b", "[b6]");
-            keyword = replaceAll(keyword, "g", "[g9]");
-            keyword = replaceAll(keyword, "l", "[l1]");
-            keyword = replaceAll(keyword, "z", "[z2]");
             // eslint-disable-next-line @typescript-eslint/no-misused-spread
-            const regex = new RegExp("\\b" + [...keyword].join(".{0,2}") + "\\b", "i");
+            const keyword = [...originalKeyword.toLowerCase()];
+            for (let i = 0; i < keyword.length; i++) {
+                keyword[i] = keyword[i].replace("i", "[i1]");
+                keyword[i] = keyword[i].replace("o", "[o0]");
+                keyword[i] = keyword[i].replace("a", "[a4]");
+                keyword[i] = keyword[i].replace("e", "[e3]");
+                keyword[i] = keyword[i].replace("s", "[s5]");
+                keyword[i] = keyword[i].replace("t", "[t7]");
+                keyword[i] = keyword[i].replace("b", "[b6]");
+                keyword[i] = keyword[i].replace("g", "[g9]");
+                keyword[i] = keyword[i].replace("l", "[l1]");
+                keyword[i] = keyword[i].replace("z", "[z2]");
+            }
+
+            const regexText = keyword[0]
+                + keyword.slice(1, -1).join(".{0,2}")
+                + keyword[keyword.length - 1];
+
+            const regex = new RegExp("\\b" + regexText + "\\b", "i");
             const matches = user.userDescription.match(regex);
             if (!matches || matches.length !== 1) {
                 continue;
