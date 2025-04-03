@@ -34,7 +34,7 @@ export abstract class UserEvaluatorBase {
 
     abstract preEvaluatePost (post: Post): boolean;
 
-    abstract preEvaluateUser (user: UserExtended): boolean;
+    abstract preEvaluateUser (user: UserExtended): boolean | Promise<boolean>;
 
-    abstract evaluate (user: UserExtended, history: (Post | Comment)[]): boolean;
+    abstract evaluate (user: UserExtended, history: (Post | Comment)[]): boolean | Promise<boolean>;
 }

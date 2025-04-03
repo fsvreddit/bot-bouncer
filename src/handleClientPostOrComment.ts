@@ -238,7 +238,8 @@ async function checkAndReportPotentialBot (username: string, target: Post | Comm
             }
         }
 
-        if (!evaluator.preEvaluateUser(user)) {
+        const userEvalateReuslt = await Promise.resolve(evaluator.preEvaluateUser(user));
+        if (!userEvalateReuslt) {
             continue;
         }
 
@@ -257,7 +258,8 @@ async function checkAndReportPotentialBot (username: string, target: Post | Comm
         }
 
         anyEvaluatorsChecked = true;
-        if (evaluator.evaluate(user, userItems)) {
+        const evaluationResult = await Promise.resolve(evaluator.evaluate(user, userItems));
+        if (evaluationResult) {
             isLikelyBot = true;
             botName = evaluator.name;
             break;

@@ -39,7 +39,8 @@ export async function evaluateUserAccount (username: string, context: JobContext
             continue;
         }
 
-        if (!evaluator.preEvaluateUser(user)) {
+        const userEvaluateResult = await Promise.resolve(evaluator.preEvaluateUser(user));
+        if (!userEvaluateResult) {
             continue;
         }
 
@@ -59,7 +60,7 @@ export async function evaluateUserAccount (username: string, context: JobContext
             }
         }
 
-        const isABot = evaluator.evaluate(user, userItems);
+        const isABot = await Promise.resolve(evaluator.evaluate(user, userItems));
         if (isABot) {
             console.log(`Evaluator: ${username} appears to be a bot via the evaluator: ${evaluator.name} 💥`);
             detectedBots.push(evaluator);
