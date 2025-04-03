@@ -3,6 +3,7 @@ import { UserDetails, UserStatus } from "../dataStore.js";
 import Ajv, { JSONSchemaType } from "ajv";
 import { fromPairs } from "lodash";
 import pluralize from "pluralize";
+import { getYear } from "date-fns";
 
 interface ModmailDataExtract {
     status?: UserStatus;
@@ -11,6 +12,7 @@ interface ModmailDataExtract {
     bioTextRegex?: string;
     recentPostSubs?: string[];
     recentCommentSubs?: string[];
+    since?: number;
 }
 
 const schema: JSONSchemaType<ModmailDataExtract> = {
@@ -44,6 +46,10 @@ const schema: JSONSchemaType<ModmailDataExtract> = {
             items: {
                 type: "string",
             },
+            nullable: true,
+        },
+        since: {
+            type: "number",
             nullable: true,
         },
     },
@@ -118,6 +124,37 @@ export async function dataExtract (message: string | undefined, conversationId: 
             return;
         }
         data = data.filter(entry => regex.test(entry.username));
+    }
+
+    if (request.bioTextRegex) {
+        let regex: RegExp;
+        try {
+            regex = new RegExp(request.bioTextRegex);
+        } catch {
+            await context.reddit.modMail.reply({
+                conversationId,
+                body: "Invalid regex provided for `bioTextRegex`.",
+                isAuthorHidden: false,
+            });
+            return;
+        }
+        data = data.filter(entry => entry.data.bioText && regex.test(entry.data.bioText));
+    }
+
+    if (request.recentPostSubs) {
+        data = data.filter(entry => request.recentPostSubs?.some(sub => entry.data.recentPostSubs?.includes(sub)));
+    }
+
+    if (request.recentCommentSubs) {
+        data = data.filter(entry => request.recentCommentSubs?.some(sub => entry.data.recentCommentSubs?.includes(sub)));
+    }
+
+    if (request.since) {
+        if (getYear(new Date(request.since)) < 2024) {
+            // Probably a timestamp with seconds instead of milliseconds.
+            request.since *= 1000;
+        }
+        data = data.filter(entry => entry.data.lastUpdate && request.since !== undefined && entry.data.lastUpdate > request.since);
     }
 
     if (data.length === 0) {
