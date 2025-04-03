@@ -57,6 +57,13 @@ test("Bio text that should not be banned 3", () => {
     expect(evaluator.preEvaluateUser(fakeUser)).toBeFalsy();
 });
 
+test("Bio text that should not be banned 4", () => {
+    const fakeUser = createFakeUser("23M looking for fun 👉👌 dm me NO I DON'T HAVE TELEGRAM OR WHATSAPP AND I NEVER WILL if you add on snap, just mention you found me through reddit");
+    const mockTriggerContext = {} as unknown as TriggerContext;
+    const evaluator = new EvaluateObfuscatedBioKeywords(mockTriggerContext, variables);
+    expect(evaluator.preEvaluateUser(fakeUser)).toBeFalsy();
+});
+
 test("Bio text that has no related keywords at all", () => {
     const fakeUser = createFakeUser("Just here for the memes!");
     const mockTriggerContext = {} as unknown as TriggerContext;
