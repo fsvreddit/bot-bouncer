@@ -238,8 +238,8 @@ async function checkAndReportPotentialBot (username: string, target: Post | Comm
             }
         }
 
-        const userEvalateReuslt = await Promise.resolve(evaluator.preEvaluateUser(user));
-        if (!userEvalateReuslt) {
+        const userEvalateResult = await Promise.resolve(evaluator.preEvaluateUser(user));
+        if (!userEvalateResult) {
             continue;
         }
 
