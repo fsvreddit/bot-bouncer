@@ -54,6 +54,7 @@ Note: v1.7.0 is the current public release.
 * When a bot is detected, posts and comments that were modqueued are now removed.
 * Reduce false positives on one bot evaluator
 * Add new evaluator for obfuscated bio keywords
+* Add new evaluator for suspect social links
 * Internal changes to support operations on /r/BotBouncer
 
 ## v1.7.0
