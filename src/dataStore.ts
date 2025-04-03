@@ -35,6 +35,9 @@ export interface UserDetails {
     submitter?: string;
     operator: string;
     reportedAt?: number;
+    bioText?: string;
+    recentPostSubs?: string[];
+    recentCommentSubs?: string[];
 }
 
 export async function getUserStatus (username: string, context: TriggerContext) {
@@ -67,6 +70,13 @@ export async function setUserStatus (username: string, details: UserDetails, con
 
     // Set the reported at date from the original date, or current date/time if not set.
     details.reportedAt ??= currentStatus?.reportedAt ?? new Date().getTime();
+
+    if (currentStatus?.recentPostSubs && !details.recentPostSubs) {
+        details.recentPostSubs = currentStatus.recentPostSubs;
+    }
+    if (currentStatus?.recentCommentSubs && !details.recentCommentSubs) {
+        details.recentCommentSubs = currentStatus.recentCommentSubs;
+    }
 
     const promises: Promise<unknown>[] = [
         context.redis.hSet(USER_STORE, { [username]: JSON.stringify(details) }),
@@ -171,6 +181,9 @@ function compactDataForWiki (input: string): string | undefined {
     }
 
     delete status.reportedAt;
+    delete status.bioText;
+    delete status.recentPostSubs;
+    delete status.recentCommentSubs;
 
     return JSON.stringify(status);
 }

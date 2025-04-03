@@ -8,6 +8,9 @@ interface ModmailDataExtract {
     status?: UserStatus;
     submitter?: string;
     usernameRegex?: string;
+    bioTextRegex?: string;
+    recentPostSubs?: string[];
+    recentCommentSubs?: string[];
 }
 
 const schema: JSONSchemaType<ModmailDataExtract> = {
@@ -23,6 +26,24 @@ const schema: JSONSchemaType<ModmailDataExtract> = {
         },
         usernameRegex: {
             type: "string",
+            nullable: true,
+        },
+        bioTextRegex: {
+            type: "string",
+            nullable: true,
+        },
+        recentPostSubs: {
+            type: "array",
+            items: {
+                type: "string",
+            },
+            nullable: true,
+        },
+        recentCommentSubs: {
+            type: "array",
+            items: {
+                type: "string",
+            },
             nullable: true,
         },
     },
@@ -50,7 +71,7 @@ export async function dataExtract (message: string | undefined, conversationId: 
         return;
     }
 
-    const ajv = new Ajv.default();
+    const ajv = new Ajv.default({ coerceTypes: "array" });
     const validate = ajv.compile(schema);
 
     if (!validate(request)) {
@@ -62,10 +83,10 @@ export async function dataExtract (message: string | undefined, conversationId: 
         return;
     }
 
-    if (!request.status && !request.submitter && !request.usernameRegex) {
+    if (!request.status && !request.submitter && !request.usernameRegex && !request.bioTextRegex && !request.recentPostSubs && !request.recentCommentSubs) {
         await context.reddit.modMail.reply({
             conversationId,
-            body: "Request is empty. Please provide at least one of the following fields: `status`, `submitter`, `usernameRegex`.",
+            body: "Request is empty. Please provide at least one of the following fields: `status`, `submitter`, `usernameRegex`, `bioTextRegex`, `recentPostSubs`, `recentCommentSubs`.",
             isAuthorHidden: false,
         });
         return;
@@ -118,7 +139,7 @@ export async function dataExtract (message: string | undefined, conversationId: 
         //
     }
 
-    await context.reddit.updateWikiPage({
+    const result = await context.reddit.updateWikiPage({
         subredditName,
         page: wikiPageName,
         content: JSON.stringify(dataToExport),
@@ -135,7 +156,7 @@ export async function dataExtract (message: string | undefined, conversationId: 
 
     await context.reddit.modMail.reply({
         conversationId,
-        body: `Data for ${data.length} ${pluralize("user", data.length)} exported to [wiki page](https://www.reddit.com/r/BotBouncer/wiki/${wikiPageName}).`,
+        body: `Data for ${data.length} ${pluralize("user", data.length)} exported to [wiki page](https://www.reddit.com/r/BotBouncer/wiki/${wikiPageName}?v=${result.revisionId}).`,
         isAuthorHidden: false,
     });
 }

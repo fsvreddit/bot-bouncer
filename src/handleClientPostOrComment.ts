@@ -7,7 +7,7 @@ import { CONTROL_SUBREDDIT } from "./constants.js";
 import { getPostOrCommentById, getUserOrUndefined, isApproved, isBanned, isModerator, replaceAll } from "./utility.js";
 import { AppSetting, CONFIGURATION_DEFAULTS, getControlSubSettings } from "./settings.js";
 import { ALL_EVALUATORS } from "./userEvaluation/allEvaluators.js";
-import { addExternalSubmission } from "./externalSubmissions.js";
+import { addExternalSubmissionFromClientSub } from "./externalSubmissions.js";
 import { isLinkId } from "@devvit/shared-types/tid.js";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { recordBanForDigest, recordReportForDigest } from "./modmail/dailyDigest.js";
@@ -292,7 +292,7 @@ async function checkAndReportPotentialBot (username: string, target: Post | Comm
     const promises: Promise<unknown>[] = [];
 
     promises.push(
-        addExternalSubmission({
+        addExternalSubmissionFromClientSub({
             username: user.username,
             submitter: currentUser?.username,
             reportContext,

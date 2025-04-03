@@ -6,7 +6,7 @@ import { getUserStatus, UserDetails, UserStatus } from "./dataStore.js";
 import { evaluateUserAccount } from "./handleControlSubAccountEvaluation.js";
 import { getControlSubSettings } from "./settings.js";
 import { addMinutes, addSeconds } from "date-fns";
-import { getUserOrUndefined } from "./utility.js";
+import { getUserExtended } from "./extendedDevvit.js";
 import { createNewSubmission } from "./postCreation.js";
 import pluralize from "pluralize";
 import { ZMember } from "@devvit/protos";
@@ -76,7 +76,7 @@ async function evaluateAndHandleUser (username: string, context: JobContext): Pr
         return false;
     }
 
-    const user = await getUserOrUndefined(username, context);
+    const user = await getUserExtended(username, context);
     if (!user) {
         return false;
     }

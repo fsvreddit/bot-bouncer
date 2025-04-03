@@ -1,14 +1,15 @@
-import { JobContext, TriggerContext, User, WikiPage } from "@devvit/public-api";
+import { JobContext, TriggerContext, WikiPage } from "@devvit/public-api";
 import { CONTROL_SUBREDDIT, EVALUATE_USER, EXTERNAL_SUBMISSION_JOB, EXTERNAL_SUBMISSION_JOB_CRON } from "./constants.js";
 import { getUserStatus, setUserStatus, UserDetails, UserStatus } from "./dataStore.js";
 import { getControlSubSettings } from "./settings.js";
 import Ajv, { JSONSchemaType } from "ajv";
 import { addDays, addMinutes, addSeconds } from "date-fns";
-import { getPostOrCommentById, getUserOrUndefined } from "./utility.js";
+import { getPostOrCommentById } from "./utility.js";
 import { isLinkId } from "@devvit/shared-types/tid.js";
 import { parseExpression } from "cron-parser";
 import { createNewSubmission } from "./postCreation.js";
 import pluralize from "pluralize";
+import { getUserExtended, UserExtended } from "./extendedDevvit.js";
 
 const WIKI_PAGE = "externalsubmissions";
 export const EXTERNAL_SUBMISSION_QUEUE = "externalSubmissionQueue";
@@ -42,7 +43,7 @@ export function getExternalSubmissionDataKey (username: string) {
     return `externalSubmission:${username}`;
 }
 
-export async function addExternalSubmission (data: ExternalSubmission, submissionType: "automatic" | "manual", context: TriggerContext) {
+export async function addExternalSubmissionFromClientSub (data: ExternalSubmission, submissionType: "automatic" | "manual", context: TriggerContext) {
     if (context.subredditName === CONTROL_SUBREDDIT) {
         return;
     }
@@ -214,12 +215,12 @@ export async function processExternalSubmissions (_: unknown, context: JobContex
     let stopLooping = false;
     let username: string | undefined;
     let item: ExternalSubmission | undefined;
-    let user: User | undefined;
+    let user: UserExtended | undefined;
     // Iterate through list, and find the first user who isn't already being tracked.
     while (!stopLooping) {
         username = usersInQueue.shift();
         if (username) {
-            user = await getUserOrUndefined(username, context);
+            user = await getUserExtended(username, context);
             if (user) {
                 const currentStatus = await getUserStatus(user.username, context);
                 if (!currentStatus) {

@@ -2,7 +2,7 @@ import { TriggerContext } from "@devvit/public-api";
 import { CommentDelete, PostDelete } from "@devvit/protos";
 import { CONTROL_SUBREDDIT } from "./constants.js";
 import { getUserStatus } from "./dataStore.js";
-import { addExternalSubmission } from "./externalSubmissions.js";
+import { addExternalSubmissionFromClientSub } from "./externalSubmissions.js";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 
 export async function handleClientSubPostDelete (event: PostDelete, context: TriggerContext) {
@@ -39,7 +39,7 @@ async function handleClientSubContentDelete (event: PostDelete | CommentDelete, 
         return;
     }
 
-    await addExternalSubmission({
+    await addExternalSubmissionFromClientSub({
         username: botMentionForUser,
         submitter: context.appName,
         reportContext: "User reported due to deleting a post or comment immediately after a 'Bot' accusation",

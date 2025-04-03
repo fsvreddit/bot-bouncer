@@ -53,10 +53,5 @@ async function correctAggregateData (data: Record<string, string>, context: JobC
         .map(([key, value]) => ({ member: key, score: value }))
         .filter(item => statusesToUpdate.includes(item.member as UserStatus));
 
-    const storedBannedCount = await context.redis.zScore(AGGREGATE_STORE, UserStatus.Banned);
-    const actualBannedCount = statuses.find(item => item.member === UserStatus.Banned as string)?.score ?? 0;
-
-    console.log({ currentBannedCount: storedBannedCount, newBannedCount: actualBannedCount });
-
     await context.redis.zAdd(AGGREGATE_STORE, ...statuses);
 }

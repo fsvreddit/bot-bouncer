@@ -2,7 +2,7 @@ import { Context, MenuItemOnPressEvent, JSONObject, FormOnSubmitEvent } from "@d
 import { CONTROL_SUBREDDIT } from "./constants.js";
 import { getPostOrCommentById, getUserOrUndefined } from "./utility.js";
 import { getUserStatus } from "./dataStore.js";
-import { addExternalSubmission } from "./externalSubmissions.js";
+import { addExternalSubmissionFromClientSub } from "./externalSubmissions.js";
 import { reportForm } from "./main.js";
 import { subMonths } from "date-fns";
 import { getControlSubSettings } from "./settings.js";
@@ -75,7 +75,7 @@ export async function reportFormHandler (event: FormOnSubmitEvent<JSONObject>, c
     const reportContext = event.values.reportContext as string | undefined;
 
     await Promise.all([
-        addExternalSubmission({
+        addExternalSubmissionFromClientSub({
             username: target.authorName,
             submitter: currentUser?.username,
             reportContext,
