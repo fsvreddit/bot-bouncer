@@ -55,6 +55,7 @@ export class EvaluateSelfComment extends UserEvaluatorBase {
 
     override evaluate (user: UserExtended, history: (Post | Comment)[]): boolean {
         const ignoredSubreddits = this.variables["selfcomment:ignoredsubs"] as string[] | undefined ?? [];
+        ignoredSubreddits.push(...history.filter(item => item.subredditName.toLowerCase().includes("onlyfans")).map(item => item.subredditName));
 
         const posts = history.filter(item => isLinkId(item.id) && item.body !== "[removed]") as Post[];
         if (posts.length === 0 || !posts.every(post => this.eligiblePost(post))) {
