@@ -2,6 +2,7 @@ import { Comment, Post } from "@devvit/public-api";
 import { CommentCreate } from "@devvit/protos";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
 import { UserExtended } from "../extendedDevvit.js";
+import { replaceAll } from "../utility.js";
 
 export class EvaluateObfuscatedBioKeywords extends UserEvaluatorBase {
     override name = "Obfuscated Bio Keywords Bot";
@@ -18,7 +19,18 @@ export class EvaluateObfuscatedBioKeywords extends UserEvaluatorBase {
         }
 
         const keywords = this.getKeywords();
-        for (const keyword of keywords) {
+        for (const originalKeyword of keywords) {
+            let keyword = originalKeyword.toLowerCase();
+            keyword = replaceAll(keyword, "i", "[i1]");
+            keyword = replaceAll(keyword, "o", "[o0]");
+            keyword = replaceAll(keyword, "a", "[a4]");
+            keyword = replaceAll(keyword, "e", "[e3]");
+            keyword = replaceAll(keyword, "s", "[s5]");
+            keyword = replaceAll(keyword, "t", "[t7]");
+            keyword = replaceAll(keyword, "b", "[b6]");
+            keyword = replaceAll(keyword, "g", "[g9]");
+            keyword = replaceAll(keyword, "l", "[l1]");
+            keyword = replaceAll(keyword, "z", "[z2]");
             // eslint-disable-next-line @typescript-eslint/no-misused-spread
             const regex = new RegExp("\\b" + [...keyword].join(".{0,2}") + "\\b", "i");
             const matches = user.userDescription.match(regex);
@@ -26,7 +38,7 @@ export class EvaluateObfuscatedBioKeywords extends UserEvaluatorBase {
                 continue;
             }
 
-            if (matches[0].toLowerCase() === keyword.toLowerCase()) {
+            if (matches[0].toLowerCase() === originalKeyword.toLowerCase()) {
                 continue;
             }
 

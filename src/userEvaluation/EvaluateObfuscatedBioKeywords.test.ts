@@ -29,6 +29,13 @@ test("Bio text that should be banned", () => {
     expect(evaluator.preEvaluateUser(fakeUser)).toBeTruthy();
 });
 
+test("Bio text that should be banned 2", () => {
+    const fakeUser = createFakeUser("my whats4pp: carla18");
+    const mockTriggerContext = {} as unknown as TriggerContext;
+    const evaluator = new EvaluateObfuscatedBioKeywords(mockTriggerContext, variables);
+    expect(evaluator.preEvaluateUser(fakeUser)).toBeTruthy();
+});
+
 test("Bio text that should not be banned", () => {
     const fakeUser = createFakeUser("my whatsapp: carla18");
     const mockTriggerContext = {} as unknown as TriggerContext;
@@ -38,6 +45,13 @@ test("Bio text that should not be banned", () => {
 
 test("Bio text that should not be banned 2", () => {
     const fakeUser = createFakeUser("my Whatsapp: carla18");
+    const mockTriggerContext = {} as unknown as TriggerContext;
+    const evaluator = new EvaluateObfuscatedBioKeywords(mockTriggerContext, variables);
+    expect(evaluator.preEvaluateUser(fakeUser)).toBeFalsy();
+});
+
+test("Bio text that should not be banned 3", () => {
+    const fakeUser = createFakeUser("I'm available for sexting session until you cum🔥 nudes videos 🥵 custom video 🔥 drop box 🎁 facetime 💕 WhatsApp +1 (586) 873-9543 telegram @Lilerose83");
     const mockTriggerContext = {} as unknown as TriggerContext;
     const evaluator = new EvaluateObfuscatedBioKeywords(mockTriggerContext, variables);
     expect(evaluator.preEvaluateUser(fakeUser)).toBeFalsy();
