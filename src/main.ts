@@ -1,10 +1,10 @@
 import { Devvit, FormField } from "@devvit/public-api";
 import { handleControlSubSubmission } from "./handleControlSubSubmission.js";
 import { updateLocalStoreFromWiki, updateWikiPage } from "./dataStore.js";
-import { ADHOC_CLEANUP_JOB, CLEANUP_JOB, CONTROL_SUBREDDIT, EVALUATE_KARMA_FARMING_SUBS, EVALUATE_USER, EXTERNAL_SUBMISSION_JOB, HANDLE_CLASSIFICATION_CHANGES_JOB, SEND_DAILY_DIGEST, UPDATE_DATASTORE_FROM_WIKI, UPDATE_EVALUATOR_VARIABLES, UPDATE_STATISTICS_PAGE, UPDATE_WIKI_PAGE_JOB, UPGRADE_NOTIFIER_JOB } from "./constants.js";
+import { ADHOC_CLEANUP_JOB, CLEANUP_JOB, CONTROL_SUBREDDIT, COPY_CONTROL_SUB_SETTINGS, EVALUATE_KARMA_FARMING_SUBS, EVALUATE_USER, EXTERNAL_SUBMISSION_JOB, HANDLE_CLASSIFICATION_CHANGES_JOB, SEND_DAILY_DIGEST, UPDATE_DATASTORE_FROM_WIKI, UPDATE_EVALUATOR_VARIABLES, UPDATE_STATISTICS_PAGE, UPDATE_WIKI_PAGE_JOB, UPGRADE_NOTIFIER_JOB } from "./constants.js";
 import { handleInstallOrUpgrade } from "./installActions.js";
 import { handleControlSubFlairUpdate } from "./handleControlSubFlairUpdate.js";
-import { appSettings } from "./settings.js";
+import { appSettings, copyControlSubSettingsToOldWiki } from "./settings.js";
 import { cleanupDeletedAccounts } from "./cleanup.js";
 import { handleModAction } from "./handleModAction.js";
 import { handleModmail } from "./modmail/modmail.js";
@@ -168,6 +168,11 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: SEND_DAILY_DIGEST,
     onRun: sendDailyDigest,
+});
+
+Devvit.addSchedulerJob({
+    name: COPY_CONTROL_SUB_SETTINGS,
+    onRun: copyControlSubSettingsToOldWiki,
 });
 
 Devvit.configure({

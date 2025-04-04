@@ -29,6 +29,7 @@ export const UPDATE_EVALUATOR_VARIABLES = "updateEvaluatorVariables";
 export const EVALUATE_KARMA_FARMING_SUBS = "evaluateKarmaFarmingSubs";
 export const UPGRADE_NOTIFIER_JOB = "upgradeNotifier";
 export const SEND_DAILY_DIGEST = "sendDailyDigest";
+export const COPY_CONTROL_SUB_SETTINGS = "copyControlSubSettings";
 
 /**
  * Job crons
