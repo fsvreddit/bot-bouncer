@@ -56,16 +56,15 @@ async function handleModActionControlSub (event: ModAction, context: TriggerCont
      * It may also be because the control sub configuration has changed, in which case
      * check that too.
      */
-    if (event.action === "wikirevise") {
-        if (event.moderator?.name === context.appName || event.moderator?.name === "bot-bouncer-int") {
-            await handleExternalSubmissionsPageUpdate(context);
-        } else if (event.moderator) {
-            await validateControlSubConfigChange(event.moderator.name, context);
-            await context.scheduler.runJob({
+    if (event.action === "wikirevise" && event.moderator) {
+        await Promise.all([
+            handleExternalSubmissionsPageUpdate(context),
+            validateControlSubConfigChange(event.moderator.name, context),
+            context.scheduler.runJob({
                 name: UPDATE_EVALUATOR_VARIABLES,
                 runAt: new Date(),
                 data: { username: event.moderator.name },
-            });
-        }
+            }),
+        ]);
     }
 }

@@ -269,17 +269,17 @@ export async function validateControlSubConfigChange (username: string, context:
         //
     }
 
+    if (!wikiPage || wikiPage.revisionId === lastRevision) {
+        return;
+    }
+
     // Check for updates by the app account
-    if (wikiPage?.revisionAuthor?.username === context.appName) {
+    if (wikiPage.revisionAuthor?.username === context.appName) {
         await context.reddit.modMail.createModInboxConversation({
             subredditId: context.subredditId,
             subject: "Control sub settings updated by app account!",
             bodyMarkdown: `The control sub settings have been updated by the app account ${context.appName}. Please check and revert if necessary.`,
         });
-    }
-
-    if (!wikiPage || wikiPage.revisionId === lastRevision) {
-        return;
     }
 
     let json: ControlSubSettings | undefined;
