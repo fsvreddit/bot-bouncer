@@ -19,6 +19,7 @@ import { EvaluateObfuscatedBioKeywords } from "./EvaluateObfuscatedBioKeywords.j
 import { EvaluateSocialLinks } from "./EvaluateSocialLinks.js";
 import { EvaluateSuspiciousFirstPost } from "./EvaluateSuspiciousFirstPost.js";
 import { EvaluateLilyBot } from "./EvaluateLilyBot.js";
+import { EvaluateSecretLinksBot } from "./EvaluateSecretLinksBot.js";
 
 export const ALL_EVALUATORS = [
     EvaluateBadUsername,
@@ -42,4 +43,5 @@ export const ALL_EVALUATORS = [
     EvaluateSocialLinks,
     EvaluateSuspiciousFirstPost,
     EvaluateLilyBot,
+    EvaluateSecretLinksBot,
 ];
