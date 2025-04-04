@@ -2,7 +2,7 @@ import { Comment, Post } from "@devvit/public-api";
 import { CommentCreate } from "@devvit/protos";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
 import { UserExtended } from "../extendedDevvit.js";
-import { subMonths } from "date-fns";
+import { isLinkId } from "@devvit/shared-types/tid.js";
 
 export class EvaluateSecretLinksBot extends UserEvaluatorBase {
     override name = "Secret Links Bot";
@@ -21,11 +21,11 @@ export class EvaluateSecretLinksBot extends UserEvaluatorBase {
 
     override preEvaluateUser (user: UserExtended): boolean {
         const regexText = `secretlinks.me.${user.username}$`;
-        return user.createdAt > subMonths(new Date(), 6) && new RegExp(regexText).test(user.userDescription ?? "");
+        return user.commentKarma < 2500 && new RegExp(regexText).test(user.userDescription ?? "");
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    override evaluate (_user: UserExtended, _history: (Post | Comment)[]): boolean {
-        return true;
+    override evaluate (_user: UserExtended, history: (Post | Comment)[]): boolean {
+        const posts = history.filter(item => isLinkId(item.id)) as Post[];
+        return posts.some(post => post.stickied);
     }
 }
