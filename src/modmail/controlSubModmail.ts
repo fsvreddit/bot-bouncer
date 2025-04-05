@@ -31,7 +31,7 @@ async function handleModmailFromUser (username: string, conversationId: string, 
     message += `[Link to submission](${post.permalink})`;
 
     if (currentStatus.userStatus === UserStatus.Banned || currentStatus.userStatus === UserStatus.Purged) {
-        const userSummary = await getSummaryTextForUser(username, context);
+        const userSummary = await getSummaryTextForUser(username, "modmail", context);
         if (userSummary) {
             message += `\n\n${userSummary}`;
         }

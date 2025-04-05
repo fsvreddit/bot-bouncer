@@ -78,7 +78,7 @@ export async function handleModmail (event: ModMail, context: TriggerContext) {
 }
 
 async function addSummaryForUser (conversationId: string, username: string, context: TriggerContext) {
-    const userSummary = await getSummaryTextForUser(username, context);
+    const userSummary = await getSummaryTextForUser(username, "modmail", context);
     const messageText = userSummary ?? "No summary available, user may be shadowbanned";
 
     await context.reddit.modMail.reply({

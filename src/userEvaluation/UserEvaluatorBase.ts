@@ -30,6 +30,8 @@ export abstract class UserEvaluatorBase {
         return this.variables[this.killswitch] as boolean | undefined ?? false;
     }
 
+    public hitReason: string | undefined = undefined;
+
     abstract preEvaluateComment (event: CommentCreate): boolean;
 
     abstract preEvaluatePost (post: Post): boolean;

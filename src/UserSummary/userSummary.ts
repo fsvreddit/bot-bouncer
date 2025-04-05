@@ -196,7 +196,7 @@ function getHighCountDomains (history: Post[] | Comment[]): string {
     return highCountDomains.map(item => `* Frequently shared domains: ${item.domain}: ${Math.round(100 * item.count / history.length)}%`).join(", ") + "\n";
 }
 
-export async function getSummaryTextForUser (username: string, context: TriggerContext): Promise<string | undefined> {
+export async function getSummaryTextForUser (username: string, source: "modmail" | "submission", context: TriggerContext): Promise<string | undefined> {
     const user = await getUserOrUndefined(username, context);
     const extendedUser = await getUserExtended(username, context);
 
@@ -282,9 +282,20 @@ export async function getSummaryTextForUser (username: string, context: TriggerC
 
     summary += "\n";
 
-    const matchedEvaluators = await evaluatorsMatched(extendedUser, [...userComments, ...userPosts], context);
-    if (matchedEvaluators.length > 0) {
-        summary += `User matches the following evaluators: ${matchedEvaluators.join(", ")}\n`;
+    if (source === "modmail") {
+        const matchedEvaluators = await evaluatorsMatched(extendedUser, [...userComments, ...userPosts], context);
+        if (matchedEvaluators.length > 0) {
+            summary += "## Evaluation results\n\n";
+            summary += `User matched ${matchedEvaluators.length} ${pluralize("evaluator", matchedEvaluators.length)}\n\n`;
+            for (const evaluator of matchedEvaluators) {
+                summary += `* ${evaluator.name} matched`;
+                if (evaluator.hitReason) {
+                    summary += `: ${evaluator.hitReason}`;
+                }
+                summary += "\n";
+            }
+            summary += "\n";
+        }
     }
 
     if (userComments.length > 0) {
@@ -369,7 +380,7 @@ export async function getSummaryTextForUser (username: string, context: TriggerC
 }
 
 export async function createUserSummary (username: string, postId: string, context: TriggerContext) {
-    const summary = await getSummaryTextForUser(username, context);
+    const summary = await getSummaryTextForUser(username, "submission", context);
     if (!summary) {
         return;
     }
@@ -383,8 +394,8 @@ export async function createUserSummary (username: string, postId: string, conte
     console.log(`User Summary: Summary created for ${username}`);
 }
 
-async function evaluatorsMatched (user: UserExtended, userHistory: (Post | Comment)[], context: TriggerContext): Promise<string[]> {
-    const evaluatorsMatched: string[] = [];
+async function evaluatorsMatched (user: UserExtended, userHistory: (Post | Comment)[], context: TriggerContext): Promise<InstanceType<typeof ALL_EVALUATORS[number]>[]> {
+    const evaluatorsMatched: InstanceType<typeof ALL_EVALUATORS[number]>[] = [];
     const evaluatorVariables = await getEvaluatorVariables(context);
 
     for (const Evaluator of ALL_EVALUATORS) {
@@ -400,7 +411,7 @@ async function evaluatorsMatched (user: UserExtended, userHistory: (Post | Comme
 
         const fullEvaluate = await Promise.resolve(evaluator.evaluate(user, userHistory));
         if (fullEvaluate) {
-            evaluatorsMatched.push(evaluator.name);
+            evaluatorsMatched.push(evaluator);
         }
     }
 

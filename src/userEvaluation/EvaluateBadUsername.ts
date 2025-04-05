@@ -3,6 +3,7 @@ import { CommentCreate } from "@devvit/protos";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
 import { subWeeks } from "date-fns";
 import { UserExtended } from "../extendedDevvit.js";
+import markdownEscape from "markdown-escape";
 
 export class EvaluateBadUsername extends UserEvaluatorBase {
     override name = "Bad Username Bot";
@@ -16,7 +17,11 @@ export class EvaluateBadUsername extends UserEvaluatorBase {
         }
 
         const regexes = this.variables["badusername:regexes"] as string[] | undefined ?? [];
-        return regexes.some(regex => new RegExp(regex).test(username));
+        const matchedRegex = regexes.find(regex => new RegExp(regex).test(username));
+        if (matchedRegex) {
+            this.hitReason = `Username matches regex: ${markdownEscape(matchedRegex)}`;
+        }
+        return matchedRegex !== undefined;
     }
 
     override preEvaluateComment (event: CommentCreate): boolean {

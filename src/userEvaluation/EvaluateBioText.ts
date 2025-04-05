@@ -2,6 +2,7 @@ import { Comment, Post } from "@devvit/public-api";
 import { CommentCreate } from "@devvit/protos";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
 import { UserExtended } from "../extendedDevvit.js";
+import markdownEscape from "markdown-escape";
 
 export class EvaluateBioText extends UserEvaluatorBase {
     override name = "Bio Text Bot";
@@ -50,10 +51,15 @@ export class EvaluateBioText extends UserEvaluatorBase {
             return false;
         }
 
-        if (bannableBioText.some(bio => user.userDescription && new RegExp(bio).test(user.userDescription))) {
+        const bannableBioTextFound = bannableBioText.find(bio => user.userDescription && new RegExp(bio).test(user.userDescription));
+        const reportableBioTextFound = reportableBioText.find(bio => user.userDescription && new RegExp(bio).test(user.userDescription));
+
+        if (bannableBioTextFound) {
             this.canAutoBan = true;
-        } else if (reportableBioText.some(bio => user.userDescription && new RegExp(bio).test(user.userDescription))) {
+            this.hitReason = `Bio text matched regex: ${markdownEscape(bannableBioTextFound)}`;
+        } else if (reportableBioTextFound) {
             this.canAutoBan = false;
+            this.hitReason = `Bio text matched regex: ${markdownEscape(reportableBioTextFound)}`;
         } else {
             return false;
         }

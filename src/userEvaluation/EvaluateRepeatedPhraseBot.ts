@@ -17,9 +17,13 @@ export class EvaluateRepeatedPhraseBot extends UserEvaluatorBase {
         const caseSensitive = this.variables["repeatedphrase:casesensitive"] as boolean | undefined ?? false;
 
         if (caseSensitive) {
-            return phrases.some(phrase => comment.body.includes(phrase));
+            const matchedPhrases = phrases.filter(phrase => comment.body.includes(phrase));
+            this.hitReason = `Matched phrases: ${matchedPhrases.join(", ")}`;
+            return matchedPhrases.length > 0;
         } else {
-            return phrases.some(phrase => comment.body.toLowerCase().includes(phrase.toLowerCase()));
+            const matchedPhrases = phrases.filter(phrase => comment.body.toLowerCase().includes(phrase.toLowerCase()));
+            this.hitReason = `Matched phrases: ${matchedPhrases.join(", ")}`;
+            return matchedPhrases.length > 0;
         }
     }
 
