@@ -62,7 +62,9 @@ export async function evaluateUserAccount (username: string, context: JobContext
 
         const isABot = await Promise.resolve(evaluator.evaluate(user, userItems));
         if (isABot) {
-            console.log(`Evaluator: ${username} appears to be a bot via the evaluator: ${evaluator.name} 💥`);
+            if (evaluator.name !== "CQS Tester") {
+                console.log(`Evaluator: ${username} appears to be a bot via the evaluator: ${evaluator.name} 💥`);
+            }
             detectedBots.push(evaluator);
         } else {
             const regex = /^(?:[A-Z][a-z]+[_-]?){2}\\d{2,4}$/;
