@@ -24,7 +24,7 @@ export class EvaluateObfuscatedBioKeywords extends UserEvaluatorBase {
             for (let i = 0; i < keyword.length; i++) {
                 keyword[i] = keyword[i].replace("i", "[i1]");
                 keyword[i] = keyword[i].replace("o", "[o0]");
-                keyword[i] = keyword[i].replace("a", "[a4]");
+                keyword[i] = keyword[i].replace("a", "[a4@]");
                 keyword[i] = keyword[i].replace("e", "[e3]");
                 keyword[i] = keyword[i].replace("s", "[s5]");
                 keyword[i] = keyword[i].replace("t", "[t7]");
