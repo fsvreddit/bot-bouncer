@@ -18,25 +18,25 @@ export class EvaluateObfuscatedBioKeywords extends UserEvaluatorBase {
         }
 
         const keywords = this.getKeywords();
-        for (const originalKeyword of keywords) {
+        for (const keyword of keywords) {
             // eslint-disable-next-line @typescript-eslint/no-misused-spread
-            const keyword = [...originalKeyword.toLowerCase()];
-            for (let i = 0; i < keyword.length; i++) {
-                keyword[i] = keyword[i].replace("i", "[i1]");
-                keyword[i] = keyword[i].replace("o", "[o0]");
-                keyword[i] = keyword[i].replace("a", "[a4@]");
-                keyword[i] = keyword[i].replace("e", "[e3]");
-                keyword[i] = keyword[i].replace("s", "[s5]");
-                keyword[i] = keyword[i].replace("t", "[t7]");
-                keyword[i] = keyword[i].replace("b", "[b6]");
-                keyword[i] = keyword[i].replace("g", "[g9]");
-                keyword[i] = keyword[i].replace("l", "[l1]");
-                keyword[i] = keyword[i].replace("z", "[z2]");
+            const keywordLetters = [...keyword.toLowerCase()];
+            for (let i = 0; i < keywordLetters.length; i++) {
+                keywordLetters[i] = keywordLetters[i].replace("i", "[i1]");
+                keywordLetters[i] = keywordLetters[i].replace("o", "[o0]");
+                keywordLetters[i] = keywordLetters[i].replace("a", "[a4@]");
+                keywordLetters[i] = keywordLetters[i].replace("e", "[e3]");
+                keywordLetters[i] = keywordLetters[i].replace("s", "[s5]");
+                keywordLetters[i] = keywordLetters[i].replace("t", "[t7]");
+                keywordLetters[i] = keywordLetters[i].replace("b", "[b6]");
+                keywordLetters[i] = keywordLetters[i].replace("g", "[g9]");
+                keywordLetters[i] = keywordLetters[i].replace("l", "[l1]");
+                keywordLetters[i] = keywordLetters[i].replace("z", "[z2]");
             }
 
-            const regexText = keyword[0]
+            const regexText = keywordLetters[0]
                 + ".?"
-                + keyword.slice(1).join(".{0,2}");
+                + keywordLetters.slice(1).join(".{0,2}");
 
             const regex = new RegExp("\\b" + regexText + "\\b", "i");
             const matches = user.userDescription.match(regex);
@@ -44,7 +44,7 @@ export class EvaluateObfuscatedBioKeywords extends UserEvaluatorBase {
                 continue;
             }
 
-            if (matches[0].toLowerCase() === originalKeyword.toLowerCase()) {
+            if (matches[0].toLowerCase() === keyword.toLowerCase()) {
                 continue;
             }
 
