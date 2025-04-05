@@ -35,8 +35,8 @@ export class EvaluateObfuscatedBioKeywords extends UserEvaluatorBase {
             }
 
             const regexText = keyword[0]
-                + keyword.slice(1, -1).join(".{0,2}")
-                + keyword[keyword.length - 1];
+                + ".?"
+                + keyword.slice(1).join(".{0,2}");
 
             const regex = new RegExp("\\b" + regexText + "\\b", "i");
             const matches = user.userDescription.match(regex);
