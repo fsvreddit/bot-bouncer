@@ -7,7 +7,9 @@ import { count } from "@wordpress/wordcount";
 import { isUserPotentiallyBlockingBot } from "./blockChecker.js";
 import pluralize from "pluralize";
 import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
-import { getUserExtended } from "../extendedDevvit.js";
+import { getUserExtended, UserExtended } from "../extendedDevvit.js";
+import { ALL_EVALUATORS } from "../userEvaluation/allEvaluators.js";
+import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
 
 function formatDifferenceInDates (start: Date, end: Date) {
     const units: (keyof Duration)[] = ["years", "months", "days"];
@@ -196,12 +198,12 @@ function getHighCountDomains (history: Post[] | Comment[]): string {
 
 export async function getSummaryTextForUser (username: string, context: TriggerContext): Promise<string | undefined> {
     const user = await getUserOrUndefined(username, context);
-    if (!user) {
+    const extendedUser = await getUserExtended(username, context);
+
+    if (!user || !extendedUser) {
         console.log(`User Summary: User ${username} is already shadowbanned or suspended, so summary will not be created.`);
         return;
     }
-
-    const extendedUser = await getUserExtended(username, context);
 
     console.log(`User Summary: Creating summary for ${username}`);
 
@@ -212,7 +214,7 @@ export async function getSummaryTextForUser (username: string, context: TriggerC
     summary += `* Comment karma: ${user.commentKarma}\n`;
     summary += `* Post karma: ${user.linkKarma}\n`;
     summary += `* Verified Email: ${user.hasVerifiedEmail ? "Yes" : "No"}\n`;
-    summary += `* Subreddit Moderator: ${extendedUser?.isModerator ? "Yes" : "No"}\n`;
+    summary += `* Subreddit Moderator: ${extendedUser.isModerator ? "Yes" : "No"}\n`;
 
     const socialLinks = await user.getSocialLinks();
     const uniqueSocialDomains = compact(uniq(socialLinks.map(link => domainFromUrl(link.outboundUrl))));
@@ -259,17 +261,17 @@ export async function getSummaryTextForUser (username: string, context: TriggerC
         summary += "* User is not blocking u/bot-bouncer\n";
     }
 
-    const userHasGold = extendedUser?.isGold;
+    const userHasGold = extendedUser.isGold;
     if (userHasGold) {
         summary += "* User has Reddit Premium\n";
     }
 
-    const userDisplayName = extendedUser?.displayName;
+    const userDisplayName = extendedUser.displayName;
     if (userDisplayName) {
         summary += `* Display name: ${userDisplayName}\n`;
     }
 
-    const userBio = extendedUser?.userDescription;
+    const userBio = extendedUser.userDescription;
     if (userBio) {
         if (userBio.includes("\n")) {
             summary += `* Bio:\n\n> ${userBio.split("\n").join("\n> ")}\n`;
@@ -279,6 +281,11 @@ export async function getSummaryTextForUser (username: string, context: TriggerC
     }
 
     summary += "\n";
+
+    const matchedEvaluators = await evaluatorsMatched(extendedUser, [...userComments, ...userPosts], context);
+    if (matchedEvaluators.length > 0) {
+        summary += `User matches the following evaluators: ${matchedEvaluators.join(", ")}\n`;
+    }
 
     if (userComments.length > 0) {
         summary += "## Comments\n\n";
@@ -374,4 +381,28 @@ export async function createUserSummary (username: string, postId: string, conte
     await newComment.remove();
 
     console.log(`User Summary: Summary created for ${username}`);
+}
+
+async function evaluatorsMatched (user: UserExtended, userHistory: (Post | Comment)[], context: TriggerContext): Promise<string[]> {
+    const evaluatorsMatched: string[] = [];
+    const evaluatorVariables = await getEvaluatorVariables(context);
+
+    for (const Evaluator of ALL_EVALUATORS) {
+        const evaluator = new Evaluator(context, evaluatorVariables);
+        if (evaluator.evaluatorDisabled()) {
+            continue;
+        }
+
+        const userEvaluate = await Promise.resolve(evaluator.preEvaluateUser(user));
+        if (!userEvaluate) {
+            continue;
+        }
+
+        const fullEvaluate = await Promise.resolve(evaluator.evaluate(user, userHistory));
+        if (fullEvaluate) {
+            evaluatorsMatched.push(evaluator.name);
+        }
+    }
+
+    return evaluatorsMatched;
 }
