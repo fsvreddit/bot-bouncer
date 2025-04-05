@@ -29,6 +29,10 @@ export class EvaluateDomainSharer extends UserEvaluatorBase {
         return uniq(compact((domains)).filter(domain => !redditDomains.includes(domain) && !ignoredDomains.includes(domain)));
     }
 
+    private ignoredSubreddits () {
+        return this.variables["domainsharer:ignoredsubreddits"] as string[] | undefined ?? [];
+    }
+
     private domainsFromPost (post: Post): string[] {
         const domains: (string | undefined)[] = [];
         if (!post.url.startsWith("/")) {
@@ -49,10 +53,18 @@ export class EvaluateDomainSharer extends UserEvaluatorBase {
             return false;
         }
 
+        if (event.subreddit?.name && this.ignoredSubreddits().includes(event.subreddit.name)) {
+            return false;
+        }
+
         return this.domainsFromContent(event.comment.body).length > 0;
     }
 
     override preEvaluatePost (post: Post): boolean {
+        if (this.ignoredSubreddits().includes(post.subredditName)) {
+            return false;
+        }
+
         return this.domainsFromPost(post).length > 0;
     }
 
@@ -68,8 +80,8 @@ export class EvaluateDomainSharer extends UserEvaluatorBase {
             return false;
         }
 
-        const recentPosts = recentContent.filter(item => isLinkId(item.id)) as Post[];
-        const recentComments = recentContent.filter(item => isCommentId(item.id)) as Comment[];
+        const recentPosts = recentContent.filter(item => isLinkId(item.id) && !this.ignoredSubreddits().includes(item.subredditName)) as Post[];
+        const recentComments = recentContent.filter(item => isCommentId(item.id) && !this.ignoredSubreddits().includes(item.subredditName)) as Comment[];
 
         const domains: string[] = [];
         for (const post of recentPosts) {
