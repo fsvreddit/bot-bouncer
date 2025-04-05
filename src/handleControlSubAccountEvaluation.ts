@@ -82,7 +82,7 @@ export async function evaluateUserAccount (username: string, context: JobContext
 
     const allStats: Record<string, EvaluatorStats> = existingStatsVal ? JSON.parse(existingStatsVal) as Record<string, EvaluatorStats> : {};
 
-    for (const bot of detectedBots) {
+    for (const bot of detectedBots.filter(bot => bot.name !== "CQS Tester")) {
         const botStats = allStats[bot.name] ?? { hitCount: 0, lastHit: 0 };
         botStats.hitCount++;
         botStats.lastHit = new Date().getTime();
