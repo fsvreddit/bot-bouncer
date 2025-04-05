@@ -1,4 +1,4 @@
-import { Post, TriggerContext } from "@devvit/public-api";
+import { Comment, Post, TriggerContext } from "@devvit/public-api";
 import { subYears } from "date-fns";
 import { UserExtended } from "../extendedDevvit.js";
 import { EvaluateSecretLinksBot } from "./EvaluateSecretLinksBot.js";
@@ -31,8 +31,28 @@ test("User with matching bio with a pinned post", () => {
     expect(result).toBeTruthy();
 });
 
-test("User with matching bio with no pinned post", () => {
-    const history = [] as unknown as Post[];
+test("User with matching bio with no pinned post but a distinguished comment", () => {
+    const history = [
+        {
+            id: "t1_fake",
+            isDistinguished: () => true,
+            subredditName: `u_${mockUser.username}`,
+        },
+    ] as unknown as Comment[];
+
+    const evaluator = new EvaluateSecretLinksBot({} as unknown as TriggerContext, { });
+    const result = evaluator.evaluate(mockUser, history);
+    expect(result).toBeTruthy();
+});
+
+test("User with matching bio with no pinned post and no distinguished comment", () => {
+    const history = [
+        {
+            id: "t1_fake",
+            isDistinguished: () => false,
+            subredditName: `u_${mockUser.username}`,
+        },
+    ] as unknown as Comment[];
 
     const evaluator = new EvaluateSecretLinksBot({} as unknown as TriggerContext, { });
     const result = evaluator.evaluate(mockUser, history);

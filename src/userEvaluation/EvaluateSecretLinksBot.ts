@@ -2,7 +2,7 @@ import { Comment, Post } from "@devvit/public-api";
 import { CommentCreate } from "@devvit/protos";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
 import { UserExtended } from "../extendedDevvit.js";
-import { isLinkId } from "@devvit/shared-types/tid.js";
+import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
 
 export class EvaluateSecretLinksBot extends UserEvaluatorBase {
     override name = "Secret Links Bot";
@@ -24,8 +24,10 @@ export class EvaluateSecretLinksBot extends UserEvaluatorBase {
         return user.commentKarma < 2500 && new RegExp(regexText).test(user.userDescription ?? "");
     }
 
-    override evaluate (_user: UserExtended, history: (Post | Comment)[]): boolean {
+    override evaluate (user: UserExtended, history: (Post | Comment)[]): boolean {
         const posts = history.filter(item => isLinkId(item.id)) as Post[];
-        return posts.some(post => post.stickied);
+        const comments = history.filter(item => isCommentId(item.id)) as Comment[];
+        return posts.some(post => post.stickied)
+            || comments.some(comment => comment.isDistinguished() && comment.subredditName === `u_${user.username}`);
     }
 }
