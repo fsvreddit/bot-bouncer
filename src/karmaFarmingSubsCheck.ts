@@ -1,4 +1,4 @@
-import { JobContext, JSONObject, Post, ScheduledJobEvent } from "@devvit/public-api";
+import { JobContext, JSONObject, Post, ScheduledJobEvent, ZMember } from "@devvit/public-api";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { uniq } from "lodash";
 import { CONTROL_SUBREDDIT, EVALUATE_KARMA_FARMING_SUBS } from "./constants.js";
@@ -9,7 +9,6 @@ import { addMinutes, addSeconds } from "date-fns";
 import { getUserExtended } from "./extendedDevvit.js";
 import { createNewSubmission } from "./postCreation.js";
 import pluralize from "pluralize";
-import { ZMember } from "@devvit/protos";
 
 const CHECK_DATE_KEY = "KarmaFarmingSubsCheckDates";
 
