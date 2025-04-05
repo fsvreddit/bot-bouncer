@@ -54,6 +54,8 @@ export class EvaluateBioText extends UserEvaluatorBase {
             this.canAutoBan = true;
         } else if (reportableBioText.some(bio => user.userDescription && new RegExp(bio).test(user.userDescription))) {
             this.canAutoBan = false;
+        } else {
+            return false;
         }
 
         return true;
