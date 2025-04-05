@@ -62,8 +62,6 @@ async function addControlSubredditJobs (context: TriggerContext) {
     await handleExternalSubmissionsPageUpdate(context);
     await removeRetiredEvaluatorsFromStats(context);
 
-    await context.redis.zRem("KarmaFarmingSubsCheckDates", ["WhatIsMyCQS"]);
-
     console.log("App Install: Control subreddit jobs added");
 }
 
