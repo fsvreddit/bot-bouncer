@@ -1,6 +1,6 @@
 import { TriggerContext } from "@devvit/public-api";
 import { ModAction } from "@devvit/protos";
-import { CONTROL_SUBREDDIT, UPDATE_EVALUATOR_VARIABLES } from "./constants.js";
+import { CONTROL_SUBREDDIT, UniversalJob } from "./constants.js";
 import { recordWhitelistUnban, removeRecordOfBan } from "./handleClientSubredditWikiUpdate.js";
 import { handleExternalSubmissionsPageUpdate } from "./externalSubmissions.js";
 import { validateControlSubConfigChange } from "./settings.js";
@@ -61,7 +61,7 @@ async function handleModActionControlSub (event: ModAction, context: TriggerCont
             handleExternalSubmissionsPageUpdate(context),
             validateControlSubConfigChange(event.moderator.name, context),
             context.scheduler.runJob({
-                name: UPDATE_EVALUATOR_VARIABLES,
+                name: UniversalJob.UpdateEvaluatorVariables,
                 runAt: new Date(),
                 data: { username: event.moderator.name },
             }),

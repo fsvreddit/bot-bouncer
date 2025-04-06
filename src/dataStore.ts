@@ -2,7 +2,7 @@ import { JobContext, TriggerContext, WikiPagePermissionLevel, WikiPage, CreateMo
 import { compact, max, toPairs, uniq } from "lodash";
 import pako from "pako";
 import { scheduleAdhocCleanup, setCleanupForSubmittersAndMods, setCleanupForUsers } from "./cleanup.js";
-import { CONTROL_SUBREDDIT, HANDLE_CLASSIFICATION_CHANGES_JOB } from "./constants.js";
+import { ClientSubredditJob, CONTROL_SUBREDDIT } from "./constants.js";
 import { addSeconds, addWeeks, startOfSecond, subDays, subHours, subWeeks } from "date-fns";
 import pluralize from "pluralize";
 import { getControlSubSettings } from "./settings.js";
@@ -337,7 +337,7 @@ export async function updateLocalStoreFromWiki (_: unknown, context: JobContext)
 
         if (bannedUsers.length > 0 || unbannedUsers.length > 0) {
             await context.scheduler.runJob({
-                name: HANDLE_CLASSIFICATION_CHANGES_JOB,
+                name: ClientSubredditJob.HandleClassificationChanges,
                 runAt: new Date(),
                 data: { bannedUsers, unbannedUsers },
             });

@@ -1,5 +1,5 @@
 import { SettingsFormField, SettingsFormFieldValidatorEvent, TriggerContext, WikiPage, WikiPagePermissionLevel } from "@devvit/public-api";
-import { CONTROL_SUBREDDIT, COPY_CONTROL_SUB_SETTINGS } from "./constants.js";
+import { CONTROL_SUBREDDIT, ControlSubredditJob } from "./constants.js";
 import Ajv, { JSONSchemaType } from "ajv";
 import { addHours } from "date-fns";
 
@@ -168,7 +168,7 @@ async function handleHoneypotModeEnable (event: SettingsFormFieldValidatorEvent<
     await context.redis.set(redisKey, new Date().getTime().toString());
 }
 
-interface ControlSubSettings {
+export interface ControlSubSettings {
     evaluationDisabled: boolean;
     proactiveEvaluationEnabled?: boolean;
     maxInactivityMonths?: number;
@@ -177,6 +177,9 @@ interface ControlSubSettings {
     numberOfWikiPages?: number;
     bulkSubmitters?: string[];
     cleanupDisabled?: boolean;
+    uptimeMonitoringEnabled?: boolean;
+    messageMonitoringEnabled?: boolean;
+    monitoringWebhook?: string;
 }
 
 const CONTROL_SUB_SETTINGS_WIKI_PAGE = "control-sub-settings";
@@ -193,6 +196,9 @@ const schema: JSONSchemaType<ControlSubSettings> = {
         numberOfWikiPages: { type: "number", nullable: true },
         bulkSubmitters: { type: "array", items: { type: "string" }, nullable: true },
         cleanupDisabled: { type: "boolean", nullable: true },
+        uptimeMonitoringEnabled: { type: "boolean", nullable: true },
+        messageMonitoringEnabled: { type: "boolean", nullable: true },
+        monitoringWebhook: { type: "string", nullable: true },
     },
     required: ["evaluationDisabled", "trustedSubmitters", "reporterBlacklist"],
 };
@@ -301,7 +307,7 @@ export async function validateControlSubConfigChange (username: string, context:
     await context.redis.set(redisKey, wikiPage.revisionId);
 
     await context.scheduler.runJob({
-        name: COPY_CONTROL_SUB_SETTINGS,
+        name: ControlSubredditJob.CopyControlSubSettings,
         runAt: new Date(),
     });
 }

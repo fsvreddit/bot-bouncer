@@ -5,7 +5,7 @@ import { getUserStatus, UserStatus } from "./dataStore.js";
 import { setCleanupForUsers } from "./cleanup.js";
 import { AppSetting, CONFIGURATION_DEFAULTS } from "./settings.js";
 import { isBanned, replaceAll } from "./utility.js";
-import { HANDLE_CLASSIFICATION_CHANGES_JOB } from "./constants.js";
+import { ClientSubredditJob } from "./constants.js";
 import { fromPairs } from "lodash";
 import { recordBanForDigest, removeRecordOfBanForDigest } from "./modmail/dailyDigest.js";
 
@@ -190,7 +190,7 @@ export async function handleClassificationChanges (event: ScheduledJobEvent<JSON
         const remainingUsers = bannedUsers.slice(userCount);
         if (remainingUsers.length > 0) {
             await context.scheduler.runJob({
-                name: HANDLE_CLASSIFICATION_CHANGES_JOB,
+                name: ClientSubredditJob.HandleClassificationChanges,
                 runAt: addSeconds(new Date(), 5),
                 data: { bannedUsers: remainingUsers, unbannedUsers: [] },
             });

@@ -1,6 +1,6 @@
 import { TriggerContext } from "@devvit/public-api";
 import { PostCreate } from "@devvit/protos";
-import { CONTROL_SUBREDDIT, EVALUATE_USER } from "./constants.js";
+import { CONTROL_SUBREDDIT, ControlSubredditJob } from "./constants.js";
 import { getUsernameFromUrl, isModerator } from "./utility.js";
 import { getUserStatus, UserDetails, UserStatus } from "./dataStore.js";
 import { subMonths } from "date-fns";
@@ -98,7 +98,7 @@ export async function handleControlSubSubmission (event: PostCreate, context: Tr
             submissionResponse = `Hi, thanks for your submission.\n\nThe post tracking ${user.username} can be found [here](${newPost.permalink}).\n\nYour post has been removed, and can be deleted.`;
 
             await context.scheduler.runJob({
-                name: EVALUATE_USER,
+                name: ControlSubredditJob.EvaluateUser,
                 runAt: new Date(),
                 data: {
                     username: user.username,

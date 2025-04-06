@@ -1,7 +1,7 @@
 import { JobContext, JSONObject, Post, ScheduledJobEvent, ZMember } from "@devvit/public-api";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { uniq } from "lodash";
-import { CONTROL_SUBREDDIT, EVALUATE_KARMA_FARMING_SUBS } from "./constants.js";
+import { CONTROL_SUBREDDIT, ControlSubredditJob } from "./constants.js";
 import { getUserStatus, UserDetails, UserStatus } from "./dataStore.js";
 import { evaluateUserAccount } from "./handleControlSubAccountEvaluation.js";
 import { getControlSubSettings } from "./settings.js";
@@ -154,7 +154,7 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
     if (accounts.length > 0) {
         const nextRunSeconds = userBanned ? 30 : 0;
         await context.scheduler.runJob({
-            name: EVALUATE_KARMA_FARMING_SUBS,
+            name: ControlSubredditJob.EvaluateKarmaFarmingSubs,
             runAt: addSeconds(new Date(), nextRunSeconds),
             data: { accounts },
         });

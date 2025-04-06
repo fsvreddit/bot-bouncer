@@ -1,5 +1,5 @@
 import { JobContext, TriggerContext, WikiPage } from "@devvit/public-api";
-import { CONTROL_SUBREDDIT, EVALUATE_USER, EXTERNAL_SUBMISSION_JOB, EXTERNAL_SUBMISSION_JOB_CRON } from "./constants.js";
+import { CONTROL_SUBREDDIT, ControlSubredditJob, EXTERNAL_SUBMISSION_JOB_CRON } from "./constants.js";
 import { getUserStatus, setUserStatus, UserDetails, UserStatus } from "./dataStore.js";
 import { getControlSubSettings } from "./settings.js";
 import Ajv, { JSONSchemaType } from "ajv";
@@ -111,7 +111,7 @@ export async function scheduleAdhocExternalSubmissionsJob (context: TriggerConte
     }
 
     const currentJobs = await context.scheduler.listJobs();
-    const externalSubmissionJobs = currentJobs.filter(job => job.name === EXTERNAL_SUBMISSION_JOB);
+    const externalSubmissionJobs = currentJobs.filter(job => job.name === ControlSubredditJob.ExternalSubmission as string);
     if (externalSubmissionJobs.length > 1) {
         console.log("External Submissions: Multiple jobs already scheduled.");
         return;
@@ -124,7 +124,7 @@ export async function scheduleAdhocExternalSubmissionsJob (context: TriggerConte
     }
 
     await context.scheduler.runJob({
-        name: EXTERNAL_SUBMISSION_JOB,
+        name: ControlSubredditJob.ExternalSubmission,
         runAt: addSeconds(new Date(), delay),
     });
 
@@ -288,7 +288,7 @@ export async function processExternalSubmissions (_: unknown, context: JobContex
 
     if (!controlSubSettings.evaluationDisabled && newStatus === UserStatus.Pending) {
         await context.scheduler.runJob({
-            name: EVALUATE_USER,
+            name: ControlSubredditJob.EvaluateUser,
             runAt: addSeconds(new Date(), 10),
             data: {
                 username: item.username,

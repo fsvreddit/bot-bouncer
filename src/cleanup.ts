@@ -1,7 +1,7 @@
 import { TriggerContext } from "@devvit/public-api";
 import { addDays, addHours, addMinutes, subMinutes } from "date-fns";
 import { parseExpression } from "cron-parser";
-import { ADHOC_CLEANUP_JOB, CLEANUP_JOB, CLEANUP_JOB_CRON, CONTROL_SUBREDDIT, PostFlairTemplate } from "./constants.js";
+import { CLEANUP_JOB_CRON, CONTROL_SUBREDDIT, PostFlairTemplate, UniversalJob } from "./constants.js";
 import { deleteUserStatus, getUserStatus, removeRecordOfSubmitterOrMod, updateAggregate, UserDetails, UserStatus } from "./dataStore.js";
 import { getUserOrUndefined } from "./utility.js";
 import { removeRecordOfBan, removeWhitelistUnban } from "./handleClientSubredditWikiUpdate.js";
@@ -135,7 +135,7 @@ export async function cleanupDeletedAccounts (_: unknown, context: TriggerContex
     if (items.length > itemsToCheck) {
         // In a backlog, so force another run.
         await context.scheduler.runJob({
-            name: CLEANUP_JOB,
+            name: UniversalJob.Cleanup,
             runAt: new Date(),
         });
     } else {
@@ -165,13 +165,13 @@ export async function scheduleAdhocCleanup (context: TriggerContext) {
         console.log(`Cleanup: Next ad-hoc cleanup: ${nextCleanupJobTime.toUTCString()}`);
 
         const jobs = await context.scheduler.listJobs();
-        const cleanupJobs = jobs.filter(job => job.name === ADHOC_CLEANUP_JOB);
+        const cleanupJobs = jobs.filter(job => job.name === UniversalJob.AdhocCleanup as string);
         if (cleanupJobs.length > 0) {
             await Promise.all(cleanupJobs.map(job => context.scheduler.cancelJob(job.id)));
         }
 
         await context.scheduler.runJob({
-            name: ADHOC_CLEANUP_JOB,
+            name: UniversalJob.AdhocCleanup,
             runAt: nextCleanupJobTime > new Date() ? nextCleanupJobTime : new Date(),
         });
     } else {
