@@ -122,6 +122,11 @@ async function checkJobsAreApplicable (context: TriggerContext) {
     }
 
     const badJobs = allJobs.filter(job => !allowableJobs.includes(job.name));
+    if (badJobs.length === 0) {
+        console.log("App Install: All jobs validated.");
+        return;
+    }
+
     for (const job of badJobs) {
         console.error(`App Install: Job ${job.name} is not applicable to this subreddit!`);
     }

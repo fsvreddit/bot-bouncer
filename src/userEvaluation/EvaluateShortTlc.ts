@@ -34,7 +34,7 @@ export class EvaluateShortTlc extends UserEvaluatorBase {
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    override preEvaluatePost (post: Post): boolean {
+    override preEvaluatePost (_: Post): boolean {
         return false;
     }
 
