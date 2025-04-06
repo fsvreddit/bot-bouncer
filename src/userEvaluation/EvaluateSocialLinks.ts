@@ -51,7 +51,13 @@ export class EvaluateSocialLinks extends UserEvaluatorBase {
             return false;
         }
 
-        return userSocialLinks.some(link => badSocialLinks.includes(link.outboundUrl));
+        const badSocialLinksFound = userSocialLinks.filter(link => badSocialLinks.includes(link.outboundUrl));
+        if (badSocialLinksFound.length > 0) {
+            this.hitReason = `User has bad social links: ${badSocialLinksFound.map(link => link.outboundUrl).join(", ")}`;
+            return true;
+        }
+
+        return false;
     }
 
     override evaluate (_: UserExtended, history: (Post | Comment)[]): boolean {

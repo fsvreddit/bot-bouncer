@@ -2,6 +2,7 @@ import { Comment, Post } from "@devvit/public-api";
 import { CommentCreate } from "@devvit/protos";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
 import { UserExtended } from "../extendedDevvit.js";
+import markdownEscape from "markdown-escape";
 
 export class EvaluatePostTitle extends UserEvaluatorBase {
     override name = "Bad Post Title Bot";
@@ -47,14 +48,16 @@ export class EvaluatePostTitle extends UserEvaluatorBase {
 
         const { bannableTitles, reportableTitles } = this.getTitles();
 
-        const bannablePosts = userPosts.filter(post => bannableTitles.some(regex => new RegExp(regex).test(post.title)));
-        if (bannablePosts.length > 0) {
+        const matchedBanRegex = bannableTitles.find(title => userPosts.some(post => new RegExp(title).test(post.title)));
+        if (matchedBanRegex) {
+            this.hitReason = `Post title matched bannable regex: ${markdownEscape(matchedBanRegex)}`;
             this.canAutoBan = true;
             return true;
         }
 
-        const reportablePosts = userPosts.filter(post => reportableTitles.some(regex => new RegExp(regex).test(post.title)));
-        if (reportablePosts.length > 0) {
+        const matchedReportRegex = reportableTitles.find(title => userPosts.some(post => new RegExp(title).test(post.title)));
+        if (matchedReportRegex) {
+            this.hitReason = `Post title matched reportable regex: ${markdownEscape(matchedReportRegex)}`;
             this.canAutoBan = false;
             return true;
         }

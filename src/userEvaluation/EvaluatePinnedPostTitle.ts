@@ -3,6 +3,7 @@ import { CommentCreate } from "@devvit/protos";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
 import { domainFromUrl } from "../utility.js";
 import { UserExtended } from "../extendedDevvit.js";
+import markdownEscape from "markdown-escape";
 
 export class EvaluatePinnedPostTitles extends UserEvaluatorBase {
     override name = "Sticky Post Title Bot";
@@ -41,15 +42,17 @@ export class EvaluatePinnedPostTitles extends UserEvaluatorBase {
         }
 
         const bannableTitles = this.variables["pinnedpost:bantext"] as string[] | undefined ?? [];
-        const bannableStickyPosts = stickyPosts.filter(post => bannableTitles.some(regex => new RegExp(regex).test(post.title)));
-        if (bannableStickyPosts.length > 0) {
+        const matchedBanRegex = bannableTitles.find(title => stickyPosts.some(post => new RegExp(title).test(post.title)));
+        if (matchedBanRegex) {
+            this.hitReason = `Sticky post title matched regex: ${markdownEscape(matchedBanRegex)}`;
             this.canAutoBan = true;
             return true;
         }
 
         const reportableTitles = this.variables["pinnedpost:reporttext"] as string[] | undefined ?? [];
-        const reportableStickyPosts = stickyPosts.filter(post => reportableTitles.some(regex => new RegExp(regex).test(post.title)));
-        if (reportableStickyPosts.length > 0) {
+        const matchedReportRegex = reportableTitles.find(title => stickyPosts.some(post => new RegExp(title).test(post.title)));
+        if (matchedReportRegex) {
+            this.hitReason = `Sticky post title matched regex: ${markdownEscape(matchedReportRegex)}`;
             this.canAutoBan = false;
             return true;
         }
