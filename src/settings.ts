@@ -32,6 +32,13 @@ If Bot Bouncer has banned you from more than one subreddit, you don't need to ap
 You may appeal your shadowban by contacting the Reddit Admins [here](https://reddit.com/appeal). If you are able to get your shadowban lifted, please contact us again and we will be happy to review your classification status.
 
 *This is an automated message.*`,
+
+    recentAppealMade: `We have already received an appeal from you. There is no need to appeal for every subreddit that Bot Bouncer has banned you from.
+
+Your initial appeal will be reviewed shortly by a moderator. If accepted, the result of your appeal will apply to any subreddit using /r/${CONTROL_SUBREDDIT}.
+
+*This is an automated message.*`,
+
 };
 
 export enum AppSetting {

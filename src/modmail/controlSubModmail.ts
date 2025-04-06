@@ -4,6 +4,7 @@ import { getSummaryTextForUser } from "../UserSummary/userSummary.js";
 import { getUserOrUndefined } from "../utility.js";
 import { CONFIGURATION_DEFAULTS, getControlSubSettings } from "../settings.js";
 import { handleBulkSubmission } from "./bulkSubmission.js";
+import { addDays } from "date-fns";
 
 export async function handleControlSubredditModmail (username: string, conversationId: string, isFirstMessage: boolean, message: string | undefined, context: TriggerContext): Promise<boolean> {
     const controlSubSettings = await getControlSubSettings(context);
@@ -25,6 +26,21 @@ async function handleModmailFromUser (username: string, conversationId: string, 
         return false;
     }
 
+    const recentAppealKey = `recentAppeal~${username}`;
+    const recentAppealMade = await context.redis.get(recentAppealKey);
+
+    if (recentAppealMade) {
+        // User has already made an appeal recently, so we should tell the user it's already being handled.
+        await context.reddit.modMail.reply({
+            body: CONFIGURATION_DEFAULTS.recentAppealMade,
+            conversationId,
+            isInternal: false,
+            isAuthorHidden: false,
+        });
+        await context.reddit.modMail.archiveConversation(conversationId);
+        return true;
+    }
+
     const post = await context.reddit.getPostById(currentStatus.trackingPostId);
 
     let message = `/u/${username} is currently listed as ${currentStatus.userStatus}, set by ${currentStatus.operator} at ${new Date(currentStatus.lastUpdate).toUTCString()} and reported by ${currentStatus.submitter ?? "unknown"}\n\n`;
@@ -43,22 +59,32 @@ async function handleModmailFromUser (username: string, conversationId: string, 
         isInternal: true,
     });
 
+    if (currentStatus.userStatus !== UserStatus.Banned && currentStatus.userStatus !== UserStatus.Purged) {
+        // User is not banned or purged, so we should not send the "Appeal Received" message.
+        return true;
+    }
+
     const user = await getUserOrUndefined(username, context);
-
-    if (currentStatus.userStatus === UserStatus.Banned || currentStatus.userStatus === UserStatus.Purged) {
-        const message = user ? CONFIGURATION_DEFAULTS.appealMessage : CONFIGURATION_DEFAULTS.appealShadowbannedMessage;
-
+    if (!user) {
+        // User is not found, so we should not send the "Appeal Received" message.
         await context.reddit.modMail.reply({
-            body: message,
+            body: CONFIGURATION_DEFAULTS.appealShadowbannedMessage,
             conversationId,
             isInternal: false,
             isAuthorHidden: false,
         });
-
-        if (!user) {
-            await context.reddit.modMail.archiveConversation(conversationId);
-        }
+        await context.reddit.modMail.archiveConversation(conversationId);
+        return true;
     }
+
+    await context.reddit.modMail.reply({
+        body: CONFIGURATION_DEFAULTS.appealMessage,
+        conversationId,
+        isInternal: false,
+        isAuthorHidden: false,
+    });
+
+    await context.redis.set(recentAppealKey, new Date().getTime().toString(), { expiration: addDays(new Date(), 1) });
 
     return true;
 }

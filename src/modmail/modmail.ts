@@ -68,7 +68,9 @@ export async function handleModmail (event: ModMail, context: TriggerContext) {
     await setConversationHandled(event.conversationId, context);
 
     if (context.subredditName === CONTROL_SUBREDDIT) {
-        await handleControlSubredditModmail(username, event.conversationId, isFirstMessage, currentMessage?.bodyMarkdown, context);
+        if (isFirstMessage && firstMessage.author?.name === username) {
+            await handleControlSubredditModmail(username, event.conversationId, isFirstMessage, currentMessage?.bodyMarkdown, context);
+        }
     } else {
         if (conversationResponse.conversation.state === ModMailConversationState.Archived) {
             return;
