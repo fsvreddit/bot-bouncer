@@ -35,8 +35,12 @@ export class EvaluateSocialLinks extends UserEvaluatorBase {
             return false;
         }
 
-        const accountEligible = (user.commentKarma < 50 && user.createdAt > subMonths(new Date(), 1))
-            || (user.createdAt < subYears(new Date(), 5) && user.nsfw);
+        if (!user.nsfw) {
+            return false;
+        }
+
+        const accountEligible = (user.commentKarma < 50 && user.createdAt > subMonths(new Date(), 2))
+            || user.createdAt < subYears(new Date(), 5);
 
         if (!accountEligible) {
             return false;
