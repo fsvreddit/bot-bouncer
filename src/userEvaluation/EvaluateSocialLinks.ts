@@ -2,7 +2,7 @@ import { Comment, Post, User } from "@devvit/public-api";
 import { CommentCreate } from "@devvit/protos";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
 import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
-import { subMonths } from "date-fns";
+import { subMonths, subYears } from "date-fns";
 import { domainFromUrl } from "./evaluatorHelpers.js";
 import { UserExtended } from "../extendedDevvit.js";
 
@@ -35,7 +35,10 @@ export class EvaluateSocialLinks extends UserEvaluatorBase {
             return false;
         }
 
-        if (user.commentKarma > 50 || user.createdAt < subMonths(new Date(), 1)) {
+        const accountEligible = (user.commentKarma < 50 && user.createdAt > subMonths(new Date(), 1))
+            || (user.createdAt < subYears(new Date(), 5) && user.nsfw);
+
+        if (!accountEligible) {
             return false;
         }
 
