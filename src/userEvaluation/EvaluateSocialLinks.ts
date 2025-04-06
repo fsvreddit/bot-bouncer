@@ -76,7 +76,7 @@ export class EvaluateSocialLinks extends UserEvaluatorBase {
         const recentPosts = history.filter(item => isLinkId(item.id) && item.body !== "[removed]") as Post[];
         for (const post of recentPosts) {
             const postDomain = domainFromUrl(post.url);
-            if (postDomain && !this.getDomains().some(domain => postDomain.startsWith(domain))) {
+            if (postDomain && !this.getDomains().includes(postDomain)) {
                 this.setReason(`Post domain ${postDomain} is not in the allowed list`);
                 return false;
             }
