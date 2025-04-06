@@ -23,7 +23,6 @@ const variables = {
         "telegram",
         "snapchat",
         "whatsapp",
-        "Zangi",
     ],
 };
 
@@ -36,6 +35,13 @@ test("Bio text that should be banned", () => {
 
 test("Bio text that should be banned 2", () => {
     const fakeUser = createFakeUser("my whats4pp: carla18");
+    const mockTriggerContext = {} as unknown as TriggerContext;
+    const evaluator = new EvaluateObfuscatedBioKeywords(mockTriggerContext, variables);
+    expect(evaluator.preEvaluateUser(fakeUser)).toBeTruthy();
+});
+
+test("Bio text that should be banned 3", () => {
+    const fakeUser = createFakeUser("my T. E. L. E. G. R. A. M: carla18");
     const mockTriggerContext = {} as unknown as TriggerContext;
     const evaluator = new EvaluateObfuscatedBioKeywords(mockTriggerContext, variables);
     expect(evaluator.preEvaluateUser(fakeUser)).toBeTruthy();
