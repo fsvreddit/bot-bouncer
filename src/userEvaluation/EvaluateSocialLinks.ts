@@ -58,7 +58,7 @@ export class EvaluateSocialLinks extends UserEvaluatorBase {
             return false;
         }
 
-        const badSocialLinksFound = userSocialLinks.filter(link => badSocialLinks.includes(link.outboundUrl));
+        const badSocialLinksFound = userSocialLinks.filter(link => badSocialLinks.some(badLink => link.outboundUrl.startsWith(badLink)));
         if (badSocialLinksFound.length > 0) {
             this.hitReason = `User has bad social links: ${badSocialLinksFound.map(link => link.outboundUrl).join(", ")}`;
             return true;
@@ -76,7 +76,7 @@ export class EvaluateSocialLinks extends UserEvaluatorBase {
         const recentPosts = history.filter(item => isLinkId(item.id) && item.body !== "[removed]") as Post[];
         for (const post of recentPosts) {
             const postDomain = domainFromUrl(post.url);
-            if (postDomain && !this.getDomains().includes(postDomain)) {
+            if (postDomain && !this.getDomains().some(domain => postDomain.startsWith(domain))) {
                 this.setReason(`Post domain ${postDomain} is not in the allowed list`);
                 return false;
             }
