@@ -1,4 +1,4 @@
-import { Comment, JobContext, JSONObject, Post, ScheduledJobEvent } from "@devvit/public-api";
+import { Comment, JobContext, JSONObject, Post, ScheduledJobEvent, TriggerContext } from "@devvit/public-api";
 import { getUserStatus, UserStatus } from "./dataStore.js";
 import { CONTROL_SUBREDDIT, PostFlairTemplate } from "./constants.js";
 import { ALL_EVALUATORS } from "./userEvaluation/allEvaluators.js";
@@ -15,6 +15,7 @@ export interface EvaluatorStats {
 
 interface EvaluationResult {
     botName: string;
+    hitReason?: string;
     canAutoBan: boolean;
     metThreshold: boolean;
 }
@@ -94,7 +95,7 @@ export async function evaluateUserAccount (username: string, context: JobContext
     await context.redis.set(redisKey, JSON.stringify(allStats));
 
     const itemCount = userItems?.length ?? 0;
-    return detectedBots.map(bot => ({ botName: bot.name, canAutoBan: bot.canAutoBan, metThreshold: itemCount >= bot.banContentThreshold }));
+    return detectedBots.map(bot => ({ botName: bot.name, hitReason: bot.hitReason, canAutoBan: bot.canAutoBan, metThreshold: itemCount >= bot.banContentThreshold }));
 }
 
 export async function handleControlSubAccountEvaluation (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
@@ -142,5 +143,21 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
         flairTemplateId: PostFlairTemplate.Banned,
     });
 
+    const evaluationResultsToStore = evaluationResults.filter(result => result.canAutoBan);
+    if (evaluationResultsToStore.length > 0) {
+        await context.redis.hSet(USER_EVALUATION_RESULTS_KEY, { [username]: JSON.stringify(evaluationResultsToStore) });
+    }
+
     console.log(`Evaluator: Post flair changed for ${username}`);
+}
+
+export const USER_EVALUATION_RESULTS_KEY = "UserEvaluationResults";
+
+export async function getAccountInitialEvaluationResults (username: string, context: TriggerContext): Promise<EvaluationResult[]> {
+    const results = await context.redis.hGet(USER_EVALUATION_RESULTS_KEY, username);
+    if (!results) {
+        return [];
+    }
+
+    return JSON.parse(results) as EvaluationResult[];
 }

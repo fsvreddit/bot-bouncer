@@ -7,6 +7,7 @@ import { addSeconds, addWeeks, startOfSecond, subDays, subHours, subWeeks } from
 import pluralize from "pluralize";
 import { getControlSubSettings } from "./settings.js";
 import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
+import { USER_EVALUATION_RESULTS_KEY } from "./handleControlSubAccountEvaluation.js";
 
 export const USER_STORE = "UserStore";
 export const AGGREGATE_STORE = "AggregateStore";
@@ -120,6 +121,7 @@ export async function deleteUserStatus (usernames: string[], context: TriggerCon
 
     const promises = [
         context.redis.hDel(USER_STORE, usernames),
+        context.redis.hDel(USER_EVALUATION_RESULTS_KEY, usernames),
     ];
 
     const postsToDeleteTrackingFor = compact(currentStatuses.map(item => item?.trackingPostId));

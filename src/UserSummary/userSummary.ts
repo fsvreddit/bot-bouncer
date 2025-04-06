@@ -10,6 +10,7 @@ import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
 import { getUserExtended, UserExtended } from "../extendedDevvit.js";
 import { ALL_EVALUATORS } from "../userEvaluation/allEvaluators.js";
 import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
+import { getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
 
 function formatDifferenceInDates (start: Date, end: Date) {
     const units: (keyof Duration)[] = ["years", "months", "days"];
@@ -283,10 +284,26 @@ export async function getSummaryTextForUser (username: string, source: "modmail"
     summary += "\n";
 
     if (source === "modmail") {
+        const initialEvaluatorsMatched = await getAccountInitialEvaluationResults(username, context);
         const matchedEvaluators = await evaluatorsMatched(extendedUser, [...userComments, ...userPosts], context);
-        if (matchedEvaluators.length > 0) {
+        if (matchedEvaluators.length > 0 || initialEvaluatorsMatched.length > 0) {
             summary += "## Evaluation results\n\n";
-            summary += `User matched ${matchedEvaluators.length} ${pluralize("evaluator", matchedEvaluators.length)}\n\n`;
+        }
+
+        if (initialEvaluatorsMatched.length > 0) {
+            summary += `At the point of initial evaluation, user matched ${initialEvaluatorsMatched.length} ${pluralize("evaluator", initialEvaluatorsMatched.length)}\n\n`;
+            for (const evaluator of initialEvaluatorsMatched) {
+                summary += `* ${evaluator.botName} matched`;
+                if (evaluator.hitReason) {
+                    summary += `: ${evaluator.hitReason}`;
+                }
+                summary += "\n";
+            }
+            summary += "\n";
+        }
+
+        if (matchedEvaluators.length > 0) {
+            summary += `User currently matches ${matchedEvaluators.length} ${pluralize("evaluator", matchedEvaluators.length)}\n\n`;
             for (const evaluator of matchedEvaluators) {
                 summary += `* ${evaluator.name} matched`;
                 if (evaluator.hitReason) {
