@@ -36,12 +36,13 @@ export class EvaluateSuspiciousFirstPost extends UserEvaluatorBase {
 
     override preEvaluateUser (user: UserExtended): boolean {
         const maxAgeInDays = this.variables["suspiciousfirstpost:maxageindays"] as number | undefined ?? 14;
-        return user.createdAt > subDays(new Date(), maxAgeInDays) && user.commentKarma < 5;
+        return user.createdAt > subDays(new Date(), maxAgeInDays) && user.commentKarma < 50;
     }
 
     override evaluate (user: UserExtended, history: (Post | Comment)[]): boolean {
-        if (history.some(item => isCommentId(item.id))) {
-            this.setReason("User has made comments.");
+        const comments = history.filter(item => isCommentId(item.id)) as Comment[];
+        if (comments.length > 1) {
+            this.setReason("User has multiple comments.");
             return false;
         }
 
@@ -58,6 +59,15 @@ export class EvaluateSuspiciousFirstPost extends UserEvaluatorBase {
         if (!posts.every(post => this.eligiblePost(post))) {
             this.setReason("User has missing or mismatching posts.");
             return false;
+        }
+
+        if (comments.length > 0) {
+            const commentDate = comments[0].createdAt;
+            const postDate = posts[0].createdAt;
+            if (commentDate > postDate) {
+                this.setReason("User has a comment after the post.");
+                return false;
+            }
         }
 
         return true;
