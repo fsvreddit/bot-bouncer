@@ -5,6 +5,7 @@ import { subDays } from "date-fns";
 import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
 import { domainFromUrl } from "./evaluatorHelpers.js";
 import { UserExtended } from "../extendedDevvit.js";
+import markdownEscape from "markdown-escape";
 
 export class EvaluateSuspiciousFirstPost extends UserEvaluatorBase {
     override name = "Suspicious First Post";
@@ -39,7 +40,7 @@ export class EvaluateSuspiciousFirstPost extends UserEvaluatorBase {
         return user.createdAt > subDays(new Date(), maxAgeInDays) && user.commentKarma < 50;
     }
 
-    override evaluate (user: UserExtended, history: (Post | Comment)[]): boolean {
+    override evaluate (_: UserExtended, history: (Post | Comment)[]): boolean {
         const comments = history.filter(item => isCommentId(item.id)) as Comment[];
         if (comments.length > 1) {
             this.setReason("User has multiple comments.");
@@ -69,6 +70,8 @@ export class EvaluateSuspiciousFirstPost extends UserEvaluatorBase {
                 return false;
             }
         }
+
+        this.hitReason = `Sole post in ${markdownEscape(posts[0].subredditName)}`;
 
         return true;
     }
