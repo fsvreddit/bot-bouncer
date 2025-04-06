@@ -2,7 +2,7 @@ import { JobContext } from "@devvit/public-api";
 import { updateMainStatisticsPage } from "./mainStatistics.js";
 import { updateSubmitterStatistics } from "./submitterStatistics.js";
 import { updateEvaluatorHitsWikiPage } from "./evaluatorHitsStatistics.js";
-import { createTimeOfSubmissionStatistics } from "./timeOfSubmissionStatistits.js";
+import { createTimeOfSubmissionStatistics } from "./timeOfSubmissionStatistics.js";
 import { USER_STORE } from "../dataStore.js";
 
 export async function updateStatisticsPages (_: unknown, context: JobContext) {
