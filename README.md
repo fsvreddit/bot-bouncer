@@ -57,6 +57,7 @@ Note: v1.7.0 is the current public release.
 * Add new evaluator for suspect social links
 * Add new evaluator for suspicious first posts
 * Add new evaluators for OnlyFans bots with specific characteristics
+* Add new evaluator for edited comments that match certain characteristics
 * Internal changes to support operations on /r/BotBouncer
 
 ## v1.7.0
