@@ -11,6 +11,7 @@ const mockUser = {
 
 const variables = {
     "selfcomment:commentmaxminutes": 4,
+    "generic:karmafarminglinksubs": ["FunnyVideos"],
 };
 
 test("User with a self-comment", () => {
