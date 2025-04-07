@@ -1,6 +1,7 @@
 import { JobContext, WikiPage, WikiPagePermissionLevel } from "@devvit/public-api";
 import { UserDetails, UserStatus } from "../dataStore.js";
 import { uniq } from "lodash";
+import { subMonths } from "date-fns";
 
 interface SubmitterStatistic {
     submitter: string;
@@ -15,7 +16,11 @@ export async function updateSubmitterStatistics (allData: Record<string, string>
     const bannedStatuses: Record<string, number> = {};
 
     for (const status of allStatuses) {
-        if (!status.submitter) {
+        if (!status.submitter || !status.reportedAt) {
+            continue;
+        }
+
+        if (status.reportedAt < subMonths(new Date(), 1).getTime()) {
             continue;
         }
 
@@ -36,7 +41,8 @@ export async function updateSubmitterStatistics (allData: Record<string, string>
         submitterStatistics.push({ submitter: user, count: totalCount, ratio });
     }
 
-    let wikiContent = "Submitter statistics\n\n";
+    let wikiContent = "## Submitter statistics\n\n";
+    wikiContent += "This lists all users who have submitted an account for review within the last month.\n\n";
 
     for (const item of submitterStatistics.sort((a, b) => a.count - b.count)) {
         wikiContent += `* **${item.submitter}**: ${item.count} (${item.ratio}% banned)\n`;

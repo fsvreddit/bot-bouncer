@@ -93,8 +93,6 @@ export async function addExternalSubmissionFromClientSub (data: ExternalSubmissi
         content: JSON.stringify(currentUserList),
         reason: `Added a user via ${context.subredditName ? `/r/${context.subredditName}` : "an unknown subreddit"}. Type: ${submissionType}`,
     });
-
-    await scheduleAdhocExternalSubmissionsJob(context, 5);
 }
 
 export async function scheduleAdhocExternalSubmissionsJob (context: TriggerContext, delay = 20) {
