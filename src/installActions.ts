@@ -37,7 +37,7 @@ async function addControlSubredditJobs (context: TriggerContext) {
     });
 
     await context.scheduler.runJob({
-        name: ControlSubredditJob.UpdateWikiPage,
+        name: ControlSubredditJob.UpdateStatisticsPage,
         cron: "0 0 * * *",
     });
 
