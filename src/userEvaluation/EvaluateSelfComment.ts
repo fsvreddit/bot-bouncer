@@ -25,7 +25,8 @@ export class EvaluateSelfComment extends UserEvaluatorBase {
 
     private eligiblePost (post: Post): boolean {
         const domain = domainFromUrl(post.url);
-        return domain === "i.redd.it" || domain === "v.redd.it";
+        const karmaFarmingSubs = this.variables["generic:karmafarminglinksubs"] as string[] | undefined ?? [];
+        return (domain === "i.redd.it" || domain === "v.redd.it") && !post.nsfw && karmaFarmingSubs.includes(post.subredditName);
     }
 
     override preEvaluateComment (event: CommentCreate): boolean {
