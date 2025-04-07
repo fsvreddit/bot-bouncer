@@ -2,7 +2,6 @@ import { Comment, Post } from "@devvit/public-api";
 import { CommentCreate } from "@devvit/protos";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
 import { UserExtended } from "../extendedDevvit.js";
-import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
 
 export class EvaluateSecretLinksBot extends UserEvaluatorBase {
     override name = "Secret Links Bot";
@@ -25,8 +24,8 @@ export class EvaluateSecretLinksBot extends UserEvaluatorBase {
     }
 
     override evaluate (user: UserExtended, history: (Post | Comment)[]): boolean {
-        const posts = history.filter(item => isLinkId(item.id)) as Post[];
-        const comments = history.filter(item => isCommentId(item.id)) as Comment[];
+        const posts = this.getPosts(history);
+        const comments = this.getComments(history);
         return posts.some(post => post.stickied)
             || comments.some(comment => comment.isDistinguished() && comment.subredditName === `u_${user.username}`);
     }

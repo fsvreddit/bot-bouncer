@@ -2,7 +2,7 @@ import { CommentCreate } from "@devvit/protos";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
 import { Comment, Post } from "@devvit/public-api";
 import { addHours, subDays } from "date-fns";
-import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
+import { isCommentId } from "@devvit/shared-types/tid.js";
 import { UserExtended } from "../extendedDevvit.js";
 import { uniq } from "lodash";
 
@@ -55,12 +55,12 @@ export class EvaluateShortNonTLC extends UserEvaluatorBase {
     }
 
     override evaluate (user: UserExtended, history: (Post | Comment)[]): boolean {
-        if (history.filter(item => isLinkId(item.id)).length > 0) {
+        if (this.getPosts(history).length > 0) {
             this.setReason("User has posts");
             return false;
         }
 
-        const comments = history.filter(item => item instanceof Comment) as Comment[];
+        const comments = this.getComments(history);
         if (comments.some(comment => comment.body.length >= this.maxCommentLength())) {
             this.setReason("User has long comments");
             return false;

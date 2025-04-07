@@ -1,7 +1,6 @@
 import { Comment, Post, User } from "@devvit/public-api";
 import { CommentCreate } from "@devvit/protos";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
-import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
 import { subMonths, subYears } from "date-fns";
 import { domainFromUrl } from "./evaluatorHelpers.js";
 import { UserExtended } from "../extendedDevvit.js";
@@ -68,12 +67,12 @@ export class EvaluateSocialLinks extends UserEvaluatorBase {
     }
 
     override evaluate (_: UserExtended, history: (Post | Comment)[]): boolean {
-        const userComments = history.filter(item => isCommentId(item.id));
+        const userComments = this.getComments(history);
         if (userComments.length > 0) {
             return false;
         }
 
-        const recentPosts = history.filter(item => isLinkId(item.id) && item.body !== "[removed]") as Post[];
+        const recentPosts = this.getPosts(history, { since: subMonths(new Date(), 1), omitRemoved: true });
         for (const post of recentPosts) {
             const postDomain = domainFromUrl(post.url);
             if (postDomain && !this.getDomains().includes(postDomain)) {

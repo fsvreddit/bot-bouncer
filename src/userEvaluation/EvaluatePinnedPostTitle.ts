@@ -35,7 +35,7 @@ export class EvaluatePinnedPostTitles extends UserEvaluatorBase {
     }
 
     override evaluate (_: UserExtended, history: (Post | Comment)[]): boolean {
-        const stickyPosts = history.filter(item => item instanceof Post && item.stickied) as Post[];
+        const stickyPosts = this.getPosts(history).filter(post => post.stickied);
         if (stickyPosts.length === 0) {
             this.setReason("User has no sticky posts");
             return false;

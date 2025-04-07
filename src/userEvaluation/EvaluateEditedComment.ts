@@ -2,7 +2,6 @@ import { Comment, Post } from "@devvit/public-api";
 import { CommentCreate, CommentUpdate } from "@devvit/protos";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
 import { subDays } from "date-fns";
-import { isCommentId } from "@devvit/shared-types/tid.js";
 import { UserExtended } from "../extendedDevvit.js";
 
 export class EvaluateEditedComment extends UserEvaluatorBase {
@@ -51,9 +50,7 @@ export class EvaluateEditedComment extends UserEvaluatorBase {
     override evaluate (_: UserExtended, history: (Post | Comment)[]): boolean {
         const commentMaxAgeInDays = this.variables["commentedit:commentmaxageindays"] as number | undefined ?? 7;
 
-        const recentEditedComments = history.filter(item => isCommentId(item.id)
-            && item.createdAt > subDays(new Date(), commentMaxAgeInDays)
-            && item.edited) as Comment[];
+        const recentEditedComments = this.getComments(history, { since: subDays(new Date(), commentMaxAgeInDays), edited: true });
 
         if (recentEditedComments.length === 0) {
             this.setReason("User has not edited any recent comments");

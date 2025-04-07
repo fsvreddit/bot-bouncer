@@ -40,7 +40,7 @@ export class EvaluatePostTitle extends UserEvaluatorBase {
     }
 
     override evaluate (_: UserExtended, history: (Post | Comment)[]): boolean {
-        const userPosts = history.filter(item => item instanceof Post && item.stickied) as Post[];
+        const userPosts = this.getPosts(history);
         if (userPosts.length === 0) {
             this.setReason("User has no posts");
             return false;

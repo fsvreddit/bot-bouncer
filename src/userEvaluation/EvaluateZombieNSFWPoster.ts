@@ -1,7 +1,6 @@
 import { Comment, Post } from "@devvit/public-api";
 import { CommentCreate } from "@devvit/protos";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
-import { isLinkId } from "@devvit/shared-types/tid.js";
 import { subYears } from "date-fns";
 import { UserExtended } from "../extendedDevvit.js";
 
@@ -37,7 +36,7 @@ export class EvaluateZombieNSFW extends UserEvaluatorBase {
     }
 
     override evaluate (_: UserExtended, history: (Post | Comment)[]): boolean {
-        const posts = history.filter(item => isLinkId(item.id)) as Post[];
+        const posts = this.getPosts(history);
         const eligiblePosts = posts.filter(post => this.eligiblePost(post));
 
         const minPostsRequired = this.variables["zombiensfw:minposts"] as number | undefined ?? 5;

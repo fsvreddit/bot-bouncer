@@ -3,7 +3,6 @@ import { CommentCreate } from "@devvit/protos";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
 import { compact, countBy, toPairs, uniq } from "lodash";
 import { subMonths } from "date-fns";
-import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
 import { domainFromUrl } from "./evaluatorHelpers.js";
 import { UserExtended } from "../extendedDevvit.js";
 
@@ -73,15 +72,15 @@ export class EvaluateDomainSharer extends UserEvaluatorBase {
     }
 
     override evaluate (_: UserExtended, history: (Post | Comment)[]): boolean {
-        const recentContent = history.filter(item => item.createdAt > subMonths(new Date(), 6));
+        const contentInAllowedSubs = history.filter(item => !this.ignoredSubreddits().includes(item.subredditName));
 
-        if (recentContent.length < 5) {
+        if (contentInAllowedSubs.length < 5) {
             this.setReason("Not enough content to review.");
             return false;
         }
 
-        const recentPosts = recentContent.filter(item => isLinkId(item.id) && !this.ignoredSubreddits().includes(item.subredditName)) as Post[];
-        const recentComments = recentContent.filter(item => isCommentId(item.id) && !this.ignoredSubreddits().includes(item.subredditName)) as Comment[];
+        const recentPosts = this.getPosts(contentInAllowedSubs, { since: subMonths(new Date(), 6) });
+        const recentComments = this.getComments(contentInAllowedSubs, { since: subMonths(new Date(), 6) });
 
         const domains: string[] = [];
         for (const post of recentPosts) {
@@ -99,13 +98,13 @@ export class EvaluateDomainSharer extends UserEvaluatorBase {
 
         const domainAggregate = toPairs(countBy(domains)).map(([domain, count]) => ({ domain, count }));
 
-        const dominantDomains = domainAggregate.filter(item => item.count === recentContent.length);
+        const dominantDomains = domainAggregate.filter(item => item.count === contentInAllowedSubs.length);
         if (dominantDomains.length > 0) {
             const autobanDomains = this.variables["domainsharer:autobandomains"] as string[] | undefined ?? [];
             if (autobanDomains.some(domain => dominantDomains.some(item => item.domain === domain))) {
                 this.canAutoBan = true;
             }
-            this.hitReason = `User has shared ${recentContent.length} posts with the same domain: ${dominantDomains.map(item => item.domain).join(", ")}`;
+            this.hitReason = `User has shared ${contentInAllowedSubs.length} posts with the same domain: ${dominantDomains.map(item => item.domain).join(", ")}`;
             return true;
         } else {
             this.setReason("User content is not dominated by one domain");

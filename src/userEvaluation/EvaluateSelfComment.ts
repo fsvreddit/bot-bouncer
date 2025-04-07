@@ -3,7 +3,7 @@ import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
 import { Comment, Post } from "@devvit/public-api";
 import { addMinutes, subDays } from "date-fns";
 import { CommentV2 } from "@devvit/protos/types/devvit/reddit/v2alpha/commentv2.js";
-import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
+import { isLinkId } from "@devvit/shared-types/tid.js";
 import { domainFromUrl } from "./evaluatorHelpers.js";
 import { UserExtended } from "../extendedDevvit.js";
 
@@ -58,13 +58,13 @@ export class EvaluateSelfComment extends UserEvaluatorBase {
         const ignoredSubreddits = this.variables["selfcomment:ignoredsubs"] as string[] | undefined ?? [];
         ignoredSubreddits.push(...history.filter(item => item.subredditName.toLowerCase().includes("onlyfans")).map(item => item.subredditName));
 
-        const posts = history.filter(item => isLinkId(item.id) && item.body !== "[removed]") as Post[];
+        const posts = this.getPosts(history, { omitRemoved: true });
         if (posts.length === 0 || !posts.every(post => this.eligiblePost(post))) {
             this.setReason("User has missing or mismatching posts");
             return false;
         }
 
-        const comments = history.filter(item => isCommentId(item.id)) as Comment[];
+        const comments = this.getComments(history);
         if (comments.length === 0 || !comments.every(comment => this.eligibleComment(comment))) {
             this.setReason("User has missing or mismatching comments");
             return false;

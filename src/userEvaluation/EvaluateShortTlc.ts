@@ -58,7 +58,7 @@ export class EvaluateShortTlc extends UserEvaluatorBase {
     }
 
     override evaluate (_: UserExtended, history: (Post | Comment)[]): boolean {
-        const userComments = history.filter(item => item instanceof Comment) as Comment[];
+        const userComments = this.getComments(history);
 
         if (history.some(item => item instanceof Post && (item.subredditName !== "AskReddit" || item.url.includes("i.redd.it")))) {
             this.setReason("User has posts outside AskReddit/image posts");

@@ -58,13 +58,13 @@ export class EvaluateResumeSpam extends UserEvaluatorBase {
     }
 
     override evaluate (_: UserExtended, history: (Post | Comment)[]): boolean {
-        const userPosts = history.filter(item => item instanceof Post) as Post[];
+        const userPosts = this.getPosts(history);
         if (userPosts.some(post => !this.eligiblePost(post))) {
             this.setReason("User has ineligible posts");
             return false;
         }
 
-        const userComments = history.filter(item => item instanceof Comment) as Comment[];
+        const userComments = this.getComments(history);
 
         const phrases = this.variables["resume:phrases"] as string[] | undefined;
         if (!phrases) {

@@ -2,7 +2,7 @@ import { Comment, Post } from "@devvit/public-api";
 import { CommentCreate } from "@devvit/protos";
 import { CommentV2 } from "@devvit/protos/types/devvit/reddit/v2alpha/commentv2.js";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
-import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
+import { isLinkId } from "@devvit/shared-types/tid.js";
 import { subMonths } from "date-fns";
 import { last, uniq } from "lodash";
 import { domainFromUrl } from "./evaluatorHelpers.js";
@@ -68,8 +68,8 @@ export class EvaluateFirstCommentEmDash extends UserEvaluatorBase {
     }
 
     override evaluate (_: UserExtended, history: (Post | Comment)[]): boolean {
-        const comments = history.filter(item => isCommentId(item.id)) as Comment[];
-        const posts = history.filter(item => isLinkId(item.id)) as Post[];
+        const comments = this.getComments(history);
+        const posts = this.getPosts(history);
 
         if (comments.length > 30) {
             this.canAutoBan = false;

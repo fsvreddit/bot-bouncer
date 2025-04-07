@@ -2,7 +2,7 @@ import { Comment, Post } from "@devvit/public-api";
 import { CommentCreate } from "@devvit/protos";
 import { CommentV2 } from "@devvit/protos/types/devvit/reddit/v2alpha/commentv2.js";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
-import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
+import { isCommentId } from "@devvit/shared-types/tid.js";
 import { subDays, subMonths } from "date-fns";
 import { domainFromUrl } from "./evaluatorHelpers.js";
 import { UserExtended } from "../extendedDevvit.js";
@@ -65,7 +65,7 @@ export class EvaluateCQSTester extends UserEvaluatorBase {
     }
 
     override evaluate (_: UserExtended, history: (Post | Comment)[]): boolean {
-        const userPosts = history.filter(item => isLinkId(item.id)) as Post[];
+        const userPosts = this.getPosts(history);
         const titlesToCheck = ["Test", "test", "T", "t"];
         if (!userPosts.some(item => item.subredditName === "WhatIsMyCQS" && titlesToCheck.includes(item.title))) {
             this.setReason("User doesn't have a CQS Testing post");
@@ -77,7 +77,7 @@ export class EvaluateCQSTester extends UserEvaluatorBase {
             return false;
         }
 
-        const userComments = history.filter(item => isCommentId(item.id)) as Comment[];
+        const userComments = this.getComments(history);
         if (!userComments.every(item => this.eligibleComment(item))) {
             this.setReason("User has non-matching comments");
             return false;

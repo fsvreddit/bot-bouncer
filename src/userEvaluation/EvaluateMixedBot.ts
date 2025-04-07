@@ -3,7 +3,7 @@ import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
 import { Comment, Post } from "@devvit/public-api";
 import { subMonths, subYears } from "date-fns";
 import { CommentV2 } from "@devvit/protos/types/devvit/reddit/v2alpha/commentv2.js";
-import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
+import { isLinkId } from "@devvit/shared-types/tid.js";
 import { domainFromUrl } from "./evaluatorHelpers.js";
 import { UserExtended } from "../extendedDevvit.js";
 
@@ -74,8 +74,8 @@ export class EvaluateMixedBot extends UserEvaluatorBase {
             return false;
         }
 
-        const posts = history.filter(item => isLinkId(item.id) && item.body !== "[removed]" && item.createdAt > subMonths(new Date(), 1)) as Post[];
-        const comments = history.filter(item => isCommentId(item.id) && item.createdAt > subMonths(new Date(), 1)) as Comment[];
+        const posts = this.getPosts(history, { since: subMonths(new Date(), 1), omitRemoved: true });
+        const comments = this.getComments(history, { since: subMonths(new Date(), 1) });
 
         if (posts.length === 0 || comments.length === 0) {
             this.setReason("User has missing posts or comments");
