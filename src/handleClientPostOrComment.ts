@@ -1,5 +1,5 @@
 import { Post, Comment, TriggerContext, SettingsValues, JSONValue } from "@devvit/public-api";
-import { CommentCreate, PostCreate } from "@devvit/protos";
+import { CommentCreate, CommentUpdate, PostCreate } from "@devvit/protos";
 import { addDays, addMinutes, addWeeks, formatDate, subMinutes } from "date-fns";
 import { getUserStatus, UserDetails, UserStatus } from "./dataStore.js";
 import { isUserWhitelisted, recordBan } from "./handleClientSubredditWikiUpdate.js";
@@ -102,6 +102,63 @@ export async function handleClientCommentCreate (event: CommentCreate, context: 
 
     if (!possibleBot) {
         await checkForBotMentions(event, context);
+        return;
+    }
+
+    const redisKey = `lastbotcheck:${event.author.name}`;
+    const recentlyChecked = await context.redis.get(redisKey);
+    if (recentlyChecked) {
+        // Allow some rechecks within 15 minutes, to find rapid fire bots.
+        const lastCheck = new Date(parseInt(recentlyChecked));
+        if (lastCheck < subMinutes(new Date(), 15)) {
+            return;
+        }
+    }
+
+    await checkAndReportPotentialBot(event.author.name, event, settings, variables, context);
+
+    await context.redis.set(redisKey, new Date().getTime().toString(), { expiration: addDays(new Date(), 2) });
+}
+
+export async function handleClientCommentUpdate (event: CommentUpdate, context: TriggerContext) {
+    if (context.subredditName === CONTROL_SUBREDDIT) {
+        return;
+    }
+
+    if (!event.comment || !event.author?.name) {
+        return;
+    }
+
+    if (event.author.name === "AutoModerator" || event.author.name === `${context.subredditName}-ModTeam`) {
+        return;
+    }
+
+    const currentStatus = await getUserStatus(event.author.name, context);
+    if (currentStatus) {
+        return;
+    }
+
+    const settings = await context.settings.getAll();
+    if (!settings[AppSetting.ReportPotentialBots]) {
+        return;
+    }
+
+    const variables = await getEvaluatorVariables(context);
+
+    let possibleBot = false;
+    for (const Evaluator of ALL_EVALUATORS) {
+        const evaluator = new Evaluator(context, variables);
+        if (evaluator.evaluatorDisabled()) {
+            continue;
+        }
+
+        if (evaluator.preEvaluateCommentEdit(event)) {
+            possibleBot = true;
+            break;
+        }
+    }
+
+    if (!possibleBot) {
         return;
     }
 

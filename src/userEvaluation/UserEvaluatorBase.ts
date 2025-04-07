@@ -1,4 +1,4 @@
-import { CommentCreate } from "@devvit/protos";
+import { CommentCreate, CommentUpdate } from "@devvit/protos";
 import { Comment, Post, TriggerContext } from "@devvit/public-api";
 import { UserExtended } from "../extendedDevvit.js";
 
@@ -33,6 +33,11 @@ export abstract class UserEvaluatorBase {
     public hitReason: string | undefined = undefined;
 
     abstract preEvaluateComment (event: CommentCreate): boolean;
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    public preEvaluateCommentEdit (event: CommentUpdate): boolean {
+        return false;
+    }
 
     abstract preEvaluatePost (post: Post): boolean;
 

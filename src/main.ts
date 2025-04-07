@@ -11,7 +11,7 @@ import { handleModmail } from "./modmail/modmail.js";
 import { handleControlSubAccountEvaluation } from "./handleControlSubAccountEvaluation.js";
 import { handleReportUser, reportFormHandler } from "./handleReportUser.js";
 import { processExternalSubmissions } from "./externalSubmissions.js";
-import { handleClientCommentCreate, handleClientPostCreate } from "./handleClientPostOrComment.js";
+import { handleClientCommentCreate, handleClientCommentUpdate, handleClientPostCreate } from "./handleClientPostOrComment.js";
 import { handleClientSubCommentDelete, handleClientSubPostDelete } from "./handleClientSubContentDelete.js";
 import { handleClassificationChanges } from "./handleClientSubredditWikiUpdate.js";
 import { handleControlSubPostDelete } from "./handleControlSubPostDelete.js";
@@ -43,6 +43,11 @@ Devvit.addTrigger({
 Devvit.addTrigger({
     event: "CommentCreate",
     onEvent: handleClientCommentCreate,
+});
+
+Devvit.addTrigger({
+    event: "CommentUpdate",
+    onEvent: handleClientCommentUpdate,
 });
 
 Devvit.addTrigger({
