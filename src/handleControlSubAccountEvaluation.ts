@@ -43,9 +43,6 @@ export async function evaluateUserAccount (username: string, context: JobContext
 
         const userEvaluateResult = await Promise.resolve(evaluator.preEvaluateUser(user));
         if (!userEvaluateResult) {
-            if (verbose) {
-                console.log(`Evaluator: ${username} didn't match ${evaluator.name} pre-evaluate: ${evaluator.getReasons().join(", ")}`);
-            }
             continue;
         }
 
@@ -71,11 +68,6 @@ export async function evaluateUserAccount (username: string, context: JobContext
                 console.log(`Evaluator: ${username} appears to be a bot via the evaluator: ${evaluator.name} 💥`);
             }
             detectedBots.push(evaluator);
-        } else {
-            if (evaluator.name === "Short TLC New Bot") {
-                console.log(`Evaluator: ${username} didn't match ${evaluator.name}, but maybe should have done`);
-                console.log(evaluator.getReasons().join(", "));
-            }
         }
     }
 
