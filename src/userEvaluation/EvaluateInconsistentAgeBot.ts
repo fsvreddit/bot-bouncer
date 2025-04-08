@@ -8,7 +8,7 @@ import { subWeeks } from "date-fns";
 export class EvaluateInconsistentAgeBot extends UserEvaluatorBase {
     override name = "Inconsistent Age Bot";
     override killswitch = "inconsistentage:killswitch";
-    override banContentThreshold = 10;
+    override banContentThreshold = 6;
     override canAutoBan = true;
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -16,7 +16,7 @@ export class EvaluateInconsistentAgeBot extends UserEvaluatorBase {
         return false;
     }
 
-    private ageRegex = /^[MFTA]?([12][0-9])/;
+    private ageRegex = /^[MFTA]?([12][0-9])(?!$)/;
 
     override preEvaluatePost (post: Post): boolean {
         return this.ageRegex.test(post.title) && post.isNsfw();
