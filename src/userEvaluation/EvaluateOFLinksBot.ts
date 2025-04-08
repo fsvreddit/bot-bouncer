@@ -57,7 +57,6 @@ export class EvaluateOFLinksBot extends UserEvaluatorBase {
         }
 
         const socialLinks = await this.getSocialLinks(user.username);
-        console.log("Social Links", socialLinks);
         const matchedRegex = regexes.find(regex => socialLinks.some(link => new RegExp(regex, "i").test(link.outboundUrl)));
         if (!matchedRegex) {
             return false;
