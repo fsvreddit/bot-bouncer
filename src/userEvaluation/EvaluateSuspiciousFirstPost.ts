@@ -46,7 +46,7 @@ export class EvaluateSuspiciousFirstPost extends UserEvaluatorBase {
             return false;
         }
 
-        const posts = this.getPosts(history, { omitRemoved: true });
+        const posts = this.getPosts(history, { omitRemoved: false });
         if (posts.length === 0) {
             this.setReason("User has no posts.");
             return false;
@@ -56,6 +56,7 @@ export class EvaluateSuspiciousFirstPost extends UserEvaluatorBase {
             this.setReason("User has multiple posts.");
             return false;
         }
+
         if (!posts.every(post => this.eligiblePost(post))) {
             this.setReason("User has missing or mismatching posts.");
             return false;
