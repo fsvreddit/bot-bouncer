@@ -3,6 +3,7 @@ import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
 import { Comment, Post } from "@devvit/public-api";
 import { UserExtended } from "../extendedDevvit.js";
 import { compact, uniq } from "lodash";
+import { subWeeks } from "date-fns";
 
 export class EvaluateInconsistentAgeBot extends UserEvaluatorBase {
     override name = "Inconsistent Age Bot";
@@ -25,10 +26,9 @@ export class EvaluateInconsistentAgeBot extends UserEvaluatorBase {
         return user.commentKarma < 50;
     }
 
-    override evaluate (_user: UserExtended, history: (Post | Comment)[]): boolean {
-        const nsfwPosts = this.getPosts(history).filter(post => this.ageRegex.test(post.title) && post.isNsfw());
+    override evaluate (user: UserExtended, history: (Post | Comment)[]): boolean {
+        const nsfwPosts = this.getPosts(history, { since: subWeeks(new Date(), 2) }).filter(post => this.ageRegex.test(post.title) && post.isNsfw());
         if (nsfwPosts.length < 6) {
-            console.log("Not enough NSFW posts", nsfwPosts.length);
             return false;
         }
 
@@ -37,11 +37,11 @@ export class EvaluateInconsistentAgeBot extends UserEvaluatorBase {
             return match ? parseInt(match[1]) : undefined;
         })));
 
-        console.log("Ages found", agesFound, nsfwPosts.length);
-
         if (agesFound.length < 3) {
             return false;
         }
+
+        console.log(`Ages found for ${user.username}: ${agesFound.join(", ")}, in ${nsfwPosts.length} posts`);
 
         this.hitReason = `Inconsistent Age Bot: Found ${agesFound.length} different ages in ${nsfwPosts.length} posts`;
         return true;
