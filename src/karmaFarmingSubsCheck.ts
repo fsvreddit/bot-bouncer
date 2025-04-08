@@ -3,7 +3,7 @@ import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { uniq } from "lodash";
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "./constants.js";
 import { getUserStatus, UserDetails, UserStatus } from "./dataStore.js";
-import { evaluateUserAccount } from "./handleControlSubAccountEvaluation.js";
+import { evaluateUserAccount, userHasContinuousNSFWHistory } from "./handleControlSubAccountEvaluation.js";
 import { getControlSubSettings } from "./settings.js";
 import { addMinutes, addSeconds } from "date-fns";
 import { getUserExtended } from "./extendedDevvit.js";
@@ -75,13 +75,15 @@ async function evaluateAndHandleUser (username: string, context: JobContext): Pr
         return false;
     }
 
+    const hasContinuousNSFWHistory = await userHasContinuousNSFWHistory(username, context);
+
     const user = await getUserExtended(username, context);
     if (!user) {
         return false;
     }
 
     const newDetails: UserDetails = {
-        userStatus: UserStatus.Banned,
+        userStatus: hasContinuousNSFWHistory ? UserStatus.Pending : UserStatus.Banned,
         lastUpdate: new Date().getTime(),
         submitter: context.appName,
         operator: context.appName,
@@ -91,6 +93,9 @@ async function evaluateAndHandleUser (username: string, context: JobContext): Pr
     const newPost = await createNewSubmission(user, newDetails, context);
 
     let text = "This user was detected automatically through proactive bot hunting activity.\n\n";
+    if (hasContinuousNSFWHistory) {
+        await context.reddit.report(newPost, { reason: "User has continuous NSFW history, so needs manual checking." });
+    }
     text += `\n\n*I am a bot, and this action was performed automatically. Please [contact the moderators of this subreddit](/message/compose/?to=/r/${CONTROL_SUBREDDIT}) if you have any questions or concerns.*`;
     await newPost.addComment({ text });
 
