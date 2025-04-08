@@ -19,6 +19,7 @@ import { EvaluateSocialLinks } from "./EvaluateSocialLinks.js";
 import { EvaluateSuspiciousFirstPost } from "./EvaluateSuspiciousFirstPost.js";
 import { EvaluateSecretLinksBot } from "./EvaluateSecretLinksBot.js";
 import { EvaluateEditedComment } from "./EvaluateEditedComment.js";
+import { EvaluateInconsistentAgeBot } from "./EvaluateInconsistentAgeBot.js";
 
 export const ALL_EVALUATORS = [
     EvaluateBadUsername,
@@ -42,4 +43,5 @@ export const ALL_EVALUATORS = [
     EvaluateSuspiciousFirstPost,
     EvaluateSecretLinksBot,
     EvaluateEditedComment,
+    EvaluateInconsistentAgeBot,
 ];
