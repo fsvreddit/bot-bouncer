@@ -43,6 +43,9 @@ export async function evaluateUserAccount (username: string, context: JobContext
 
         const userEvaluateResult = await Promise.resolve(evaluator.preEvaluateUser(user));
         if (!userEvaluateResult) {
+            if (verbose) {
+                console.log(`Evaluator: ${username} didn't match ${evaluator.name} pre-evaluate: ${evaluator.getReasons().join(", ")}`);
+            }
             continue;
         }
 

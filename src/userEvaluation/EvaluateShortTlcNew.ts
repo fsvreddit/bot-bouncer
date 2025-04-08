@@ -100,6 +100,6 @@ export class EvaluateShortTlcNew extends UserEvaluatorBase {
             return false;
         }
 
-        return !autogenRegex.test(username);
+        return autogenRegex.test(username);
     }
 }
