@@ -8,6 +8,7 @@ import { getYear } from "date-fns";
 interface ModmailDataExtract {
     status?: UserStatus;
     submitter?: string;
+    operator?: string;
     usernameRegex?: string;
     bioTextRegex?: string;
     recentPostSubs?: string[];
@@ -23,6 +24,10 @@ const schema: JSONSchemaType<ModmailDataExtract> = {
             nullable: true,
         },
         submitter: {
+            type: "string",
+            nullable: true,
+        },
+        operator: {
             type: "string",
             nullable: true,
         },
@@ -111,6 +116,10 @@ export async function dataExtract (message: string | undefined, conversationId: 
         data = data.filter(entry => entry.data.submitter === request.submitter);
     }
 
+    if (request.operator) {
+        data = data.filter(entry => entry.data.operator === request.operator);
+    }
+
     if (request.usernameRegex) {
         let regex: RegExp;
         try {
@@ -165,6 +174,7 @@ export async function dataExtract (message: string | undefined, conversationId: 
         });
         return;
     }
+
     const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
     const wikiPageName = "data-extract";
     const dataToExport = fromPairs(data.map(entry => [entry.username, entry.data]));
