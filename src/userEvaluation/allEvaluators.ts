@@ -1,6 +1,5 @@
 import { EvaluateDomainSharer } from "./EvaluateDomainSharer.js";
 import { EvaluateMixedBot } from "./EvaluateMixedBot.js";
-import { EvaluateShortTlc } from "./EvaluateShortTlc.js";
 import { EvaluateZombie } from "./EvaluateZombie.js";
 import { EvaluateCQSTester } from "./EvaluateCQSTester.js";
 import { EvaluateFirstCommentEmDash } from "./EvaluateFirstCommentEmDash.js";
@@ -20,11 +19,11 @@ import { EvaluateSuspiciousFirstPost } from "./EvaluateSuspiciousFirstPost.js";
 import { EvaluateSecretLinksBot } from "./EvaluateSecretLinksBot.js";
 import { EvaluateEditedComment } from "./EvaluateEditedComment.js";
 import { EvaluateInconsistentAgeBot } from "./EvaluateInconsistentAgeBot.js";
+import { EvaluateShortTlcNew } from "./EvaluateShortTlcNew.js";
 
 export const ALL_EVALUATORS = [
     EvaluateBadUsername,
     EvaluateBioText,
-    EvaluateShortTlc,
     EvaluateMixedBot,
     EvaluateDomainSharer,
     EvaluateZombie,
@@ -44,4 +43,5 @@ export const ALL_EVALUATORS = [
     EvaluateSecretLinksBot,
     EvaluateEditedComment,
     EvaluateInconsistentAgeBot,
+    EvaluateShortTlcNew,
 ];
