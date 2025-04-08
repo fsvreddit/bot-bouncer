@@ -59,6 +59,7 @@ Note: v1.7.0 is the current public release.
 * Add new evaluators for OnlyFans bots with specific characteristics
 * Add new evaluator for edited comments that match certain characteristics
 * Add new evaluator for NSFW accounts with inconsistent ages in their very recent post titles
+* Removed evaluators for bot styles that appear to have been retired
 * Internal changes to support operations on /r/BotBouncer
 
 ## v1.7.0
