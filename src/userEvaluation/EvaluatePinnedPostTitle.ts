@@ -42,7 +42,7 @@ export class EvaluatePinnedPostTitles extends UserEvaluatorBase {
         }
 
         const bannableTitles = this.variables["pinnedpost:bantext"] as string[] | undefined ?? [];
-        const matchedBanRegex = bannableTitles.find(title => stickyPosts.some(post => new RegExp(title).test(post.title)));
+        const matchedBanRegex = bannableTitles.find(title => stickyPosts.some(post => new RegExp(title, "u").test(post.title)));
         if (matchedBanRegex) {
             this.hitReason = `Sticky post title matched regex: ${markdownEscape(matchedBanRegex)}`;
             this.canAutoBan = true;
@@ -50,7 +50,7 @@ export class EvaluatePinnedPostTitles extends UserEvaluatorBase {
         }
 
         const reportableTitles = this.variables["pinnedpost:reporttext"] as string[] | undefined ?? [];
-        const matchedReportRegex = reportableTitles.find(title => stickyPosts.some(post => new RegExp(title).test(post.title)));
+        const matchedReportRegex = reportableTitles.find(title => stickyPosts.some(post => new RegExp(title, "u").test(post.title)));
         if (matchedReportRegex) {
             this.hitReason = `Sticky post title matched regex: ${markdownEscape(matchedReportRegex)}`;
             this.canAutoBan = false;

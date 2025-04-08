@@ -23,7 +23,7 @@ export class EvaluatePostTitle extends UserEvaluatorBase {
     override preEvaluatePost (post: Post): boolean {
         const { bannableTitles, reportableTitles } = this.getTitles();
         const problematicTitles = [...bannableTitles, ...reportableTitles];
-        return problematicTitles.some(title => new RegExp(title).test(post.title));
+        return problematicTitles.some(title => new RegExp(title, "u").test(post.title));
     }
 
     override preEvaluateUser (user: UserExtended): boolean {
@@ -48,14 +48,14 @@ export class EvaluatePostTitle extends UserEvaluatorBase {
 
         const { bannableTitles, reportableTitles } = this.getTitles();
 
-        const matchedBanRegex = bannableTitles.find(title => userPosts.some(post => new RegExp(title).test(post.title)));
+        const matchedBanRegex = bannableTitles.find(title => userPosts.some(post => new RegExp(title, "u").test(post.title)));
         if (matchedBanRegex) {
             this.hitReason = `Post title matched bannable regex: ${markdownEscape(matchedBanRegex)}`;
             this.canAutoBan = true;
             return true;
         }
 
-        const matchedReportRegex = reportableTitles.find(title => userPosts.some(post => new RegExp(title).test(post.title)));
+        const matchedReportRegex = reportableTitles.find(title => userPosts.some(post => new RegExp(title, "u").test(post.title)));
         if (matchedReportRegex) {
             this.hitReason = `Post title matched reportable regex: ${markdownEscape(matchedReportRegex)}`;
             this.canAutoBan = false;

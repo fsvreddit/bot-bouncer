@@ -40,7 +40,7 @@ export class EvaluateBioText extends UserEvaluatorBase {
 
         const problematicBioText = [...bannableBioText, ...reportableBioText];
 
-        return problematicBioText.some(title => user.userDescription && new RegExp(title).test(user.userDescription));
+        return problematicBioText.some(bioText => user.userDescription && new RegExp(bioText, "u").test(user.userDescription));
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -51,8 +51,8 @@ export class EvaluateBioText extends UserEvaluatorBase {
             return false;
         }
 
-        const bannableBioTextFound = bannableBioText.find(bio => user.userDescription && new RegExp(bio).test(user.userDescription));
-        const reportableBioTextFound = reportableBioText.find(bio => user.userDescription && new RegExp(bio).test(user.userDescription));
+        const bannableBioTextFound = bannableBioText.find(bio => user.userDescription && new RegExp(bio, "u").test(user.userDescription));
+        const reportableBioTextFound = reportableBioText.find(bio => user.userDescription && new RegExp(bio, "u").test(user.userDescription));
 
         if (bannableBioTextFound) {
             this.canAutoBan = true;
