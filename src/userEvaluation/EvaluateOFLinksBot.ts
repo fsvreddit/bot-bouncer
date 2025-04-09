@@ -35,7 +35,7 @@ export class EvaluateOFLinksBot extends UserEvaluatorBase {
             return false;
         }
 
-        const usernameRegex = /^([A-Z][a-z]+) (?::\)|\p{Emoji})$/u;
+        const usernameRegex = /^([A-Z][a-z]+)(?: (?::\)|\p{Emoji}))?$/u;
         const usernameMatch = usernameRegex.exec(user.displayName);
         if (!usernameMatch) {
             return false;
