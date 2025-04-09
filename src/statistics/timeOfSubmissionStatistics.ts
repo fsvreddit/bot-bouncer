@@ -4,7 +4,7 @@ import { eachDayOfInterval, endOfDay, format, isSameDay, startOfDay, subDays } f
 
 export async function createTimeOfSubmissionStatistics (allData: Record<string, string>, context: JobContext) {
     const endRange = startOfDay(new Date());
-    const startRange = subDays(endRange, 7);
+    const startRange = subDays(endRange, 28);
 
     const allDates = Object.values(allData)
         .map(item => JSON.parse(item) as UserDetails)
@@ -15,7 +15,7 @@ export async function createTimeOfSubmissionStatistics (allData: Record<string, 
 
     const days = eachDayOfInterval({ start: startRange, end: endOfDay(subDays(endRange, 1)) });
 
-    let content = "Here are the statistics for new submissions covering the last seven full days.\n\n";
+    let content = "Here are the statistics for new submissions covering the last four weeks.\n\n";
     content += "| Date | Number of submissions |\n";
     content += "|:-|:-|\n";
     for (const day of days) {
