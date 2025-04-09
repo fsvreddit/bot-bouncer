@@ -9,6 +9,7 @@ test("User with consistent genders", () => {
         id: `t3_fake_${i}`,
         createdAt: new Date(),
         title: "M19",
+        subredditName: "findsnapchat",
         isNsfw: () => true,
     })) as unknown as Post[];
 
@@ -22,6 +23,7 @@ test("User with inconsistent genders", () => {
         id: `t3_fake_${i}`,
         createdAt: new Date(),
         title: "M19",
+        subredditName: "findsnapchat",
         isNsfw: () => true,
     })) as unknown as Post[];
 
@@ -29,6 +31,7 @@ test("User with inconsistent genders", () => {
         id: "t3_fake_7",
         createdAt: new Date(),
         title: "20 [F4M]",
+        subredditName: "findsnapchat",
         isNsfw: () => true,
     } as unknown as Post);
 
