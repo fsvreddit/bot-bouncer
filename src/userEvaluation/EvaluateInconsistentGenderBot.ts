@@ -18,9 +18,8 @@ export class EvaluateInconsistentGenderBot extends UserEvaluatorBase {
 
     private getGenderFromTitle (title: string): string | undefined {
         const genderRegexes = [
-            /^[12]\d(?: ?\[)?([MF])/,
+            /^[12]\d(?: ?\[)?([MF])(?:4[FM])\b/,
             /^([MF])[12]\d/,
-            /([MF])4[MF]/,
         ];
 
         for (const regex of genderRegexes) {
@@ -58,7 +57,7 @@ export class EvaluateInconsistentGenderBot extends UserEvaluatorBase {
             return false;
         }
 
-        if (nsfwPosts.some(post => post.subredditName === "bodyswap" || post.subredditName.toLowerCase().includes("roleplay"))) {
+        if (nsfwPosts.some(post => post.subredditName === "bodyswap" || post.subredditName.toLowerCase().includes("roleplay") || post.subredditName.toLowerCase().includes("penpals"))) {
             return false;
         }
 
