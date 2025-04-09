@@ -35,10 +35,13 @@ export class EvaluateOFLinksBot extends UserEvaluatorBase {
             return false;
         }
 
-        const usernameRegex = /[A-Z][a-z]+/;
-        if (!usernameRegex.test(user.displayName)) {
+        const usernameRegex = /^([A-Z][a-z]+) (?::\)|\p{Emoji})$/u;
+        const usernameMatch = usernameRegex.exec(user.displayName);
+        if (!usernameMatch) {
             return false;
         }
+
+        const username = usernameMatch[1];
 
         const maxAgeInDays = this.variables["oflinks:maxageindays"] as number | undefined ?? 30;
         if (user.createdAt < subDays(new Date(), maxAgeInDays)) {
@@ -50,7 +53,7 @@ export class EvaluateOFLinksBot extends UserEvaluatorBase {
         }
 
         const regexes = (this.variables["oflinks:regexprefixes"] as string[] | undefined ?? [])
-            .map(prefix => `^${prefix}${user.displayName?.toLowerCase()}`);
+            .map(prefix => `^${prefix}${username.toLowerCase()}`);
 
         if (regexes.length === 0) {
             return false;
