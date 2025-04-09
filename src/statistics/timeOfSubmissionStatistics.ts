@@ -18,7 +18,7 @@ export async function createTimeOfSubmissionStatistics (allData: Record<string, 
     let content = "Here are the statistics for new submissions covering the last four weeks.\n\n";
     content += "| Date | Number of submissions |\n";
     content += "|:-|:-|\n";
-    for (const day of days) {
+    for (const day of days.reverse()) {
         const submissionInDay = allDates.filter(date => isSameDay(day, date)).length;
         content += `| ${format(day, "yyyy-MM-dd (EEEE)")} | ${submissionInDay} |\n`;
     }
