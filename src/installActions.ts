@@ -4,6 +4,7 @@ import { CLEANUP_JOB_CRON, ClientSubredditJob, CONTROL_SUBREDDIT, ControlSubredd
 import { scheduleAdhocCleanup } from "./cleanup.js";
 import { handleExternalSubmissionsPageUpdate } from "./externalSubmissions.js";
 import { removeRetiredEvaluatorsFromStats } from "./userEvaluation/evaluatorHelpers.js";
+import { evaluateUserAccount } from "./handleControlSubAccountEvaluation.js";
 
 export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, context: TriggerContext) {
     console.log("App Install: Detected an app install or update event");
@@ -68,6 +69,8 @@ async function addControlSubredditJobs (context: TriggerContext) {
 
     await handleExternalSubmissionsPageUpdate(context);
     await removeRetiredEvaluatorsFromStats(context);
+
+    await evaluateUserAccount("Certain_Promise5151", context, true);
 
     console.log("App Install: Control subreddit jobs added");
 }

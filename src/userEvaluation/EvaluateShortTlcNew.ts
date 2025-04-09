@@ -2,10 +2,12 @@ import { Comment, Post } from "@devvit/public-api";
 import { CommentCreate } from "@devvit/protos";
 import { CommentV2 } from "@devvit/protos/types/devvit/reddit/v2alpha/commentv2.js";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
-import { isCommentId } from "@devvit/shared-types/tid.js";
+import { isLinkId } from "@devvit/shared-types/tid.js";
 import { subDays } from "date-fns";
 import { autogenRegex } from "./evaluatorHelpers.js";
 import { UserExtended } from "../extendedDevvit.js";
+import { count } from "@wordpress/wordcount";
+import { uniq } from "lodash";
 
 export class EvaluateShortTlcNew extends UserEvaluatorBase {
     override name = "Short TLC New Bot";
@@ -13,19 +15,15 @@ export class EvaluateShortTlcNew extends UserEvaluatorBase {
     override banContentThreshold = 1;
     override canAutoBan = true;
 
-    private commentRegex = /[A-Z][a-z].+[.?!\p{Emoji}]$/u;
-
     private eligibleComment (comment: Comment | CommentV2) {
-        if (isCommentId(comment.parentId)) {
-            return false;
-        }
+        const commentRegex = /^[A-Z].+[.?!\p{Emoji}]$/u;
 
-        const commentLengthEligible = comment.body.length < 80
-            || (comment.body.length > 160 && comment.body.length < 200);
+        const wordCount = count(comment.body, "words", {});
 
         return !comment.body.includes("\n")
-            && commentLengthEligible
-            && this.commentRegex.test(comment.body);
+            && comment.body.length < 200
+            && commentRegex.test(comment.body)
+            && wordCount >= 2;
     }
 
     override preEvaluateComment (event: CommentCreate): boolean {
@@ -47,7 +45,7 @@ export class EvaluateShortTlcNew extends UserEvaluatorBase {
 
     override preEvaluateUser (user: UserExtended): boolean {
         if (user.commentKarma > 30) {
-            this.setReason("User has too much karma");
+            this.setReason("User has too much comment karma");
             return false;
         }
 
@@ -74,8 +72,9 @@ export class EvaluateShortTlcNew extends UserEvaluatorBase {
 
         const userComments = this.getComments(history);
 
-        if (!userComments.every(comment => this.eligibleComment(comment))) {
-            this.setReason("Mis-matching comment");
+        const mismatchingComment = userComments.find(comment => !this.eligibleComment(comment));
+        if (mismatchingComment) {
+            this.setReason("Mis-matching comment: " + mismatchingComment.body);
             return false;
         }
 
@@ -85,8 +84,24 @@ export class EvaluateShortTlcNew extends UserEvaluatorBase {
             return false;
         }
 
-        if (userComments.some(comment => comment.body.length > 80)) {
+        const distinctCommentPosts = uniq(userComments.map(comment => comment.postId));
+        if (distinctCommentPosts.length !== userComments.length) {
+            this.setReason("User has multiple comments on the same post");
+            return false;
+        }
+
+        if (userComments.every(comment => isLinkId(comment.parentId))) {
+            this.setReason("User has no top-level comments");
+            return false;
+        }
+
+        if (userComments.every(comment => comment.body.length > 80)) {
             this.canAutoBan = false;
+        }
+
+        // But, if the user has an "apology", we can ban them.
+        if (userComments.some(comment => comment.body.startsWith("Sorry, I"))) {
+            this.canAutoBan = true;
         }
 
         return true;

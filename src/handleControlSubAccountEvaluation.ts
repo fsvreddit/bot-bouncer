@@ -68,6 +68,8 @@ export async function evaluateUserAccount (username: string, context: JobContext
                 console.log(`Evaluator: ${username} appears to be a bot via the evaluator: ${evaluator.name} 💥`);
             }
             detectedBots.push(evaluator);
+        } else if (evaluator.name === "Short TLC New Bot" && userItems.some(item => item.subredditName === "Frieren")) {
+            console.log(`Evaluator for ${username} did not match ${evaluator.name}: ${evaluator.getReasons().join(", ")}`);
         }
     }
 
