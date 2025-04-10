@@ -48,10 +48,6 @@ export class EvaluateOFLinksBot extends UserEvaluatorBase {
             return false;
         }
 
-        if (!user.userDescription?.includes(user.displayName)) {
-            return false;
-        }
-
         const regexes = (this.variables["oflinks:regexprefixes"] as string[] | undefined ?? [])
             .map(prefix => `^${prefix}${username.toLowerCase()}`);
 
