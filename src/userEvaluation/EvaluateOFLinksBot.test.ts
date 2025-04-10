@@ -47,7 +47,6 @@ test("User who matches criteria", async () => {
     const evaluator = new EvaluateOFLinksBot(mockContext, evaluatorVariables);
     const mockUser = createMockUser("Erica :)", "Hi, I'm Erica. Aren't I great!");
     const evaluationResult = await Promise.resolve(evaluator.preEvaluateUser(mockUser));
-    console.log(`Result: ${evaluator.getReasons().join(", ")}`);
     expect(evaluationResult).toBeTruthy();
 });
 
