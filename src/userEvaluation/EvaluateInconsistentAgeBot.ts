@@ -27,8 +27,9 @@ export class EvaluateInconsistentAgeBot extends UserEvaluatorBase {
     }
 
     override evaluate (user: UserExtended, history: (Post | Comment)[]): boolean {
-        const nsfwPosts = this.getPosts(history, { since: subWeeks(new Date(), 2) }).filter(post => this.ageRegex.test(post.title) && post.isNsfw());
+        const nsfwPosts = this.getPosts(history, { since: subWeeks(new Date(), 2) }).filter(post => post.isNsfw());
         if (nsfwPosts.length < 6) {
+            this.setReason("User has not posted enough NSFW posts in the last 2 weeks");
             return false;
         }
 
@@ -37,7 +38,13 @@ export class EvaluateInconsistentAgeBot extends UserEvaluatorBase {
             return match ? parseInt(match[1]) : undefined;
         })));
 
-        if (agesFound.length < 3) {
+        if (agesFound.length === 2 && Math.abs(agesFound[0] - agesFound[1]) === 1) {
+            this.setReason(`User has posted two sequential ages in NSFW posts: ${agesFound.join(", ")}`);
+            return false;
+        }
+
+        if (agesFound.length < 2) {
+            this.setReason(`User has not posted enough different ages in NSFW posts: ${agesFound.join(", ")}`);
             return false;
         }
 
