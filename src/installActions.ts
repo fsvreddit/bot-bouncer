@@ -70,7 +70,7 @@ async function addControlSubredditJobs (context: TriggerContext) {
     await handleExternalSubmissionsPageUpdate(context);
     await removeRetiredEvaluatorsFromStats(context);
 
-    await evaluateUserAccount("Flimsy-Molasses-2791", context, true);
+    await evaluateUserAccount("Whole-Nectarine-907", context, true);
 
     console.log("App Install: Control subreddit jobs added");
 }
