@@ -60,6 +60,7 @@ Note: v1.7.0 is the current public release.
 * Add new evaluator for edited comments that match certain characteristics
 * Add new evaluator for NSFW accounts with inconsistent ages in their very recent post titles
 * Add new evaluator for NSFW accounts with inconsistent genders in post titles (e.g. a mix of M4F, F4M etc.)
+* Add new evaluator for accounts with specific display name characteristics
 * Removed evaluators for bot styles that appear to have been retired
 * Internal changes to support operations on /r/BotBouncer
 
