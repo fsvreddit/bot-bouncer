@@ -59,7 +59,6 @@ export class EvaluateOFLinksBot extends UserEvaluatorBase {
         }
 
         const socialLinks = await this.getSocialLinks(user.username);
-        console.log(prefixes, socialLinks);
         const matchedPrefix = prefixes.find(prefix => socialLinks.some(link => link.outboundUrl.startsWith(prefix)));
         if (!matchedPrefix) {
             this.setReason("User does not have relevant links in their profile");
