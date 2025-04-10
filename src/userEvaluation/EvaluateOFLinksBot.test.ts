@@ -40,19 +40,20 @@ function createMockUser (displayName: string, userDescription: string) {
 const mockContext = {} as unknown as TriggerContext;
 const evaluatorVariables = {
     "oflinks:maxageindays": 30,
-    "oflinks:regexprefixes": ["https://onlyfans.com/"],
+    "oflinks:prefixes": ["https://onlyfans.com/"],
 };
 
 test("User who matches criteria", async () => {
     const evaluator = new EvaluateOFLinksBot(mockContext, evaluatorVariables);
-    const mockUser = createMockUser("Erica", "Hi, I'm Erica. Aren't I great!");
+    const mockUser = createMockUser("Erica :)", "Hi, I'm Erica. Aren't I great!");
     const evaluationResult = await Promise.resolve(evaluator.preEvaluateUser(mockUser));
+    console.log(`Result: ${evaluator.getReasons().join(", ")}`);
     expect(evaluationResult).toBeTruthy();
 });
 
 test("User who doesn't match social links criteria", async () => {
     const evaluator = new EvaluateOFLinksBot(mockContext, evaluatorVariables);
-    const mockUser = createMockUser("Susan", "Hi, I'm Susan. Aren't I great!");
+    const mockUser = createMockUser("Susan :)", "Hi, I'm Susan. Aren't I great!");
     const evaluationResult = await Promise.resolve(evaluator.preEvaluateUser(mockUser));
     expect(evaluationResult).toBeFalsy();
 });
