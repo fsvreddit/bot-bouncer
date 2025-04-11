@@ -43,7 +43,7 @@ export class EvaluateInconsistentGenderBot extends UserEvaluatorBase {
 
     override evaluate (user: UserExtended, history: (Post | Comment)[]): boolean {
         const nsfwPosts = this.getPosts(history, { since: subWeeks(new Date(), 2) }).filter(post => post.isNsfw());
-        if (nsfwPosts.length < 6) {
+        if (nsfwPosts.length < 4) {
             return false;
         }
 
