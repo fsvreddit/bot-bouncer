@@ -18,14 +18,14 @@ export class EvaluateInconsistentGenderBot extends UserEvaluatorBase {
 
     private getGenderFromTitle (title: string): string | undefined {
         const genderRegexes = [
-            /^[12]\d(?: ?\[)?([MF])(?:4[FMfm])\b/,
-            /^([MF])[12]\d/,
+            /^[12]\d(?: ?\[)?([MFT])(?:4[FM])\b/i,
+            /^([MFT])[12]\d/i,
         ];
 
         for (const regex of genderRegexes) {
             const match = regex.exec(title);
             if (match?.[1]) {
-                return match[1];
+                return match[1].toUpperCase();
             }
         }
 
@@ -61,7 +61,7 @@ export class EvaluateInconsistentGenderBot extends UserEvaluatorBase {
             return false;
         }
 
-        if (user.userDescription?.includes("shared")) {
+        if (user.userDescription?.includes("shared") || nsfwPosts.some(post => post.title.toLowerCase().includes("couple"))) {
             this.canAutoBan = false;
         }
 

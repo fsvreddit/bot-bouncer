@@ -48,6 +48,10 @@ export class EvaluateInconsistentAgeBot extends UserEvaluatorBase {
             return false;
         }
 
+        if (user.userDescription?.includes("shared") || nsfwPosts.some(post => post.title.toLowerCase().includes("couple"))) {
+            this.canAutoBan = false;
+        }
+
         console.log(`Ages found for ${user.username}: ${agesFound.join(", ")}, in ${nsfwPosts.length} posts`);
 
         this.hitReason = `Inconsistent Age Bot: Found ${agesFound.length} different ages in ${nsfwPosts.length} posts`;
