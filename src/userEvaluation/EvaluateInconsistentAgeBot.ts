@@ -52,7 +52,7 @@ export class EvaluateInconsistentAgeBot extends UserEvaluatorBase {
             this.canAutoBan = false;
         }
 
-        console.log(`Ages found for ${user.username}: ${agesFound.join(", ")}, in ${nsfwPosts.length} posts`);
+        console.log(`Ages found for ${user.username}: ${agesFound.join(", ")} in ${nsfwPosts.length} posts`);
 
         this.hitReason = `Inconsistent Age Bot: Found ${agesFound.length} different ages in ${nsfwPosts.length} posts`;
         return true;

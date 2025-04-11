@@ -66,7 +66,7 @@ export class EvaluateInconsistentGenderBot extends UserEvaluatorBase {
             this.canAutoBan = false;
         }
 
-        console.log(`Genders found for ${user.username}: ${gendersFound.join(", ")}, in ${nsfwPosts.length} posts`);
+        console.log(`Genders found for ${user.username}: ${gendersFound.join(", ")} in ${nsfwPosts.length} posts`);
 
         this.hitReason = `Inconsistent Gender Bot: Found ${gendersFound.length} different ages in ${nsfwPosts.length} posts`;
         return true;
