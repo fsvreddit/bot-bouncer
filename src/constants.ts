@@ -35,6 +35,7 @@ export enum ControlSubredditJob {
     EvaluateKarmaFarmingSubs = "evaluateKarmaFarmingSubs",
     CopyControlSubSettings = "copyControlSubSettings",
     UptimeAndMessageCheck = "uptimeAndMessageCheck",
+    BioTextAnalyser = "bioTextAnalyser",
 }
 
 /**

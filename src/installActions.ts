@@ -4,7 +4,7 @@ import { CLEANUP_JOB_CRON, ClientSubredditJob, CONTROL_SUBREDDIT, ControlSubredd
 import { scheduleAdhocCleanup } from "./cleanup.js";
 import { handleExternalSubmissionsPageUpdate } from "./externalSubmissions.js";
 import { removeRetiredEvaluatorsFromStats } from "./userEvaluation/evaluatorHelpers.js";
-import { evaluateUserAccount } from "./handleControlSubAccountEvaluation.js";
+// import { evaluateUserAccount } from "./handleControlSubAccountEvaluation.js";
 
 export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, context: TriggerContext) {
     console.log("App Install: Detected an app install or update event");
@@ -67,10 +67,15 @@ async function addControlSubredditJobs (context: TriggerContext) {
         cron: "2/20 * * * *",
     });
 
+    await context.scheduler.runJob({
+        name: ControlSubredditJob.BioTextAnalyser,
+        cron: "29, 1/6, * * *",
+    });
+
     await handleExternalSubmissionsPageUpdate(context);
     await removeRetiredEvaluatorsFromStats(context);
 
-    await evaluateUserAccount("Basic_Trainer_1829", context, true);
+    // await evaluateUserAccount("Basic_Trainer_1829", context, true);
 
     console.log("App Install: Control subreddit jobs added");
 }

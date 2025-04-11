@@ -22,6 +22,7 @@ import { checkForUpdates } from "./upgradeNotifier.js";
 import { sendDailyDigest } from "./modmail/dailyDigest.js";
 import { updateStatisticsPages } from "./statistics/allStatistics.js";
 import { checkUptimeAndMessages } from "./uptimeMonitor.js";
+import { analyseBioText } from "./similarBioTextFinder/bioTextFinder.js";
 
 Devvit.addSettings(appSettings);
 
@@ -172,6 +173,11 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: ControlSubredditJob.UptimeAndMessageCheck,
     onRun: checkUptimeAndMessages,
+});
+
+Devvit.addSchedulerJob({
+    name: ControlSubredditJob.BioTextAnalyser,
+    onRun: analyseBioText,
 });
 
 /**
