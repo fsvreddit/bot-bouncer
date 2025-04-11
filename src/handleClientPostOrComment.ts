@@ -30,9 +30,7 @@ export async function handleClientPostCreate (event: PostCreate, context: Trigge
 
     const currentStatus = await getUserStatus(event.author.name, context);
     if (currentStatus) {
-        if (!settings[AppSetting.HoneypotMode]) {
-            await handleContentCreation(event.author.name, currentStatus, event.post.id, context);
-        }
+        await handleContentCreation(event.author.name, currentStatus, event.post.id, context);
         return;
     }
 

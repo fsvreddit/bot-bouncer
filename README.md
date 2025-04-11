@@ -62,6 +62,7 @@ Note: v1.7.0 is the current public release.
 * Add new evaluator for NSFW accounts with inconsistent genders in post titles (e.g. a mix of M4F, F4M etc.)
 * Add new evaluator for accounts with specific display name characteristics
 * Removed evaluators for bot styles that appear to have been retired
+* Remove Honeypot mode (some subs were enabling this inadvertently)
 * Internal changes to support operations on /r/BotBouncer
 
 ## v1.7.0

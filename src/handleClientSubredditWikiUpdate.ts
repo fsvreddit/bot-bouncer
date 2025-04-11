@@ -181,7 +181,7 @@ export async function handleClassificationChanges (event: ScheduledJobEvent<JSON
 
     const settings = await context.settings.getAll();
 
-    if (bannedUsers.length > 0 && settings[AppSetting.RemoveRecentContent] && !settings[AppSetting.HoneypotMode]) {
+    if (bannedUsers.length > 0 && settings[AppSetting.RemoveRecentContent]) {
         // Take 5 users to process immediately, and schedule the rest
         const userCount = 5;
         const usersToProcess = bannedUsers.slice(0, userCount);
