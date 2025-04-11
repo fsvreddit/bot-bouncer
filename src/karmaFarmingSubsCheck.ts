@@ -3,7 +3,7 @@ import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { uniq } from "lodash";
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "./constants.js";
 import { getUserStatus, UserDetails, UserStatus } from "./dataStore.js";
-import { evaluateUserAccount, userHasContinuousNSFWHistory } from "./handleControlSubAccountEvaluation.js";
+import { evaluateUserAccount, USER_EVALUATION_RESULTS_KEY, userHasContinuousNSFWHistory } from "./handleControlSubAccountEvaluation.js";
 import { getControlSubSettings } from "./settings.js";
 import { addMinutes, addSeconds } from "date-fns";
 import { getUserExtended } from "./extendedDevvit.js";
@@ -100,6 +100,11 @@ async function evaluateAndHandleUser (username: string, context: JobContext): Pr
     await newPost.addComment({ text });
 
     console.log(`Karma Farming Subs: Banned ${username}`);
+
+    const evaluationResultsToStore = evaluationResults.filter(result => result.canAutoBan);
+    if (evaluationResultsToStore.length > 0) {
+        await context.redis.hSet(USER_EVALUATION_RESULTS_KEY, { [username]: JSON.stringify(evaluationResultsToStore) });
+    }
 
     return true;
 }
