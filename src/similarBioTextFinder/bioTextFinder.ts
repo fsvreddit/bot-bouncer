@@ -4,9 +4,10 @@ import { addDays } from "date-fns";
 import { compact, uniq } from "lodash";
 import { SequenceMatcher } from "./difflib.js";
 import { getSubstitutedText } from "./substitutions.js";
-// import pluralize from "pluralize";
-import { getUserStatus } from "../dataStore.js";
+import pluralize from "pluralize";
+import { getUserStatus, UserStatus } from "../dataStore.js";
 import { evaluateUserAccount } from "../handleControlSubAccountEvaluation.js";
+import { addExternalSubmissionsToQueue, ExternalSubmission } from "../externalSubmissions.js";
 
 interface UserBioText {
     username: string;
@@ -122,13 +123,6 @@ export async function analyseBioText (_: unknown, context: JobContext) {
     if (Object.keys(results).length === 0) {
         console.log("No similar bio text patterns found.");
         output = "No similar enough bio text patterns found on this run.\n\n";
-        output += "Best match from this run:\n\n";
-        output += "| User | Status | Evaluators | Bio Text |\n";
-        output += "| ---- | ------ | ---------- | -------- |\n";
-        output += `| /u/${bestMatch?.user1} | ${bestMatch?.text1} |\n`;
-        output += `| /u/${bestMatch?.user2} | ${bestMatch?.text2} |\n\n`;
-        output += `Ratio: ${bestMatch?.ratio}\n\n`;
-        output += "These may already be caught by other evaluators.\n\n";
     } else {
         let index = 1;
         output = "Here are some similar bio text patterns not already covered by the Bio Text evaluator and seen on swept subreddits recently:\n\n";
@@ -170,43 +164,43 @@ export async function analyseBioText (_: unknown, context: JobContext) {
     }
 }
 
-// export async function addAllUsersFromModmail (conversationId: string, initialStatus: UserStatus, context: TriggerContext) {
-//     const bioTextUserKey = `biotextusers~${conversationId}`;
-//     const bioTextUsers = await context.redis.get(bioTextUserKey);
-//     const usersToAdd: string[] = [];
+export async function addAllUsersFromModmail (conversationId: string, initialStatus: UserStatus, context: TriggerContext) {
+    const bioTextUserKey = `biotextusers~${conversationId}`;
+    const bioTextUsers = await context.redis.get(bioTextUserKey);
+    const usersToAdd: string[] = [];
 
-//     let problem: string | undefined;
-//     if (!bioTextUsers) {
-//         problem = "Could not find any users to add.";
-//     } else {
-//         usersToAdd.push(...JSON.parse(bioTextUsers) as string[]);
-//         if (usersToAdd.length === 0) {
-//             problem = "Could not find any users to add.";
-//         }
-//     }
+    let problem: string | undefined;
+    if (!bioTextUsers) {
+        problem = "Could not find any users to add.";
+    } else {
+        usersToAdd.push(...JSON.parse(bioTextUsers) as string[]);
+        if (usersToAdd.length === 0) {
+            problem = "Could not find any users to add.";
+        }
+    }
 
-//     if (problem) {
-//         await context.reddit.modMail.reply({
-//             conversationId,
-//             body: problem,
-//             isInternal: true,
-//         });
-//         return;
-//     };
+    if (problem) {
+        await context.reddit.modMail.reply({
+            conversationId,
+            body: problem,
+            isInternal: true,
+        });
+        return;
+    };
 
-//     const accountsToSubmit: ExternalSubmission[] = usersToAdd.map(username => ({
-//         username,
-//         initialStatus,
-//         reportContext: "User with similar bio text to other users",
-//     }));
+    const accountsToSubmit: ExternalSubmission[] = usersToAdd.map(username => ({
+        username,
+        initialStatus,
+        reportContext: "User with similar bio text to other users",
+    }));
 
-//     await submitAccounts(accountsToSubmit, context);
+    await addExternalSubmissionsToQueue(accountsToSubmit, context);
 
-//     await context.reddit.modMail.reply({
-//         conversationId,
-//         body: `Added ${usersToAdd.length} ${pluralize("user", usersToAdd.length)} to the list with status ${initialStatus}.`,
-//         isInternal: true,
-//     });
+    await context.reddit.modMail.reply({
+        conversationId,
+        body: `Added ${usersToAdd.length} ${pluralize("user", usersToAdd.length)} to the list with status ${initialStatus}.`,
+        isInternal: true,
+    });
 
-//     await context.redis.del(bioTextUserKey);
-// }
+    await context.redis.del(bioTextUserKey);
+}

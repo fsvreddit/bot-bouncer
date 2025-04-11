@@ -69,7 +69,7 @@ async function addControlSubredditJobs (context: TriggerContext) {
 
     await context.scheduler.runJob({
         name: ControlSubredditJob.BioTextAnalyser,
-        cron: "29, 1/6, * * *",
+        cron: "29 1/6 * * *",
     });
 
     await handleExternalSubmissionsPageUpdate(context);

@@ -6,6 +6,8 @@ import { getSummaryTextForUser } from "../UserSummary/userSummary.js";
 import { handleClientSubredditModmail } from "./clientSubModmail.js";
 import { handleControlSubredditModmail } from "./controlSubModmail.js";
 import { dataExtract } from "./dataExtract.js";
+import { addAllUsersFromModmail } from "../similarBioTextFinder/bioTextFinder.js";
+import { UserStatus } from "../dataStore.js";
 
 function conversationHandledRedisKey (conversationId: string) {
     return `conversationHandled~${conversationId}`;
@@ -46,6 +48,16 @@ export async function handleModmail (event: ModMail, context: TriggerContext) {
     if (isExtracttCommand) {
         await dataExtract(currentMessage?.bodyMarkdown, event.conversationId, context);
         return;
+    }
+
+    if (currentMessage?.bodyMarkdown) {
+        const addAllRegex = /^!addall(?: (banned))?/;
+        const addAllMatches = addAllRegex.exec(currentMessage.bodyMarkdown);
+        if (context.subredditName === CONTROL_SUBREDDIT && addAllMatches && addAllMatches.length === 2) {
+            const status = addAllMatches[1] === "banned" ? UserStatus.Banned : UserStatus.Pending;
+            await addAllUsersFromModmail(event.conversationId, status, context);
+            return;
+        }
     }
 
     const username = conversationResponse.conversation.participant?.name;
