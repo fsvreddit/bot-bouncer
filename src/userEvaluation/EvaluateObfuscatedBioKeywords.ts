@@ -22,10 +22,10 @@ export class EvaluateObfuscatedBioKeywords extends UserEvaluatorBase {
             // eslint-disable-next-line @typescript-eslint/no-misused-spread
             const keywordLetters = [...keyword.toLowerCase()];
             for (let i = 0; i < keywordLetters.length; i++) {
-                keywordLetters[i] = keywordLetters[i].replace("i", "[i1]");
+                keywordLetters[i] = keywordLetters[i].replace("i", "[ie1]");
                 keywordLetters[i] = keywordLetters[i].replace("o", "[o0]");
                 keywordLetters[i] = keywordLetters[i].replace("a", "[a4@]");
-                keywordLetters[i] = keywordLetters[i].replace("e", "[e3]");
+                keywordLetters[i] = keywordLetters[i].replace("e", "[ei3]");
                 keywordLetters[i] = keywordLetters[i].replace("s", "[s5]");
                 keywordLetters[i] = keywordLetters[i].replace("t", "[t7]");
                 keywordLetters[i] = keywordLetters[i].replace("b", "[b6]");
