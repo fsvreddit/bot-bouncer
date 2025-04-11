@@ -16,10 +16,11 @@ export class EvaluateInconsistentGenderBot extends UserEvaluatorBase {
         return false;
     }
 
-    private getGenderFromTitle (title: string): string | undefined {
+    public getGenderFromTitle (title: string): string | undefined {
         const genderRegexes = [
-            /^[12]\d(?: ?\[)?([MFT])(?:4[FM])\b/i,
-            /^([MFT])[12]\d/i,
+            /^(?:18|19|[2-5]\d)(?: ?\[)?([MFT])(?:4[FMAR])\b/i,
+            /^([MFT])(?:18|19|[2-5]\d)/i,
+            /^(?:18|19|[2-5]\d)([MFT])/i,
         ];
 
         for (const regex of genderRegexes) {
