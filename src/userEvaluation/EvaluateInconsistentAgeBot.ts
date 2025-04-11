@@ -38,12 +38,7 @@ export class EvaluateInconsistentAgeBot extends UserEvaluatorBase {
             return match ? parseInt(match[1]) : undefined;
         })));
 
-        if (agesFound.length === 2 && Math.abs(agesFound[0] - agesFound[1]) === 1) {
-            this.setReason(`User has posted two sequential ages in NSFW posts: ${agesFound.join(", ")}`);
-            return false;
-        }
-
-        if (agesFound.length < 2) {
+        if (agesFound.length < 3) {
             this.setReason(`User has not posted enough different ages in NSFW posts: ${agesFound.join(", ")}`);
             return false;
         }
