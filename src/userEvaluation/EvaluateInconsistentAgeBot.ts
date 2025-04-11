@@ -16,7 +16,7 @@ export class EvaluateInconsistentAgeBot extends UserEvaluatorBase {
         return false;
     }
 
-    private ageRegex = /^[MFTA]?\s?(18|19|2[0-9])(?!$)/;
+    private ageRegex = /^[MFTA]?\s?(18|19|2[0-9])(?![$+])/;
 
     override preEvaluatePost (post: Post): boolean {
         return this.ageRegex.test(post.title) && post.isNsfw();
