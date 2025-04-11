@@ -43,7 +43,7 @@ export class EvaluateInconsistentAgeBot extends UserEvaluatorBase {
             return false;
         }
 
-        if (user.userDescription?.includes("shared") || nsfwPosts.some(post => post.title.toLowerCase().includes("couple"))) {
+        if (user.userDescription?.includes("shared") || user.userDescription?.includes("couple") || nsfwPosts.some(post => post.title.toLowerCase().includes("couple"))) {
             this.canAutoBan = false;
         }
 
