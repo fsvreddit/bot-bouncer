@@ -16,7 +16,7 @@ export class EvaluateShortTlcNew extends UserEvaluatorBase {
     override canAutoBan = true;
 
     private eligibleComment (comment: Comment | CommentV2) {
-        const commentRegex = /^[A-Z].+[.?!\p{Emoji}]$/u;
+        const commentRegex = /^[A-Z].+(?:[.?!\p{Emoji}]|#a\w+)$/u;
 
         const wordCount = count(comment.body, "words", {});
 
