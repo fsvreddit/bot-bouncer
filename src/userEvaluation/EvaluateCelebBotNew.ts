@@ -41,7 +41,6 @@ export class EvaluateCelebBotNew extends UserEvaluatorBase {
             && user.commentKarma < 50;
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     override evaluate (_user: UserExtended, history: (Post | Comment)[]): boolean {
         const userPosts = this.getPosts(history);
         if (userPosts.length !== 1) {
