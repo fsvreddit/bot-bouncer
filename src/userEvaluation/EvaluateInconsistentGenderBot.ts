@@ -18,9 +18,9 @@ export class EvaluateInconsistentGenderBot extends UserEvaluatorBase {
 
     public getGenderFromTitle (title: string): string | undefined {
         const genderRegexes = [
-            /^(?:18|19|[2-5]\d)(?: ?\[)?([MFT])(?:4[FMAR])\b/i,
-            /^([MFT])(?:18|19|[2-5]\d)/i,
-            /^(?:18|19|[2-5]\d)([MFT])/i,
+            /^(?:18|19|[2-5]\d)(?: ?\[)?([MF])(?:4[FMART])\b/i,
+            /^([MF])(?:18|19|[2-5]\d)/i,
+            /^(?:18|19|[2-5]\d)([MF])/i,
         ];
 
         for (const regex of genderRegexes) {

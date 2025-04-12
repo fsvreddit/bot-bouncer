@@ -44,13 +44,10 @@ test("Regex formats", () => {
     const testCases = [
         { title: "M19", expected: "M" },
         { title: "F23", expected: "F" },
-        { title: "T24", expected: "T" },
         { title: "18 [F4M]", expected: "F" },
-        { title: "34 [T4M]", expected: "T" },
         { title: "20 [M4F]", expected: "M" },
         { title: "19F", expected: "F" },
         { title: "23M", expected: "M" },
-        { title: "25T", expected: "T" },
     ];
 
     const evaluator = new EvaluateInconsistentGenderBot(mockContext, {});
