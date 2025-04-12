@@ -1,8 +1,8 @@
-import { JobContext, JSONObject, Post, ScheduledJobEvent, ZMember } from "@devvit/public-api";
+import { JobContext, JSONObject, JSONValue, Post, ScheduledJobEvent, ZMember } from "@devvit/public-api";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { uniq } from "lodash";
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "./constants.js";
-import { getUserStatus, UserDetails, UserStatus } from "./dataStore.js";
+import { getUserStatus, USER_STORE, UserDetails, UserStatus } from "./dataStore.js";
 import { evaluateUserAccount, USER_EVALUATION_RESULTS_KEY, userHasContinuousNSFWHistory } from "./handleControlSubAccountEvaluation.js";
 import { getControlSubSettings } from "./settings.js";
 import { addMinutes, addSeconds } from "date-fns";
@@ -55,13 +55,13 @@ async function getDistinctAccounts (context: JobContext): Promise<string[]> {
     return uniq(results.flat());
 }
 
-async function evaluateAndHandleUser (username: string, context: JobContext): Promise<boolean> {
+async function evaluateAndHandleUser (username: string, variables: Record<string, JSONValue>, context: JobContext): Promise<boolean> {
     const userStatus = await getUserStatus(username, context);
     if (userStatus) {
         return false;
     }
 
-    const evaluationResults = await evaluateUserAccount(username, context, false);
+    const evaluationResults = await evaluateUserAccount(username, variables, context, false);
 
     if (evaluationResults.length === 0) {
         return false;
@@ -127,7 +127,20 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
         }
 
         accounts = await getDistinctAccounts(context);
-        console.log("Karma Farming Subs: First batch starting.");
+        const initialCount = accounts.length;
+
+        // Filter out accounts already known to Bot Bouncer;
+        const knownAccounts = await context.redis.hKeys(USER_STORE);
+        accounts = accounts.filter(account => !knownAccounts.includes(account));
+        const filteredCount = initialCount - accounts.length;
+
+        console.log(`Karma Farming Subs: Found ${accounts.length} ${pluralize("account", accounts.length)} to evaluate, filtered ${filteredCount} ${pluralize("account", filteredCount)} already known to Bot Bouncer`);
+        await context.scheduler.runJob({
+            name: ControlSubredditJob.EvaluateKarmaFarmingSubs,
+            runAt: new Date(),
+            data: { accounts },
+        });
+        return;
     }
 
     await context.redis.set(sweepInProgressKey, new Date().getTime().toString(), { expiration: addMinutes(new Date(), 5) });
@@ -142,6 +155,8 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
         console.log(`Karma Farming Subs: Checking final ${accounts.length} ${pluralize("account", accounts.length)}`);
     }
 
+    const variables = await getEvaluatorVariables(context);
+
     while (processed < batchSize) {
         const username = accounts.shift();
         if (!username) {
@@ -149,7 +164,7 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
         }
 
         try {
-            userBanned = await evaluateAndHandleUser(username, context);
+            userBanned = await evaluateAndHandleUser(username, variables, context);
             if (userBanned) {
                 // Only let one user be banned per run to avoid rate limiting
                 break;

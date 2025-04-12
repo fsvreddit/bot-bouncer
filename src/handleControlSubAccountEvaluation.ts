@@ -1,4 +1,4 @@
-import { Comment, JobContext, JSONObject, Post, ScheduledJobEvent, SubredditInfo, TriggerContext } from "@devvit/public-api";
+import { Comment, JobContext, JSONObject, JSONValue, Post, ScheduledJobEvent, SubredditInfo, TriggerContext } from "@devvit/public-api";
 import { getUserStatus, UserStatus } from "./dataStore.js";
 import { CONTROL_SUBREDDIT, PostFlairTemplate } from "./constants.js";
 import { ALL_EVALUATORS } from "./userEvaluation/allEvaluators.js";
@@ -21,7 +21,7 @@ interface EvaluationResult {
     metThreshold: boolean;
 }
 
-export async function evaluateUserAccount (username: string, context: JobContext, verbose: boolean): Promise<EvaluationResult[]> {
+export async function evaluateUserAccount (username: string, variables: Record<string, JSONValue>, context: JobContext, verbose: boolean): Promise<EvaluationResult[]> {
     const user = await getUserExtended(username, context);
     if (!user) {
         if (verbose) {
@@ -29,8 +29,6 @@ export async function evaluateUserAccount (username: string, context: JobContext
         }
         return [];
     }
-
-    const variables = await getEvaluatorVariables(context);
 
     let userItems: (Post | Comment)[] | undefined;
     const detectedBots: UserEvaluatorBase[] = [];
@@ -113,7 +111,8 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
         return;
     }
 
-    const evaluationResults = await evaluateUserAccount(username, context, true);
+    const variables = await getEvaluatorVariables(context);
+    const evaluationResults = await evaluateUserAccount(username, variables, context, true);
 
     let reportReason: string | undefined;
 

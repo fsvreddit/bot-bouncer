@@ -124,6 +124,7 @@ export async function analyseBioText (_: unknown, context: JobContext) {
         console.log("No similar bio text patterns found.");
         output = "No similar enough bio text patterns found on this run.\n\n";
     } else {
+        const variables = await getEvaluatorVariables(context);
         let index = 1;
         output = "Here are some similar bio text patterns not already covered by the Bio Text evaluator and seen on swept subreddits recently:\n\n";
         // output += "To add all of these users to /r/BotBouncer with an initial status of pending, please reply with the command `!addall`, or to add with an initial status of banned, use `!addall banned`. Consider adjusting the list of regexes to capture these users\n\n";
@@ -135,7 +136,7 @@ export async function analyseBioText (_: unknown, context: JobContext) {
                 const currentStatus = await getUserStatus(bioTextEntry.username, context);
                 let evaluators = "";
                 if (!currentStatus) {
-                    const evaluatorsMatched = await evaluateUserAccount(bioTextEntry.username, context, false);
+                    const evaluatorsMatched = await evaluateUserAccount(bioTextEntry.username, variables, context, false);
                     evaluators = evaluatorsMatched.map(evaluator => evaluator.botName).join(", ");
                 }
                 output += `| /u/${bioTextEntry.username} | ${currentStatus?.userStatus ?? ""} | ${evaluators} | ${bioTextEntry.bioText} |\n`;
