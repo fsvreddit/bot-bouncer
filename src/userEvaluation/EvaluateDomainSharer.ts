@@ -100,7 +100,7 @@ export class EvaluateDomainSharer extends UserEvaluatorBase {
 
         const dominantDomains = domainAggregate.filter(item => item.count === contentInAllowedSubs.length);
         if (dominantDomains.length > 0) {
-            const autobanDomains = this.variables["domainsharer:autobandomains"] as string[] | undefined ?? [];
+            const autobanDomains = this.getVariable<string[]>("autobandomains") ?? [];
             if (autobanDomains.some(domain => dominantDomains.some(item => item.domain === domain))) {
                 this.canAutoBan = true;
             }

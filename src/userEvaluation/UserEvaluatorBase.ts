@@ -12,7 +12,7 @@ interface HistoryOptions {
 export abstract class UserEvaluatorBase {
     protected reasons: string[] = [];
     protected context: TriggerContext;
-    protected variables: Record<string, unknown> = {};
+    private variables: Record<string, unknown> = {};
 
     abstract name: string;
     abstract shortname: string;
