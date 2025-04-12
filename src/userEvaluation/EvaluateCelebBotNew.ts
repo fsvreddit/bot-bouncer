@@ -9,7 +9,7 @@ import { uniq } from "lodash";
 
 export class EvaluateCelebBotNew extends UserEvaluatorBase {
     override name = "Celeb Bot New";
-    override killswitch = "celebbotnew:killswitch";
+    override shortname = "celebbotnew";
 
     public override banContentThreshold = 5;
 
