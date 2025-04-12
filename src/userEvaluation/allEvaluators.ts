@@ -22,6 +22,7 @@ import { EvaluateShortTlcNew } from "./EvaluateShortTlcNew.js";
 import { EvaluateInconsistentGenderBot } from "./EvaluateInconsistentGenderBot.js";
 import { EvaluateOFLinksBot } from "./EvaluateOFLinksBot.js";
 import { EvaluateBadDisplayName } from "./EvaluateBadDisplayname.js";
+import { EvaluateCelebBotNew } from "./EvaluateCelebBotNew.js";
 
 export const ALL_EVALUATORS = [
     EvaluateBadUsername,
@@ -48,4 +49,5 @@ export const ALL_EVALUATORS = [
     EvaluateShortTlcNew,
     EvaluateOFLinksBot,
     EvaluateBadDisplayName,
+    EvaluateCelebBotNew,
 ];
