@@ -11,6 +11,7 @@ import { getUserExtended, UserExtended } from "../extendedDevvit.js";
 import { ALL_EVALUATORS } from "../userEvaluation/allEvaluators.js";
 import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
 import { getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
+import markdownEscape from "markdown-escape";
 
 function formatDifferenceInDates (start: Date, end: Date) {
     const units: (keyof Duration)[] = ["years", "months", "days"];
@@ -338,7 +339,7 @@ export async function getSummaryTextForUser (username: string, source: "modmail"
         }
 
         const subreddits = countBy(compact(userComments.map(comment => comment.subredditName)));
-        summary += `* Comment subreddits: ${Object.entries(subreddits).map(([subreddit, count]) => `${subreddit}: ${count}`).join(", ")}\n`;
+        summary += `* Comment subreddits: ${Object.entries(subreddits).map(([subreddit, count]) => `${markdownEscape(subreddit)}: ${count}`).join(", ")}\n`;
 
         const commentsPerPost = countBy(Object.values(countBy(userComments.map(comment => comment.postId))));
         summary += `* Comments per post: ${Object.entries(commentsPerPost).map(([count, posts]) => `${count} comments: ${posts}`).join(", ")}\n`;
@@ -378,7 +379,7 @@ export async function getSummaryTextForUser (username: string, source: "modmail"
         }
 
         const subreddits = countBy(compact(userPosts.map(post => post.subredditName)));
-        summary += `* Post subreddits: ${Object.entries(subreddits).map(([subreddit, count]) => `${subreddit}: ${count}`).join(", ")}\n`;
+        summary += `* Post subreddits: ${Object.entries(subreddits).map(([subreddit, count]) => `${markdownEscape(subreddit)}: ${count}`).join(", ")}\n`;
         if (userPosts.length < 90) {
             summary += `* First post was ${formatDifferenceInDates(user.createdAt, userPosts[userPosts.length - 1].createdAt)} after account creation\n`;
         }
