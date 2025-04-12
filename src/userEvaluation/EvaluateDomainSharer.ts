@@ -8,7 +8,7 @@ import { UserExtended } from "../extendedDevvit.js";
 
 export class EvaluateDomainSharer extends UserEvaluatorBase {
     override name = "Domain Sharer";
-    override killswitch = "domainsharer:killswitch";
+    override shortname = "domainsharer";
     override canAutoBan = false;
 
     private domainsFromContent (content: string): string[] {

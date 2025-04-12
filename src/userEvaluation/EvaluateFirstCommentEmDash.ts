@@ -10,7 +10,7 @@ import { UserExtended } from "../extendedDevvit.js";
 
 export class EvaluateFirstCommentEmDash extends UserEvaluatorBase {
     override name = "First Comment Em Dash";
-    override killswitch = "em-dash:killswitch";
+    override shortname = "em-dash";
 
     override banContentThreshold = 1;
 

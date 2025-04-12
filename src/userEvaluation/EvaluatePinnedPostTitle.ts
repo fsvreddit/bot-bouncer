@@ -7,7 +7,7 @@ import markdownEscape from "markdown-escape";
 
 export class EvaluatePinnedPostTitles extends UserEvaluatorBase {
     override name = "Sticky Post Title Bot";
-    override killswitch = "pinnedpost:killswitch";
+    override shortname = "pinnedpost";
     override banContentThreshold = 1;
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars

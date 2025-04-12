@@ -15,7 +15,7 @@ export abstract class UserEvaluatorBase {
     protected variables: Record<string, unknown> = {};
 
     abstract name: string;
-    abstract killswitch: string;
+    abstract shortname: string;
 
     public setReason (reason: string) {
         this.reasons.push(reason);
@@ -34,7 +34,13 @@ export abstract class UserEvaluatorBase {
     }
 
     public evaluatorDisabled () {
-        return this.variables[this.killswitch] as boolean | undefined ?? false;
+        return this.getVariable<boolean>("killswitch") ?? false;
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
+    protected getVariable<Type> (name: string, generic = false): Type | undefined {
+        const root = generic ? "generic" : this.shortname;
+        return this.variables[`${root}:${name}`] as Type | undefined;
     }
 
     public hitReason: string | undefined = undefined;

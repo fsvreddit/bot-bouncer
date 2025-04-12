@@ -9,7 +9,7 @@ import { UserExtended } from "../extendedDevvit.js";
 
 export class EvaluateMixedBot extends UserEvaluatorBase {
     override name = "Mixed Bot";
-    override killswitch = "mixed-bot:killswitch";
+    override shortname = "mixed-bot";
 
     private readonly emDashRegex = /\w—\w/i;
 

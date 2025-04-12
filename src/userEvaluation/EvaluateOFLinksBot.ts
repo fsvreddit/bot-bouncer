@@ -7,7 +7,7 @@ import { getUserOrUndefined } from "../utility.js";
 
 export class EvaluateOFLinksBot extends UserEvaluatorBase {
     override name = "OF Links Bot";
-    override killswitch = "oflinks:killswitch";
+    override shortname = "oflinks";
     override banContentThreshold = 1;
     override canAutoBan = true;
 

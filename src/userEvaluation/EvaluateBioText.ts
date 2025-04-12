@@ -6,7 +6,7 @@ import markdownEscape from "markdown-escape";
 
 export class EvaluateBioText extends UserEvaluatorBase {
     override name = "Bio Text Bot";
-    override killswitch = "biotext:killswitch";
+    override shortname = "biotext";
     override banContentThreshold = 1;
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -15,8 +15,8 @@ export class EvaluateBioText extends UserEvaluatorBase {
     }
 
     private getBioText () {
-        const bannableBioText = this.variables["biotext:bantext"] as string[] | undefined ?? [];
-        const reportableBioText = this.variables["biotext:reporttext"] as string[] | undefined ?? [];
+        const bannableBioText = this.getVariable<string[]>("bantext") ?? [];
+        const reportableBioText = this.getVariable<string[]>("reporttext") ?? [];
         return { bannableBioText, reportableBioText };
     }
 

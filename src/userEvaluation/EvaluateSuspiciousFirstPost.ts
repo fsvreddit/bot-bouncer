@@ -8,7 +8,7 @@ import markdownEscape from "markdown-escape";
 
 export class EvaluateSuspiciousFirstPost extends UserEvaluatorBase {
     override name = "Suspicious First Post";
-    override killswitch = "suspiciousfirstpost:killswitch";
+    override shortname = "suspiciousfirstpost";
 
     override banContentThreshold = 1;
 

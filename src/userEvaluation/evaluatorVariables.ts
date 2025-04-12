@@ -1,7 +1,9 @@
 import { JobContext, JSONObject, JSONValue, ScheduledJobEvent, TriggerContext, WikiPage } from "@devvit/public-api";
 import { CONTROL_SUBREDDIT } from "../constants.js";
+import { parseAllDocuments } from "yaml";
 
 const EVALUATOR_VARIABLES_KEY = "evaluatorVariables";
+const EVALUATOR_VARIABLES_YAML_PAGE = "evaluatorvariablesyaml";
 const EVALUATOR_VARIABLES_WIKI_PAGE = "evaluatorvariables";
 const EVALUATOR_VARIABLES_LAST_REVISION_KEY = "evaluatorVariablesLastRevision";
 
@@ -15,10 +17,39 @@ export async function getEvaluatorVariables (context: TriggerContext | JobContex
     return variables;
 }
 
+export function yamlToVariables (input: string): Record<string, JSONValue> {
+    const yamlDocuments = parseAllDocuments(input);
+    const variables: Record<string, JSONValue> = {};
+
+    let index = 0;
+    for (const doc of yamlDocuments) {
+        const json = doc.toJSON() as Record<string, JSONValue> | null;
+        if (!json) {
+            // Empty document
+            continue;
+        }
+        const root = json.name as string | undefined;
+        if (!root) {
+            console.error(`Evaluator Variables: Error parsing evaluator variables from wiki. Missing root name on document ${index}.`);
+            continue;
+        }
+
+        for (const key in json) {
+            if (key !== "name") {
+                variables[`${root}:${key}`] = json[key];
+            }
+        }
+
+        index++;
+    }
+
+    return variables;
+}
+
 export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
     let wikiPage: WikiPage | undefined;
     try {
-        wikiPage = await context.reddit.getWikiPage(CONTROL_SUBREDDIT, EVALUATOR_VARIABLES_WIKI_PAGE);
+        wikiPage = await context.reddit.getWikiPage(CONTROL_SUBREDDIT, EVALUATOR_VARIABLES_YAML_PAGE);
     } catch (e) {
         console.error("Evaluator Variables: Error reading evaluator variables from wiki", e);
         return;
@@ -29,28 +60,7 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
         return;
     }
 
-    let variables: Record<string, JSONValue>;
-    try {
-        variables = JSON.parse(wikiPage.content) as Record<string, JSONValue>;
-    } catch (error) {
-        if (context.subredditName !== CONTROL_SUBREDDIT || !event.data?.username) {
-            console.error("Evaluator Variables: Error parsing evaluator variables from wiki. Will fall back to cached values.");
-            return;
-        } else {
-            console.error("Evaluator Variables: Error parsing evaluator variables from wiki", error);
-
-            let errorMessage = `There was an error parsing the evaluator variables from the wiki. Please check the wiki page and try again.`;
-            errorMessage += `\n\nError: ${error}`;
-
-            await context.reddit.sendPrivateMessage({
-                subject: "Error parsing evaluator variables",
-                to: event.data.username as string,
-                text: errorMessage,
-            });
-
-            return;
-        }
-    }
+    const variables = yamlToVariables(wikiPage.content);
 
     const invalidRegexes = invalidEvaluatorVariablesRegexes(variables);
     if (invalidRegexes.length > 0) {
@@ -75,6 +85,13 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
 
     await context.redis.set(EVALUATOR_VARIABLES_KEY, wikiPage.content);
     await context.redis.set(EVALUATOR_VARIABLES_LAST_REVISION_KEY, wikiPage.revisionId);
+
+    // Write back to older wiki page for backwards compatibility
+    await context.reddit.updateWikiPage({
+        subredditName: CONTROL_SUBREDDIT,
+        page: EVALUATOR_VARIABLES_WIKI_PAGE,
+        content: JSON.stringify(variables, null, 4),
+    });
 
     console.log("Evaluator Variables: Updated from wiki");
 }

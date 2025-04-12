@@ -5,7 +5,7 @@ import { UserExtended } from "../extendedDevvit.js";
 
 export class EvaluateSecretLinksBot extends UserEvaluatorBase {
     override name = "Secret Links Bot";
-    override killswitch = "secretlinks:killswitch";
+    override shortname = "secretlinks";
     override banContentThreshold = 1;
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars

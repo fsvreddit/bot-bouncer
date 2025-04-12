@@ -9,7 +9,7 @@ import { UserExtended } from "../extendedDevvit.js";
 
 export class EvaluateCQSTester extends UserEvaluatorBase {
     override name = "CQS Tester";
-    override killswitch = "cqstester:killswitch";
+    override shortname = "cqstester";
 
     override canAutoBan = false;
 
@@ -31,7 +31,7 @@ export class EvaluateCQSTester extends UserEvaluatorBase {
     }
 
     override preEvaluatePost (post: Post): boolean {
-        const redditDomains = this.variables["generic:redditdomains"] as string[] | undefined ?? [];
+        const redditDomains = this.getVariable<string[]>("redditdomains", true) ?? [];
         const domain = domainFromUrl(post.url);
         if (!domain) {
             return false;

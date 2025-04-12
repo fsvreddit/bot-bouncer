@@ -9,7 +9,7 @@ import { UserExtended } from "../extendedDevvit.js";
 
 export class EvaluateSelfComment extends UserEvaluatorBase {
     override name = "Self Comment";
-    override killswitch = "selfcomment:killswitch";
+    override shortname = "selfcomment";
 
     override banContentThreshold = 2;
 

@@ -11,7 +11,7 @@ import { uniq } from "lodash";
 
 export class EvaluateShortTlcNew extends UserEvaluatorBase {
     override name = "Short TLC New Bot";
-    override killswitch = "short-tlc-new:killswitch";
+    override shortname = "short-tlc-new";
     override banContentThreshold = 1;
     override canAutoBan = true;
 

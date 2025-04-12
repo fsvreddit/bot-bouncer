@@ -6,7 +6,7 @@ import markdownEscape from "markdown-escape";
 
 export class EvaluateBadDisplayName extends UserEvaluatorBase {
     override name = "Bad Display Name Bot";
-    override killswitch = "baddisplayname:killswitch";
+    override shortname = "baddisplayname";
 
     public override banContentThreshold = 1;
 
@@ -15,7 +15,7 @@ export class EvaluateBadDisplayName extends UserEvaluatorBase {
             return false;
         }
 
-        const regexes = this.variables["baddisplayname:regexes"] as string[] | undefined ?? [];
+        const regexes = this.getVariable<string[]>("regexes") ?? [];
         const matchedRegex = regexes.find(regex => new RegExp(regex, "u").test(displayName));
         if (matchedRegex) {
             this.hitReason = `Username matches regex: ${markdownEscape(matchedRegex)}`;

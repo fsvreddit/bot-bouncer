@@ -10,7 +10,7 @@ import { UserExtended } from "../extendedDevvit.js";
 
 export class EvaluateZombie extends UserEvaluatorBase {
     override name = "Zombie";
-    override killswitch = "zombie:killswitch";
+    override shortname = "zombie";
 
     override canAutoBan = false;
 
@@ -65,7 +65,7 @@ export class EvaluateZombie extends UserEvaluatorBase {
     }
 
     override evaluatorDisabled (): boolean {
-        const killswitchSet = this.variables[this.killswitch] as boolean | undefined ?? false;
+        const killswitchSet = this.variables[`${this.shortname}:killswitch`] as boolean | undefined ?? false;
         return killswitchSet && this.context.subredditName !== CONTROL_SUBREDDIT;
     }
 

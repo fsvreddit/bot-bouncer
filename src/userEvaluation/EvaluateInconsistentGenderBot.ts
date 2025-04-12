@@ -7,7 +7,7 @@ import { subWeeks } from "date-fns";
 
 export class EvaluateInconsistentGenderBot extends UserEvaluatorBase {
     override name = "Inconsistent Gender Bot";
-    override killswitch = "inconsistentgender:killswitch";
+    override shortname = "inconsistentgender";
     override banContentThreshold = 6;
     override canAutoBan = true;
 

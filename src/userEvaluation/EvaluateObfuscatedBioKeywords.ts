@@ -5,7 +5,7 @@ import { UserExtended } from "../extendedDevvit.js";
 
 export class EvaluateObfuscatedBioKeywords extends UserEvaluatorBase {
     override name = "Obfuscated Bio Keywords Bot";
-    override killswitch = "obfuscatedbiowords:killswitch";
+    override shortname = "obfuscatedbiowords";
     override banContentThreshold = 1;
 
     private getKeywords (): string[] {

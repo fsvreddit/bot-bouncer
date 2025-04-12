@@ -7,7 +7,7 @@ import markdownEscape from "markdown-escape";
 
 export class EvaluateBadUsername extends UserEvaluatorBase {
     override name = "Bad Username Bot";
-    override killswitch = "badusername:killswitch";
+    override shortname = "badusername";
 
     public override banContentThreshold = 1;
 
@@ -16,7 +16,7 @@ export class EvaluateBadUsername extends UserEvaluatorBase {
             return false;
         }
 
-        const regexes = this.variables["badusername:regexes"] as string[] | undefined ?? [];
+        const regexes = this.getVariable<string[]>("regexes") ?? [];
         const matchedRegex = regexes.find(regex => new RegExp(regex).test(username));
         if (matchedRegex) {
             this.hitReason = `Username matches regex: ${markdownEscape(matchedRegex)}`;
@@ -38,7 +38,7 @@ export class EvaluateBadUsername extends UserEvaluatorBase {
             return false;
         }
 
-        const maxAgeWeeks = this.variables["badusername:maxageweeks"] as number | undefined ?? 4;
+        const maxAgeWeeks = this.getVariable<number>("maxageweeks") ?? 4;
         if (user.createdAt < subWeeks(new Date(), maxAgeWeeks)) {
             this.setReason("Account is too old");
             return false;

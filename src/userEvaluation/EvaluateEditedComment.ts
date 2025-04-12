@@ -6,7 +6,7 @@ import { UserExtended } from "../extendedDevvit.js";
 
 export class EvaluateEditedComment extends UserEvaluatorBase {
     override name = "Comment Edit Bot";
-    override killswitch = "commentedit:killswitch";
+    override shortname = "commentedit";
     override canAutoBan = false;
 
     private commentBodyMatches (body: string) {

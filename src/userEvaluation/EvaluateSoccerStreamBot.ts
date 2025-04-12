@@ -8,7 +8,7 @@ import { UserExtended } from "../extendedDevvit.js";
 
 export class EvaluateSoccerStreamBot extends UserEvaluatorBase {
     override name = "Soccer Stream Bot";
-    override killswitch = "soccerstreams:killswitch";
+    override shortname = "soccerstreams";
     override banContentThreshold = 20;
     override canAutoBan = true;
 

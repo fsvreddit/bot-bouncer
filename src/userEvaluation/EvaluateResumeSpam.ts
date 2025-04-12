@@ -9,7 +9,7 @@ import { UserExtended } from "../extendedDevvit.js";
 
 export class EvaluateResumeSpam extends UserEvaluatorBase {
     override name = "Resume Spam";
-    override killswitch = "resume:killswitch";
+    override shortname = "resume";
 
     private eligibleComment (comment: Comment | CommentV2) {
         if (isCommentId(comment.parentId)) {

@@ -6,7 +6,7 @@ import markdownEscape from "markdown-escape";
 
 export class EvaluatePostTitle extends UserEvaluatorBase {
     override name = "Bad Post Title Bot";
-    override killswitch = "posttitle:killswitch";
+    override shortname = "posttitle";
     override banContentThreshold = 1;
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars

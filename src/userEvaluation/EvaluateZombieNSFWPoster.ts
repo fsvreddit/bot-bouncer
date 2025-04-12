@@ -6,7 +6,7 @@ import { UserExtended } from "../extendedDevvit.js";
 
 export class EvaluateZombieNSFW extends UserEvaluatorBase {
     override name = "Zombie NSFW Poster";
-    override killswitch = "zombiensfw:killswitch";
+    override shortname = "zombiensfw";
 
     override banContentThreshold = 5;
 

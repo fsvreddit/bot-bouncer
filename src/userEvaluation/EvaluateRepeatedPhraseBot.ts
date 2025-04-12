@@ -7,7 +7,7 @@ import { UserExtended } from "../extendedDevvit.js";
 
 export class EvaluateRepeatedPhraseBot extends UserEvaluatorBase {
     override name = "Repeated Phrase Bot";
-    override killswitch = "repeatedphrase:killswitch";
+    override shortname = "repeatedphrase";
     override banContentThreshold = 3;
     override canAutoBan = true;
 

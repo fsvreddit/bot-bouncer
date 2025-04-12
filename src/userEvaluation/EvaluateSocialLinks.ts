@@ -7,7 +7,7 @@ import { UserExtended } from "../extendedDevvit.js";
 
 export class EvaluateSocialLinks extends UserEvaluatorBase {
     override name = "Social Links Bot";
-    override killswitch = "sociallinks:killswitch";
+    override shortname = "sociallinks";
 
     override banContentThreshold = 1;
 
