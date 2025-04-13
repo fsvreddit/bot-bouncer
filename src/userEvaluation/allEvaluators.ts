@@ -23,6 +23,7 @@ import { EvaluateInconsistentGenderBot } from "./EvaluateInconsistentGenderBot.j
 import { EvaluateOFLinksBot } from "./EvaluateOFLinksBot.js";
 import { EvaluateBadDisplayName } from "./EvaluateBadDisplayname.js";
 import { EvaluateCelebBotNew } from "./EvaluateCelebBotNew.js";
+import { EvaluateSequencePostBot } from "./EvaluateSequencePostBot.js";
 
 export const ALL_EVALUATORS = [
     EvaluateBadUsername,
@@ -50,4 +51,5 @@ export const ALL_EVALUATORS = [
     EvaluateOFLinksBot,
     EvaluateBadDisplayName,
     EvaluateCelebBotNew,
+    EvaluateSequencePostBot,
 ];
