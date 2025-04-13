@@ -15,8 +15,8 @@ export class EvaluateBioText extends UserEvaluatorBase {
     }
 
     private getBioText () {
-        const bannableBioText = this.getVariable<string[]>("bantext") ?? [];
-        const reportableBioText = this.getVariable<string[]>("reporttext") ?? [];
+        const bannableBioText = this.getVariable<string[]>("bantext", []);
+        const reportableBioText = this.getVariable<string[]>("reporttext", []);
         return { bannableBioText, reportableBioText };
     }
 

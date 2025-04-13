@@ -16,7 +16,7 @@ export class EvaluateBadUsername extends UserEvaluatorBase {
             return false;
         }
 
-        const regexes = this.getVariable<string[]>("regexes") ?? [];
+        const regexes = this.getVariable<string[]>("regexes", []);
         const matchedRegex = regexes.find(regex => new RegExp(regex).test(username));
         if (matchedRegex) {
             this.hitReason = `Username matches regex: ${markdownEscape(matchedRegex)}`;
@@ -38,7 +38,7 @@ export class EvaluateBadUsername extends UserEvaluatorBase {
             return false;
         }
 
-        const maxAgeWeeks = this.getVariable<number>("maxageweeks") ?? 4;
+        const maxAgeWeeks = this.getVariable<number>("maxageweeks", 4);
         if (user.createdAt < subWeeks(new Date(), maxAgeWeeks)) {
             this.setReason("Account is too old");
             return false;

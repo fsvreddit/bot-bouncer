@@ -15,8 +15,8 @@ export class EvaluatePostTitle extends UserEvaluatorBase {
     }
 
     private getTitles () {
-        const bannableTitles = this.variables["posttitle:bantext"] as string[] | undefined ?? [];
-        const reportableTitles = this.variables["posttitle:reporttext"] as string[] | undefined ?? [];
+        const bannableTitles = this.getVariable<string[]>("bantext", []);
+        const reportableTitles = this.getVariable<string[]>("reporttext", []);
         return { bannableTitles, reportableTitles };
     }
 

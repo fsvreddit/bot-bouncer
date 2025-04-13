@@ -31,7 +31,7 @@ export class EvaluateCQSTester extends UserEvaluatorBase {
     }
 
     override preEvaluatePost (post: Post): boolean {
-        const redditDomains = this.getVariable<string[]>("redditdomains", true) ?? [];
+        const redditDomains = this.getGenericVariable<string[]>("redditdomains", []);
         const domain = domainFromUrl(post.url);
         if (!domain) {
             return false;

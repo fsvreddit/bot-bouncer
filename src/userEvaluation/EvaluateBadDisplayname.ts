@@ -15,7 +15,7 @@ export class EvaluateBadDisplayName extends UserEvaluatorBase {
             return false;
         }
 
-        const regexes = this.getVariable<string[]>("regexes") ?? [];
+        const regexes = this.getVariable<string[]>("regexes", []);
         const matchedRegex = regexes.find(regex => new RegExp(regex, "u").test(displayName));
         if (matchedRegex) {
             this.hitReason = `Username matches regex: ${markdownEscape(matchedRegex)}`;

@@ -10,7 +10,7 @@ export class EvaluateEditedComment extends UserEvaluatorBase {
     override canAutoBan = false;
 
     private commentBodyMatches (body: string) {
-        const commentBodyRegexes = this.variables["commentedit:regexes"] as string[] | undefined ?? [];
+        const commentBodyRegexes = this.getVariable<string[]>("regexes", []);
         const matchingRegex = commentBodyRegexes.find(regex => new RegExp(regex, "i").test(body));
         if (!matchingRegex) {
             return false;
@@ -38,9 +38,9 @@ export class EvaluateEditedComment extends UserEvaluatorBase {
     }
 
     override preEvaluateUser (user: UserExtended): boolean {
-        const maxCommentKarma = this.variables["commentedit:maxcommentkarma"] as number | undefined ?? 1;
-        const maxLinkKarma = this.variables["commentedit:maxlinkkarma"] as number | undefined ?? 1;
-        const minAgeInDays = this.variables["commentedit:minageindays"] as number | undefined ?? 7;
+        const maxCommentKarma = this.getVariable<number>("maxcommentkarma", 1);
+        const maxLinkKarma = this.getVariable<number>("maxlinkkarma", 1);
+        const minAgeInDays = this.getVariable<number>("minageindays", 7);
 
         return user.commentKarma < maxCommentKarma
             && user.linkKarma < maxLinkKarma
@@ -48,7 +48,7 @@ export class EvaluateEditedComment extends UserEvaluatorBase {
     }
 
     override evaluate (_: UserExtended, history: (Post | Comment)[]): boolean {
-        const commentMaxAgeInDays = this.variables["commentedit:commentmaxageindays"] as number | undefined ?? 7;
+        const commentMaxAgeInDays = this.getVariable<number>("commentmaxageindays", 7);
 
         const recentEditedComments = this.getComments(history, { since: subDays(new Date(), commentMaxAgeInDays), edited: true });
 
@@ -57,7 +57,7 @@ export class EvaluateEditedComment extends UserEvaluatorBase {
             return false;
         }
 
-        const commentsNeeded = this.variables["commentedit:commentsneeded"] as number | undefined ?? 1;
+        const commentsNeeded = this.getVariable("commentsneeded", 1);
         const matchedComments = recentEditedComments.filter(comment => this.commentBodyMatches(comment.body));
         if (matchedComments.length < commentsNeeded) {
             this.hitReason = `User has edited ${recentEditedComments.length} comments, but only ${matchedComments.length} match the regex`;

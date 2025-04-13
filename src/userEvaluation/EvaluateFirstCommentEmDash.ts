@@ -17,7 +17,7 @@ export class EvaluateFirstCommentEmDash extends UserEvaluatorBase {
     private readonly emDashRegex = /\w—\w/i;
 
     private isNoCheckSub () {
-        const noCheckSubs = this.variables["em-dash:nochecksubs"] as string[] | undefined ?? [];
+        const noCheckSubs = this.getVariable<string[]>("nochecksubs", []);
         return this.context.subredditName && noCheckSubs.includes(this.context.subredditName);
     }
 
@@ -39,7 +39,7 @@ export class EvaluateFirstCommentEmDash extends UserEvaluatorBase {
 
     private eligiblePost (post: Post): boolean {
         const domain = domainFromUrl(post.url);
-        const redditDomains = this.variables["generic:redditdomains"] as string[] | undefined ?? [];
+        const redditDomains = this.getGenericVariable<string[]>("redditdomains", []);
 
         return domain !== undefined && redditDomains.includes(domain);
     }
@@ -58,7 +58,7 @@ export class EvaluateFirstCommentEmDash extends UserEvaluatorBase {
             return false;
         }
 
-        const noCheckSubs = this.variables["em-dash:nochecksubs"] as string[] | undefined ?? [];
+        const noCheckSubs = this.getVariable<string[]>("nochecksubs", []);
         if (this.context.subredditName && noCheckSubs.includes(this.context.subredditName)) {
             this.setReason("User is in a no-check subreddit");
             return false;
@@ -108,9 +108,9 @@ export class EvaluateFirstCommentEmDash extends UserEvaluatorBase {
         if (!firstCommentContainsEmDash && !emDashThresholdMet) {
             this.setReason("User's first comment doesn't contain an em dash, or they have insufficient comments with them");
 
-            const karmaFarmingSubs = this.variables["generic:karmafarminglinksubs"] as string[] | undefined ?? [];
-            const postCountNeeded = this.variables["em-dash:postcount"] as number | undefined ?? 3;
-            const subsNeeded = this.variables["em-dash:distinctsubs"] as number | undefined ?? 3;
+            const karmaFarmingSubs = this.getGenericVariable<string[]>("karmafarminglinksubs", []);
+            const postCountNeeded = this.getVariable<number>("postcount", 3);
+            const subsNeeded = this.getVariable<number>("distinctsubs", 3);
 
             const backupRequirementsMet = posts.length >= postCountNeeded
                 && uniq(posts.filter(post => karmaFarmingSubs.includes(post.subredditName)).map(post => post.subredditName)).length >= subsNeeded
@@ -126,7 +126,7 @@ export class EvaluateFirstCommentEmDash extends UserEvaluatorBase {
             return false;
         }
 
-        const noAutoBanSubs = this.variables["em-dash:noautobansubs"] as string[] | undefined ?? [];
+        const noAutoBanSubs = this.getVariable<string[]>("noautobansubs", []);
         if (history.some(item => noAutoBanSubs.includes(item.subredditName))) {
             this.canAutoBan = false;
         }

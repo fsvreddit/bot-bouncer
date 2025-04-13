@@ -14,7 +14,7 @@ export class EvaluateSelfComment extends UserEvaluatorBase {
     override banContentThreshold = 2;
 
     private isSubIgnored () {
-        const ignoredSubreddits = this.variables["selfcomment:ignoredsubs"] as string[] | undefined ?? [];
+        const ignoredSubreddits = this.getVariable<string[]>("ignoredsubs", []);
         return this.context.subredditName && ignoredSubreddits.includes(this.context.subredditName);
     }
 
@@ -25,7 +25,7 @@ export class EvaluateSelfComment extends UserEvaluatorBase {
 
     private eligiblePost (post: Post): boolean {
         const domain = domainFromUrl(post.url);
-        const karmaFarmingSubs = this.variables["generic:karmafarminglinksubs"] as string[] | undefined ?? [];
+        const karmaFarmingSubs = this.getGenericVariable<string[]>("karmafarminglinksubs", []);
         return (domain === "i.redd.it" || domain === "v.redd.it") && !post.nsfw && karmaFarmingSubs.includes(post.subredditName);
     }
 
@@ -49,13 +49,13 @@ export class EvaluateSelfComment extends UserEvaluatorBase {
     }
 
     override preEvaluateUser (user: UserExtended): boolean {
-        const ageInDays = this.variables["selfcomment:ageindays"] as number | undefined ?? 14;
-        const maxKarma = this.variables["selfcomment:maxkarma"] as number | undefined ?? 500;
+        const ageInDays = this.getVariable<number>("ageindays", 14);
+        const maxKarma = this.getVariable<number>("maxkarma", 500);
         return user.createdAt > subDays(new Date(), ageInDays) && user.commentKarma < maxKarma;
     }
 
     override evaluate (user: UserExtended, history: (Post | Comment)[]): boolean {
-        const ignoredSubreddits = this.variables["selfcomment:ignoredsubs"] as string[] | undefined ?? [];
+        const ignoredSubreddits = this.getVariable<string[]>("ignoredsubs", []);
         ignoredSubreddits.push(...history.filter(item => item.subredditName.toLowerCase().includes("onlyfans")).map(item => item.subredditName));
 
         const posts = this.getPosts(history, { omitRemoved: true });
@@ -75,7 +75,7 @@ export class EvaluateSelfComment extends UserEvaluatorBase {
             return false;
         }
 
-        const maxCommentAge = this.variables["selfcomment:commentmaxminutes"] as number | undefined ?? 1;
+        const maxCommentAge = this.getVariable<number>("commentmaxminutes", 1);
         for (const comment of comments.filter(comment => !ignoredSubreddits.includes(comment.subredditName))) {
             const post = posts.find(post => post.id === comment.parentId);
             if (!post || post.authorId !== user.id) {

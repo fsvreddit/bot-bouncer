@@ -21,8 +21,8 @@ export class EvaluatePinnedPostTitles extends UserEvaluatorBase {
     }
 
     override preEvaluateUser (user: UserExtended): boolean {
-        const bannableTitles = this.variables["pinnedpost:bantext"] as string[] | undefined ?? [];
-        const reportableTitles = this.variables["pinnedpost:reporttext"] as string[] | undefined ?? [];
+        const bannableTitles = this.getVariable<string[]>("bantext", []);
+        const reportableTitles = this.getVariable<string[]>("reporttext", []);
 
         if (bannableTitles.length === 0 && reportableTitles.length === 0) {
             return false;
@@ -41,7 +41,7 @@ export class EvaluatePinnedPostTitles extends UserEvaluatorBase {
             return false;
         }
 
-        const bannableTitles = this.variables["pinnedpost:bantext"] as string[] | undefined ?? [];
+        const bannableTitles = this.getVariable<string[]>("bantext", []);
         const matchedBanRegex = bannableTitles.find(title => stickyPosts.some(post => new RegExp(title, "u").test(post.title)));
         if (matchedBanRegex) {
             this.hitReason = `Sticky post title matched regex: ${markdownEscape(matchedBanRegex)}`;
@@ -49,7 +49,7 @@ export class EvaluatePinnedPostTitles extends UserEvaluatorBase {
             return true;
         }
 
-        const reportableTitles = this.variables["pinnedpost:reporttext"] as string[] | undefined ?? [];
+        const reportableTitles = this.getVariable<string[]>("reporttext", []);
         const matchedReportRegex = reportableTitles.find(title => stickyPosts.some(post => new RegExp(title, "u").test(post.title)));
         if (matchedReportRegex) {
             this.hitReason = `Sticky post title matched regex: ${markdownEscape(matchedReportRegex)}`;

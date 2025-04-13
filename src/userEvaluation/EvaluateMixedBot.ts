@@ -41,7 +41,7 @@ export class EvaluateMixedBot extends UserEvaluatorBase {
             return false;
         }
 
-        const redditDomains = this.variables["generic:redditdomains"] as string[] | undefined ?? [];
+        const redditDomains = this.getGenericVariable<string[]>("redditdomains", []);
         const domain = domainFromUrl(post.url);
         // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
         return (domain && redditDomains.includes(domain)) || post.subredditName === "WhatIsMyCQS";

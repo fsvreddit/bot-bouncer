@@ -13,7 +13,7 @@ export class EvaluateSuspiciousFirstPost extends UserEvaluatorBase {
     override banContentThreshold = 1;
 
     private subList () {
-        return this.variables["suspiciousfirstpost:subreddits"] as string[] | undefined ?? [];
+        return this.getVariable<string[]>("subreddits", []);
     }
 
     private eligiblePost (post: Post): boolean {
@@ -35,7 +35,7 @@ export class EvaluateSuspiciousFirstPost extends UserEvaluatorBase {
     }
 
     override preEvaluateUser (user: UserExtended): boolean {
-        const maxAgeInDays = this.variables["suspiciousfirstpost:maxageindays"] as number | undefined ?? 14;
+        const maxAgeInDays = this.getVariable<number>("maxageindays", 14);
         return user.createdAt > subDays(new Date(), maxAgeInDays) && user.commentKarma < 50;
     }
 

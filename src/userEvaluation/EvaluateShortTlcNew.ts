@@ -49,7 +49,7 @@ export class EvaluateShortTlcNew extends UserEvaluatorBase {
             return false;
         }
 
-        const maxAgeInDays = this.variables["short-tlc-new:maxageindays"] as number | undefined ?? 1;
+        const maxAgeInDays = this.getVariable<number>("maxageindays", 1);
         if (user.createdAt < subDays(new Date(), maxAgeInDays)) {
             this.setReason("Account is too old");
             return false;
@@ -78,7 +78,7 @@ export class EvaluateShortTlcNew extends UserEvaluatorBase {
             return false;
         }
 
-        const requiredSubs = this.variables["short-tlc-new:requiredsubs"] as string[] | undefined ?? [];
+        const requiredSubs = this.getVariable<string[]>("requiredsubs", []);
         if (!userComments.some(comment => requiredSubs.includes(comment.subredditName))) {
             this.setReason("User has no comments in required subs");
             return false;
@@ -108,7 +108,7 @@ export class EvaluateShortTlcNew extends UserEvaluatorBase {
     }
 
     private usernameMatchesBotPatterns (username: string): boolean {
-        const botUsernameRegexes = this.variables["short-tlc-new:botregexes"] as string[] | undefined ?? [];
+        const botUsernameRegexes = this.getVariable<string[]>("botregexes", []);
 
         // Check against known bot username patterns.
         if (!botUsernameRegexes.some(regex => new RegExp(regex).test(username))) {

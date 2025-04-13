@@ -12,7 +12,7 @@ export class EvaluateSocialLinks extends UserEvaluatorBase {
     override banContentThreshold = 1;
 
     private getDomains (): string[] {
-        const postDomains = this.variables["generic:redditdomains"] as string[] | undefined ?? [];
+        const postDomains = this.getGenericVariable<string[]>("redditdomains", []);
         postDomains.push("redgifs.com", "instagram.com");
         return postDomains;
     }
@@ -29,7 +29,7 @@ export class EvaluateSocialLinks extends UserEvaluatorBase {
     }
 
     override async preEvaluateUser (user: UserExtended): Promise<boolean> {
-        const badSocialLinks = this.variables["sociallinks:badlinks"] as string[] | undefined ?? [];
+        const badSocialLinks = this.getVariable<string[]>("badlinks", []);
         if (badSocialLinks.length === 0) {
             return false;
         }

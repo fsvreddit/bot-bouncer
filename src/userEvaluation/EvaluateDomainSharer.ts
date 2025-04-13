@@ -23,13 +23,13 @@ export class EvaluateDomainSharer extends UserEvaluatorBase {
             domains.push(domainFromUrl(url));
         }
 
-        const redditDomains = this.variables["generic:redditdomains"] as string[] | undefined ?? [];
-        const ignoredDomains = this.variables["domainsharer:ignoreddomains"] as string[] | undefined ?? [];
+        const redditDomains = this.getGenericVariable<string[]>("redditdomains", []);
+        const ignoredDomains = this.getVariable<string[]>("ignoreddomains", []);
         return uniq(compact((domains)).filter(domain => !redditDomains.includes(domain) && !ignoredDomains.includes(domain)));
     }
 
     private ignoredSubreddits () {
-        return this.variables["domainsharer:ignoredsubreddits"] as string[] | undefined ?? [];
+        return this.getVariable<string[]>("ignoredsubreddits", []);
     }
 
     private domainsFromPost (post: Post): string[] {
@@ -42,8 +42,8 @@ export class EvaluateDomainSharer extends UserEvaluatorBase {
             domains.push(...this.domainsFromContent(post.body));
         }
 
-        const redditDomains = this.variables["generic:redditdomains"] as string[] | undefined ?? [];
-        const ignoredDomains = this.variables["domainsharer:ignoreddomains"] as string[] | undefined ?? [];
+        const redditDomains = this.getGenericVariable<string[]>("redditdomains", []);
+        const ignoredDomains = this.getVariable<string[]>("ignoreddomains", []);
         return uniq(compact(domains).filter(domain => !redditDomains.includes(domain) && !ignoredDomains.includes(domain)));
     }
 
@@ -100,7 +100,7 @@ export class EvaluateDomainSharer extends UserEvaluatorBase {
 
         const dominantDomains = domainAggregate.filter(item => item.count === contentInAllowedSubs.length);
         if (dominantDomains.length > 0) {
-            const autobanDomains = this.getVariable<string[]>("autobandomains") ?? [];
+            const autobanDomains = this.getVariable<string[]>("autobandomains", []);
             if (autobanDomains.some(domain => dominantDomains.some(item => item.domain === domain))) {
                 this.canAutoBan = true;
             }

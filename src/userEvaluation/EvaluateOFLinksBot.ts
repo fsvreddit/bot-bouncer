@@ -44,13 +44,13 @@ export class EvaluateOFLinksBot extends UserEvaluatorBase {
 
         const username = usernameMatch[1];
 
-        const maxAgeInDays = this.variables["oflinks:maxageindays"] as number | undefined ?? 30;
+        const maxAgeInDays = this.getVariable<number>("maxageindays", 30);
         if (user.createdAt < subDays(new Date(), maxAgeInDays)) {
             this.setReason("User is older than the max age limit");
             return false;
         }
 
-        const prefixes = (this.variables["oflinks:prefixes"] as string[] | undefined ?? [])
+        const prefixes = (this.getVariable<string[]>("prefixes", []))
             .map(prefix => `${prefix}${username.toLowerCase()}`);
 
         if (prefixes.length === 0) {

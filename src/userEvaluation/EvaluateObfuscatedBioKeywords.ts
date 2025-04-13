@@ -9,7 +9,7 @@ export class EvaluateObfuscatedBioKeywords extends UserEvaluatorBase {
     override banContentThreshold = 1;
 
     private getKeywords (): string[] {
-        return this.variables["obfuscatedbiowords:keywords"] as string[] | undefined ?? [];
+        return this.getVariable<string[]>("keywords", []);
     }
 
     private bioTextMatches (user: UserExtended): boolean {

@@ -34,13 +34,15 @@ export abstract class UserEvaluatorBase {
     }
 
     public evaluatorDisabled () {
-        return this.getVariable<boolean>("killswitch") ?? false;
+        return this.getVariable<boolean>("killswitch", false);
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
-    protected getVariable<Type> (name: string, generic = false): Type | undefined {
-        const root = generic ? "generic" : this.shortname;
-        return this.variables[`${root}:${name}`] as Type | undefined;
+    protected getVariable<Type> (name: string, defaultValue: Type): Type {
+        return this.variables[`${this.shortname}:${name}`] as Type | undefined ?? defaultValue;
+    }
+
+    protected getGenericVariable<Type> (name: string, defaultValue: Type): Type {
+        return this.variables[`generic:${name}`] as Type | undefined ?? defaultValue;
     }
 
     public hitReason: string | undefined = undefined;

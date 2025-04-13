@@ -20,7 +20,7 @@ export class EvaluateResumeSpam extends UserEvaluatorBase {
     }
 
     private eligiblePost (post: Post) {
-        const redditDomains = this.variables["generic:redditdomains"] as string[] | undefined ?? [];
+        const redditDomains = this.getGenericVariable<string[]>("redditdomains", []);
         const domain = domainFromUrl(post.url);
         return domain && redditDomains.includes(domain);
     }
@@ -66,8 +66,8 @@ export class EvaluateResumeSpam extends UserEvaluatorBase {
 
         const userComments = this.getComments(history);
 
-        const phrases = this.variables["resume:phrases"] as string[] | undefined;
-        if (!phrases) {
+        const phrases = this.getVariable<string[]>("phrases", []);
+        if (phrases.length === 0) {
             this.setReason("No resume phrases defined");
             return false;
         }

@@ -12,8 +12,8 @@ export class EvaluateRepeatedPhraseBot extends UserEvaluatorBase {
     override canAutoBan = true;
 
     private eligibleComment (comment: Comment | CommentV2): boolean {
-        const phrases = this.variables["repeatedphrase:phrases"] as string[] | undefined ?? [];
-        const caseSensitive = this.variables["repeatedphrase:casesensitive"] as boolean | undefined ?? false;
+        const phrases = this.getVariable<string[]>("phrases", []);
+        const caseSensitive = this.getVariable<boolean>("casesensitive", false);
 
         if (caseSensitive) {
             const matchedPhrases = phrases.filter(phrase => comment.body.includes(phrase));
