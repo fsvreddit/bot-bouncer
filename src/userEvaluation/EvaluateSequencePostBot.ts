@@ -43,6 +43,11 @@ export class EvaluateSequencePostBot extends UserEvaluatorBase {
         const oldestPost = posts[posts.length - 1];
         const secondOldestPost = posts[posts.length - 2];
 
+        if (oldestPost.subredditName === secondOldestPost.subredditName) {
+            this.setReason("User has made posts in the same subreddit twice in a row");
+            return false;
+        }
+
         if (!firstPostSubreddits.includes(oldestPost.subredditName) || !secondPostSubreddits.includes(secondOldestPost.subredditName)) {
             this.setReason("User has not made posts in the correct subreddits");
             return false;
