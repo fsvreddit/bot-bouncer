@@ -8,6 +8,7 @@ import pluralize from "pluralize";
 import { getControlSubSettings } from "./settings.js";
 import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
 import { USER_EVALUATION_RESULTS_KEY } from "./handleControlSubAccountEvaluation.js";
+import { queueUserForActivityCheck, removeActivityCheckRecords } from "./activityHistory.js";
 
 export const USER_STORE = "UserStore";
 export const AGGREGATE_STORE = "AggregateStore";
@@ -112,6 +113,10 @@ export async function setUserStatus (username: string, details: UserDetails, con
         }, context));
     }
 
+    if (context.subredditName === CONTROL_SUBREDDIT && details.userStatus === UserStatus.Banned) {
+        promises.push(queueUserForActivityCheck(username, context, true));
+    }
+
     await Promise.all(promises);
     await scheduleAdhocCleanup(context);
 }
@@ -122,6 +127,7 @@ export async function deleteUserStatus (usernames: string[], context: TriggerCon
     const promises = [
         context.redis.hDel(USER_STORE, usernames),
         context.redis.hDel(USER_EVALUATION_RESULTS_KEY, usernames),
+        usernames.map(username => removeActivityCheckRecords(username, context)),
     ];
 
     const postsToDeleteTrackingFor = compact(currentStatuses.map(item => item?.trackingPostId));

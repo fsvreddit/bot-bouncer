@@ -72,8 +72,10 @@ async function addControlSubredditJobs (context: TriggerContext) {
         cron: "29 1/6 * * *",
     });
 
-    await handleExternalSubmissionsPageUpdate(context);
-    await removeRetiredEvaluatorsFromStats(context);
+    await Promise.all([
+        handleExternalSubmissionsPageUpdate(context),
+        removeRetiredEvaluatorsFromStats(context),
+    ]);
 
     // await evaluateUserAccount("Basic_Trainer_1829", context, true);
 
