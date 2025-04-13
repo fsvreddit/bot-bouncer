@@ -32,7 +32,7 @@ export class EvaluateSequencePostBot extends UserEvaluatorBase {
         return user.commentKarma < 50 && user.createdAt > subDays(new Date(), maxAccountAge);
     }
 
-    override evaluate (user: UserExtended, history: (Post | Comment)[]): boolean {
+    override evaluate (_: UserExtended, history: (Post | Comment)[]): boolean {
         const { firstPostSubreddits, secondPostSubreddits } = this.getSubreddits();
         const posts = this.getPosts(history);
         if (posts.length < 2) {
