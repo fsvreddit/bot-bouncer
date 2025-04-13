@@ -55,6 +55,7 @@ async function checkUserActivity (username: string, context: JobContext) {
     const currentStatus = await getUserStatus(username, context);
     if (currentStatus?.lastStatus !== UserStatus.Banned) {
         await removeActivityCheckRecords(username, context);
+        console.log(`Activity Check: User ${username} is no longer banned. Removing from activity check queue.`);
         return;
     }
 
