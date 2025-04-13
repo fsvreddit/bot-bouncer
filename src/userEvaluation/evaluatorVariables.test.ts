@@ -3,6 +3,7 @@ import { yamlToVariables } from "./evaluatorVariables.js";
 test("Parsing YAML", () => {
     const yamlString = `
 name: biotext
+
 maxageweeks: 24
 ---
 name: short-nontlc
