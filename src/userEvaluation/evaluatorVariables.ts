@@ -2,6 +2,7 @@ import { JobContext, JSONObject, JSONValue, ScheduledJobEvent, TriggerContext, W
 import { CONTROL_SUBREDDIT } from "../constants.js";
 import { parseAllDocuments } from "yaml";
 import { uniq } from "lodash";
+import { replaceAll } from "../utility.js";
 
 const EVALUATOR_VARIABLES_KEY = "evaluatorVariables";
 const EVALUATOR_VARIABLES_YAML_PAGE = "evaluator-config";
@@ -24,6 +25,8 @@ export function yamlToVariables (input: string): Record<string, JSONValue> {
 
     const modulesSeen = new Set<string>();
 
+    const substitutions: Record<string, string> = {};
+
     let index = 0;
     for (const doc of yamlDocuments) {
         const json = doc.toJSON() as Record<string, JSONValue> | null;
@@ -31,10 +34,21 @@ export function yamlToVariables (input: string): Record<string, JSONValue> {
             // Empty document
             continue;
         }
+
         const root = json.name as string | undefined;
         if (!root) {
             console.error(`Evaluator Variables: Error parsing evaluator variables from wiki. Missing root name on document ${index}.`);
             continue;
+        }
+
+        // Special case: if in "substitutions" module, add to substitutions map
+        if (root === "substitutions") {
+            for (const key in json) {
+                if (key === "name") {
+                    continue;
+                }
+                substitutions[key] = json[key] as string;
+            }
         }
 
         if (modulesSeen.has(root)) {
@@ -44,7 +58,23 @@ export function yamlToVariables (input: string): Record<string, JSONValue> {
 
         for (const key in json) {
             if (key !== "name") {
-                variables[`${root}:${key}`] = json[key];
+                let value = json[key];
+                if (typeof value === "string") {
+                    for (const subKey in substitutions) {
+                        value = replaceAll(value, `{{${subKey}}}`, substitutions[subKey]);
+                    }
+                } else if (Array.isArray(value)) {
+                    value = value.map((item) => {
+                        if (typeof item === "string") {
+                            for (const subKey in substitutions) {
+                                item = replaceAll(item, `{{${subKey}}}`, substitutions[subKey]);
+                            }
+                        }
+                        return item;
+                    });
+                }
+
+                variables[`${root}:${key}`] = value;
             }
         }
 
@@ -92,7 +122,7 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
     }
 
     for (const module of uniq(Object.keys(variables).map(key => key.split(":")[0]))) {
-        if (module === "generic") {
+        if (module === "generic" || module === "substitutions") {
             continue;
         }
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
