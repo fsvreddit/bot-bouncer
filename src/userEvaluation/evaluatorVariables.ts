@@ -1,9 +1,10 @@
 import { JobContext, JSONObject, JSONValue, ScheduledJobEvent, TriggerContext, WikiPage } from "@devvit/public-api";
 import { CONTROL_SUBREDDIT } from "../constants.js";
 import { parseAllDocuments } from "yaml";
+import { uniq } from "lodash";
 
 const EVALUATOR_VARIABLES_KEY = "evaluatorVariables";
-const EVALUATOR_VARIABLES_YAML_PAGE = "evaluatorvariablesyaml";
+const EVALUATOR_VARIABLES_YAML_PAGE = "evaluator-config";
 const EVALUATOR_VARIABLES_WIKI_PAGE = "evaluatorvariables";
 const EVALUATOR_VARIABLES_LAST_REVISION_KEY = "evaluatorVariablesLastRevision";
 
@@ -80,6 +81,16 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
             });
 
             return;
+        }
+    }
+
+    for (const module of uniq(Object.keys(variables).map(key => key.split(":")[0]))) {
+        if (module === "generic") {
+            continue;
+        }
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+        if (variables[`${module}:killswitch`] === undefined) {
+            console.warn(`Evaluator Variables: Missing killswitch for module ${module}.`);
         }
     }
 
