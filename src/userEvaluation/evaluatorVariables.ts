@@ -94,7 +94,7 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
         }
     }
 
-    await context.redis.set(EVALUATOR_VARIABLES_KEY, wikiPage.content);
+    await context.redis.set(EVALUATOR_VARIABLES_KEY, JSON.stringify(variables));
     await context.redis.set(EVALUATOR_VARIABLES_LAST_REVISION_KEY, wikiPage.revisionId);
 
     // Write back to older wiki page for backwards compatibility
@@ -122,9 +122,8 @@ function isValidRegex (regex: string): boolean {
 }
 
 function invalidEvaluatorVariablesRegexes (variables: Record<string, JSONValue>): string[] {
-    const stringVariablesWithRegexes = [
-        "short-nontlc:regex",
-        "short-nontlc:usernameregex",
+    const stringVariablesWithRegexes: string[] = [
+
     ];
 
     const arrayVariablesWithRegexes = [
@@ -134,12 +133,15 @@ function invalidEvaluatorVariablesRegexes (variables: Record<string, JSONValue>)
         "pinnedpost:reporttext",
         "posttitle:bantext",
         "posttitle:reporttext",
-        "short-tlc:botregexes",
         "zombiensfw:regexes",
     ];
 
     const invalidRegexes: InvalidRegex[] = [];
     for (const key of stringVariablesWithRegexes) {
+        if (!variables[key]) {
+            console.warn(`Evaluator Variables: Missing variable ${key}.`);
+            continue;
+        }
         const value = variables[key] as string;
         if (!isValidRegex(value)) {
             invalidRegexes.push({ key, regex: value });
@@ -147,6 +149,10 @@ function invalidEvaluatorVariablesRegexes (variables: Record<string, JSONValue>)
     }
 
     for (const key of arrayVariablesWithRegexes) {
+        if (!variables[key]) {
+            console.warn(`Evaluator Variables: Missing variable ${key}.`);
+            continue;
+        }
         const value = variables[key] as string[];
         for (const regex of value) {
             if (!isValidRegex(regex)) {
