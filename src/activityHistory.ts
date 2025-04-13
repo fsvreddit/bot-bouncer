@@ -61,6 +61,7 @@ async function checkUserActivity (username: string, context: JobContext) {
     const itemsInLastWeek = await postsAndCommentsInLastWeek(username, context);
     if (!itemsInLastWeek) {
         await queueUserForActivityCheck(username, context);
+        console.log(`Activity Check: User ${username} has no activity in the last week`);
         return;
     }
 
@@ -70,6 +71,7 @@ async function checkUserActivity (username: string, context: JobContext) {
             lastStatusDate: currentStatus.lastUpdate,
         };
         await context.redis.hSet(ACTIVITY_CHECK_STORE, { [username]: JSON.stringify(entryToStore) });
+        console.log(`Activity Check: User ${username} has been active recently. Comments in last week: ${itemsInLastWeek.commentsInLastWeek}, Posts in last week: ${itemsInLastWeek.postsInLastWeek}`);
     } else {
         await context.redis.hDel(ACTIVITY_CHECK_STORE, [username]);
     }

@@ -32,45 +32,52 @@ export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, contex
 }
 
 async function addControlSubredditJobs (context: TriggerContext) {
-    await context.scheduler.runJob({
-        name: ControlSubredditJob.UpdateWikiPage,
-        cron: "0/5 * * * *",
-    });
+    await Promise.all([
+        context.scheduler.runJob({
+            name: ControlSubredditJob.UpdateWikiPage,
+            cron: "0/5 * * * *",
+        }),
 
-    await context.scheduler.runJob({
-        name: ControlSubredditJob.UpdateStatisticsPage,
-        cron: "0 0 * * *",
-    });
+        context.scheduler.runJob({
+            name: ControlSubredditJob.UpdateStatisticsPage,
+            cron: "0 0 * * *",
+        }),
 
-    await context.scheduler.runJob({
-        name: ControlSubredditJob.UpdateStatisticsPage,
-        runAt: new Date(),
-    });
+        context.scheduler.runJob({
+            name: ControlSubredditJob.UpdateStatisticsPage,
+            runAt: new Date(),
+        }),
 
-    await context.scheduler.runJob({
-        name: ControlSubredditJob.EvaluateKarmaFarmingSubs,
-        cron: "5/30 * * * *",
-    });
+        context.scheduler.runJob({
+            name: ControlSubredditJob.EvaluateKarmaFarmingSubs,
+            cron: "5/30 * * * *",
+        }),
 
-    await context.scheduler.runJob({
-        name: ControlSubredditJob.CopyControlSubSettings,
-        cron: "15 * * * *",
-    });
+        context.scheduler.runJob({
+            name: ControlSubredditJob.CopyControlSubSettings,
+            cron: "15 * * * *",
+        }),
 
-    await context.scheduler.runJob({
-        name: ControlSubredditJob.ExternalSubmission,
-        cron: EXTERNAL_SUBMISSION_JOB_CRON,
-    });
+        context.scheduler.runJob({
+            name: ControlSubredditJob.ExternalSubmission,
+            cron: EXTERNAL_SUBMISSION_JOB_CRON,
+        }),
 
-    await context.scheduler.runJob({
-        name: ControlSubredditJob.UptimeAndMessageCheck,
-        cron: "2/20 * * * *",
-    });
+        context.scheduler.runJob({
+            name: ControlSubredditJob.UptimeAndMessageCheck,
+            cron: "2/20 * * * *",
+        }),
 
-    await context.scheduler.runJob({
-        name: ControlSubredditJob.BioTextAnalyser,
-        cron: "29 1/6 * * *",
-    });
+        context.scheduler.runJob({
+            name: ControlSubredditJob.BioTextAnalyser,
+            cron: "29 1/6 * * *",
+        }),
+
+        context.scheduler.runJob({
+            name: ControlSubredditJob.ActivityCheck,
+            runAt: new Date(),
+        }),
+    ]);
 
     await Promise.all([
         handleExternalSubmissionsPageUpdate(context),
