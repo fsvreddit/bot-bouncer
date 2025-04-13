@@ -22,6 +22,8 @@ export function yamlToVariables (input: string): Record<string, JSONValue> {
     const yamlDocuments = parseAllDocuments(input);
     const variables: Record<string, JSONValue> = {};
 
+    const modulesSeen = new Set<string>();
+
     let index = 0;
     for (const doc of yamlDocuments) {
         const json = doc.toJSON() as Record<string, JSONValue> | null;
@@ -33,6 +35,11 @@ export function yamlToVariables (input: string): Record<string, JSONValue> {
         if (!root) {
             console.error(`Evaluator Variables: Error parsing evaluator variables from wiki. Missing root name on document ${index}.`);
             continue;
+        }
+
+        if (modulesSeen.has(root)) {
+            console.warn(`Evaluator Variables: Module name ${root} is present more than once. This is not permitted.`);
+            modulesSeen.add(root);
         }
 
         for (const key in json) {
