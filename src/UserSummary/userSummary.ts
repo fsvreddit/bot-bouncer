@@ -29,23 +29,36 @@ function formatDifferenceInDates (start: Date, end: Date) {
     return formatDuration(duration, { format: units });
 }
 
-function timeBetween (history: (Post | Comment)[], type: "min" | "max") {
+function timeBetween (history: (Post | Comment)[], type: "min" | "max" | "10th") {
     if (history.length < 2) {
         return;
     }
 
-    let diff: number | undefined;
+    const diffs: number[] = [];
 
     for (let i = 0; i < history.length - 1; i++) {
         const first = history[i];
         const second = history[i + 1];
-        const thisDiff = differenceInMilliseconds(first.createdAt, second.createdAt);
-        if (!diff || (type === "min" && thisDiff < diff) || (type === "max" && thisDiff > diff)) {
-            diff = thisDiff;
-        }
+        diffs.push(differenceInMilliseconds(first.createdAt, second.createdAt));
     }
 
-    if (diff === undefined) {
+    if (diffs.length === 0) {
+        return undefined;
+    }
+
+    // Order diffs from smallest to largest
+    diffs.sort((a, b) => a - b);
+    let diff: number;
+
+    if (type === "min") {
+        diff = diffs[0];
+    } else if (type === "max") {
+        diff = diffs[diffs.length - 1];
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    } else if (type === "10th") {
+        const tenthIndex = Math.floor(diffs.length * 0.1);
+        diff = diffs[tenthIndex];
+    } else {
         return;
     }
 
@@ -321,6 +334,7 @@ export async function getSummaryTextForUser (username: string, source: "modmail"
         summary += `User has ${userComments.length} ${pluralize("comment", userComments.length)}\n\n`;
         if (userComments.length > 2) {
             summary += `* Min time between comments: ${timeBetween(userComments, "min")}\n`;
+            summary += `* 10th percentile time between comments: ${timeBetween(userComments, "10th")}\n`;
             summary += `* Max time between comments: ${timeBetween(userComments, "max")}\n`;
             summary += `* Average time between comments: ${averageInterval(userComments, "mean")} (median: ${averageInterval(userComments, "median")})\n`;
         } else if (userComments.length === 2) {
@@ -362,6 +376,7 @@ export async function getSummaryTextForUser (username: string, source: "modmail"
 
         if (userPosts.length > 2) {
             summary += `* Min time between posts: ${timeBetween(nonStickied, "min")}\n`;
+            summary += `* 10th percentile time between posts: ${timeBetween(nonStickied, "10th")}\n`;
             summary += `* Max time between posts: ${timeBetween(nonStickied, "max")}\n`;
             summary += `* Average time between posts: ${averageInterval(nonStickied, "mean")} (median: ${averageInterval(nonStickied, "median")})\n`;
         } else if (userPosts.length === 2) {
