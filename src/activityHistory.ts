@@ -145,8 +145,8 @@ export async function createActivityLogWikiPage (context: TriggerContext) {
         for (const entry of freshEntries) {
             const { username, data } = entry;
             const lastActivityDate = format(new Date(data.latestActivity), "yyyy-MM-dd");
-            const lastStatusDate = data.lastStatusDate ? new Date(data.lastStatusDate).toUTCString() : "";
-            wikiContent += `| ${username} | ${data.commentsInLastWeek} | ${data.postsInLastWeek} | ${lastActivityDate} | ${lastStatusDate} |\n`;
+            const lastStatusDate = data.lastStatusDate ? format(new Date(data.lastStatusDate), "yyyy-MM-dd") : "";
+            wikiContent += `| /u/${username} | ${data.commentsInLastWeek} | ${data.postsInLastWeek} | ${lastActivityDate} | ${lastStatusDate} |\n`;
         }
     }
 
