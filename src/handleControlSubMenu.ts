@@ -4,6 +4,7 @@ import { getUserStatus, UserStatus } from "./dataStore.js";
 import { controlSubForm } from "./main.js";
 import { CONTROL_SUBREDDIT } from "./constants.js";
 import { createUserSummary } from "./UserSummary/userSummary.js";
+import { getAccountInitialEvaluationResults } from "./handleControlSubAccountEvaluation.js";
 
 enum ControlSubAction {
     RegenerateSummary = "generateSummary",
@@ -38,7 +39,7 @@ export async function handleControlSubReportUser (target: Post | Comment, contex
         description += ` Status set by u/${currentStatus.operator}.`;
     }
 
-    let fields: FormField[] = [];
+    const fields: FormField[] = [];
     if (currentStatus.userStatus === UserStatus.Pending) {
         const formOptions = [
             { label: "Regenerate Summary", value: ControlSubAction.RegenerateSummary },
@@ -48,16 +49,36 @@ export async function handleControlSubReportUser (target: Post | Comment, contex
             formOptions.push({ label: "Query Submission", value: ControlSubAction.QuerySubmission });
         }
 
-        fields = [
-            {
-                name: "action",
-                type: "select",
-                label: "Select an action",
-                options: formOptions,
-                multiSelect: false,
-                required: true,
-            },
-        ];
+        fields.push({
+            name: "action",
+            type: "select",
+            label: "Select an action",
+            options: formOptions,
+            multiSelect: false,
+            required: true,
+        });
+    }
+
+    if (currentStatus.userStatus === UserStatus.Banned || currentStatus.lastStatus === UserStatus.Banned) {
+        const initialEvaluationResult = await getAccountInitialEvaluationResults(username, context);
+        for (const hit of initialEvaluationResult) {
+            if (hit.hitReason) {
+                fields.push({
+                    name: hit.botName,
+                    label: `User hit ${hit.botName}`,
+                    type: "paragraph",
+                    lineHeight: Math.min(Math.ceil(hit.hitReason.length / 60), 8),
+                    defaultValue: hit.hitReason,
+                });
+            } else {
+                fields.push({
+                    name: hit.botName,
+                    label: `User hit ${hit.botName}`,
+                    type: "string",
+                    placeholder: "No detail available",
+                });
+            }
+        }
     }
 
     context.ui.showForm(controlSubForm, { title, description, fields: fields as unknown as JSONObject });
