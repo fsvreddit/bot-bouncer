@@ -1,7 +1,7 @@
 import { Comment, JobContext, Post, TriggerContext } from "@devvit/public-api";
 import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
 import { addDays, addMinutes, format, subWeeks } from "date-fns";
-import { CONTROL_SUBREDDIT, ControlSubredditJob } from "./constants.js";
+import { CONTROL_SUBREDDIT, ControlSubredditJob, PostFlairTemplate } from "./constants.js";
 import { getUserStatus, UserStatus } from "./dataStore.js";
 import { max } from "lodash";
 import pluralize from "pluralize";
@@ -53,7 +53,7 @@ interface ActivityRecord {
 
 async function checkUserActivity (username: string, context: JobContext) {
     const currentStatus = await getUserStatus(username, context);
-    if (currentStatus?.userStatus !== UserStatus.Banned) {
+    if (currentStatus?.userStatus !== UserStatus.Banned && currentStatus?.userStatus !== UserStatus.Purged) {
         await removeActivityCheckRecords(username, context);
         console.log(`Activity Check: User ${username} is no longer banned. Removing from activity check queue.`);
         return;
@@ -64,6 +64,15 @@ async function checkUserActivity (username: string, context: JobContext) {
         await queueUserForActivityCheck(username, context);
         console.log(`Activity Check: Could not retrieve data for ${username}`);
         return;
+    }
+
+    if (currentStatus.userStatus === UserStatus.Purged && currentStatus.lastStatus === UserStatus.Banned) {
+        // Handle temp shadowban reactivation
+        await context.reddit.setPostFlair({
+            postId: currentStatus.trackingPostId,
+            flairTemplateId: PostFlairTemplate.Banned,
+            subredditName: CONTROL_SUBREDDIT,
+        });
     }
 
     if (itemsInLastWeek.commentsInLastWeek > 0 || itemsInLastWeek.postsInLastWeek > 0) {
