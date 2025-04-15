@@ -151,9 +151,10 @@ interface InvalidRegex {
 
 function isValidRegex (regex: string): boolean {
     try {
-        new RegExp(regex);
+        new RegExp(regex, "u");
         return true;
-    } catch {
+    } catch (error) {
+        console.error(`Evaluator Variables: Invalid regex ${regex}`, error);
         return false;
     }
 }
