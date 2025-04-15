@@ -138,8 +138,8 @@ export async function addExternalSubmissionsToQueue (items: ExternalSubmission[]
         return;
     }
 
-    await Promise.all(items.map(item => context.redis.set(getExternalSubmissionDataKey(item.username), JSON.stringify(item), { expiration: addDays(new Date(), 28) })));
     await context.redis.zAdd(EXTERNAL_SUBMISSION_QUEUE, ...items.map(item => ({ member: item.username, score: new Date().getTime() })));
+    await Promise.all(items.map(item => context.redis.set(getExternalSubmissionDataKey(item.username), JSON.stringify(item), { expiration: addDays(new Date(), 28) })));
 
     if (scheduleJob) {
         await scheduleAdhocExternalSubmissionsJob(context);
