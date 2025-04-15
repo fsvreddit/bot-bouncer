@@ -1,17 +1,19 @@
-import { JobContext, TriggerContext, WikiPagePermissionLevel, WikiPage, ScheduledJobEvent, JSONObject } from "@devvit/public-api";
-import { compact, countBy, Dictionary, max, sum, toPairs, uniq } from "lodash";
+import { JobContext, TriggerContext, WikiPagePermissionLevel, WikiPage, CreateModNoteOptions } from "@devvit/public-api";
+import { compact, max, toPairs, uniq } from "lodash";
 import pako from "pako";
 import { scheduleAdhocCleanup, setCleanupForSubmittersAndMods, setCleanupForUsers } from "./cleanup.js";
-import { CONTROL_SUBREDDIT, HANDLE_CLASSIFICATION_CHANGES_JOB } from "./constants.js";
+import { ClientSubredditJob, CONTROL_SUBREDDIT } from "./constants.js";
 import { addSeconds, addWeeks, startOfSecond, subDays, subHours, subWeeks } from "date-fns";
 import pluralize from "pluralize";
 import { getControlSubSettings } from "./settings.js";
 import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
-import { updateEvaluatorHitsWikiPage } from "./handleControlSubAccountEvaluation.js";
+import { USER_EVALUATION_RESULTS_KEY } from "./handleControlSubAccountEvaluation.js";
+import { queueUserForActivityCheck, removeActivityCheckRecords } from "./activityHistory.js";
 
-const USER_STORE = "UserStore";
+export const USER_STORE = "UserStore";
+export const AGGREGATE_STORE = "AggregateStore";
+
 const POST_STORE = "PostStore";
-const AGGREGATE_STORE = "AggregateStore";
 const WIKI_UPDATE_DUE = "WikiUpdateDue";
 const WIKI_PAGE = "botbouncer";
 const MAX_WIKI_PAGE_SIZE = 512 * 1024;
@@ -34,6 +36,10 @@ export interface UserDetails {
     lastUpdate: number;
     submitter?: string;
     operator: string;
+    reportedAt?: number;
+    bioText?: string;
+    recentPostSubs?: string[];
+    recentCommentSubs?: string[];
 }
 
 export async function getUserStatus (username: string, context: TriggerContext) {
@@ -45,6 +51,14 @@ export async function getUserStatus (username: string, context: TriggerContext) 
     return JSON.parse(value) as UserDetails;
 }
 
+async function addModNote (options: CreateModNoteOptions, context: TriggerContext) {
+    try {
+        await context.reddit.addModNote(options);
+    } catch {
+        console.error(`Failed to add mod note for ${options.user}`);
+    }
+}
+
 export async function setUserStatus (username: string, details: UserDetails, context: TriggerContext) {
     if (context.subredditName === CONTROL_SUBREDDIT && !isLinkId(details.trackingPostId) && !isCommentId(details.trackingPostId)) {
         throw new Error(`Tracking post ID is missing or invalid for ${username}: ${details.trackingPostId}!`);
@@ -54,6 +68,16 @@ export async function setUserStatus (username: string, details: UserDetails, con
 
     if (currentStatus?.userStatus === UserStatus.Banned || currentStatus?.userStatus === UserStatus.Service || currentStatus?.userStatus === UserStatus.Organic) {
         details.lastStatus = currentStatus.userStatus;
+    }
+
+    // Set the reported at date from the original date, or current date/time if not set.
+    details.reportedAt ??= currentStatus?.reportedAt ?? new Date().getTime();
+
+    if (currentStatus?.recentPostSubs && !details.recentPostSubs) {
+        details.recentPostSubs = currentStatus.recentPostSubs;
+    }
+    if (currentStatus?.recentCommentSubs && !details.recentCommentSubs) {
+        details.recentCommentSubs = currentStatus.recentCommentSubs;
     }
 
     const promises: Promise<unknown>[] = [
@@ -81,6 +105,18 @@ export async function setUserStatus (username: string, details: UserDetails, con
         }
     }
 
+    if (context.subredditName === CONTROL_SUBREDDIT && currentStatus?.userStatus !== details.userStatus && details.userStatus !== UserStatus.Pending) {
+        promises.push(addModNote({
+            subreddit: context.subredditName,
+            user: username,
+            note: `Status changed to ${details.userStatus} by ${details.operator}.`,
+        }, context));
+    }
+
+    if (context.subredditName === CONTROL_SUBREDDIT && details.userStatus === UserStatus.Banned) {
+        promises.push(queueUserForActivityCheck(username, context, true));
+    }
+
     await Promise.all(promises);
     await scheduleAdhocCleanup(context);
 }
@@ -90,6 +126,8 @@ export async function deleteUserStatus (usernames: string[], context: TriggerCon
 
     const promises = [
         context.redis.hDel(USER_STORE, usernames),
+        context.redis.hDel(USER_EVALUATION_RESULTS_KEY, usernames),
+        usernames.map(username => removeActivityCheckRecords(username, context)),
     ];
 
     const postsToDeleteTrackingFor = compact(currentStatuses.map(item => item?.trackingPostId));
@@ -110,139 +148,6 @@ export async function updateAggregate (type: UserStatus, incrBy: number, context
         const newScore = await context.redis.zIncrBy(AGGREGATE_STORE, type, incrBy);
         console.log(`Aggregate for ${type} ${incrBy > 0 ? "increased" : "decreased"} to ${newScore}`);
     }
-}
-
-export async function correctAggregateData (context: TriggerContext) {
-    const data = await context.redis.hGetAll(USER_STORE);
-    const entries = Object.entries(data).map(([, value]) => JSON.parse(value) as UserDetails);
-
-    const statusesToUpdate = [UserStatus.Banned, UserStatus.Pending, UserStatus.Organic, UserStatus.Service, UserStatus.Declined];
-    const statuses = Object.entries(countBy(entries.map(item => item.userStatus)))
-        .map(([key, value]) => ({ member: key, score: value }))
-        .filter(item => statusesToUpdate.includes(item.member as UserStatus));
-
-    await context.redis.zAdd(AGGREGATE_STORE, ...statuses);
-}
-
-interface SubmitterStatistic {
-    submitter: string;
-    count: number;
-    ratio: number;
-}
-
-async function updateMainStatisticsPage (context: JobContext) {
-    let results = await context.redis.zRange(AGGREGATE_STORE, 0, -1);
-    results = results.filter(item => item.member !== "pending");
-
-    let wikiContent = "# Bot Bouncer statistics\n\nThis page details the number of accounts that have been processed by Bot Bouncer.\n\n";
-
-    for (const item of results) {
-        wikiContent += `* **${item.member}**: ${item.score.toLocaleString()}\n`;
-    }
-
-    wikiContent += `\n**Total accounts processed**: ${sum(results.map(item => item.score)).toLocaleString()}\n\n`;
-    wikiContent += "These statistics update once a day at midnight UTC.";
-
-    const wikiPageName = "statistics";
-    const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
-
-    let wikiPage: WikiPage | undefined;
-    try {
-        wikiPage = await context.reddit.getWikiPage(subredditName, wikiPageName);
-    } catch {
-        //
-    }
-
-    const wikiPageSaveOptions = {
-        subredditName,
-        page: wikiPageName,
-        content: wikiContent,
-    };
-
-    if (wikiPage) {
-        if (wikiContent.trim() !== wikiPage.content.trim()) {
-            await context.reddit.updateWikiPage(wikiPageSaveOptions);
-        }
-    } else {
-        await context.reddit.createWikiPage(wikiPageSaveOptions);
-        await context.reddit.updateWikiPageSettings({
-            subredditName,
-            page: wikiPageName,
-            listed: true,
-            permLevel: WikiPagePermissionLevel.SUBREDDIT_PERMISSIONS,
-        });
-    }
-}
-
-async function updateSubmitterStatistics (context: JobContext) {
-    const allData = await context.redis.hGetAll(USER_STORE);
-    const allStatuses = Object.values(allData).map(item => JSON.parse(item) as UserDetails);
-
-    const organicStatuses: Dictionary<number> = {};
-    const bannedStatuses: Dictionary<number> = {};
-
-    for (const status of allStatuses) {
-        if (!status.submitter) {
-            continue;
-        }
-
-        if (status.userStatus === UserStatus.Organic || status.userStatus === UserStatus.Service || status.userStatus === UserStatus.Declined) {
-            organicStatuses[status.submitter] = (organicStatuses[status.submitter] ?? 0) + 1;
-        } else if (status.userStatus === UserStatus.Banned || (status.userStatus === UserStatus.Purged && status.lastStatus === UserStatus.Banned)) {
-            bannedStatuses[status.submitter] = (bannedStatuses[status.submitter] ?? 0) + 1;
-        }
-    }
-
-    const distinctUsers = uniq([...Object.keys(organicStatuses), ...Object.keys(bannedStatuses)]);
-    const submitterStatistics: SubmitterStatistic[] = [];
-    for (const user of distinctUsers) {
-        const organicCount = organicStatuses[user] ?? 0;
-        const bannedCount = bannedStatuses[user] ?? 0;
-        const totalCount = organicCount + bannedCount;
-        const ratio = Math.round(100 * bannedCount / totalCount);
-        submitterStatistics.push({ submitter: user, count: totalCount, ratio });
-    }
-
-    let wikiContent = "Submitter statistics\n\n";
-
-    for (const item of submitterStatistics.sort((a, b) => a.count - b.count)) {
-        wikiContent += `* **${item.submitter}**: ${item.count} (${item.ratio}% banned)\n`;
-    }
-
-    const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
-    let wikiPage: WikiPage | undefined;
-    const submitterStatisticsWikiPage = "submitter-statistics";
-    try {
-        wikiPage = await context.reddit.getWikiPage(subredditName, submitterStatisticsWikiPage);
-    } catch {
-        //
-    }
-
-    const submitterStatisticsWikiPageSaveOptions = {
-        subredditName,
-        page: submitterStatisticsWikiPage,
-        content: wikiContent,
-    };
-
-    if (wikiPage) {
-        await context.reddit.updateWikiPage(submitterStatisticsWikiPageSaveOptions);
-    } else {
-        await context.reddit.createWikiPage(submitterStatisticsWikiPageSaveOptions);
-        await context.reddit.updateWikiPageSettings({
-            listed: true,
-            page: submitterStatisticsWikiPage,
-            subredditName,
-            permLevel: WikiPagePermissionLevel.MODS_ONLY,
-        });
-    }
-}
-
-export async function updateStatisticsPages (_: unknown, context: JobContext) {
-    await Promise.all([
-        updateMainStatisticsPage(context),
-        updateSubmitterStatistics(context),
-        updateEvaluatorHitsWikiPage(context),
-    ]);
 }
 
 async function queueWikiUpdate (context: TriggerContext) {
@@ -283,11 +188,16 @@ function compactDataForWiki (input: string): string | undefined {
         status.lastUpdate = addSeconds(startOfSecond(new Date(status.lastUpdate)), 1).getTime();
     }
 
+    delete status.reportedAt;
+    delete status.bioText;
+    delete status.recentPostSubs;
+    delete status.recentCommentSubs;
+
     return JSON.stringify(status);
 }
 
-export async function updateWikiPage (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
-    const updateDue = await context.redis.get(WIKI_UPDATE_DUE);
+export async function updateWikiPage (_: unknown, context: JobContext) {
+    const updateDue = await context.redis.exists(WIKI_UPDATE_DUE);
     if (!updateDue) {
         return;
     }
@@ -345,7 +255,7 @@ export async function updateWikiPage (event: ScheduledJobEvent<JSONObject | unde
 
     if (content.length > MAX_WIKI_PAGE_SIZE * 0.7) {
         const spaceAlertKey = "wikiSpaceAlert";
-        const alertDone = await context.redis.get(spaceAlertKey);
+        const alertDone = await context.redis.exists(spaceAlertKey);
         if (!alertDone) {
             const message = `The botbouncer wiki page is now at ${Math.round(content.length / MAX_WIKI_PAGE_SIZE * 100)}% of its maximum size. It's time to rethink how data is stored.\n\nI will modmail you again in a week.`;
             await context.reddit.modMail.createModInboxConversation({
@@ -435,7 +345,7 @@ export async function updateLocalStoreFromWiki (_: unknown, context: JobContext)
 
         if (bannedUsers.length > 0 || unbannedUsers.length > 0) {
             await context.scheduler.runJob({
-                name: HANDLE_CLASSIFICATION_CHANGES_JOB,
+                name: ClientSubredditJob.HandleClassificationChanges,
                 runAt: new Date(),
                 data: { bannedUsers, unbannedUsers },
             });

@@ -1,5 +1,5 @@
 import { Post, Comment, TriggerContext, SettingsValues, JSONValue } from "@devvit/public-api";
-import { CommentCreate, PostCreate } from "@devvit/protos";
+import { CommentCreate, CommentUpdate, PostCreate } from "@devvit/protos";
 import { addDays, addMinutes, addWeeks, formatDate, subMinutes } from "date-fns";
 import { getUserStatus, UserDetails, UserStatus } from "./dataStore.js";
 import { isUserWhitelisted, recordBan } from "./handleClientSubredditWikiUpdate.js";
@@ -7,7 +7,7 @@ import { CONTROL_SUBREDDIT } from "./constants.js";
 import { getPostOrCommentById, getUserOrUndefined, isApproved, isBanned, isModerator, replaceAll } from "./utility.js";
 import { AppSetting, CONFIGURATION_DEFAULTS, getControlSubSettings } from "./settings.js";
 import { ALL_EVALUATORS } from "./userEvaluation/allEvaluators.js";
-import { addExternalSubmission } from "./externalSubmissions.js";
+import { addExternalSubmissionFromClientSub } from "./externalSubmissions.js";
 import { isLinkId } from "@devvit/shared-types/tid.js";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { recordBanForDigest, recordReportForDigest } from "./modmail/dailyDigest.js";
@@ -30,9 +30,7 @@ export async function handleClientPostCreate (event: PostCreate, context: Trigge
 
     const currentStatus = await getUserStatus(event.author.name, context);
     if (currentStatus) {
-        if (!settings[AppSetting.HoneypotMode]) {
-            await handleContentCreation(event.author.name, currentStatus, event.post.id, context);
-        }
+        await handleContentCreation(event.author.name, currentStatus, event.post.id, context);
         return;
     }
 
@@ -120,6 +118,63 @@ export async function handleClientCommentCreate (event: CommentCreate, context: 
     await context.redis.set(redisKey, new Date().getTime().toString(), { expiration: addDays(new Date(), 2) });
 }
 
+export async function handleClientCommentUpdate (event: CommentUpdate, context: TriggerContext) {
+    if (context.subredditName === CONTROL_SUBREDDIT) {
+        return;
+    }
+
+    if (!event.comment || !event.author?.name) {
+        return;
+    }
+
+    if (event.author.name === "AutoModerator" || event.author.name === `${context.subredditName}-ModTeam`) {
+        return;
+    }
+
+    const currentStatus = await getUserStatus(event.author.name, context);
+    if (currentStatus) {
+        return;
+    }
+
+    const settings = await context.settings.getAll();
+    if (!settings[AppSetting.ReportPotentialBots]) {
+        return;
+    }
+
+    const variables = await getEvaluatorVariables(context);
+
+    let possibleBot = false;
+    for (const Evaluator of ALL_EVALUATORS) {
+        const evaluator = new Evaluator(context, variables);
+        if (evaluator.evaluatorDisabled()) {
+            continue;
+        }
+
+        if (evaluator.preEvaluateCommentEdit(event)) {
+            possibleBot = true;
+            break;
+        }
+    }
+
+    if (!possibleBot) {
+        return;
+    }
+
+    const redisKey = `lastbotcheck:${event.author.name}`;
+    const recentlyChecked = await context.redis.get(redisKey);
+    if (recentlyChecked) {
+        // Allow some rechecks within 15 minutes, to find rapid fire bots.
+        const lastCheck = new Date(parseInt(recentlyChecked));
+        if (lastCheck < subMinutes(new Date(), 15)) {
+            return;
+        }
+    }
+
+    await checkAndReportPotentialBot(event.author.name, event, settings, variables, context);
+
+    await context.redis.set(redisKey, new Date().getTime().toString(), { expiration: addDays(new Date(), 2) });
+}
+
 async function handleContentCreation (username: string, currentStatus: UserDetails, targetId: string, context: TriggerContext) {
     if (currentStatus.userStatus !== UserStatus.Banned) {
         return;
@@ -158,12 +213,25 @@ async function handleContentCreation (username: string, currentStatus: UserDetai
         return;
     }
 
-    const removedByMod = await context.redis.get(`removedbymod:${targetId}`);
+    const promises: Promise<unknown>[] = [];
+
+    const removedByMod = await context.redis.exists(`removedbymod:${targetId}`);
     const target = await getPostOrCommentById(targetId, context);
     if (!removedByMod && !target.spam && !target.removed) {
-        await context.reddit.remove(targetId, true);
+        promises.push(context.reddit.remove(targetId, true));
         console.log(`Content Create: ${targetId} removed for ${user.username}`);
-        await context.redis.set(`removed:${username}`, targetId, { expiration: addWeeks(new Date(), 2) });
+        promises.push(context.redis.set(`removed:${username}`, targetId, { expiration: addWeeks(new Date(), 2) }));
+    } else {
+        // Might be in the modqueue.
+        const modQueue = await context.reddit.getModQueue({
+            subreddit: subredditName,
+            type: "all",
+        }).all();
+        const foundInModQueue = modQueue.find(item => item.id === targetId);
+        if (foundInModQueue) {
+            promises.push(context.reddit.remove(foundInModQueue.id, true));
+            console.log(`Content Create: ${foundInModQueue.id} removed via mod queue for ${user.username}`);
+        }
     }
 
     const isCurrentlyBanned = await isBanned(user.username, context);
@@ -178,17 +246,19 @@ async function handleContentCreation (username: string, currentStatus: UserDetai
         banNote = replaceAll(banNote, "{me}", context.appName);
         banNote = replaceAll(banNote, "{date}", formatDate(new Date(), "yyyy-MM-dd"));
 
-        await context.reddit.banUser({
+        promises.push(context.reddit.banUser({
             subredditName,
             username: user.username,
             message,
             note: banNote,
-        });
+        }));
 
-        await recordBan(username, context);
-        await recordBanForDigest(username, context);
+        promises.push(recordBan(username, context));
+        promises.push(recordBanForDigest(username, context));
         console.log(`Content Create: ${user.username} banned from ${subredditName}`);
     }
+
+    await Promise.all(promises);
 }
 
 async function checkAndReportPotentialBot (username: string, target: Post | CommentCreate, settings: SettingsValues, variables: Record<string, JSONValue>, context: TriggerContext) {
@@ -223,7 +293,11 @@ async function checkAndReportPotentialBot (username: string, target: Post | Comm
             }
         }
 
-        if (!evaluator.preEvaluateUser(user)) {
+        const userEvalateResult = await Promise.resolve(evaluator.preEvaluateUser(user));
+        if (!userEvalateResult) {
+            if (context.subredditName === "Frieren" && evaluator.name === "Short TLC New Bot") {
+                console.log(`Evaluator: ${username} not detected. ${evaluator.getReasons().join(", ")}`);
+            }
             continue;
         }
 
@@ -242,7 +316,8 @@ async function checkAndReportPotentialBot (username: string, target: Post | Comm
         }
 
         anyEvaluatorsChecked = true;
-        if (evaluator.evaluate(user, userItems)) {
+        const evaluationResult = await Promise.resolve(evaluator.evaluate(user, userItems));
+        if (evaluationResult) {
             isLikelyBot = true;
             botName = evaluator.name;
             break;
@@ -277,18 +352,18 @@ async function checkAndReportPotentialBot (username: string, target: Post | Comm
     const promises: Promise<unknown>[] = [];
 
     promises.push(
-        addExternalSubmission({
+        addExternalSubmissionFromClientSub({
             username: user.username,
             submitter: currentUser?.username,
             reportContext,
-        }, context),
+        }, "automatic", context),
         recordReportForDigest(user.username, "automatically", context),
     );
 
     console.log(`Created external submission via automated evaluation for ${user.username} for bot style ${botName}`);
 
     if (settings[AppSetting.RemoveContentWhenReporting]) {
-        const removedByMod = await context.redis.get(`removedbymod:${targetItem.id}`);
+        const removedByMod = await context.redis.exists(`removedbymod:${targetItem.id}`);
         if (!removedByMod && !targetItem.spam) {
             promises.push(
                 context.redis.set(`removed:${targetItem.authorName}`, targetItem.id, { expiration: addWeeks(new Date(), 2) }),

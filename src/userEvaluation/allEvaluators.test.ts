@@ -10,12 +10,12 @@ test("All evaluators have a unique name", () => {
     }
 });
 
-test("All evaluators have a unique killswitch name", () => {
-    const evaluatorKillswitches = new Set<string>();
+test("All evaluators have a unique short name", () => {
+    const evaluatorShortNames = new Set<string>();
     for (const Evaluator of ALL_EVALUATORS) {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
         const evaluator = new Evaluator({} as any, {});
-        expect(evaluatorKillswitches.has(evaluator.killswitch)).toBe(false);
-        evaluatorKillswitches.add(evaluator.killswitch);
+        expect(evaluatorShortNames.has(evaluator.shortname)).toBe(false);
+        evaluatorShortNames.add(evaluator.shortname);
     }
 });

@@ -1,13 +1,15 @@
-import { JobContext, TriggerContext, User, WikiPage, WikiPagePermissionLevel } from "@devvit/public-api";
-import { CONTROL_SUBREDDIT, EVALUATE_USER, EXTERNAL_SUBMISSION_JOB, EXTERNAL_SUBMISSION_JOB_CRON } from "./constants.js";
+import { JobContext, TriggerContext, WikiPage } from "@devvit/public-api";
+import { CONTROL_SUBREDDIT, ControlSubredditJob, EXTERNAL_SUBMISSION_JOB_CRON } from "./constants.js";
 import { getUserStatus, setUserStatus, UserDetails, UserStatus } from "./dataStore.js";
 import { getControlSubSettings } from "./settings.js";
 import Ajv, { JSONSchemaType } from "ajv";
-import { addMinutes, addSeconds } from "date-fns";
-import { getPostOrCommentById, getUserOrUndefined } from "./utility.js";
+import { addDays, addMinutes, addSeconds } from "date-fns";
+import { getPostOrCommentById } from "./utility.js";
 import { isLinkId } from "@devvit/shared-types/tid.js";
 import { parseExpression } from "cron-parser";
 import { createNewSubmission } from "./postCreation.js";
+import pluralize from "pluralize";
+import { getUserExtended, UserExtended } from "./extendedDevvit.js";
 
 const WIKI_PAGE = "externalsubmissions";
 export const EXTERNAL_SUBMISSION_QUEUE = "externalSubmissionQueue";
@@ -37,13 +39,17 @@ const schema: JSONSchemaType<ExternalSubmission[]> = {
     },
 };
 
-export async function addExternalSubmission (data: ExternalSubmission, context: TriggerContext) {
+export function getExternalSubmissionDataKey (username: string) {
+    return `externalSubmission:${username}`;
+}
+
+export async function addExternalSubmissionFromClientSub (data: ExternalSubmission, submissionType: "automatic" | "manual", context: TriggerContext) {
     if (context.subredditName === CONTROL_SUBREDDIT) {
         return;
     }
 
     const redisKey = `externalSubmission:${data.username}`;
-    const alreadyDone = await context.redis.get(redisKey);
+    const alreadyDone = await context.redis.exists(redisKey);
     if (alreadyDone) {
         return;
     }
@@ -81,25 +87,12 @@ export async function addExternalSubmission (data: ExternalSubmission, context: 
 
     currentUserList.push(data);
 
-    const wikiUpdateOptions = {
+    await context.reddit.updateWikiPage({
         subredditName: CONTROL_SUBREDDIT,
         page: WIKI_PAGE,
         content: JSON.stringify(currentUserList),
-    };
-
-    if (wikiPage) {
-        await context.reddit.updateWikiPage(wikiUpdateOptions);
-    } else {
-        await context.reddit.createWikiPage(wikiUpdateOptions);
-        await context.reddit.updateWikiPageSettings({
-            subredditName: CONTROL_SUBREDDIT,
-            page: WIKI_PAGE,
-            permLevel: WikiPagePermissionLevel.MODS_ONLY,
-            listed: true,
-        });
-    }
-
-    await scheduleAdhocExternalSubmissionsJob(context);
+        reason: `Added a user via ${context.subredditName ? `/r/${context.subredditName}` : "an unknown subreddit"}. Type: ${submissionType}`,
+    });
 }
 
 export async function scheduleAdhocExternalSubmissionsJob (context: TriggerContext, delay = 20) {
@@ -116,24 +109,41 @@ export async function scheduleAdhocExternalSubmissionsJob (context: TriggerConte
     }
 
     const currentJobs = await context.scheduler.listJobs();
-    const externalSubmissionJobs = currentJobs.filter(job => job.name === EXTERNAL_SUBMISSION_JOB);
+    const externalSubmissionJobs = currentJobs.filter(job => job.name === ControlSubredditJob.ExternalSubmission as string);
     if (externalSubmissionJobs.length > 1) {
         console.log("External Submissions: Multiple jobs already scheduled.");
         return;
     }
 
-    const itemsInQueue = await context.redis.hLen(EXTERNAL_SUBMISSION_QUEUE);
-    if (itemsInQueue === 0) {
+    const itemsInQueue = await context.redis.zRange(EXTERNAL_SUBMISSION_QUEUE, 0, -1);
+    if (itemsInQueue.length === 0) {
         console.log("External Submissions: No remaining items in the queue.");
         return;
     }
 
     await context.scheduler.runJob({
-        name: EXTERNAL_SUBMISSION_JOB,
+        name: ControlSubredditJob.ExternalSubmission,
         runAt: addSeconds(new Date(), delay),
     });
 
-    console.log("External Submissions: Ad-hoc job scheduled.");
+    console.log(`External Submissions: Ad-hoc job scheduled, ${itemsInQueue.length} ${pluralize("user", itemsInQueue.length)} still in queue.`);
+}
+
+export async function addExternalSubmissionsToQueue (items: ExternalSubmission[], context: TriggerContext, scheduleJob = true) {
+    if (context.subredditName !== CONTROL_SUBREDDIT) {
+        throw new Error("This function can only be called from the control subreddit.");
+    }
+
+    if (items.length === 0) {
+        return;
+    }
+
+    await context.redis.zAdd(EXTERNAL_SUBMISSION_QUEUE, ...items.map(item => ({ member: item.username, score: new Date().getTime() })));
+    await Promise.all(items.map(item => context.redis.set(getExternalSubmissionDataKey(item.username), JSON.stringify(item), { expiration: addDays(new Date(), 28) })));
+
+    if (scheduleJob) {
+        await scheduleAdhocExternalSubmissionsJob(context);
+    }
 }
 
 export async function handleExternalSubmissionsPageUpdate (context: TriggerContext) {
@@ -161,6 +171,8 @@ export async function handleExternalSubmissionsPageUpdate (context: TriggerConte
         return;
     }
 
+    const itemsToAdd: ExternalSubmission[] = [];
+
     for (const item of currentSubmissionList) {
         const currentStatus = await getUserStatus(item.username, context);
         if (currentStatus) {
@@ -168,41 +180,31 @@ export async function handleExternalSubmissionsPageUpdate (context: TriggerConte
             continue;
         }
 
-        const itemInQueue = await context.redis.hGet(EXTERNAL_SUBMISSION_QUEUE, item.username);
+        const itemInQueue = await context.redis.zScore(EXTERNAL_SUBMISSION_QUEUE, item.username);
         if (itemInQueue) {
             console.log(`External Submissions: ${item.username} is already in the queue.`);
             continue;
         }
 
-        await context.redis.hSet(EXTERNAL_SUBMISSION_QUEUE, { [item.username]: JSON.stringify(item) });
-        console.log(`External Submissions: Added ${item.username} to the queue.`);
+        itemsToAdd.push(item);
+
+        console.log(`External Submissions: Adding ${item.username} to the queue.`);
     }
 
     // Resave.
-    const wikiUpdateOptions = {
+    await context.reddit.updateWikiPage({
         subredditName: CONTROL_SUBREDDIT,
         page: WIKI_PAGE,
         content: JSON.stringify([]),
-    };
+        reason: "Cleared the external submission list",
+    });
 
-    if (wikiPage) {
-        await context.reddit.updateWikiPage(wikiUpdateOptions);
-    } else {
-        await context.reddit.createWikiPage(wikiUpdateOptions);
-        await context.reddit.updateWikiPageSettings({
-            subredditName: CONTROL_SUBREDDIT,
-            page: WIKI_PAGE,
-            permLevel: WikiPagePermissionLevel.MODS_ONLY,
-            listed: true,
-        });
-    }
-
-    await scheduleAdhocExternalSubmissionsJob(context, 0);
+    await addExternalSubmissionsToQueue(itemsToAdd, context);
 }
 
 export async function processExternalSubmissions (_: unknown, context: JobContext) {
-    const submissionQueue = await context.redis.hGetAll(EXTERNAL_SUBMISSION_QUEUE);
-    const usersInQueue = Object.keys(submissionQueue);
+    const submissionQueue = await context.redis.zRange(EXTERNAL_SUBMISSION_QUEUE, 0, -1);
+    const usersInQueue = submissionQueue.map(item => item.member);
     if (usersInQueue.length === 0) {
         console.log("External Submissions: Queue is empty.");
         return;
@@ -211,26 +213,34 @@ export async function processExternalSubmissions (_: unknown, context: JobContex
     let stopLooping = false;
     let username: string | undefined;
     let item: ExternalSubmission | undefined;
-    let user: User | undefined;
+    let user: UserExtended | undefined;
     // Iterate through list, and find the first user who isn't already being tracked.
     while (!stopLooping) {
         username = usersInQueue.shift();
         if (username) {
-            user = await getUserOrUndefined(username, context);
+            user = await getUserExtended(username, context);
             if (user) {
                 const currentStatus = await getUserStatus(user.username, context);
                 if (!currentStatus) {
+                    const submissionData = await context.redis.get(getExternalSubmissionDataKey(username));
+                    if (!submissionData) {
+                        console.log(`External Submissions: ${username} is not in the database, skipping.`);
+                        await context.redis.zRem(EXTERNAL_SUBMISSION_QUEUE, [username]);
+                        continue;
+                    }
                     stopLooping = true;
-                    item = JSON.parse(submissionQueue[username]) as ExternalSubmission;
+                    item = JSON.parse(submissionData) as ExternalSubmission;
                     item.username = user.username;
                 } else {
                     console.log(`External Submissions: ${username} is already being tracked, skipping.`);
+                    await context.redis.zRem(EXTERNAL_SUBMISSION_QUEUE, [username]);
                 }
             } else {
                 console.log(`External Submissions: ${username} is deleted or shadowbanned, skipping.`);
             }
 
-            await context.redis.hDel(EXTERNAL_SUBMISSION_QUEUE, [username]);
+            await context.redis.zRem(EXTERNAL_SUBMISSION_QUEUE, [username]);
+            await context.redis.del(getExternalSubmissionDataKey(username));
         } else {
             stopLooping = true;
         }
@@ -276,7 +286,7 @@ export async function processExternalSubmissions (_: unknown, context: JobContex
 
     if (!controlSubSettings.evaluationDisabled && newStatus === UserStatus.Pending) {
         await context.scheduler.runJob({
-            name: EVALUATE_USER,
+            name: ControlSubredditJob.EvaluateUser,
             runAt: addSeconds(new Date(), 10),
             data: {
                 username: item.username,

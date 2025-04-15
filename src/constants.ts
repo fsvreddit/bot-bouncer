@@ -15,20 +15,40 @@ export enum PostFlairTemplate {
 }
 
 /**
- * Job names
+ * Job names: All Subreddits
  */
-export const UPDATE_WIKI_PAGE_JOB = "updateWikiPage";
-export const UPDATE_DATASTORE_FROM_WIKI = "updateDatastoreFromWiki";
-export const HANDLE_CLASSIFICATION_CHANGES_JOB = "handleClassificationChanges";
-export const EVALUATE_USER = "evaluateUser";
-export const CLEANUP_JOB = "cleanupJob";
-export const ADHOC_CLEANUP_JOB = "adhocCleanup";
-export const EXTERNAL_SUBMISSION_JOB = "externalSubmission";
-export const UPDATE_STATISTICS_PAGE = "updateStatisticsPage";
-export const UPDATE_EVALUATOR_VARIABLES = "updateEvaluatorVariables";
-export const EVALUATE_KARMA_FARMING_SUBS = "evaluateKarmaFarmingSubs";
-export const UPGRADE_NOTIFIER_JOB = "upgradeNotifier";
-export const SEND_DAILY_DIGEST = "sendDailyDigest";
+export enum UniversalJob {
+    Cleanup = "cleanupJob",
+    AdhocCleanup = "adhocCleanup",
+    UpdateEvaluatorVariables = "updateEvaluatorVariables",
+}
+
+/**
+ * Job names: Control Subreddit
+ */
+
+export enum ControlSubredditJob {
+    UpdateWikiPage = "updateWikiPage",
+    EvaluateUser = "evaluateUser",
+    ExternalSubmission = "externalSubmission",
+    UpdateStatisticsPage = "updateStatisticsPage",
+    EvaluateKarmaFarmingSubs = "evaluateKarmaFarmingSubs",
+    CopyControlSubSettings = "copyControlSubSettings",
+    UptimeAndMessageCheck = "uptimeAndMessageCheck",
+    BioTextAnalyser = "bioTextAnalyser",
+    ActivityCheck = "activityCheck",
+}
+
+/**
+ * Job names: Client Subreddit
+ */
+
+export enum ClientSubredditJob {
+    UpdateDatastoreFromWiki = "updateDatastoreFromWiki",
+    HandleClassificationChanges = "handleClassificationChanges",
+    UpgradeNotifier = "upgradeNotifier",
+    SendDailyDigest = "sendDailyDigest",
+}
 
 /**
  * Job crons

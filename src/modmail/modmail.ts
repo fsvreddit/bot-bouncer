@@ -6,6 +6,8 @@ import { getSummaryTextForUser } from "../UserSummary/userSummary.js";
 import { handleClientSubredditModmail } from "./clientSubModmail.js";
 import { handleControlSubredditModmail } from "./controlSubModmail.js";
 import { dataExtract } from "./dataExtract.js";
+import { addAllUsersFromModmail } from "../similarBioTextFinder/bioTextFinder.js";
+import { UserStatus } from "../dataStore.js";
 
 function conversationHandledRedisKey (conversationId: string) {
     return `conversationHandled~${conversationId}`;
@@ -48,6 +50,16 @@ export async function handleModmail (event: ModMail, context: TriggerContext) {
         return;
     }
 
+    if (currentMessage?.bodyMarkdown) {
+        const addAllRegex = /^!addall(?: (banned))?/;
+        const addAllMatches = addAllRegex.exec(currentMessage.bodyMarkdown);
+        if (context.subredditName === CONTROL_SUBREDDIT && addAllMatches && addAllMatches.length === 2) {
+            const status = addAllMatches[1] === "banned" ? UserStatus.Banned : UserStatus.Pending;
+            await addAllUsersFromModmail(event.conversationId, status, context);
+            return;
+        }
+    }
+
     const username = conversationResponse.conversation.participant?.name;
     if (!username) {
         return;
@@ -68,7 +80,9 @@ export async function handleModmail (event: ModMail, context: TriggerContext) {
     await setConversationHandled(event.conversationId, context);
 
     if (context.subredditName === CONTROL_SUBREDDIT) {
-        await handleControlSubredditModmail(username, event.conversationId, isFirstMessage, currentMessage?.bodyMarkdown, context);
+        if (isFirstMessage && firstMessage.author?.name === username) {
+            await handleControlSubredditModmail(username, event.conversationId, isFirstMessage, currentMessage?.bodyMarkdown, context);
+        }
     } else {
         if (conversationResponse.conversation.state === ModMailConversationState.Archived) {
             return;
@@ -78,7 +92,7 @@ export async function handleModmail (event: ModMail, context: TriggerContext) {
 }
 
 async function addSummaryForUser (conversationId: string, username: string, context: TriggerContext) {
-    const userSummary = await getSummaryTextForUser(username, context);
+    const userSummary = await getSummaryTextForUser(username, "modmail", context);
     const messageText = userSummary ?? "No summary available, user may be shadowbanned";
 
     await context.reddit.modMail.reply({

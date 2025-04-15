@@ -1,17 +1,17 @@
 import { Devvit, FormField } from "@devvit/public-api";
 import { handleControlSubSubmission } from "./handleControlSubSubmission.js";
-import { updateLocalStoreFromWiki, updateWikiPage, updateStatisticsPages } from "./dataStore.js";
-import { ADHOC_CLEANUP_JOB, CLEANUP_JOB, CONTROL_SUBREDDIT, EVALUATE_KARMA_FARMING_SUBS, EVALUATE_USER, EXTERNAL_SUBMISSION_JOB, HANDLE_CLASSIFICATION_CHANGES_JOB, SEND_DAILY_DIGEST, UPDATE_DATASTORE_FROM_WIKI, UPDATE_EVALUATOR_VARIABLES, UPDATE_STATISTICS_PAGE, UPDATE_WIKI_PAGE_JOB, UPGRADE_NOTIFIER_JOB } from "./constants.js";
+import { updateLocalStoreFromWiki, updateWikiPage } from "./dataStore.js";
+import { ClientSubredditJob, CONTROL_SUBREDDIT, ControlSubredditJob, UniversalJob } from "./constants.js";
 import { handleInstallOrUpgrade } from "./installActions.js";
 import { handleControlSubFlairUpdate } from "./handleControlSubFlairUpdate.js";
-import { appSettings } from "./settings.js";
+import { appSettings, copyControlSubSettingsToOldWiki } from "./settings.js";
 import { cleanupDeletedAccounts } from "./cleanup.js";
 import { handleModAction } from "./handleModAction.js";
 import { handleModmail } from "./modmail/modmail.js";
 import { handleControlSubAccountEvaluation } from "./handleControlSubAccountEvaluation.js";
 import { handleReportUser, reportFormHandler } from "./handleReportUser.js";
 import { processExternalSubmissions } from "./externalSubmissions.js";
-import { handleClientCommentCreate, handleClientPostCreate } from "./handleClientPostOrComment.js";
+import { handleClientCommentCreate, handleClientCommentUpdate, handleClientPostCreate } from "./handleClientPostOrComment.js";
 import { handleClientSubCommentDelete, handleClientSubPostDelete } from "./handleClientSubContentDelete.js";
 import { handleClassificationChanges } from "./handleClientSubredditWikiUpdate.js";
 import { handleControlSubPostDelete } from "./handleControlSubPostDelete.js";
@@ -20,6 +20,10 @@ import { evaluateKarmaFarmingSubs } from "./karmaFarmingSubsCheck.js";
 import { handleControlSubForm } from "./handleControlSubMenu.js";
 import { checkForUpdates } from "./upgradeNotifier.js";
 import { sendDailyDigest } from "./modmail/dailyDigest.js";
+import { updateStatisticsPages } from "./statistics/allStatistics.js";
+import { checkUptimeAndMessages } from "./uptimeMonitor.js";
+import { analyseBioText } from "./similarBioTextFinder/bioTextFinder.js";
+import { checkActivityQueue } from "./activityHistory.js";
 
 Devvit.addSettings(appSettings);
 
@@ -41,6 +45,11 @@ Devvit.addTrigger({
 Devvit.addTrigger({
     event: "CommentCreate",
     onEvent: handleClientCommentCreate,
+});
+
+Devvit.addTrigger({
+    event: "CommentUpdate",
+    onEvent: handleClientCommentUpdate,
 });
 
 Devvit.addTrigger({
@@ -100,7 +109,7 @@ export const reportForm = Devvit.createForm({
         },
         {
             type: "boolean",
-            label: "Show the above text publicly on the post on r/BotBouncer",
+            label: "Show the above text publicly on the post on r/BotBouncer. Your username will be kept private.",
             defaultValue: true,
             name: "publicContext",
         },
@@ -109,69 +118,102 @@ export const reportForm = Devvit.createForm({
 
 export const controlSubForm = Devvit.createForm(data => ({ title: data.title as string, description: data.description as string, fields: data.fields as FormField[] }), handleControlSubForm);
 
+/**
+ * Jobs that run on all subreddits
+ */
+
 Devvit.addSchedulerJob({
-    name: UPDATE_WIKI_PAGE_JOB,
+    name: UniversalJob.Cleanup,
+    onRun: cleanupDeletedAccounts,
+});
+
+Devvit.addSchedulerJob({
+    name: UniversalJob.AdhocCleanup,
+    onRun: cleanupDeletedAccounts,
+});
+
+/**
+ * Jobs that run on the control subreddit only
+ */
+
+Devvit.addSchedulerJob({
+    name: ControlSubredditJob.UpdateWikiPage,
     onRun: updateWikiPage,
 });
 
 Devvit.addSchedulerJob({
-    name: UPDATE_DATASTORE_FROM_WIKI,
-    onRun: updateLocalStoreFromWiki,
-});
-
-Devvit.addSchedulerJob({
-    name: HANDLE_CLASSIFICATION_CHANGES_JOB,
-    onRun: handleClassificationChanges,
-});
-
-Devvit.addSchedulerJob({
-    name: EVALUATE_USER,
+    name: ControlSubredditJob.EvaluateUser,
     onRun: handleControlSubAccountEvaluation,
 });
 
 Devvit.addSchedulerJob({
-    name: CLEANUP_JOB,
-    onRun: cleanupDeletedAccounts,
-});
-
-Devvit.addSchedulerJob({
-    name: ADHOC_CLEANUP_JOB,
-    onRun: cleanupDeletedAccounts,
-});
-
-Devvit.addSchedulerJob({
-    name: EXTERNAL_SUBMISSION_JOB,
+    name: ControlSubredditJob.ExternalSubmission,
     onRun: processExternalSubmissions,
 });
 
 Devvit.addSchedulerJob({
-    name: UPDATE_STATISTICS_PAGE,
+    name: ControlSubredditJob.UpdateStatisticsPage,
     onRun: updateStatisticsPages,
 });
 
 Devvit.addSchedulerJob({
-    name: UPDATE_EVALUATOR_VARIABLES,
-    onRun: updateEvaluatorVariablesFromWikiHandler,
-});
-
-Devvit.addSchedulerJob({
-    name: EVALUATE_KARMA_FARMING_SUBS,
+    name: ControlSubredditJob.EvaluateKarmaFarmingSubs,
     onRun: evaluateKarmaFarmingSubs,
 });
 
 Devvit.addSchedulerJob({
-    name: UPGRADE_NOTIFIER_JOB,
+    name: UniversalJob.UpdateEvaluatorVariables,
+    onRun: updateEvaluatorVariablesFromWikiHandler,
+});
+
+Devvit.addSchedulerJob({
+    name: ControlSubredditJob.CopyControlSubSettings,
+    onRun: copyControlSubSettingsToOldWiki,
+});
+
+Devvit.addSchedulerJob({
+    name: ControlSubredditJob.UptimeAndMessageCheck,
+    onRun: checkUptimeAndMessages,
+});
+
+Devvit.addSchedulerJob({
+    name: ControlSubredditJob.BioTextAnalyser,
+    onRun: analyseBioText,
+});
+
+Devvit.addSchedulerJob({
+    name: ControlSubredditJob.ActivityCheck,
+    onRun: checkActivityQueue,
+});
+
+/**
+ * Jobs that run on client subreddits only
+ */
+
+Devvit.addSchedulerJob({
+    name: ClientSubredditJob.UpdateDatastoreFromWiki,
+    onRun: updateLocalStoreFromWiki,
+});
+
+Devvit.addSchedulerJob({
+    name: ClientSubredditJob.HandleClassificationChanges,
+    onRun: handleClassificationChanges,
+});
+
+Devvit.addSchedulerJob({
+    name: ClientSubredditJob.UpgradeNotifier,
     onRun: checkForUpdates,
 });
 
 Devvit.addSchedulerJob({
-    name: SEND_DAILY_DIGEST,
+    name: ClientSubredditJob.SendDailyDigest,
     onRun: sendDailyDigest,
 });
 
 Devvit.configure({
     redditAPI: true,
     redis: true,
+    http: true,
 });
 
 export default Devvit;

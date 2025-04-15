@@ -7,7 +7,11 @@ import { count } from "@wordpress/wordcount";
 import { isUserPotentiallyBlockingBot } from "./blockChecker.js";
 import pluralize from "pluralize";
 import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
-import { getUserExtended } from "../extendedDevvit.js";
+import { getUserExtended, UserExtended } from "../extendedDevvit.js";
+import { ALL_EVALUATORS } from "../userEvaluation/allEvaluators.js";
+import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
+import { getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
+import markdownEscape from "markdown-escape";
 
 function formatDifferenceInDates (start: Date, end: Date) {
     const units: (keyof Duration)[] = ["years", "months", "days"];
@@ -25,23 +29,36 @@ function formatDifferenceInDates (start: Date, end: Date) {
     return formatDuration(duration, { format: units });
 }
 
-function timeBetween (history: (Post | Comment)[], type: "min" | "max") {
+function timeBetween (history: (Post | Comment)[], type: "min" | "max" | "10th") {
     if (history.length < 2) {
         return;
     }
 
-    let diff: number | undefined;
+    const diffs: number[] = [];
 
     for (let i = 0; i < history.length - 1; i++) {
         const first = history[i];
         const second = history[i + 1];
-        const thisDiff = differenceInMilliseconds(first.createdAt, second.createdAt);
-        if (!diff || (type === "min" && thisDiff < diff) || (type === "max" && thisDiff > diff)) {
-            diff = thisDiff;
-        }
+        diffs.push(differenceInMilliseconds(first.createdAt, second.createdAt));
     }
 
-    if (diff === undefined) {
+    if (diffs.length === 0) {
+        return undefined;
+    }
+
+    // Order diffs from smallest to largest
+    diffs.sort((a, b) => a - b);
+    let diff: number;
+
+    if (type === "min") {
+        diff = diffs[0];
+    } else if (type === "max") {
+        diff = diffs[diffs.length - 1];
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    } else if (type === "10th") {
+        const tenthIndex = Math.floor(diffs.length * 0.1);
+        diff = diffs[tenthIndex];
+    } else {
         return;
     }
 
@@ -194,14 +211,14 @@ function getHighCountDomains (history: Post[] | Comment[]): string {
     return highCountDomains.map(item => `* Frequently shared domains: ${item.domain}: ${Math.round(100 * item.count / history.length)}%`).join(", ") + "\n";
 }
 
-export async function getSummaryTextForUser (username: string, context: TriggerContext): Promise<string | undefined> {
+export async function getSummaryTextForUser (username: string, source: "modmail" | "submission", context: TriggerContext): Promise<string | undefined> {
     const user = await getUserOrUndefined(username, context);
-    if (!user) {
+    const extendedUser = await getUserExtended(username, context);
+
+    if (!user || !extendedUser) {
         console.log(`User Summary: User ${username} is already shadowbanned or suspended, so summary will not be created.`);
         return;
     }
-
-    const extendedUser = await getUserExtended(username, context);
 
     console.log(`User Summary: Creating summary for ${username}`);
 
@@ -212,7 +229,7 @@ export async function getSummaryTextForUser (username: string, context: TriggerC
     summary += `* Comment karma: ${user.commentKarma}\n`;
     summary += `* Post karma: ${user.linkKarma}\n`;
     summary += `* Verified Email: ${user.hasVerifiedEmail ? "Yes" : "No"}\n`;
-    summary += `* Subreddit Moderator: ${extendedUser?.isModerator ? "Yes" : "No"}\n`;
+    summary += `* Subreddit Moderator: ${extendedUser.isModerator ? "Yes" : "No"}\n`;
 
     const socialLinks = await user.getSocialLinks();
     const uniqueSocialDomains = compact(uniq(socialLinks.map(link => domainFromUrl(link.outboundUrl))));
@@ -259,17 +276,17 @@ export async function getSummaryTextForUser (username: string, context: TriggerC
         summary += "* User is not blocking u/bot-bouncer\n";
     }
 
-    const userHasGold = extendedUser?.isGold;
+    const userHasGold = extendedUser.isGold;
     if (userHasGold) {
         summary += "* User has Reddit Premium\n";
     }
 
-    const userDisplayName = extendedUser?.displayName;
+    const userDisplayName = extendedUser.displayName;
     if (userDisplayName) {
         summary += `* Display name: ${userDisplayName}\n`;
     }
 
-    const userBio = extendedUser?.userDescription;
+    const userBio = extendedUser.userDescription;
     if (userBio) {
         if (userBio.includes("\n")) {
             summary += `* Bio:\n\n> ${userBio.split("\n").join("\n> ")}\n`;
@@ -280,11 +297,44 @@ export async function getSummaryTextForUser (username: string, context: TriggerC
 
     summary += "\n";
 
+    if (source === "modmail") {
+        const initialEvaluatorsMatched = await getAccountInitialEvaluationResults(username, context);
+        const matchedEvaluators = await evaluatorsMatched(extendedUser, [...userComments, ...userPosts], context);
+        if (matchedEvaluators.length > 0 || initialEvaluatorsMatched.length > 0) {
+            summary += "## Evaluation results\n\n";
+        }
+
+        if (initialEvaluatorsMatched.length > 0) {
+            summary += `At the point of initial evaluation, user matched ${initialEvaluatorsMatched.length} ${pluralize("evaluator", initialEvaluatorsMatched.length)}\n\n`;
+            for (const evaluator of initialEvaluatorsMatched) {
+                summary += `* ${evaluator.botName} matched`;
+                if (evaluator.hitReason) {
+                    summary += `: ${evaluator.hitReason}`;
+                }
+                summary += "\n";
+            }
+            summary += "\n";
+        }
+
+        if (matchedEvaluators.length > 0) {
+            summary += `User currently matches ${matchedEvaluators.length} ${pluralize("evaluator", matchedEvaluators.length)}\n\n`;
+            for (const evaluator of matchedEvaluators) {
+                summary += `* ${evaluator.name} matched`;
+                if (evaluator.hitReason) {
+                    summary += `: ${evaluator.hitReason}`;
+                }
+                summary += "\n";
+            }
+            summary += "\n";
+        }
+    }
+
     if (userComments.length > 0) {
         summary += "## Comments\n\n";
         summary += `User has ${userComments.length} ${pluralize("comment", userComments.length)}\n\n`;
         if (userComments.length > 2) {
             summary += `* Min time between comments: ${timeBetween(userComments, "min")}\n`;
+            summary += `* 10th percentile time between comments: ${timeBetween(userComments, "10th")}\n`;
             summary += `* Max time between comments: ${timeBetween(userComments, "max")}\n`;
             summary += `* Average time between comments: ${averageInterval(userComments, "mean")} (median: ${averageInterval(userComments, "median")})\n`;
         } else if (userComments.length === 2) {
@@ -298,10 +348,12 @@ export async function getSummaryTextForUser (username: string, context: TriggerC
         summary += `* Top level comments: ${topLevelPercentage}% of total\n`;
 
         const editedCommentPercentage = Math.round(100 * userComments.filter(comment => comment.edited).length / userComments.length);
-        summary += `* Edited comments: ${editedCommentPercentage}% of total\n`;
+        if (editedCommentPercentage > 0) {
+            summary += `* Edited comments: ${editedCommentPercentage}% of total\n`;
+        }
 
         const subreddits = countBy(compact(userComments.map(comment => comment.subredditName)));
-        summary += `* Comment subreddits: ${Object.entries(subreddits).map(([subreddit, count]) => `r/${subreddit}: ${count}`).join(", ")}\n`;
+        summary += `* Comment subreddits: ${Object.entries(subreddits).map(([subreddit, count]) => `${markdownEscape(subreddit)}: ${count}`).join(", ")}\n`;
 
         const commentsPerPost = countBy(Object.values(countBy(userComments.map(comment => comment.postId))));
         summary += `* Comments per post: ${Object.entries(commentsPerPost).map(([count, posts]) => `${count} comments: ${posts}`).join(", ")}\n`;
@@ -324,10 +376,16 @@ export async function getSummaryTextForUser (username: string, context: TriggerC
 
         if (userPosts.length > 2) {
             summary += `* Min time between posts: ${timeBetween(nonStickied, "min")}\n`;
+            summary += `* 10th percentile time between posts: ${timeBetween(nonStickied, "10th")}\n`;
             summary += `* Max time between posts: ${timeBetween(nonStickied, "max")}\n`;
             summary += `* Average time between posts: ${averageInterval(nonStickied, "mean")} (median: ${averageInterval(nonStickied, "median")})\n`;
         } else if (userPosts.length === 2) {
             summary += `* Time between posts: ${timeBetween(nonStickied, "min")}\n`;
+        }
+
+        const editedPostPercentage = Math.round(100 * userPosts.filter(post => post.edited).length / userPosts.length);
+        if (editedPostPercentage > 0) {
+            summary += `* Edited posts: ${editedPostPercentage}% of total\n`;
         }
 
         const domains = countBy(compact(userPosts.map(post => domainFromUrl(post.url))));
@@ -336,7 +394,7 @@ export async function getSummaryTextForUser (username: string, context: TriggerC
         }
 
         const subreddits = countBy(compact(userPosts.map(post => post.subredditName)));
-        summary += `* Post subreddits: ${Object.entries(subreddits).map(([subreddit, count]) => `r/${subreddit}: ${count}`).join(", ")}\n`;
+        summary += `* Post subreddits: ${Object.entries(subreddits).map(([subreddit, count]) => `${markdownEscape(subreddit)}: ${count}`).join(", ")}\n`;
         if (userPosts.length < 90) {
             summary += `* First post was ${formatDifferenceInDates(user.createdAt, userPosts[userPosts.length - 1].createdAt)} after account creation\n`;
         }
@@ -355,7 +413,7 @@ export async function getSummaryTextForUser (username: string, context: TriggerC
 }
 
 export async function createUserSummary (username: string, postId: string, context: TriggerContext) {
-    const summary = await getSummaryTextForUser(username, context);
+    const summary = await getSummaryTextForUser(username, "submission", context);
     if (!summary) {
         return;
     }
@@ -367,4 +425,28 @@ export async function createUserSummary (username: string, postId: string, conte
     await newComment.remove();
 
     console.log(`User Summary: Summary created for ${username}`);
+}
+
+async function evaluatorsMatched (user: UserExtended, userHistory: (Post | Comment)[], context: TriggerContext): Promise<InstanceType<typeof ALL_EVALUATORS[number]>[]> {
+    const evaluatorsMatched: InstanceType<typeof ALL_EVALUATORS[number]>[] = [];
+    const evaluatorVariables = await getEvaluatorVariables(context);
+
+    for (const Evaluator of ALL_EVALUATORS) {
+        const evaluator = new Evaluator(context, evaluatorVariables);
+        if (evaluator.evaluatorDisabled()) {
+            continue;
+        }
+
+        const userEvaluate = await Promise.resolve(evaluator.preEvaluateUser(user));
+        if (!userEvaluate) {
+            continue;
+        }
+
+        const fullEvaluate = await Promise.resolve(evaluator.evaluate(user, userHistory));
+        if (fullEvaluate) {
+            evaluatorsMatched.push(evaluator);
+        }
+    }
+
+    return evaluatorsMatched;
 }

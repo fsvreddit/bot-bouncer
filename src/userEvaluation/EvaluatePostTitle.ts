@@ -2,10 +2,11 @@ import { Comment, Post } from "@devvit/public-api";
 import { CommentCreate } from "@devvit/protos";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
 import { UserExtended } from "../extendedDevvit.js";
+import markdownEscape from "markdown-escape";
 
 export class EvaluatePostTitle extends UserEvaluatorBase {
     override name = "Bad Post Title Bot";
-    override killswitch = "posttitle:killswitch";
+    override shortname = "posttitle";
     override banContentThreshold = 1;
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -14,15 +15,15 @@ export class EvaluatePostTitle extends UserEvaluatorBase {
     }
 
     private getTitles () {
-        const bannableTitles = this.variables["posttitle:bantext"] as string[] | undefined ?? [];
-        const reportableTitles = this.variables["posttitle:reporttext"] as string[] | undefined ?? [];
+        const bannableTitles = this.getVariable<string[]>("bantext", []);
+        const reportableTitles = this.getVariable<string[]>("reporttext", []);
         return { bannableTitles, reportableTitles };
     }
 
     override preEvaluatePost (post: Post): boolean {
         const { bannableTitles, reportableTitles } = this.getTitles();
         const problematicTitles = [...bannableTitles, ...reportableTitles];
-        return problematicTitles.some(title => new RegExp(title).test(post.title));
+        return problematicTitles.some(title => new RegExp(title, "u").test(post.title));
     }
 
     override preEvaluateUser (user: UserExtended): boolean {
@@ -39,22 +40,26 @@ export class EvaluatePostTitle extends UserEvaluatorBase {
     }
 
     override evaluate (_: UserExtended, history: (Post | Comment)[]): boolean {
-        const userPosts = history.filter(item => item instanceof Post && item.stickied) as Post[];
+        const userPosts = this.getPosts(history).filter(post => post.isNsfw());
         if (userPosts.length === 0) {
-            this.setReason("User has no posts");
+            this.setReason("User has no NSFW posts");
             return false;
         }
 
         const { bannableTitles, reportableTitles } = this.getTitles();
 
-        const bannablePosts = userPosts.filter(post => bannableTitles.some(regex => new RegExp(regex).test(post.title)));
-        if (bannablePosts.length > 0) {
+        const matchedBanRegex = bannableTitles.find(title => userPosts.some(post => new RegExp(title, "u").test(post.title)));
+        if (matchedBanRegex) {
+            const matchedPost = userPosts.find(post => new RegExp(matchedBanRegex, "u").test(post.title));
+            this.hitReason = `Post title "${matchedPost?.title}" matched bannable regex: ${markdownEscape(matchedBanRegex)}`;
             this.canAutoBan = true;
             return true;
         }
 
-        const reportablePosts = userPosts.filter(post => reportableTitles.some(regex => new RegExp(regex).test(post.title)));
-        if (reportablePosts.length > 0) {
+        const matchedReportRegex = reportableTitles.find(title => userPosts.some(post => new RegExp(title, "u").test(post.title)));
+        if (matchedReportRegex) {
+            const matchedPost = userPosts.find(post => new RegExp(matchedReportRegex, "u").test(post.title));
+            this.hitReason = `Post title "${matchedPost?.title}" matched reportable regex: ${markdownEscape(matchedReportRegex)}`;
             this.canAutoBan = false;
             return true;
         }

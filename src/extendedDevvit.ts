@@ -36,7 +36,7 @@ async function getRawUserData (username: string, metadata: protos.Metadata): Pro
 export interface UserExtended {
     createdAt: Date;
     commentKarma: number;
-    displayName: string | undefined;
+    displayName?: string;
     hasVerifiedEmail: boolean;
     id: string;
     isAdmin: boolean;
@@ -45,7 +45,7 @@ export interface UserExtended {
     linkKarma: number;
     nsfw: boolean;
     username: string;
-    userDescription: string | undefined;
+    userDescription?: string;
 }
 
 export async function getUserExtended (username: string, context: TriggerContext): Promise<UserExtended | undefined> {

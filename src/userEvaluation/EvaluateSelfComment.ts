@@ -3,15 +3,20 @@ import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
 import { Comment, Post } from "@devvit/public-api";
 import { addMinutes, subDays } from "date-fns";
 import { CommentV2 } from "@devvit/protos/types/devvit/reddit/v2alpha/commentv2.js";
-import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
+import { isLinkId } from "@devvit/shared-types/tid.js";
 import { domainFromUrl } from "./evaluatorHelpers.js";
 import { UserExtended } from "../extendedDevvit.js";
 
 export class EvaluateSelfComment extends UserEvaluatorBase {
     override name = "Self Comment";
-    override killswitch = "selfcomment:killswitch";
+    override shortname = "selfcomment";
 
     override banContentThreshold = 2;
+
+    private isSubIgnored () {
+        const ignoredSubreddits = this.getVariable<string[]>("ignoredsubs", []);
+        return this.context.subredditName && ignoredSubreddits.includes(this.context.subredditName);
+    }
 
     private eligibleComment (comment: Comment | CommentV2): boolean {
         return isLinkId(comment.parentId)
@@ -20,10 +25,15 @@ export class EvaluateSelfComment extends UserEvaluatorBase {
 
     private eligiblePost (post: Post): boolean {
         const domain = domainFromUrl(post.url);
-        return domain === "i.redd.it" || domain === "v.redd.it";
+        const karmaFarmingSubs = this.getGenericVariable<string[]>("karmafarminglinksubs", []);
+        return (domain === "i.redd.it" || domain === "v.redd.it") && !post.nsfw && karmaFarmingSubs.includes(post.subredditName);
     }
 
     override preEvaluateComment (event: CommentCreate): boolean {
+        if (this.isSubIgnored()) {
+            return false;
+        }
+
         if (!event.comment) {
             return false;
         }
@@ -31,35 +41,42 @@ export class EvaluateSelfComment extends UserEvaluatorBase {
     }
 
     override preEvaluatePost (post: Post): boolean {
+        if (this.isSubIgnored()) {
+            return false;
+        }
+
         return this.eligiblePost(post);
     }
 
     override preEvaluateUser (user: UserExtended): boolean {
-        const ageInDays = this.variables["selfcomment:ageindays"] as number | undefined ?? 14;
-        const maxKarma = this.variables["selfcomment:maxkarma"] as number | undefined ?? 500;
+        const ageInDays = this.getVariable<number>("ageindays", 14);
+        const maxKarma = this.getVariable<number>("maxkarma", 500);
         return user.createdAt > subDays(new Date(), ageInDays) && user.commentKarma < maxKarma;
     }
 
     override evaluate (user: UserExtended, history: (Post | Comment)[]): boolean {
-        const posts = history.filter(item => isLinkId(item.id) && item.body !== "[removed]") as Post[];
+        const ignoredSubreddits = this.getVariable<string[]>("ignoredsubs", []);
+        ignoredSubreddits.push(...history.filter(item => item.subredditName.toLowerCase().includes("onlyfans")).map(item => item.subredditName));
+
+        const posts = this.getPosts(history, { omitRemoved: true });
         if (posts.length === 0 || !posts.every(post => this.eligiblePost(post))) {
             this.setReason("User has missing or mismatching posts");
             return false;
         }
 
-        const comments = history.filter(item => isCommentId(item.id)) as Comment[];
+        const comments = this.getComments(history);
         if (comments.length === 0 || !comments.every(comment => this.eligibleComment(comment))) {
             this.setReason("User has missing or mismatching comments");
             return false;
         }
 
-        if (!posts.some(post => comments.some(comment => comment.parentId === post.id))) {
+        if (!posts.some(post => comments.some(comment => comment.parentId === post.id && !ignoredSubreddits.includes(post.subredditName)))) {
             this.setReason("User has no posts with self comments");
             return false;
         }
 
-        const maxCommentAge = this.variables["selfcomment:commentmaxminutes"] as number | undefined ?? 1;
-        for (const comment of comments) {
+        const maxCommentAge = this.getVariable<number>("commentmaxminutes", 1);
+        for (const comment of comments.filter(comment => !ignoredSubreddits.includes(comment.subredditName))) {
             const post = posts.find(post => post.id === comment.parentId);
             if (!post || post.authorId !== user.id) {
                 this.setReason("Comment on someone else's post");

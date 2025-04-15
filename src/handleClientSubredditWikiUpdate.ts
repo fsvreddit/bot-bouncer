@@ -5,7 +5,7 @@ import { getUserStatus, UserStatus } from "./dataStore.js";
 import { setCleanupForUsers } from "./cleanup.js";
 import { AppSetting, CONFIGURATION_DEFAULTS } from "./settings.js";
 import { isBanned, replaceAll } from "./utility.js";
-import { HANDLE_CLASSIFICATION_CHANGES_JOB } from "./constants.js";
+import { ClientSubredditJob } from "./constants.js";
 import { fromPairs } from "lodash";
 import { recordBanForDigest, removeRecordOfBanForDigest } from "./modmail/dailyDigest.js";
 
@@ -58,7 +58,7 @@ export async function isUserWhitelisted (username: string, context: TriggerConte
 }
 
 async function approveIfNotRemovedByMod (targetId: string, context: TriggerContext) {
-    const removedByMod = await context.redis.get(`removedbymod:${targetId}`);
+    const removedByMod = await context.redis.exists(`removedbymod:${targetId}`);
     if (!removedByMod) {
         await context.reddit.approve(targetId);
     }
@@ -181,7 +181,7 @@ export async function handleClassificationChanges (event: ScheduledJobEvent<JSON
 
     const settings = await context.settings.getAll();
 
-    if (bannedUsers.length > 0 && settings[AppSetting.RemoveRecentContent] && !settings[AppSetting.HoneypotMode]) {
+    if (bannedUsers.length > 0 && settings[AppSetting.RemoveRecentContent]) {
         // Take 5 users to process immediately, and schedule the rest
         const userCount = 5;
         const usersToProcess = bannedUsers.slice(0, userCount);
@@ -190,7 +190,7 @@ export async function handleClassificationChanges (event: ScheduledJobEvent<JSON
         const remainingUsers = bannedUsers.slice(userCount);
         if (remainingUsers.length > 0) {
             await context.scheduler.runJob({
-                name: HANDLE_CLASSIFICATION_CHANGES_JOB,
+                name: ClientSubredditJob.HandleClassificationChanges,
                 runAt: addSeconds(new Date(), 5),
                 data: { bannedUsers: remainingUsers, unbannedUsers: [] },
             });

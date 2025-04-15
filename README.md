@@ -6,17 +6,6 @@ If you add Bot Bouncer to your sub via the Dev Platform app directory, it will w
 
 Bot Bouncer is open source. You can find the source code on GitHub [here](https://github.com/fsvreddit/bot-bouncer).
 
-## How do I submit a bot for review?
-
-First, I recommend **reporting the account**. Bot accounts should be reported to Reddit as Spam->Harmful use of bots or AI. Reddit's spam detection is getting better all the time and in many cases, the bot's account will be shadowbanned immediately.
-
-If that does not happen, submit the bot to [/r/BotBouncer](https://www.reddit.com/r/BotBouncer/). This can be done in one of two ways:
-
-* If you are a subreddit moderator, you can report the bot from a post or comment's context menu. Choose "Report to /r/BotBouncer".
-* Otherwise, you can create a link post on [/r/BotBouncer](https://www.reddit.com/r/BotBouncer/) that links to the user's profile. Bot Bouncer will then remove your post and replace it with its own submission for the account, and then the evaluation process will start.
-
-If you feel that you can add extra context to the submission, for example if you have detected bot-like activity that you think may not be obvious, you can create a comment on the new post explaining why the user is a bot. For example a user might look superficially human, but might be copying content from other users. If reporting via the post/comment menu, you will be prompted to optionally add context at this point.
-
 ## At what point are bots banned?
 
 If a user creates a post or comment on your subreddit and the user is classified as a bot already, the post or comment will be removed immediately and the user banned.
@@ -29,13 +18,26 @@ The easiest way is to add the account as an Approved Submitter to your subreddit
 
 You can also set a user flair with a CSS class that ends with `proof`. This is so that legacy flairs such as `botbustproof` will prevent a user from being banned.
 
+By default, any bots that you unban are automatically allowlisted and will not be banned again (although this can be turned off).
+
+## How do I submit a bot for review?
+
+First, I recommend **reporting the account**. Bot accounts should be reported to Reddit as Spam->Harmful use of bots or AI. Reddit's spam detection is getting better all the time and in many cases, the bot's account will be shadowbanned immediately.
+
+If that does not happen, submit the bot to [/r/BotBouncer](https://www.reddit.com/r/BotBouncer/). This can be done in one of two ways:
+
+* If you are a subreddit moderator, you can report the bot from a post or comment's context menu. Choose "Report to /r/BotBouncer".
+* Otherwise, you can create a link post on [/r/BotBouncer](https://www.reddit.com/r/BotBouncer/) that links to the user's profile. Bot Bouncer will then remove your post and replace it with its own submission for the account, and then the evaluation process will start.
+
+If you feel that you can add extra context to the submission, for example if you have detected bot-like activity that you think may not be obvious, you can create a comment on the new post explaining why the user is a bot. For example a user might look superficially human, but might be copying content from other users. If reporting via the post/comment menu, you will be prompted to optionally add context at this point.
+
 ## What kind of accounts get banned by Bot Bouncer?
 
 Bot Bouncer bans any bot that makes automatic comments or posts without being explicitly summoned. This includes LLM karma farming bots, annoying "reply" bots that break Bottiquette, and so on.
 
 Bot Bouncer will not ban useful service bots, such as ones that respond to user commands (e.g. RemindMeBot or stabbot), nor will it add bots that have been added as moderators or approved users, or have a flair with a CSS class ending in `proof`.
 
-## What modmail features are supported?
+## Modmail Features
 
 If a user that has been banned by Bot Bouncer writes in to your subreddit, Bot Bouncer will add a private mod note to the modmail thread that links to the submission on [/r/BotBouncer](https://www.reddit.com/r/BotBouncer/), and recommending that the user appeals via /r/BotBouncer. This is to save time appealing from all subreddits that the user has been banned from.
 
@@ -44,6 +46,25 @@ If a user that has been banned by Bot Bouncer writes in to your subreddit, Bot B
 Write in to [/r/BotBouncer's modmail](https://www.reddit.com/message/compose/?to=/r/BotBouncer) with details of why you think that this is the case. Sometimes mistakes are made and we rely on assistance to get classifications right.
 
 # Change History
+
+## Next
+
+Note: v1.7.0 is the current public release.
+
+* When a bot is detected, posts and comments that were modqueued are now removed.
+* Reduce false positives on one bot evaluator
+* Add new evaluator for obfuscated bio keywords
+* Add new evaluator for suspect social links
+* Add new evaluator for suspicious first posts
+* Add new evaluators for OnlyFans bots with specific characteristics
+* Add new evaluator for edited comments that match certain characteristics
+* Add new evaluator for NSFW accounts with inconsistent ages in their very recent post titles
+* Add new evaluator for NSFW accounts with inconsistent genders in post titles (e.g. a mix of M4F, F4M etc.), with an exception for accounts marked as being a shared or couples account
+* Add new evaluator for accounts with specific display name characteristics
+* Add new evaluator for bots building karma for likely future adult content promoters
+* Removed evaluators for bot styles that appear to have been retired
+* Remove Honeypot mode (some subs were enabling this inadvertently)
+* Internal changes to support operations on /r/BotBouncer
 
 ## v1.7.0
 

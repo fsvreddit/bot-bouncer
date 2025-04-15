@@ -3,11 +3,17 @@ import { UserDetails, UserStatus } from "../dataStore.js";
 import Ajv, { JSONSchemaType } from "ajv";
 import { fromPairs } from "lodash";
 import pluralize from "pluralize";
+import { getYear } from "date-fns";
 
 interface ModmailDataExtract {
     status?: UserStatus;
     submitter?: string;
+    operator?: string;
     usernameRegex?: string;
+    bioTextRegex?: string;
+    recentPostSubs?: string[];
+    recentCommentSubs?: string[];
+    since?: number;
 }
 
 const schema: JSONSchemaType<ModmailDataExtract> = {
@@ -21,8 +27,34 @@ const schema: JSONSchemaType<ModmailDataExtract> = {
             type: "string",
             nullable: true,
         },
+        operator: {
+            type: "string",
+            nullable: true,
+        },
         usernameRegex: {
             type: "string",
+            nullable: true,
+        },
+        bioTextRegex: {
+            type: "string",
+            nullable: true,
+        },
+        recentPostSubs: {
+            type: "array",
+            items: {
+                type: "string",
+            },
+            nullable: true,
+        },
+        recentCommentSubs: {
+            type: "array",
+            items: {
+                type: "string",
+            },
+            nullable: true,
+        },
+        since: {
+            type: "number",
             nullable: true,
         },
     },
@@ -50,7 +82,7 @@ export async function dataExtract (message: string | undefined, conversationId: 
         return;
     }
 
-    const ajv = new Ajv.default();
+    const ajv = new Ajv.default({ coerceTypes: "array" });
     const validate = ajv.compile(schema);
 
     if (!validate(request)) {
@@ -62,10 +94,10 @@ export async function dataExtract (message: string | undefined, conversationId: 
         return;
     }
 
-    if (!request.status && !request.submitter && !request.usernameRegex) {
+    if (!request.status && !request.submitter && !request.usernameRegex && !request.bioTextRegex && !request.recentPostSubs && !request.recentCommentSubs) {
         await context.reddit.modMail.reply({
             conversationId,
-            body: "Request is empty. Please provide at least one of the following fields: `status`, `submitter`, `usernameRegex`.",
+            body: "Request is empty. Please provide at least one of the following fields: `status`, `submitter`, `usernameRegex`, `bioTextRegex`, `recentPostSubs`, `recentCommentSubs`.",
             isAuthorHidden: false,
         });
         return;
@@ -84,9 +116,54 @@ export async function dataExtract (message: string | undefined, conversationId: 
         data = data.filter(entry => entry.data.submitter === request.submitter);
     }
 
+    if (request.operator) {
+        data = data.filter(entry => entry.data.operator === request.operator);
+    }
+
     if (request.usernameRegex) {
-        const regex = new RegExp(request.usernameRegex);
+        let regex: RegExp;
+        try {
+            regex = new RegExp(request.usernameRegex);
+        } catch {
+            await context.reddit.modMail.reply({
+                conversationId,
+                body: "Invalid regex provided for `usernameRegex`.",
+                isAuthorHidden: false,
+            });
+            return;
+        }
         data = data.filter(entry => regex.test(entry.username));
+    }
+
+    if (request.bioTextRegex) {
+        let regex: RegExp;
+        try {
+            regex = new RegExp(request.bioTextRegex);
+        } catch {
+            await context.reddit.modMail.reply({
+                conversationId,
+                body: "Invalid regex provided for `bioTextRegex`.",
+                isAuthorHidden: false,
+            });
+            return;
+        }
+        data = data.filter(entry => entry.data.bioText && regex.test(entry.data.bioText));
+    }
+
+    if (request.recentPostSubs) {
+        data = data.filter(entry => request.recentPostSubs?.some(sub => entry.data.recentPostSubs?.includes(sub)));
+    }
+
+    if (request.recentCommentSubs) {
+        data = data.filter(entry => request.recentCommentSubs?.some(sub => entry.data.recentCommentSubs?.includes(sub)));
+    }
+
+    if (request.since) {
+        if (getYear(new Date(request.since)) < 2024) {
+            // Probably a timestamp with seconds instead of milliseconds.
+            request.since *= 1000;
+        }
+        data = data.filter(entry => entry.data.lastUpdate && request.since !== undefined && entry.data.lastUpdate > request.since);
     }
 
     if (data.length === 0) {
@@ -97,6 +174,7 @@ export async function dataExtract (message: string | undefined, conversationId: 
         });
         return;
     }
+
     const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
     const wikiPageName = "data-extract";
     const dataToExport = fromPairs(data.map(entry => [entry.username, entry.data]));
@@ -108,7 +186,7 @@ export async function dataExtract (message: string | undefined, conversationId: 
         //
     }
 
-    await context.reddit.updateWikiPage({
+    const result = await context.reddit.updateWikiPage({
         subredditName,
         page: wikiPageName,
         content: JSON.stringify(dataToExport),
@@ -125,7 +203,7 @@ export async function dataExtract (message: string | undefined, conversationId: 
 
     await context.reddit.modMail.reply({
         conversationId,
-        body: `Data for ${data.length} ${pluralize("user", data.length)} exported to [wiki page](https://www.reddit.com/r/BotBouncer/wiki/${wikiPageName}).`,
+        body: `Data for ${data.length} ${pluralize("user", data.length)} exported to [wiki page](https://www.reddit.com/r/BotBouncer/wiki/${wikiPageName}?v=${result.revisionId}).`,
         isAuthorHidden: false,
     });
 }

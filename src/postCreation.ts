@@ -1,8 +1,10 @@
-import { Post, TriggerContext, User } from "@devvit/public-api";
+import { Comment, Post, TriggerContext } from "@devvit/public-api";
 import { setUserStatus, UserDetails, UserStatus } from "./dataStore.js";
 import { CONTROL_SUBREDDIT, PostFlairTemplate } from "./constants.js";
-import { getExtendedDevvit } from "./extendedDevvit.js";
-import { UserAboutResponse } from "@devvit/protos/types/devvit/plugin/redditapi/users/users_msg.js";
+import { subDays } from "date-fns";
+import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
+import { uniq } from "lodash";
+import { UserExtended } from "./extendedDevvit.js";
 
 export const statusToFlair: Record<UserStatus, PostFlairTemplate> = {
     [UserStatus.Pending]: PostFlairTemplate.Pending,
@@ -15,20 +17,32 @@ export const statusToFlair: Record<UserStatus, PostFlairTemplate> = {
     [UserStatus.Inactive]: PostFlairTemplate.Inactive,
 };
 
-export async function createNewSubmission (user: User, details: UserDetails, context: TriggerContext): Promise<Post> {
-    let userExtended: UserAboutResponse | undefined;
+export async function createNewSubmission (user: UserExtended, details: UserDetails, context: TriggerContext): Promise<Post> {
+    let history: (Post | Comment)[] | undefined;
     try {
-        userExtended = await getExtendedDevvit().redditAPIPlugins.Users.UserAbout({ username: user.username }, context.debug.metadata);
+        history = await context.reddit.getCommentsAndPostsByUser({
+            username: user.username,
+            limit: 100,
+            sort: "new",
+        }).all();
     } catch {
-        // Error retrieving user history, likely shadowbanned.
+        // User is likely shadowbanned.
     }
+
+    if (history) {
+        const recentHistory = history.filter(item => item.createdAt > subDays(new Date(), 14));
+        details.recentPostSubs = uniq(recentHistory.filter(item => isLinkId(item.id)).map(item => item.subredditName));
+        details.recentCommentSubs = uniq(recentHistory.filter(item => isCommentId(item.id)).map(item => item.subredditName));
+    }
+
+    details.bioText = user.userDescription;
 
     const newPost = await context.reddit.submitPost({
         subredditName: CONTROL_SUBREDDIT,
         title: `Overview for ${user.username}`,
         url: `https://www.reddit.com/user/${user.username}`,
         flairId: statusToFlair[details.userStatus],
-        nsfw: user.nsfw ? user.nsfw : userExtended?.data?.over18 ?? userExtended?.data?.subreddit?.over18,
+        nsfw: user.nsfw,
     });
 
     details.trackingPostId = newPost.id;

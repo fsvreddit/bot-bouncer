@@ -1,11 +1,12 @@
-import { TriggerContext, User } from "@devvit/public-api";
+import { TriggerContext } from "@devvit/public-api";
 import { PostCreate } from "@devvit/protos";
-import { CONTROL_SUBREDDIT, EVALUATE_USER } from "./constants.js";
-import { getUsernameFromUrl, getUserOrUndefined, isModerator } from "./utility.js";
+import { CONTROL_SUBREDDIT, ControlSubredditJob } from "./constants.js";
+import { getUsernameFromUrl, isModerator } from "./utility.js";
 import { getUserStatus, UserDetails, UserStatus } from "./dataStore.js";
 import { subMonths } from "date-fns";
 import { getControlSubSettings } from "./settings.js";
 import { createNewSubmission } from "./postCreation.js";
+import { getUserExtended, UserExtended } from "./extendedDevvit.js";
 
 export async function handleControlSubSubmission (event: PostCreate, context: TriggerContext) {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
@@ -46,9 +47,9 @@ export async function handleControlSubSubmission (event: PostCreate, context: Tr
         submissionResponse = "You are currently listed as a bot on r/BotBouncer, so we cannot accept submissions from you. Please write in to modmail if you believe this is a mistake";
     }
 
-    let user: User | undefined;
+    let user: UserExtended | undefined;
     if (username) {
-        user = await getUserOrUndefined(username, context);
+        user = await getUserExtended(username, context);
     }
 
     if (!user && !submissionResponse) {
@@ -97,7 +98,7 @@ export async function handleControlSubSubmission (event: PostCreate, context: Tr
             submissionResponse = `Hi, thanks for your submission.\n\nThe post tracking ${user.username} can be found [here](${newPost.permalink}).\n\nYour post has been removed, and can be deleted.`;
 
             await context.scheduler.runJob({
-                name: EVALUATE_USER,
+                name: ControlSubredditJob.EvaluateUser,
                 runAt: new Date(),
                 data: {
                     username: user.username,

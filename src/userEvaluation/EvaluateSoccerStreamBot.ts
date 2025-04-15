@@ -3,13 +3,12 @@ import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
 import { Comment, Post } from "@devvit/public-api";
 import { subWeeks, subYears } from "date-fns";
 import { CommentV2 } from "@devvit/protos/types/devvit/reddit/v2alpha/commentv2.js";
-import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
 import { compact, uniq } from "lodash";
 import { UserExtended } from "../extendedDevvit.js";
 
 export class EvaluateSoccerStreamBot extends UserEvaluatorBase {
     override name = "Soccer Stream Bot";
-    override killswitch = "soccerstreams:killswitch";
+    override shortname = "soccerstreams";
     override banContentThreshold = 20;
     override canAutoBan = true;
 
@@ -47,13 +46,13 @@ export class EvaluateSoccerStreamBot extends UserEvaluatorBase {
     }
 
     override evaluate (_: UserExtended, history: (Post | Comment)[]): boolean {
-        const posts = history.filter(item => isLinkId(item.id) && item.body !== "[removed]") as Post[];
+        const posts = this.getPosts(history, { omitRemoved: true });
         if (posts.some(post => post.createdAt > subWeeks(new Date(), 1))) {
             this.setReason("User has non-eligible posts");
             return false;
         }
 
-        const comments = history.filter(item => isCommentId(item.id)) as Comment[];
+        const comments = this.getComments(history);
 
         if (comments.length < 20) {
             this.setReason("User has insufficient comments to check user");

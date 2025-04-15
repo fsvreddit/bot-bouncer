@@ -10,7 +10,7 @@ import { UserExtended } from "../extendedDevvit.js";
 
 export class EvaluateZombie extends UserEvaluatorBase {
     override name = "Zombie";
-    override killswitch = "zombie:killswitch";
+    override shortname = "zombie";
 
     override canAutoBan = false;
 
@@ -36,7 +36,7 @@ export class EvaluateZombie extends UserEvaluatorBase {
     }
 
     override preEvaluatePost (post: Post): boolean {
-        const redditDomains = this.variables["generic:redditdomains"] as string[] | undefined ?? [];
+        const redditDomains = this.getGenericVariable<string[]>("redditdomains", []);
         const domain = domainFromUrl(post.url);
         if (!domain) {
             return false;
@@ -65,7 +65,7 @@ export class EvaluateZombie extends UserEvaluatorBase {
     }
 
     override evaluatorDisabled (): boolean {
-        const killswitchSet = this.variables[this.killswitch] as boolean | undefined ?? false;
+        const killswitchSet = this.getVariable<boolean>("killswitch", false);
         return killswitchSet && this.context.subredditName !== CONTROL_SUBREDDIT;
     }
 

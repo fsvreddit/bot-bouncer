@@ -1,5 +1,5 @@
-import { SettingsFormField, TriggerContext, WikiPage } from "@devvit/public-api";
-import { CONTROL_SUBREDDIT } from "./constants.js";
+import { SettingsFormField, TriggerContext, WikiPage, WikiPagePermissionLevel } from "@devvit/public-api";
+import { CONTROL_SUBREDDIT, ControlSubredditJob } from "./constants.js";
 import Ajv, { JSONSchemaType } from "ajv";
 import { addHours } from "date-fns";
 
@@ -32,6 +32,13 @@ If Bot Bouncer has banned you from more than one subreddit, you don't need to ap
 You may appeal your shadowban by contacting the Reddit Admins [here](https://reddit.com/appeal). If you are able to get your shadowban lifted, please contact us again and we will be happy to review your classification status.
 
 *This is an automated message.*`,
+
+    recentAppealMade: `We have already received an appeal from you. There is no need to appeal for every subreddit that Bot Bouncer has banned you from.
+
+Your initial appeal will be reviewed shortly by a moderator. If accepted, the result of your appeal will apply to any subreddit using /r/${CONTROL_SUBREDDIT}.
+
+*This is an automated message.*`,
+
 };
 
 export enum AppSetting {
@@ -43,7 +50,6 @@ export enum AppSetting {
     RemoveContentWhenReporting = "removeContentWhenReporting",
     DailyDigest = "dailyDigest",
     UpgradeNotifier = "upgradeNotifier",
-    HoneypotMode = "honeypotMode",
 }
 
 export const appSettings: SettingsFormField[] = [
@@ -125,22 +131,9 @@ export const appSettings: SettingsFormField[] = [
             },
         ],
     },
-    {
-        type: "group",
-        label: "Advanced Options",
-        fields: [
-            {
-                type: "boolean",
-                label: "Honeypot Mode",
-                name: AppSetting.HoneypotMode,
-                helpText: "If enabled, Bot Bouncer will NOT take action on accounts that are classified as bots, but will still report them. This may be useful for rare subreddits that might not want to tip users off.",
-                defaultValue: false,
-            },
-        ],
-    },
 ];
 
-interface ControlSubSettings {
+export interface ControlSubSettings {
     evaluationDisabled: boolean;
     proactiveEvaluationEnabled?: boolean;
     maxInactivityMonths?: number;
@@ -148,9 +141,14 @@ interface ControlSubSettings {
     reporterBlacklist: string[];
     numberOfWikiPages?: number;
     bulkSubmitters?: string[];
+    cleanupDisabled?: boolean;
+    uptimeMonitoringEnabled?: boolean;
+    messageMonitoringEnabled?: boolean;
+    monitoringWebhook?: string;
 }
 
-const CONTROL_SUB_SETTINGS_WIKI_PAGE = "controlsubsettings";
+const CONTROL_SUB_SETTINGS_WIKI_PAGE = "control-sub-settings";
+const OLD_CONTROL_SUB_SETTINGS_WIKI_PAGE = "controlsubsettings";
 
 const schema: JSONSchemaType<ControlSubSettings> = {
     type: "object",
@@ -162,6 +160,10 @@ const schema: JSONSchemaType<ControlSubSettings> = {
         reporterBlacklist: { type: "array", items: { type: "string" } },
         numberOfWikiPages: { type: "number", nullable: true },
         bulkSubmitters: { type: "array", items: { type: "string" }, nullable: true },
+        cleanupDisabled: { type: "boolean", nullable: true },
+        uptimeMonitoringEnabled: { type: "boolean", nullable: true },
+        messageMonitoringEnabled: { type: "boolean", nullable: true },
+        monitoringWebhook: { type: "string", nullable: true },
     },
     required: ["evaluationDisabled", "trustedSubmitters", "reporterBlacklist"],
 };
@@ -243,29 +245,77 @@ export async function validateControlSubConfigChange (username: string, context:
         return;
     }
 
+    // Check for updates by the app account
+    if (wikiPage.revisionAuthor?.username === context.appName) {
+        await context.reddit.modMail.createModInboxConversation({
+            subredditId: context.subredditId,
+            subject: "Control sub settings updated by app account!",
+            bodyMarkdown: `The control sub settings have been updated by the app account ${context.appName}. Please check and revert if necessary.`,
+        });
+    }
+
     let json: ControlSubSettings | undefined;
     try {
         json = JSON.parse(wikiPage.content) as ControlSubSettings;
     } catch {
         await reportControlSubValidationError(username, "Invalid JSON in control sub settings", context);
+        return;
     }
 
-    if (json) {
-        const ajv = new Ajv.default();
-        const validate = ajv.compile(schema);
-        if (!validate(json)) {
-            await reportControlSubValidationError(username, `Control sub settings are invalid: ${ajv.errorsText(validate.errors)}`, context);
-        } else {
-            // Check for updates by the app account
-            if (wikiPage.revisionAuthor?.username === context.appName) {
-                await context.reddit.modMail.createModInboxConversation({
-                    subredditId: context.subredditId,
-                    subject: "Control sub settings updated by app account!",
-                    bodyMarkdown: `The control sub settings have been updated by the app account ${context.appName}. Please check and revert if necessary.`,
-                });
-            }
-        }
+    const ajv = new Ajv.default();
+    const validate = ajv.compile(schema);
+    if (!validate(json)) {
+        await reportControlSubValidationError(username, `Control sub settings are invalid: ${ajv.errorsText(validate.errors)}`, context);
+        return;
     }
 
     await context.redis.set(redisKey, wikiPage.revisionId);
+
+    await context.scheduler.runJob({
+        name: ControlSubredditJob.CopyControlSubSettings,
+        runAt: new Date(),
+    });
+}
+
+export async function copyControlSubSettingsToOldWiki (_: unknown, context: TriggerContext) {
+    if (context.subredditName !== CONTROL_SUBREDDIT) {
+        return;
+    }
+
+    let wikiPage: WikiPage;
+    try {
+        wikiPage = await context.reddit.getWikiPage(CONTROL_SUBREDDIT, CONTROL_SUB_SETTINGS_WIKI_PAGE);
+    } catch {
+        console.error("Failed to get control sub settings wiki page");
+        return;
+    }
+
+    let oldWikiPage: WikiPage;
+    try {
+        oldWikiPage = await context.reddit.getWikiPage(CONTROL_SUBREDDIT, OLD_CONTROL_SUB_SETTINGS_WIKI_PAGE);
+    } catch {
+        console.error("Failed to get old control sub settings wiki page");
+        return;
+    }
+
+    if (oldWikiPage.content.trim() === wikiPage.content.trim()) {
+        console.log("Control sub settings wiki page is already up to date");
+        return;
+    }
+
+    await context.reddit.updateWikiPage({
+        subredditName: CONTROL_SUBREDDIT,
+        page: OLD_CONTROL_SUB_SETTINGS_WIKI_PAGE,
+        content: wikiPage.content,
+        reason: "Updating overwritten control sub settings wiki page",
+    });
+
+    await context.reddit.updateWikiPageSettings({
+        subredditName: CONTROL_SUBREDDIT,
+        page: OLD_CONTROL_SUB_SETTINGS_WIKI_PAGE,
+        listed: false,
+        permLevel: WikiPagePermissionLevel.MODS_ONLY,
+    });
+
+    console.log("Control sub settings wiki page copied to old wiki page");
 }

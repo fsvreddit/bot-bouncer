@@ -9,7 +9,7 @@ import { UserExtended } from "../extendedDevvit.js";
 
 export class EvaluateResumeSpam extends UserEvaluatorBase {
     override name = "Resume Spam";
-    override killswitch = "resume:killswitch";
+    override shortname = "resume";
 
     private eligibleComment (comment: Comment | CommentV2) {
         if (isCommentId(comment.parentId)) {
@@ -20,7 +20,7 @@ export class EvaluateResumeSpam extends UserEvaluatorBase {
     }
 
     private eligiblePost (post: Post) {
-        const redditDomains = this.variables["generic:redditdomains"] as string[] | undefined ?? [];
+        const redditDomains = this.getGenericVariable<string[]>("redditdomains", []);
         const domain = domainFromUrl(post.url);
         return domain && redditDomains.includes(domain);
     }
@@ -58,16 +58,16 @@ export class EvaluateResumeSpam extends UserEvaluatorBase {
     }
 
     override evaluate (_: UserExtended, history: (Post | Comment)[]): boolean {
-        const userPosts = history.filter(item => item instanceof Post) as Post[];
+        const userPosts = this.getPosts(history);
         if (userPosts.some(post => !this.eligiblePost(post))) {
             this.setReason("User has ineligible posts");
             return false;
         }
 
-        const userComments = history.filter(item => item instanceof Comment) as Comment[];
+        const userComments = this.getComments(history);
 
-        const phrases = this.variables["resume:phrases"] as string[] | undefined;
-        if (!phrases) {
+        const phrases = this.getVariable<string[]>("phrases", []);
+        if (phrases.length === 0) {
             this.setReason("No resume phrases defined");
             return false;
         }

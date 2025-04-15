@@ -2,10 +2,11 @@ import { Comment, Post } from "@devvit/public-api";
 import { CommentCreate } from "@devvit/protos";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
 import { UserExtended } from "../extendedDevvit.js";
+import markdownEscape from "markdown-escape";
 
 export class EvaluateBioText extends UserEvaluatorBase {
     override name = "Bio Text Bot";
-    override killswitch = "biotext:killswitch";
+    override shortname = "biotext";
     override banContentThreshold = 1;
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -14,8 +15,8 @@ export class EvaluateBioText extends UserEvaluatorBase {
     }
 
     private getBioText () {
-        const bannableBioText = this.variables["biotext:bantext"] as string[] | undefined ?? [];
-        const reportableBioText = this.variables["biotext:reporttext"] as string[] | undefined ?? [];
+        const bannableBioText = this.getVariable<string[]>("bantext", []);
+        const reportableBioText = this.getVariable<string[]>("reporttext", []);
         return { bannableBioText, reportableBioText };
     }
 
@@ -39,11 +40,29 @@ export class EvaluateBioText extends UserEvaluatorBase {
 
         const problematicBioText = [...bannableBioText, ...reportableBioText];
 
-        return problematicBioText.some(title => user.userDescription && new RegExp(title).test(user.userDescription));
+        return problematicBioText.some(bioText => user.userDescription && new RegExp(bioText, "u").test(user.userDescription));
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    override evaluate (_: UserExtended, _history: (Post | Comment)[]): boolean {
-        return true;
+    override evaluate (user: UserExtended, history: (Post | Comment)[]): boolean {
+        const { bannableBioText, reportableBioText } = this.getBioText();
+
+        if (bannableBioText.length === 0 && reportableBioText.length === 0) {
+            return false;
+        }
+
+        const bannableBioTextFound = bannableBioText.find(bio => user.userDescription && new RegExp(bio, "u").test(user.userDescription));
+        const reportableBioTextFound = reportableBioText.find(bio => user.userDescription && new RegExp(bio, "u").test(user.userDescription));
+
+        if (bannableBioTextFound) {
+            this.canAutoBan = true;
+            this.hitReason = `Bio text matched regex: ${markdownEscape(bannableBioTextFound)}`;
+        } else if (reportableBioTextFound) {
+            this.canAutoBan = false;
+            this.hitReason = `Bio text matched regex: ${markdownEscape(reportableBioTextFound)}`;
+        } else {
+            return false;
+        }
+
+        return user.nsfw || this.getPosts(history).some(post => post.isNsfw());
     }
 }

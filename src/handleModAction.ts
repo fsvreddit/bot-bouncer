@@ -1,6 +1,6 @@
 import { TriggerContext } from "@devvit/public-api";
 import { ModAction } from "@devvit/protos";
-import { CONTROL_SUBREDDIT, UPDATE_EVALUATOR_VARIABLES } from "./constants.js";
+import { CONTROL_SUBREDDIT, UniversalJob } from "./constants.js";
 import { recordWhitelistUnban, removeRecordOfBan } from "./handleClientSubredditWikiUpdate.js";
 import { handleExternalSubmissionsPageUpdate } from "./externalSubmissions.js";
 import { validateControlSubConfigChange } from "./settings.js";
@@ -56,16 +56,15 @@ async function handleModActionControlSub (event: ModAction, context: TriggerCont
      * It may also be because the control sub configuration has changed, in which case
      * check that too.
      */
-    if (event.action === "wikirevise") {
-        if (event.moderator?.name === context.appName || event.moderator?.name === "bot-bouncer-int") {
-            await handleExternalSubmissionsPageUpdate(context);
-        } else if (event.moderator) {
-            await validateControlSubConfigChange(event.moderator.name, context);
-            await context.scheduler.runJob({
-                name: UPDATE_EVALUATOR_VARIABLES,
+    if (event.action === "wikirevise" && event.moderator) {
+        await Promise.all([
+            handleExternalSubmissionsPageUpdate(context),
+            validateControlSubConfigChange(event.moderator.name, context),
+            context.scheduler.runJob({
+                name: UniversalJob.UpdateEvaluatorVariables,
                 runAt: new Date(),
                 data: { username: event.moderator.name },
-            });
-        }
+            }),
+        ]);
     }
 }

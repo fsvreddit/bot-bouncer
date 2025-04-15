@@ -2,7 +2,7 @@ import { Comment, Post } from "@devvit/public-api";
 import { CommentCreate } from "@devvit/protos";
 import { CommentV2 } from "@devvit/protos/types/devvit/reddit/v2alpha/commentv2.js";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
-import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
+import { isLinkId } from "@devvit/shared-types/tid.js";
 import { subMonths } from "date-fns";
 import { last, uniq } from "lodash";
 import { domainFromUrl } from "./evaluatorHelpers.js";
@@ -10,11 +10,16 @@ import { UserExtended } from "../extendedDevvit.js";
 
 export class EvaluateFirstCommentEmDash extends UserEvaluatorBase {
     override name = "First Comment Em Dash";
-    override killswitch = "em-dash:killswitch";
+    override shortname = "em-dash";
 
     override banContentThreshold = 1;
 
     private readonly emDashRegex = /\w—\w/i;
+
+    private isNoCheckSub () {
+        const noCheckSubs = this.getVariable<string[]>("nochecksubs", []);
+        return this.context.subredditName && noCheckSubs.includes(this.context.subredditName);
+    }
 
     private eligibleComment (comment: Comment | CommentV2) {
         return isLinkId(comment.parentId);
@@ -25,17 +30,25 @@ export class EvaluateFirstCommentEmDash extends UserEvaluatorBase {
             return false;
         }
 
+        if (this.isNoCheckSub()) {
+            return false;
+        }
+
         return this.eligibleComment(event.comment);
     }
 
     private eligiblePost (post: Post): boolean {
         const domain = domainFromUrl(post.url);
-        const redditDomains = this.variables["generic:redditdomains"] as string[] | undefined ?? [];
+        const redditDomains = this.getGenericVariable<string[]>("redditdomains", []);
 
         return domain !== undefined && redditDomains.includes(domain);
     }
 
     override preEvaluatePost (post: Post): boolean {
+        if (this.isNoCheckSub()) {
+            return false;
+        }
+
         return this.eligiblePost(post);
     }
 
@@ -45,12 +58,16 @@ export class EvaluateFirstCommentEmDash extends UserEvaluatorBase {
             return false;
         }
 
+        if (this.isNoCheckSub()) {
+            return false;
+        }
+
         return true;
     }
 
     override evaluate (_: UserExtended, history: (Post | Comment)[]): boolean {
-        const comments = history.filter(item => isCommentId(item.id)) as Comment[];
-        const posts = history.filter(item => isLinkId(item.id)) as Post[];
+        const comments = this.getComments(history);
+        const posts = this.getPosts(history);
 
         if (comments.length > 30) {
             this.canAutoBan = false;
@@ -89,9 +106,9 @@ export class EvaluateFirstCommentEmDash extends UserEvaluatorBase {
         if (!firstCommentContainsEmDash && !emDashThresholdMet) {
             this.setReason("User's first comment doesn't contain an em dash, or they have insufficient comments with them");
 
-            const karmaFarmingSubs = this.variables["generic:karmafarminglinksubs"] as string[] | undefined ?? [];
-            const postCountNeeded = this.variables["em-dash:postcount"] as number | undefined ?? 3;
-            const subsNeeded = this.variables["em-dash:distinctsubs"] as number | undefined ?? 3;
+            const karmaFarmingSubs = this.getGenericVariable<string[]>("karmafarminglinksubs", []);
+            const postCountNeeded = this.getVariable<number>("postcount", 3);
+            const subsNeeded = this.getVariable<number>("distinctsubs", 3);
 
             const backupRequirementsMet = posts.length >= postCountNeeded
                 && uniq(posts.filter(post => karmaFarmingSubs.includes(post.subredditName)).map(post => post.subredditName)).length >= subsNeeded
@@ -107,7 +124,7 @@ export class EvaluateFirstCommentEmDash extends UserEvaluatorBase {
             return false;
         }
 
-        const noAutoBanSubs = this.variables["em-dash:noautobansubs"] as string[] | undefined ?? [];
+        const noAutoBanSubs = this.getVariable<string[]>("noautobansubs", []);
         if (history.some(item => noAutoBanSubs.includes(item.subredditName))) {
             this.canAutoBan = false;
         }

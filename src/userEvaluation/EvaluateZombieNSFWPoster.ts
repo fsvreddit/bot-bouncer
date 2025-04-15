@@ -1,18 +1,17 @@
 import { Comment, Post } from "@devvit/public-api";
 import { CommentCreate } from "@devvit/protos";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
-import { isLinkId } from "@devvit/shared-types/tid.js";
 import { subYears } from "date-fns";
 import { UserExtended } from "../extendedDevvit.js";
 
 export class EvaluateZombieNSFW extends UserEvaluatorBase {
     override name = "Zombie NSFW Poster";
-    override killswitch = "zombiensfw:killswitch";
+    override shortname = "zombiensfw";
 
     override banContentThreshold = 5;
 
     private getRegexes (): RegExp[] {
-        const regexList = this.variables["zombiensfw:regexes"] as string[] | undefined ?? [];
+        const regexList = this.getVariable<string[]>("regexes", []);
         return regexList.map(regex => new RegExp(regex));
     }
 
@@ -31,16 +30,16 @@ export class EvaluateZombieNSFW extends UserEvaluatorBase {
     }
 
     override preEvaluateUser (user: UserExtended): boolean {
-        const minAccountAgeInYears = this.variables["zombiensfw:minaccountage"] as number | undefined ?? 10;
+        const minAccountAgeInYears = this.getVariable<number>("minaccountage", 10);
 
         return user.createdAt < subYears(new Date(), minAccountAgeInYears);
     }
 
     override evaluate (_: UserExtended, history: (Post | Comment)[]): boolean {
-        const posts = history.filter(item => isLinkId(item.id)) as Post[];
+        const posts = this.getPosts(history);
         const eligiblePosts = posts.filter(post => this.eligiblePost(post));
 
-        const minPostsRequired = this.variables["zombiensfw:minposts"] as number | undefined ?? 5;
+        const minPostsRequired = this.getVariable<number>("minposts", 5);
         if (eligiblePosts.length < minPostsRequired) {
             this.setReason(`User has less than ${minPostsRequired} matching NSFW posts`);
             return false;

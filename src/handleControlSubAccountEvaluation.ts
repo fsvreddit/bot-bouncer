@@ -1,25 +1,27 @@
-import { Comment, JobContext, JSONObject, Post, ScheduledJobEvent } from "@devvit/public-api";
+import { Comment, JobContext, JSONObject, JSONValue, Post, ScheduledJobEvent, SubredditInfo, TriggerContext } from "@devvit/public-api";
 import { getUserStatus, UserStatus } from "./dataStore.js";
 import { CONTROL_SUBREDDIT, PostFlairTemplate } from "./constants.js";
 import { ALL_EVALUATORS } from "./userEvaluation/allEvaluators.js";
 import { UserEvaluatorBase } from "./userEvaluation/UserEvaluatorBase.js";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { createUserSummary } from "./UserSummary/userSummary.js";
-import { format, subDays } from "date-fns";
+import { addWeeks, subMonths } from "date-fns";
 import { getUserExtended } from "./extendedDevvit.js";
+import { uniq } from "lodash";
 
-interface EvaluatorStats {
+export interface EvaluatorStats {
     hitCount: number;
     lastHit: number;
 }
 
 interface EvaluationResult {
     botName: string;
+    hitReason?: string;
     canAutoBan: boolean;
     metThreshold: boolean;
 }
 
-export async function evaluateUserAccount (username: string, context: JobContext, verbose: boolean): Promise<EvaluationResult[]> {
+export async function evaluateUserAccount (username: string, variables: Record<string, JSONValue>, context: JobContext, verbose: boolean): Promise<EvaluationResult[]> {
     const user = await getUserExtended(username, context);
     if (!user) {
         if (verbose) {
@@ -27,8 +29,6 @@ export async function evaluateUserAccount (username: string, context: JobContext
         }
         return [];
     }
-
-    const variables = await getEvaluatorVariables(context);
 
     let userItems: (Post | Comment)[] | undefined;
     const detectedBots: UserEvaluatorBase[] = [];
@@ -39,7 +39,8 @@ export async function evaluateUserAccount (username: string, context: JobContext
             continue;
         }
 
-        if (!evaluator.preEvaluateUser(user)) {
+        const userEvaluateResult = await Promise.resolve(evaluator.preEvaluateUser(user));
+        if (!userEvaluateResult) {
             continue;
         }
 
@@ -59,16 +60,14 @@ export async function evaluateUserAccount (username: string, context: JobContext
             }
         }
 
-        const isABot = evaluator.evaluate(user, userItems);
+        const isABot = await Promise.resolve(evaluator.evaluate(user, userItems));
         if (isABot) {
-            console.log(`Evaluator: ${username} appears to be a bot via the evaluator: ${evaluator.name} 💥`);
-            detectedBots.push(evaluator);
-        } else {
-            const regex = /^(?:[A-Z][a-z]+[_-]?){2}\\d{2,4}$/;
-            if (evaluator.name === "Short Non-TLC" && userItems.some(item => item.subredditName === "Frieren" || item.subredditName === "justgalsbeingchicks") && regex.test(username) && user.createdAt > subDays(new Date(), 7)) {
-                console.log(`Evaluator: ${username} didn't match ${evaluator.name}, but maybe should have done`);
-                console.log(evaluator.getReasons().join(", "));
+            if (evaluator.name !== "CQS Tester") {
+                console.log(`Evaluator: ${username} appears to be a bot via the evaluator: ${evaluator.name} 💥`);
             }
+            detectedBots.push(evaluator);
+        } else if (evaluator.name === "Short TLC New Bot" && userItems.some(item => item.subredditName === "Frieren")) {
+            console.log(`Evaluator for ${username} did not match ${evaluator.name}: ${evaluator.getReasons().join(", ")}`);
         }
     }
 
@@ -81,7 +80,7 @@ export async function evaluateUserAccount (username: string, context: JobContext
 
     const allStats: Record<string, EvaluatorStats> = existingStatsVal ? JSON.parse(existingStatsVal) as Record<string, EvaluatorStats> : {};
 
-    for (const bot of detectedBots) {
+    for (const bot of detectedBots.filter(bot => bot.name !== "CQS Tester")) {
         const botStats = allStats[bot.name] ?? { hitCount: 0, lastHit: 0 };
         botStats.hitCount++;
         botStats.lastHit = new Date().getTime();
@@ -91,7 +90,7 @@ export async function evaluateUserAccount (username: string, context: JobContext
     await context.redis.set(redisKey, JSON.stringify(allStats));
 
     const itemCount = userItems?.length ?? 0;
-    return detectedBots.map(bot => ({ botName: bot.name, canAutoBan: bot.canAutoBan, metThreshold: itemCount >= bot.banContentThreshold }));
+    return detectedBots.map(bot => ({ botName: bot.name, hitReason: bot.hitReason, canAutoBan: bot.canAutoBan, metThreshold: itemCount >= bot.banContentThreshold }));
 }
 
 export async function handleControlSubAccountEvaluation (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
@@ -112,7 +111,8 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
         return;
     }
 
-    const evaluationResults = await evaluateUserAccount(username, context, true);
+    const variables = await getEvaluatorVariables(context);
+    const evaluationResults = await evaluateUserAccount(username, variables, context, true);
 
     let reportReason: string | undefined;
 
@@ -122,6 +122,8 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
         reportReason = `Possible bot via evaluation, but insufficient content: ${evaluationResults.map(result => result.botName).join(", ")}`;
     } else if (!evaluationResults.some(result => result.canAutoBan)) {
         reportReason = `Possible bot via evaluation, tagged as no-auto-ban: ${evaluationResults.map(result => result.botName).join(", ")}`;
+    } else if (await userHasContinuousNSFWHistory(username, context)) {
+        reportReason = "Possible bot via evaluation, but continuous NSFW history detected.";
     }
 
     if (reportReason) {
@@ -139,26 +141,81 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
         flairTemplateId: PostFlairTemplate.Banned,
     });
 
+    const evaluationResultsToStore = evaluationResults.filter(result => result.canAutoBan);
+    if (evaluationResultsToStore.length > 0) {
+        await context.redis.hSet(USER_EVALUATION_RESULTS_KEY, { [username]: JSON.stringify(evaluationResultsToStore) });
+    }
+
     console.log(`Evaluator: Post flair changed for ${username}`);
 }
 
-export async function updateEvaluatorHitsWikiPage (context: JobContext) {
-    const redisKey = "EvaluatorStats";
-    const existingStatsVal = await context.redis.get(redisKey);
+export const USER_EVALUATION_RESULTS_KEY = "UserEvaluationResults";
 
-    const allStats: Record<string, EvaluatorStats> = existingStatsVal ? JSON.parse(existingStatsVal) as Record<string, EvaluatorStats> : {};
-
-    let wikicontent = "Evaluator Name|Hit Count|Last Hit\n";
-    wikicontent += ":-|:-|:-\n";
-
-    for (const entry of Object.entries(allStats).map(([name, value]) => ({ name, value }))) {
-        wikicontent += `${entry.name}|${entry.value.hitCount}|${format(new Date(entry.value.lastHit), "yyyy-MM-dd HH:mm")}\n`;
+export async function getAccountInitialEvaluationResults (username: string, context: TriggerContext): Promise<EvaluationResult[]> {
+    const results = await context.redis.hGet(USER_EVALUATION_RESULTS_KEY, username);
+    if (!results) {
+        return [];
     }
 
-    const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
-    await context.reddit.updateWikiPage({
-        subredditName,
-        page: "evaluator-hits",
-        content: wikicontent,
-    });
+    return JSON.parse(results) as EvaluationResult[];
+}
+
+async function subIsNSFW (subredditName: string, context: TriggerContext): Promise<boolean> {
+    const redisKey = `subisnsfw:${subredditName}`;
+    const cachedValue = await context.redis.get(redisKey);
+    if (cachedValue) {
+        return JSON.parse(cachedValue) as boolean;
+    }
+
+    let subredditInfo: SubredditInfo | undefined;
+    try {
+        subredditInfo = await context.reddit.getSubredditInfoByName(subredditName);
+    } catch {
+        // Error retrieving subreddit info, likely gated or freshly banned.
+    }
+
+    const isNSFW = subredditInfo?.isNsfw ?? false;
+
+    await context.redis.set(redisKey, JSON.stringify(isNSFW), { expiration: addWeeks(new Date(), 1) });
+    console.log(`Subreddit ${subredditName} is NSFW: ${isNSFW}`);
+    return isNSFW;
+}
+
+export async function userHasContinuousNSFWHistory (username: string, context: TriggerContext): Promise<boolean> {
+    let posts = await context.reddit.getPostsByUser({
+        username,
+        sort: "new",
+        limit: 1000,
+        timeframe: "year",
+    }).all();
+
+    if (posts.length === 0) {
+        return false;
+    }
+
+    const subNSFW: Record<string, boolean> = {};
+    // Filter to just the last 6 months.
+    posts = posts.filter(post => post.createdAt > subMonths(new Date(), 6));
+    for (let month = new Date().getMonth() - 5; month <= new Date().getMonth(); month++) {
+        const postsInMonth = posts.filter(post => post.createdAt.getMonth() === month);
+        if (postsInMonth.length === 0) {
+            return false;
+        }
+
+        if (postsInMonth.some(post => post.nsfw)) {
+            continue;
+        }
+
+        for (const subreddit of uniq(postsInMonth.map(post => post.subredditName))) {
+            subNSFW[subreddit] ??= await subIsNSFW(subreddit, context);
+            if (subNSFW[subreddit]) {
+                continue;
+            }
+        }
+
+        // If we have a month with no NSFW posts and no NSFW subreddits, return false.
+        return false;
+    }
+
+    return true;
 }
