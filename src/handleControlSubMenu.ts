@@ -59,25 +59,23 @@ export async function handleControlSubReportUser (target: Post | Comment, contex
         });
     }
 
-    if (currentStatus.userStatus === UserStatus.Banned || currentStatus.lastStatus === UserStatus.Banned) {
-        const initialEvaluationResult = await getAccountInitialEvaluationResults(username, context);
-        for (const hit of initialEvaluationResult) {
-            if (hit.hitReason) {
-                fields.push({
-                    name: hit.botName,
-                    label: `User hit ${hit.botName}`,
-                    type: "paragraph",
-                    lineHeight: Math.min(Math.ceil(hit.hitReason.length / 60), 8),
-                    defaultValue: hit.hitReason,
-                });
-            } else {
-                fields.push({
-                    name: hit.botName,
-                    label: `User hit ${hit.botName}`,
-                    type: "string",
-                    placeholder: "No detail available",
-                });
-            }
+    const initialEvaluationResult = await getAccountInitialEvaluationResults(username, context);
+    for (const hit of initialEvaluationResult) {
+        if (hit.hitReason) {
+            fields.push({
+                name: hit.botName,
+                label: `User hit ${hit.botName}`,
+                type: "paragraph",
+                lineHeight: Math.min(Math.ceil(hit.hitReason.length / 60), 8),
+                defaultValue: hit.hitReason,
+            });
+        } else {
+            fields.push({
+                name: hit.botName,
+                label: `User hit ${hit.botName}`,
+                type: "string",
+                placeholder: "No detail available",
+            });
         }
     }
 
