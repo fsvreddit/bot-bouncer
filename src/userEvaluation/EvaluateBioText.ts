@@ -43,8 +43,7 @@ export class EvaluateBioText extends UserEvaluatorBase {
         return problematicBioText.some(bioText => user.userDescription && new RegExp(bioText, "u").test(user.userDescription));
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    override evaluate (user: UserExtended, _history: (Post | Comment)[]): boolean {
+    override evaluate (user: UserExtended, history: (Post | Comment)[]): boolean {
         const { bannableBioText, reportableBioText } = this.getBioText();
 
         if (bannableBioText.length === 0 && reportableBioText.length === 0) {
@@ -64,6 +63,6 @@ export class EvaluateBioText extends UserEvaluatorBase {
             return false;
         }
 
-        return true;
+        return user.nsfw || this.getPosts(history).some(post => post.isNsfw());
     }
 }
