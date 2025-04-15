@@ -68,6 +68,7 @@ async function checkUserActivity (username: string, context: JobContext) {
 
     if (currentStatus.userStatus === UserStatus.Purged && currentStatus.lastStatus === UserStatus.Banned) {
         // Handle temp shadowban reactivation
+        console.log(`Activity Check: User ${username} has been reactivated from a temp shadowban. Updating status to Banned.`);
         await context.reddit.setPostFlair({
             postId: currentStatus.trackingPostId,
             flairTemplateId: PostFlairTemplate.Banned,
