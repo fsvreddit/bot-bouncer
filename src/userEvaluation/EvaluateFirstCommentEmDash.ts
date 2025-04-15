@@ -58,9 +58,7 @@ export class EvaluateFirstCommentEmDash extends UserEvaluatorBase {
             return false;
         }
 
-        const noCheckSubs = this.getVariable<string[]>("nochecksubs", []);
-        if (this.context.subredditName && noCheckSubs.includes(this.context.subredditName)) {
-            this.setReason("User is in a no-check subreddit");
+        if (this.isNoCheckSub()) {
             return false;
         }
 
