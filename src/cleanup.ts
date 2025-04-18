@@ -88,15 +88,17 @@ export async function cleanupDeletedAccounts (_: unknown, context: JobContext) {
 
     const itemsToCheck = 5;
 
+    let deletedCount = 0;
+    let activeCount = 0;
+    let suspendedCount = 0;
     // Get the first N accounts that are due a check.
     const usersToCheck = items.slice(0, itemsToCheck).map(item => item.member);
-    let usersDeleted = 0;
     for (const username of usersToCheck) {
         const currentUserStatus = await userActive(username, context);
 
         if (currentUserStatus === UserActiveStatus.Deleted) {
             await handleDeletedAccount(username, context);
-            usersDeleted++;
+            deletedCount++;
             continue;
         }
 
@@ -117,6 +119,7 @@ export async function cleanupDeletedAccounts (_: unknown, context: JobContext) {
         }
 
         if (currentUserStatus === UserActiveStatus.Active) {
+            activeCount++;
             if (currentStatus.userStatus === UserStatus.Pending) {
                 // User is still pending, so set the next check date to be 1 hour from now.
                 overrideCleanupHours = 1;
@@ -153,6 +156,7 @@ export async function cleanupDeletedAccounts (_: unknown, context: JobContext) {
                 console.log(`Cleanup: ${username} last activity: ${format(latestActivity, "yyyy-MM-dd")}`);
             }
         } else {
+            suspendedCount++;
             // User's current status is Suspended or Shadowbanned.
             if (currentStatus.userStatus === UserStatus.Pending) {
                 // Users who are currently pending but where the user is suspended or shadowbanned should be set to Retired.
@@ -175,7 +179,7 @@ export async function cleanupDeletedAccounts (_: unknown, context: JobContext) {
         await setCleanupForUser(username, context, false, overrideCleanupHours);
     }
 
-    console.log(`Cleanup: ${usersDeleted}/${usersToCheck.length} deleted or suspended.`);
+    console.log(`Cleanup: Active ${activeCount}, Deleted ${deletedCount}, Suspended ${suspendedCount}`);
 
     if (items.length > itemsToCheck) {
         // In a backlog, so force another run.
