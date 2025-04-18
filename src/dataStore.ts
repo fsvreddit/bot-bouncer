@@ -85,6 +85,10 @@ export async function setUserStatus (username: string, details: UserDetails, con
         details.mostRecentActivity = currentStatus.mostRecentActivity;
     }
 
+    if (currentStatus && details.userStatus === UserStatus.Purged) {
+        details.lastUpdate = currentStatus.lastUpdate;
+    }
+
     const promises: Promise<unknown>[] = [
         context.redis.hSet(USER_STORE, { [username]: JSON.stringify(details) }),
         context.redis.hSet(POST_STORE, { [details.trackingPostId]: username }),
