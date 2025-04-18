@@ -46,6 +46,9 @@ export async function handleControlSubFlairUpdate (event: PostFlairUpdate, conte
         submitter: currentStatus?.submitter,
         lastUpdate: new Date().getTime(),
         operator: event.author.name,
+        reportedAt: currentStatus?.reportedAt,
+        mostRecentActivity: currentStatus?.mostRecentActivity,
+        lastStatus: postFlair === UserStatus.Purged ? currentStatus?.userStatus : undefined,
     }, context);
 
     console.log(`Flair Update: Status for ${username} set to ${postFlair} by ${event.author.name}`);
