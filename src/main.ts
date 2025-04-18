@@ -23,7 +23,6 @@ import { sendDailyDigest } from "./modmail/dailyDigest.js";
 import { updateStatisticsPages } from "./statistics/allStatistics.js";
 import { checkUptimeAndMessages } from "./uptimeMonitor.js";
 import { analyseBioText } from "./similarBioTextFinder/bioTextFinder.js";
-import { checkActivityQueue } from "./activityHistory.js";
 
 Devvit.addSettings(appSettings);
 
@@ -179,11 +178,6 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: ControlSubredditJob.BioTextAnalyser,
     onRun: analyseBioText,
-});
-
-Devvit.addSchedulerJob({
-    name: ControlSubredditJob.ActivityCheck,
-    onRun: checkActivityQueue,
 });
 
 /**

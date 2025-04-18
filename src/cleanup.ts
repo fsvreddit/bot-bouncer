@@ -1,17 +1,18 @@
-import { TriggerContext } from "@devvit/public-api";
-import { addDays, addHours, addMinutes, subMinutes } from "date-fns";
+import { Comment, JobContext, Post, TriggerContext } from "@devvit/public-api";
+import { addDays, addHours, addMinutes, format, subMinutes } from "date-fns";
 import { parseExpression } from "cron-parser";
 import { CLEANUP_JOB_CRON, CONTROL_SUBREDDIT, PostFlairTemplate, UniversalJob } from "./constants.js";
-import { deleteUserStatus, getUserStatus, removeRecordOfSubmitterOrMod, updateAggregate, UserDetails, UserStatus } from "./dataStore.js";
+import { deleteUserStatus, getUserStatus, removeRecordOfSubmitterOrMod, updateAggregate, USER_STORE, UserStatus } from "./dataStore.js";
 import { getUserOrUndefined } from "./utility.js";
 import { removeRecordOfBan, removeWhitelistUnban } from "./handleClientSubredditWikiUpdate.js";
 import { getControlSubSettings } from "./settings.js";
+import { max } from "lodash";
 
 const CLEANUP_LOG_KEY = "CleanupLog";
 const SUB_OR_MOD_LOG_KEY = "SubOrModLog";
 const DAYS_BETWEEN_CHECKS = 28;
 
-export async function setCleanupForUsers (usernames: string[], context: TriggerContext, controlSubOnly?: boolean, overrideDuration?: number) {
+export async function setCleanupForUser (username: string, context: TriggerContext, controlSubOnly?: boolean, overrideDuration?: number) {
     if (controlSubOnly && context.subredditName !== CONTROL_SUBREDDIT) {
         return;
     }
@@ -23,7 +24,7 @@ export async function setCleanupForUsers (usernames: string[], context: TriggerC
         cleanupTime = addDays(new Date(), DAYS_BETWEEN_CHECKS);
     }
 
-    await context.redis.zAdd(CLEANUP_LOG_KEY, ...usernames.map(username => ({ member: username, score: cleanupTime.getTime() })));
+    await context.redis.zAdd(CLEANUP_LOG_KEY, ({ member: username, score: cleanupTime.getTime() }));
 }
 
 export async function setCleanupForSubmittersAndMods (usernames: string[], context: TriggerContext) {
@@ -36,20 +37,45 @@ export async function setCleanupForSubmittersAndMods (usernames: string[], conte
     }
 
     await context.redis.zAdd(SUB_OR_MOD_LOG_KEY, ...usernames.map(username => ({ member: username, score: new Date().getTime() })));
-    await setCleanupForUsers(usernames, context, true);
+    await Promise.all(usernames.map(username => setCleanupForUser(username, context, true)));
 }
 
-async function userActive (username: string, context: TriggerContext): Promise<boolean> {
+enum UserActiveStatus {
+    Active = "active",
+    Deleted = "deleted",
+    Suspended = "suspended",
+}
+
+async function userActive (username: string, context: TriggerContext): Promise<UserActiveStatus> {
     const user = await getUserOrUndefined(username, context);
-    return user !== undefined;
+    if (user) {
+        return UserActiveStatus.Active;
+    }
+
+    /* If the user could not be retrieved, they may be suspended, shadowbanned or deleted.
+     *
+     * This can be tested by attempting to retrieve mod notes. Mod notes for shadowbanned or suspended
+     * users can be retrieved, but deleted users will return an error. We only need to do this on the
+     * control subreddit, because the client subreddit's cleanup requirements are different.
+     * */
+    if (context.subredditName !== CONTROL_SUBREDDIT) {
+        return UserActiveStatus.Deleted;
+    }
+
+    try {
+        await context.reddit.getModNotes({
+            subreddit: CONTROL_SUBREDDIT,
+            user: username,
+        }).all();
+        // User is either suspended or shadowbanned.
+        return UserActiveStatus.Suspended;
+    } catch {
+        // User is deleted.
+        return UserActiveStatus.Deleted;
+    }
 }
 
-interface UserActive {
-    username: string;
-    isActive: boolean;
-}
-
-export async function cleanupDeletedAccounts (_: unknown, context: TriggerContext) {
+export async function cleanupDeletedAccounts (_: unknown, context: JobContext) {
     const items = await context.redis.zRange(CLEANUP_LOG_KEY, 0, new Date().getTime(), { by: "score" });
     if (items.length === 0) {
         // No user accounts need to be checked.
@@ -64,73 +90,92 @@ export async function cleanupDeletedAccounts (_: unknown, context: TriggerContex
 
     // Get the first N accounts that are due a check.
     const usersToCheck = items.slice(0, itemsToCheck).map(item => item.member);
-    const userStatuses: UserActive[] = [];
-
+    let usersDeleted = 0;
     for (const username of usersToCheck) {
-        const isActive = await userActive(username, context);
-        userStatuses.push(({ username, isActive } as UserActive));
-    }
+        const currentUserStatus = await userActive(username, context);
 
-    const activeUsers = userStatuses.filter(user => user.isActive).map(user => user.username);
-    const deletedUsers = userStatuses.filter(user => !user.isActive).map(user => user.username);
-
-    // For active users, set their next check date to be one day from now.
-    if (activeUsers.length > 0) {
-        const pendingUsers: string[] = [];
-        const purgedUsers: Record<string, UserDetails> = {};
-        const otherUsers: string[] = [];
-        for (const user of activeUsers) {
-            const userStatus = await getUserStatus(user, context);
-            if (userStatus?.userStatus === UserStatus.Pending) {
-                pendingUsers.push(user);
-            } else if (userStatus?.userStatus === UserStatus.Purged || userStatus?.userStatus === UserStatus.Retired) {
-                purgedUsers[user] = userStatus;
-            } else {
-                otherUsers.push(user);
-            }
+        if (currentUserStatus === UserActiveStatus.Deleted) {
+            await handleDeletedAccount(username, context);
+            usersDeleted++;
+            continue;
         }
 
-        // Users still in pending status should get checked more rapidly.
-        if (pendingUsers.length > 0) {
-            await setCleanupForUsers(pendingUsers, context, false, 1);
+        // If we're on a client subreddit, no need to do further checks.
+        if (context.subredditName !== CONTROL_SUBREDDIT) {
+            await setCleanupForUser(username, context, false);
+            continue;
         }
 
-        // Users who were formerly marked as "purged" or "retired" should be set back to "pending" or their last known status.
-        for (const username of Object.keys(purgedUsers)) {
-            if (context.subredditName === CONTROL_SUBREDDIT) {
-                const currentStatus = await getUserStatus(username, context);
-                let newTemplate = PostFlairTemplate.Pending;
-                if (currentStatus?.lastStatus === UserStatus.Banned) {
-                    newTemplate = PostFlairTemplate.Banned;
-                } else if (currentStatus?.lastStatus === UserStatus.Organic) {
-                    newTemplate = PostFlairTemplate.Organic;
-                } else if (currentStatus?.lastStatus === UserStatus.Service) {
-                    newTemplate = PostFlairTemplate.Service;
+        let overrideCleanupHours: number | undefined;
+        const currentStatus = await getUserStatus(username, context);
+
+        // If no current status is defined, then this entry should not have been reached.
+        if (!currentStatus) {
+            console.log(`Cleanup: No status for ${username}, but was in cleanup queue.`);
+            await context.redis.zRem(CLEANUP_LOG_KEY, [username]);
+            continue;
+        }
+
+        if (currentUserStatus === UserActiveStatus.Active) {
+            if (currentStatus.userStatus === UserStatus.Pending) {
+                // User is still pending, so set the next check date to be 1 hour from now.
+                overrideCleanupHours = 1;
+            } else if (currentStatus.userStatus === UserStatus.Purged || currentStatus.userStatus === UserStatus.Retired) {
+                // User's last status was purged or retired, but user is now active again. Restore last status or Pending.
+                let newTemplate: PostFlairTemplate;// = PostFlairTemplate.Pending;
+                switch (currentStatus.lastStatus) {
+                    case UserStatus.Banned:
+                        newTemplate = PostFlairTemplate.Banned;
+                        break;
+                    case UserStatus.Organic:
+                        newTemplate = PostFlairTemplate.Organic;
+                        break;
+                    case UserStatus.Service:
+                        newTemplate = PostFlairTemplate.Service;
+                        break;
+                    default:
+                        newTemplate = PostFlairTemplate.Pending;
+                        break;
                 }
 
                 await context.reddit.setPostFlair({
-                    postId: purgedUsers[username].trackingPostId,
+                    postId: currentStatus.trackingPostId,
                     subredditName: CONTROL_SUBREDDIT,
                     flairTemplateId: newTemplate,
                 });
-
-                const post = await context.reddit.getPostById(purgedUsers[username].trackingPostId);
-                await context.reddit.report(post, { reason: `User has returned to pending status, formerly ${purgedUsers[username].userStatus}.` });
             }
-            await setCleanupForUsers([username], context, true);
+
+            const latestActivity = await getLatestContentDate(username, context);
+            if (latestActivity) {
+                // Store the latest activity date.
+                currentStatus.mostRecentActivity = latestActivity.getTime();
+                await context.redis.hSet(USER_STORE, { [username]: JSON.stringify(currentStatus) });
+                console.log(`Cleanup: ${username} last activity: ${format(latestActivity, "yyyy-MM-dd")}`);
+            }
+        } else {
+            // User's current status is Suspended or Shadowbanned.
+            if (currentStatus.userStatus === UserStatus.Pending) {
+                // Users who are currently pending but where the user is suspended or shadowbanned should be set to Retired.
+                await context.reddit.setPostFlair({
+                    postId: currentStatus.trackingPostId,
+                    subredditName: CONTROL_SUBREDDIT,
+                    flairTemplateId: PostFlairTemplate.Retired,
+                });
+            } else if (currentStatus.userStatus !== UserStatus.Purged && currentStatus.userStatus !== UserStatus.Retired) {
+                // User is active in the DB, but currently suspended or shadowbanned.
+                // Change the post flair to Purged.
+                await context.reddit.setPostFlair({
+                    postId: currentStatus.trackingPostId,
+                    subredditName: CONTROL_SUBREDDIT,
+                    flairTemplateId: PostFlairTemplate.Purged,
+                });
+            }
         }
 
-        if (otherUsers.length > 0) {
-            await setCleanupForUsers(otherUsers, context);
-        }
+        await setCleanupForUser(username, context, false, overrideCleanupHours);
     }
 
-    // For deleted users, remove them from both the cleanup log and the points score.
-    if (deletedUsers.length > 0) {
-        await handleDeletedAccounts(deletedUsers, context);
-    }
-
-    console.log(`Cleanup: ${deletedUsers.length}/${userStatuses.length} deleted or suspended.`);
+    console.log(`Cleanup: ${usersDeleted}/${usersToCheck.length} deleted or suspended.`);
 
     if (items.length > itemsToCheck) {
         // In a backlog, so force another run.
@@ -180,81 +225,95 @@ export async function scheduleAdhocCleanup (context: TriggerContext) {
     }
 }
 
-async function handleDeletedAccounts (usernames: string[], context: TriggerContext) {
+async function handleDeletedAccount (username: string, context: TriggerContext) {
     if (context.subredditName === CONTROL_SUBREDDIT) {
-        await handleDeletedAccountsControlSub(usernames, context);
+        await handleDeletedAccountControlSub(username, context);
     } else {
-        await handleDeletedAccountsClientSub(usernames, context);
+        await handleDeletedAccountClientSub(username, context);
     }
 
-    await context.redis.zRem(CLEANUP_LOG_KEY, usernames);
+    await context.redis.zRem(CLEANUP_LOG_KEY, [username]);
 }
 
-async function handleDeletedAccountsControlSub (usernames: string[], context: TriggerContext) {
-    for (const username of usernames) {
-        const status = await getUserStatus(username, context);
-        const submitterOrModFlag = await context.redis.zScore(SUB_OR_MOD_LOG_KEY, username);
+async function handleDeletedAccountControlSub (username: string, context: TriggerContext) {
+    const status = await getUserStatus(username, context);
+    const submitterOrModFlag = await context.redis.zScore(SUB_OR_MOD_LOG_KEY, username);
 
-        if (!status && !submitterOrModFlag) {
-            console.log(`Cleanup: ${username} has no status to delete.`);
-            continue;
+    if (!status && !submitterOrModFlag) {
+        console.log(`Cleanup: ${username} has no status to delete.`);
+        return;
+    }
+
+    if (status) {
+        let newStatus: UserStatus;
+        switch (status.userStatus) {
+            case UserStatus.Pending:
+            case UserStatus.Retired:
+            case UserStatus.Service:
+                newStatus = UserStatus.Retired;
+                break;
+            default:
+                newStatus = UserStatus.Purged;
+                break;
         }
 
-        if (status) {
-            let newStatus: UserStatus;
-            switch (status.userStatus) {
-                case UserStatus.Pending:
-                case UserStatus.Retired:
-                case UserStatus.Service:
-                    newStatus = UserStatus.Retired;
-                    break;
-                default:
-                    newStatus = UserStatus.Purged;
-                    break;
-            }
-
-            if (status.userStatus !== newStatus) {
-                await Promise.all([
-                    updateAggregate(status.userStatus, -1, context),
-                    updateAggregate(newStatus, 1, context),
-                ]);
-                console.log(`Cleanup: Aggregate for ${status.userStatus} decremented, ${newStatus} incremented for ${username}`);
-            }
-
-            try {
-                const post = await context.reddit.getPostById(status.trackingPostId);
-                await post.delete();
-
-                const deletedPosts = await context.redis.incrBy("deletedPosts", 1);
-                console.log(`Cleanup: Post deleted for ${username}. Now deleted ${deletedPosts} posts.`);
-                if (status.userStatus === newStatus) {
-                    continue;
-                }
-
-                await context.redis.set(`ignoreflairchange:${post.id}`, "true", { expiration: addHours(new Date(), 1) });
-
-                await context.reddit.setPostFlair({
-                    postId: post.id,
-                    subredditName: CONTROL_SUBREDDIT,
-                    flairTemplateId: status.userStatus === UserStatus.Pending ? PostFlairTemplate.Retired : PostFlairTemplate.Purged,
-                });
-            } catch {
-                console.log(`Cleanup: Unable to set flair for ${username} on post ${status.trackingPostId}`);
-            }
+        if (status.userStatus !== newStatus) {
+            await Promise.all([
+                updateAggregate(status.userStatus, -1, context),
+                updateAggregate(newStatus, 1, context),
+            ]);
+            console.log(`Cleanup: Aggregate for ${status.userStatus} decremented, ${newStatus} incremented for ${username}`);
         }
 
-        if (submitterOrModFlag) {
-            await context.redis.zRem(SUB_OR_MOD_LOG_KEY, [username]);
-            await removeRecordOfSubmitterOrMod(username, context);
+        try {
+            const post = await context.reddit.getPostById(status.trackingPostId);
+            await post.delete();
+
+            const deletedPosts = await context.redis.incrBy("deletedPosts", 1);
+            console.log(`Cleanup: Post deleted for ${username}. Now deleted ${deletedPosts} posts.`);
+            if (status.userStatus === newStatus) {
+                return;
+            }
+
+            await context.redis.set(`ignoreflairchange:${post.id}`, "true", { expiration: addHours(new Date(), 1) });
+
+            await context.reddit.setPostFlair({
+                postId: post.id,
+                subredditName: CONTROL_SUBREDDIT,
+                flairTemplateId: status.userStatus === UserStatus.Pending ? PostFlairTemplate.Retired : PostFlairTemplate.Purged,
+            });
+        } catch {
+            console.log(`Cleanup: Unable to set flair for ${username} on post ${status.trackingPostId}`);
         }
     }
 
-    await deleteUserStatus(usernames, context);
+    if (submitterOrModFlag) {
+        await context.redis.zRem(SUB_OR_MOD_LOG_KEY, [username]);
+        await removeRecordOfSubmitterOrMod(username, context);
+    }
+
+    await deleteUserStatus(username, context);
 }
 
-async function handleDeletedAccountsClientSub (usernames: string[], context: TriggerContext) {
-    await removeRecordOfBan(usernames, context);
-    await removeWhitelistUnban(usernames, context);
-    const keysToRemove = [...usernames.map(username => `removed:${username}`), ...usernames.map(username => `removedItems:${username}`)];
-    await Promise.all(keysToRemove.map(key => context.redis.del(key)));
+async function handleDeletedAccountClientSub (username: string, context: TriggerContext) {
+    await Promise.all([
+        removeRecordOfBan(username, context),
+        removeWhitelistUnban(username, context),
+        context.redis.del(`removed:${username}`),
+        context.redis.del(`removedItems:${username}`),
+    ]);
+}
+
+async function getLatestContentDate (username: string, context: JobContext): Promise<Date | undefined> {
+    let content: (Post | Comment)[];
+    try {
+        content = await context.reddit.getCommentsAndPostsByUser({
+            username,
+            limit: 100,
+        }).all();
+    } catch {
+        return;
+    }
+
+    return max(content.map(content => content.createdAt));
 }

@@ -1,14 +1,13 @@
 import { JobContext, TriggerContext, WikiPagePermissionLevel, WikiPage, CreateModNoteOptions } from "@devvit/public-api";
 import { compact, max, toPairs, uniq } from "lodash";
 import pako from "pako";
-import { scheduleAdhocCleanup, setCleanupForSubmittersAndMods, setCleanupForUsers } from "./cleanup.js";
+import { scheduleAdhocCleanup, setCleanupForSubmittersAndMods, setCleanupForUser } from "./cleanup.js";
 import { ClientSubredditJob, CONTROL_SUBREDDIT } from "./constants.js";
-import { addSeconds, addWeeks, startOfSecond, subDays, subHours, subWeeks } from "date-fns";
+import { addSeconds, addWeeks, startOfSecond, subDays, subHours, subMonths, subWeeks } from "date-fns";
 import pluralize from "pluralize";
 import { getControlSubSettings } from "./settings.js";
 import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
 import { USER_EVALUATION_RESULTS_KEY } from "./handleControlSubAccountEvaluation.js";
-import { queueUserForActivityCheck, removeActivityCheckRecords } from "./activityHistory.js";
 
 export const USER_STORE = "UserStore";
 export const AGGREGATE_STORE = "AggregateStore";
@@ -40,6 +39,7 @@ export interface UserDetails {
     bioText?: string;
     recentPostSubs?: string[];
     recentCommentSubs?: string[];
+    mostRecentActivity?: number;
 }
 
 export async function getUserStatus (username: string, context: TriggerContext) {
@@ -76,8 +76,13 @@ export async function setUserStatus (username: string, details: UserDetails, con
     if (currentStatus?.recentPostSubs && !details.recentPostSubs) {
         details.recentPostSubs = currentStatus.recentPostSubs;
     }
+
     if (currentStatus?.recentCommentSubs && !details.recentCommentSubs) {
         details.recentCommentSubs = currentStatus.recentCommentSubs;
+    }
+
+    if (currentStatus?.mostRecentActivity && !details.mostRecentActivity) {
+        details.mostRecentActivity = currentStatus.mostRecentActivity;
     }
 
     const promises: Promise<unknown>[] = [
@@ -90,9 +95,9 @@ export async function setUserStatus (username: string, details: UserDetails, con
     }
 
     if (details.userStatus === UserStatus.Pending) {
-        promises.push(setCleanupForUsers([username], context, true, 1));
+        promises.push(setCleanupForUser(username, context, true, 1));
     } else {
-        promises.push(setCleanupForUsers([username], context, true));
+        promises.push(setCleanupForUser(username, context, true));
     }
 
     const submittersAndMods = uniq(compact([details.submitter, details.operator]));
@@ -113,26 +118,20 @@ export async function setUserStatus (username: string, details: UserDetails, con
         }, context));
     }
 
-    if (context.subredditName === CONTROL_SUBREDDIT && details.userStatus === UserStatus.Banned) {
-        promises.push(queueUserForActivityCheck(username, context, true));
-    }
-
     await Promise.all(promises);
     await scheduleAdhocCleanup(context);
 }
 
-export async function deleteUserStatus (usernames: string[], context: TriggerContext) {
-    const currentStatuses = await Promise.all(usernames.map(username => getUserStatus(username, context)));
+export async function deleteUserStatus (username: string, context: TriggerContext) {
+    const currentStatus = await getUserStatus(username, context);
 
     const promises = [
-        context.redis.hDel(USER_STORE, usernames),
-        context.redis.hDel(USER_EVALUATION_RESULTS_KEY, usernames),
-        usernames.map(username => removeActivityCheckRecords(username, context)),
+        context.redis.hDel(USER_STORE, [username]),
+        context.redis.hDel(USER_EVALUATION_RESULTS_KEY, [username]),
     ];
 
-    const postsToDeleteTrackingFor = compact(currentStatuses.map(item => item?.trackingPostId));
-    if (postsToDeleteTrackingFor.length > 0) {
-        promises.push(context.redis.hDel(POST_STORE, postsToDeleteTrackingFor));
+    if (currentStatus?.trackingPostId) {
+        promises.push(context.redis.hDel(POST_STORE, [currentStatus.trackingPostId]));
     }
 
     await Promise.all(promises);
@@ -175,6 +174,11 @@ function compactDataForWiki (input: string): string | undefined {
         return;
     }
 
+    // Exclude entries for any user whose last observed activity is older than two months
+    if (status.mostRecentActivity && status.mostRecentActivity < subMonths(new Date(), 2).getTime()) {
+        return;
+    }
+
     status.operator = "";
     delete status.submitter;
     if (status.userStatus === UserStatus.Purged && status.lastStatus) {
@@ -192,6 +196,7 @@ function compactDataForWiki (input: string): string | undefined {
     delete status.bioText;
     delete status.recentPostSubs;
     delete status.recentCommentSubs;
+    delete status.mostRecentActivity;
 
     return JSON.stringify(status);
 }
