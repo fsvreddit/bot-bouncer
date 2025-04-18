@@ -122,7 +122,7 @@ export async function cleanupDeletedAccounts (_: unknown, context: JobContext) {
                 overrideCleanupHours = 1;
             } else if (currentStatus.userStatus === UserStatus.Purged || currentStatus.userStatus === UserStatus.Retired) {
                 // User's last status was purged or retired, but user is now active again. Restore last status or Pending.
-                let newTemplate: PostFlairTemplate;// = PostFlairTemplate.Pending;
+                let newTemplate: PostFlairTemplate;
                 switch (currentStatus.lastStatus) {
                     case UserStatus.Banned:
                         newTemplate = PostFlairTemplate.Banned;
