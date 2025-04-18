@@ -3,7 +3,7 @@ import { compact, max, toPairs, uniq } from "lodash";
 import pako from "pako";
 import { scheduleAdhocCleanup, setCleanupForSubmittersAndMods, setCleanupForUser } from "./cleanup.js";
 import { ClientSubredditJob, CONTROL_SUBREDDIT } from "./constants.js";
-import { addSeconds, addWeeks, startOfSecond, subDays, subHours, subMonths, subWeeks } from "date-fns";
+import { addSeconds, addWeeks, startOfSecond, subDays, subHours, subWeeks } from "date-fns";
 import pluralize from "pluralize";
 import { getControlSubSettings } from "./settings.js";
 import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
@@ -175,7 +175,7 @@ function compactDataForWiki (input: string): string | undefined {
     }
 
     // Exclude entries for any user whose last observed activity is older than two months
-    if (status.mostRecentActivity && status.mostRecentActivity < subMonths(new Date(), 2).getTime()) {
+    if (status.mostRecentActivity && status.mostRecentActivity < subWeeks(new Date(), 6).getTime()) {
         return;
     }
 
