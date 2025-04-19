@@ -79,6 +79,7 @@ export async function cleanupDeletedAccounts (_: unknown, context: JobContext) {
     const items = await context.redis.zRange(CLEANUP_LOG_KEY, 0, new Date().getTime(), { by: "score" });
     if (items.length === 0) {
         // No user accounts need to be checked.
+        console.log("Cleanup: No users to check.");
         await scheduleAdhocCleanup(context);
         return;
     }
