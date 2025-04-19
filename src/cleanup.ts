@@ -2,7 +2,7 @@ import { Comment, JobContext, Post, TriggerContext } from "@devvit/public-api";
 import { addDays, addHours, addMinutes, format, subMinutes } from "date-fns";
 import { parseExpression } from "cron-parser";
 import { CLEANUP_JOB_CRON, CONTROL_SUBREDDIT, PostFlairTemplate, UniversalJob } from "./constants.js";
-import { deleteUserStatus, getUserStatus, removeRecordOfSubmitterOrMod, updateAggregate, UserStatus, writeUserStatus } from "./dataStore.js";
+import { deleteUserStatus, getUserStatus, pauseRescheduleForUser, removeRecordOfSubmitterOrMod, updateAggregate, UserStatus, writeUserStatus } from "./dataStore.js";
 import { getUserOrUndefined } from "./utility.js";
 import { removeRecordOfBan, removeWhitelistUnban } from "./handleClientSubredditWikiUpdate.js";
 import { getControlSubSettings } from "./settings.js";
@@ -142,6 +142,7 @@ export async function cleanupDeletedAccounts (_: unknown, context: JobContext) {
                         break;
                 }
 
+                await pauseRescheduleForUser(username, context);
                 await context.reddit.setPostFlair({
                     postId: currentStatus.trackingPostId,
                     subredditName: CONTROL_SUBREDDIT,
@@ -161,6 +162,7 @@ export async function cleanupDeletedAccounts (_: unknown, context: JobContext) {
             // User's current status is Suspended or Shadowbanned.
             if (currentStatus.userStatus === UserStatus.Pending) {
                 // Users who are currently pending but where the user is suspended or shadowbanned should be set to Retired.
+                await pauseRescheduleForUser(username, context);
                 await context.reddit.setPostFlair({
                     postId: currentStatus.trackingPostId,
                     subredditName: CONTROL_SUBREDDIT,
@@ -169,6 +171,7 @@ export async function cleanupDeletedAccounts (_: unknown, context: JobContext) {
             } else if (currentStatus.userStatus !== UserStatus.Purged && currentStatus.userStatus !== UserStatus.Retired) {
                 // User is active in the DB, but currently suspended or shadowbanned.
                 // Change the post flair to Purged.
+                await pauseRescheduleForUser(username, context);
                 await context.reddit.setPostFlair({
                     postId: currentStatus.trackingPostId,
                     subredditName: CONTROL_SUBREDDIT,
