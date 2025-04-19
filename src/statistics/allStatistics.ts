@@ -3,10 +3,10 @@ import { updateMainStatisticsPage } from "./mainStatistics.js";
 import { updateSubmitterStatistics } from "./submitterStatistics.js";
 import { updateEvaluatorHitsWikiPage } from "./evaluatorHitsStatistics.js";
 import { createTimeOfSubmissionStatistics } from "./timeOfSubmissionStatistics.js";
-import { USER_STORE } from "../dataStore.js";
+import { getFullDataStore } from "../dataStore.js";
 
 export async function updateStatisticsPages (_: unknown, context: JobContext) {
-    const allData = await context.redis.hGetAll(USER_STORE);
+    const allData = await getFullDataStore(context);
 
     await Promise.all([
         updateMainStatisticsPage(allData, context),

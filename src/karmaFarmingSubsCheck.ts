@@ -2,7 +2,7 @@ import { JobContext, JSONObject, JSONValue, Post, ScheduledJobEvent, ZMember } f
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { uniq } from "lodash";
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "./constants.js";
-import { getUserStatus, USER_STORE, UserDetails, UserStatus } from "./dataStore.js";
+import { getAllKnownUsers, getUserStatus, UserDetails, UserStatus } from "./dataStore.js";
 import { evaluateUserAccount, USER_EVALUATION_RESULTS_KEY, userHasContinuousNSFWHistory } from "./handleControlSubAccountEvaluation.js";
 import { getControlSubSettings } from "./settings.js";
 import { addMinutes, addSeconds } from "date-fns";
@@ -130,7 +130,7 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
         const initialCount = accounts.length;
 
         // Filter out accounts already known to Bot Bouncer;
-        const knownAccounts = await context.redis.hKeys(USER_STORE);
+        const knownAccounts = await getAllKnownUsers(context);
         accounts = accounts.filter(account => !knownAccounts.includes(account));
         const filteredCount = initialCount - accounts.length;
 

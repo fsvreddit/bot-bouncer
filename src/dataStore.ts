@@ -9,7 +9,7 @@ import { getControlSubSettings } from "./settings.js";
 import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
 import { USER_EVALUATION_RESULTS_KEY } from "./handleControlSubAccountEvaluation.js";
 
-export const USER_STORE = "UserStore";
+const USER_STORE = "UserStore";
 const STALE_USER_STORE = "StaleUserStore";
 
 export const AGGREGATE_STORE = "AggregateStore";
@@ -42,6 +42,18 @@ export interface UserDetails {
     recentPostSubs?: string[];
     recentCommentSubs?: string[];
     mostRecentActivity?: number;
+}
+
+export async function getFullDataStore (context: TriggerContext): Promise<Record<string, string>> {
+    const activeData = await context.redis.hGetAll(USER_STORE);
+    const staleData = await context.redis.hGetAll(STALE_USER_STORE);
+    return { ...activeData, ...staleData };
+}
+
+export async function getAllKnownUsers (context: TriggerContext): Promise<string[]> {
+    const activeUsers = await context.redis.hKeys(USER_STORE);
+    const staleUsers = await context.redis.hKeys(STALE_USER_STORE);
+    return uniq([...activeUsers, ...staleUsers]);
 }
 
 export async function getUserStatus (username: string, context: TriggerContext) {
