@@ -10,6 +10,8 @@ import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
 import { USER_EVALUATION_RESULTS_KEY } from "./handleControlSubAccountEvaluation.js";
 
 export const USER_STORE = "UserStore";
+const STALE_USER_STORE = "StaleUserStore";
+
 export const AGGREGATE_STORE = "AggregateStore";
 
 const POST_STORE = "PostStore";
@@ -44,11 +46,15 @@ export interface UserDetails {
 
 export async function getUserStatus (username: string, context: TriggerContext) {
     const value = await context.redis.hGet(USER_STORE, username);
-    if (!value) {
-        return;
+
+    if (value) {
+        return JSON.parse(value) as UserDetails;
     }
 
-    return JSON.parse(value) as UserDetails;
+    const staleValue = await context.redis.hGet(STALE_USER_STORE, username);
+    if (staleValue) {
+        return JSON.parse(staleValue) as UserDetails;
+    }
 }
 
 async function addModNote (options: CreateModNoteOptions, context: TriggerContext) {
@@ -56,6 +62,25 @@ async function addModNote (options: CreateModNoteOptions, context: TriggerContex
         await context.reddit.addModNote(options);
     } catch {
         console.error(`Failed to add mod note for ${options.user}`);
+    }
+}
+
+export async function writeUserStatus (username: string, details: UserDetails, context: TriggerContext) {
+    let isStale = false;
+    if (details.mostRecentActivity && new Date(details.mostRecentActivity) < subWeeks(new Date(), 4)) {
+        isStale = true;
+    }
+
+    if ((details.userStatus === UserStatus.Purged || details.userStatus === UserStatus.Retired) && details.lastUpdate < subWeeks(new Date(), 2).getTime()) {
+        isStale = true;
+    }
+
+    if (isStale) {
+        await context.redis.hSet(STALE_USER_STORE, { [username]: JSON.stringify(details) });
+        await context.redis.hDel(USER_STORE, [username]);
+    } else {
+        await context.redis.hSet(USER_STORE, { [username]: JSON.stringify(details) });
+        await context.redis.hDel(STALE_USER_STORE, [username]);
     }
 }
 
@@ -90,7 +115,7 @@ export async function setUserStatus (username: string, details: UserDetails, con
     }
 
     const promises: Promise<unknown>[] = [
-        context.redis.hSet(USER_STORE, { [username]: JSON.stringify(details) }),
+        writeUserStatus(username, details, context),
         context.redis.hSet(POST_STORE, { [details.trackingPostId]: username }),
     ];
 
@@ -131,6 +156,7 @@ export async function deleteUserStatus (username: string, context: TriggerContex
 
     const promises = [
         context.redis.hDel(USER_STORE, [username]),
+        context.redis.hDel(STALE_USER_STORE, [username]),
         context.redis.hDel(USER_EVALUATION_RESULTS_KEY, [username]),
     ];
 

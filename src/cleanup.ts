@@ -2,7 +2,7 @@ import { Comment, JobContext, Post, TriggerContext } from "@devvit/public-api";
 import { addDays, addHours, addMinutes, format, subMinutes } from "date-fns";
 import { parseExpression } from "cron-parser";
 import { CLEANUP_JOB_CRON, CONTROL_SUBREDDIT, PostFlairTemplate, UniversalJob } from "./constants.js";
-import { deleteUserStatus, getUserStatus, removeRecordOfSubmitterOrMod, updateAggregate, USER_STORE, UserStatus } from "./dataStore.js";
+import { deleteUserStatus, getUserStatus, removeRecordOfSubmitterOrMod, updateAggregate, UserStatus, writeUserStatus } from "./dataStore.js";
 import { getUserOrUndefined } from "./utility.js";
 import { removeRecordOfBan, removeWhitelistUnban } from "./handleClientSubredditWikiUpdate.js";
 import { getControlSubSettings } from "./settings.js";
@@ -10,7 +10,7 @@ import { max } from "lodash";
 
 const CLEANUP_LOG_KEY = "CleanupLog";
 const SUB_OR_MOD_LOG_KEY = "SubOrModLog";
-const DAYS_BETWEEN_CHECKS = 28;
+const DAYS_BETWEEN_CHECKS = 7;
 
 export async function setCleanupForUser (username: string, context: TriggerContext, controlSubOnly?: boolean, overrideDuration?: number) {
     if (controlSubOnly && context.subredditName !== CONTROL_SUBREDDIT) {
@@ -152,7 +152,7 @@ export async function cleanupDeletedAccounts (_: unknown, context: JobContext) {
             if (latestActivity) {
                 // Store the latest activity date.
                 currentStatus.mostRecentActivity = latestActivity.getTime();
-                await context.redis.hSet(USER_STORE, { [username]: JSON.stringify(currentStatus) });
+                await writeUserStatus(username, currentStatus, context);
                 console.log(`Cleanup: ${username} last activity: ${format(latestActivity, "yyyy-MM-dd")}`);
             }
         } else {
@@ -173,6 +173,8 @@ export async function cleanupDeletedAccounts (_: unknown, context: JobContext) {
                     subredditName: CONTROL_SUBREDDIT,
                     flairTemplateId: PostFlairTemplate.Purged,
                 });
+            } else {
+                await writeUserStatus(username, currentStatus, context);
             }
         }
 
