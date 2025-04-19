@@ -75,6 +75,7 @@ interface Match {
 
 export async function analyseBioText (_: unknown, context: JobContext) {
     const BIO_TEXT_STORAGE_KEY = "BioTextSimilarity";
+    const BIO_TEXT_MODMAIL_SENT = "BioTextModmailSent";
 
     const subreddits = [
         "WhatIsMyCQS",
@@ -121,6 +122,11 @@ export async function analyseBioText (_: unknown, context: JobContext) {
     const addableUsers: string[] = [];
 
     if (Object.keys(results).length === 0) {
+        const recentlySent = await context.redis.exists(BIO_TEXT_MODMAIL_SENT);
+        if (recentlySent) {
+            console.log("No similar bio text patterns found, and a modmail was sent recently.");
+            return;
+        }
         console.log("No similar bio text patterns found.");
         output = "No similar enough bio text patterns found on this run.\n\n";
     } else {
@@ -151,6 +157,7 @@ export async function analyseBioText (_: unknown, context: JobContext) {
         output += `Subreddits currently being swept for bio text: /r/${subreddits.join(", /r/")}\n\n`;
 
         await context.redis.zAdd(BIO_TEXT_STORAGE_KEY, ...Object.values(results).flat().map(item => ({ member: item.bioText, score: new Date().getTime() })));
+        await context.redis.set(BIO_TEXT_MODMAIL_SENT, "true", { expiration: addDays(new Date(), 1) });
     }
 
     const conversationId = await context.reddit.modMail.createModInboxConversation({

@@ -36,7 +36,6 @@ export enum ControlSubredditJob {
     CopyControlSubSettings = "copyControlSubSettings",
     UptimeAndMessageCheck = "uptimeAndMessageCheck",
     BioTextAnalyser = "bioTextAnalyser",
-    ActivityCheck = "activityCheck",
 }
 
 /**

@@ -147,6 +147,7 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
 interface InvalidRegex {
     key: string;
     regex: string;
+    warning?: string;
 }
 
 function isValidRegex (regex: string): boolean {
@@ -183,6 +184,8 @@ function invalidEvaluatorVariablesRegexes (variables: Record<string, JSONValue>)
         const value = variables[key] as string;
         if (!isValidRegex(value)) {
             invalidRegexes.push({ key, regex: value });
+        } else if (value.includes("||")) {
+            invalidRegexes.push({ key, regex: value, warning: "This regex contains '||' which is dangerous." });
         }
     }
 
@@ -195,6 +198,8 @@ function invalidEvaluatorVariablesRegexes (variables: Record<string, JSONValue>)
         for (const regex of value) {
             if (!isValidRegex(regex)) {
                 invalidRegexes.push({ key, regex });
+            } else if (value.includes("||")) {
+                invalidRegexes.push({ key, regex, warning: "This regex contains '||' which is dangerous." });
             }
         }
     }

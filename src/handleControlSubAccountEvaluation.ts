@@ -14,7 +14,7 @@ export interface EvaluatorStats {
     lastHit: number;
 }
 
-interface EvaluationResult {
+export interface EvaluationResult {
     botName: string;
     hitReason?: string;
     canAutoBan: boolean;

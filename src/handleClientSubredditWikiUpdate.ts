@@ -2,7 +2,7 @@ import { Comment, JobContext, JSONObject, Post, ScheduledJobEvent, SettingsValue
 import { addSeconds, formatDate, subWeeks } from "date-fns";
 import pluralize from "pluralize";
 import { getUserStatus, UserStatus } from "./dataStore.js";
-import { setCleanupForUsers } from "./cleanup.js";
+import { setCleanupForUser } from "./cleanup.js";
 import { AppSetting, CONFIGURATION_DEFAULTS } from "./settings.js";
 import { isBanned, replaceAll } from "./utility.js";
 import { ClientSubredditJob } from "./constants.js";
@@ -14,18 +14,16 @@ const BAN_STORE = "BanStore";
 
 export async function recordBan (username: string, context: TriggerContext) {
     await context.redis.zAdd(BAN_STORE, { member: username, score: new Date().getTime() });
-    await setCleanupForUsers([username], context, false);
+    await setCleanupForUser(username, context, false);
     console.log(`Ban recorded for ${username}`);
 }
 
-export async function removeRecordOfBan (usernames: string[], context: TriggerContext) {
-    if (usernames.length === 0) {
-        return;
-    }
-
-    const actuallyRemoved = await context.redis.zRem(BAN_STORE, usernames);
-    await Promise.all(usernames.map(username => removeRecordOfBanForDigest(username, context)));
-    console.log(`Removed record of ban for ${actuallyRemoved}: ${usernames.join(", ")}`);
+export async function removeRecordOfBan (username: string, context: TriggerContext) {
+    await Promise.all([
+        context.redis.zRem(BAN_STORE, [username]),
+        removeRecordOfBanForDigest(username, context),
+    ]);
+    console.log(`Removed record of ban for ${username}`);
 }
 
 export async function wasUserBannedByApp (username: string, context: TriggerContext): Promise<boolean> {
@@ -45,11 +43,11 @@ export async function recordWhitelistUnban (username: string, context: TriggerCo
     }
 
     await context.redis.zAdd(UNBAN_WHITELIST, { member: username, score: new Date().getTime() });
-    await setCleanupForUsers([username], context);
+    await setCleanupForUser(username, context);
 }
 
-export async function removeWhitelistUnban (usernames: string[], context: TriggerContext) {
-    await context.redis.zRem(UNBAN_WHITELIST, usernames);
+export async function removeWhitelistUnban (username: string, context: TriggerContext) {
+    await context.redis.zRem(UNBAN_WHITELIST, [username]);
 }
 
 export async function isUserWhitelisted (username: string, context: TriggerContext) {
@@ -92,7 +90,7 @@ async function handleSetOrganic (username: string, subredditName: string, contex
         console.log(`Wiki Update: Unbanned ${username}`);
     }
 
-    await removeRecordOfBan([username], context);
+    await removeRecordOfBan(username, context);
 }
 
 async function handleSetBanned (username: string, subredditName: string, settings: SettingsValues, context: TriggerContext) {

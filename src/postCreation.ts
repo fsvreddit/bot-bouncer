@@ -3,7 +3,7 @@ import { setUserStatus, UserDetails, UserStatus } from "./dataStore.js";
 import { CONTROL_SUBREDDIT, PostFlairTemplate } from "./constants.js";
 import { subDays } from "date-fns";
 import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
-import { uniq } from "lodash";
+import { max, uniq } from "lodash";
 import { UserExtended } from "./extendedDevvit.js";
 
 export const statusToFlair: Record<UserStatus, PostFlairTemplate> = {
@@ -33,6 +33,7 @@ export async function createNewSubmission (user: UserExtended, details: UserDeta
         const recentHistory = history.filter(item => item.createdAt > subDays(new Date(), 14));
         details.recentPostSubs = uniq(recentHistory.filter(item => isLinkId(item.id)).map(item => item.subredditName));
         details.recentCommentSubs = uniq(recentHistory.filter(item => isCommentId(item.id)).map(item => item.subredditName));
+        details.mostRecentActivity = max(recentHistory.map(item => item.createdAt.getTime()));
     }
 
     details.bioText = user.userDescription;
