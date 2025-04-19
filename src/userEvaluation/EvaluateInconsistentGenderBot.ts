@@ -2,7 +2,7 @@ import { CommentCreate } from "@devvit/protos";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
 import { Comment, Post } from "@devvit/public-api";
 import { UserExtended } from "../extendedDevvit.js";
-import { compact, uniq } from "lodash";
+import { compact, countBy } from "lodash";
 import { subWeeks } from "date-fns";
 
 export class EvaluateInconsistentGenderBot extends UserEvaluatorBase {
@@ -47,7 +47,11 @@ export class EvaluateInconsistentGenderBot extends UserEvaluatorBase {
             return false;
         }
 
-        const gendersFound = uniq(compact(nsfwPosts.map(post => this.getGenderFromTitle(post.title))));
+        const genderGroups = countBy(compact(nsfwPosts.map(post => this.getGenderFromTitle(post.title))));
+        const gendersFound = Object.entries(genderGroups)
+            .map(([gender, count]) => ({ gender, count }))
+            .filter(item => item.count > 1)
+            .map(item => item.gender);
 
         if (gendersFound.some(gender => gender.length !== 1)) {
             console.log(`Found invalid genders on post title: ${gendersFound.join(", ")}`);
