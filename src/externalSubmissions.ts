@@ -10,6 +10,7 @@ import { parseExpression } from "cron-parser";
 import { createNewSubmission } from "./postCreation.js";
 import pluralize from "pluralize";
 import { getUserExtended, UserExtended } from "./extendedDevvit.js";
+import { EvaluationResult, USER_EVALUATION_RESULTS_KEY } from "./handleControlSubAccountEvaluation.js";
 
 const WIKI_PAGE = "externalsubmissions";
 export const EXTERNAL_SUBMISSION_QUEUE = "externalSubmissionQueue";
@@ -21,6 +22,8 @@ export interface ExternalSubmission {
     publicContext?: boolean;
     targetId?: string;
     initialStatus?: UserStatus;
+    evaluatorName?: string;
+    hitReason?: string;
 };
 
 const schema: JSONSchemaType<ExternalSubmission[]> = {
@@ -34,6 +37,8 @@ const schema: JSONSchemaType<ExternalSubmission[]> = {
             publicContext: { type: "boolean", nullable: true },
             targetId: { type: "string", nullable: true },
             initialStatus: { type: "string", nullable: true, enum: Object.values(UserStatus) },
+            evaluatorName: { type: "string", nullable: true },
+            hitReason: { type: "string", nullable: true },
         },
         required: ["username"],
     },
@@ -271,6 +276,16 @@ export async function processExternalSubmissions (_: unknown, context: JobContex
         operator: context.appName,
         trackingPostId: "",
     };
+
+    if (item.evaluatorName) {
+        const evaluationResult = {
+            botName: item.evaluatorName,
+            hitReason: item.hitReason,
+            canAutoBan: true,
+            metThreshold: true,
+        } as EvaluationResult;
+        await context.redis.hSet(USER_EVALUATION_RESULTS_KEY, { [item.username]: JSON.stringify([evaluationResult]) });
+    }
 
     const newPost = await createNewSubmission(user, newUserDetails, context);
 
