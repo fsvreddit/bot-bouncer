@@ -65,7 +65,7 @@ export async function evaluateUserAccount (username: string, variables: Record<s
             isABot = await Promise.resolve(evaluator.evaluate(user, userItems));
         } catch (error) {
             console.error(`Evaluator: ${username} threw an error during evaluation of ${evaluator.name}: ${error}`);
-            throw error;
+            return [];
         }
         if (isABot) {
             if (evaluator.name !== "CQS Tester") {
