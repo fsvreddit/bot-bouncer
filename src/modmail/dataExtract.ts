@@ -10,9 +10,6 @@ interface ModmailDataExtract {
     submitter?: string;
     operator?: string;
     usernameRegex?: string;
-    bioTextRegex?: string;
-    recentPostSubs?: string[];
-    recentCommentSubs?: string[];
     since?: number;
 }
 
@@ -33,24 +30,6 @@ const schema: JSONSchemaType<ModmailDataExtract> = {
         },
         usernameRegex: {
             type: "string",
-            nullable: true,
-        },
-        bioTextRegex: {
-            type: "string",
-            nullable: true,
-        },
-        recentPostSubs: {
-            type: "array",
-            items: {
-                type: "string",
-            },
-            nullable: true,
-        },
-        recentCommentSubs: {
-            type: "array",
-            items: {
-                type: "string",
-            },
             nullable: true,
         },
         since: {
@@ -94,7 +73,7 @@ export async function dataExtract (message: string | undefined, conversationId: 
         return;
     }
 
-    if (!request.status && !request.submitter && !request.usernameRegex && !request.bioTextRegex && !request.recentPostSubs && !request.recentCommentSubs) {
+    if (!request.status && !request.submitter && !request.usernameRegex) {
         await context.reddit.modMail.reply({
             conversationId,
             body: "Request is empty. Please provide at least one of the following fields: `status`, `submitter`, `usernameRegex`, `bioTextRegex`, `recentPostSubs`, `recentCommentSubs`.",
@@ -133,29 +112,6 @@ export async function dataExtract (message: string | undefined, conversationId: 
             return;
         }
         data = data.filter(entry => regex.test(entry.username));
-    }
-
-    if (request.bioTextRegex) {
-        let regex: RegExp;
-        try {
-            regex = new RegExp(request.bioTextRegex);
-        } catch {
-            await context.reddit.modMail.reply({
-                conversationId,
-                body: "Invalid regex provided for `bioTextRegex`.",
-                isAuthorHidden: false,
-            });
-            return;
-        }
-        data = data.filter(entry => entry.data.bioText && regex.test(entry.data.bioText));
-    }
-
-    if (request.recentPostSubs) {
-        data = data.filter(entry => request.recentPostSubs?.some(sub => entry.data.recentPostSubs?.includes(sub)));
-    }
-
-    if (request.recentCommentSubs) {
-        data = data.filter(entry => request.recentCommentSubs?.some(sub => entry.data.recentCommentSubs?.includes(sub)));
     }
 
     if (request.since) {

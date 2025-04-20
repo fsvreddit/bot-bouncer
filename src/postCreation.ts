@@ -15,8 +15,6 @@ export const statusToFlair: Record<UserStatus, PostFlairTemplate> = {
 };
 
 export async function createNewSubmission (user: UserExtended, details: UserDetails, context: TriggerContext): Promise<Post> {
-    details.bioText = user.userDescription;
-
     const newPost = await context.reddit.submitPost({
         subredditName: CONTROL_SUBREDDIT,
         title: `Overview for ${user.username}`,

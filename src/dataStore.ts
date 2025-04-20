@@ -38,8 +38,17 @@ export interface UserDetails {
     submitter?: string;
     operator: string;
     reportedAt?: number;
+    /**
+    * @deprecated recentPostSubs should not be used.
+    */
     bioText?: string;
+    /**
+    * @deprecated recentPostSubs should not be used.
+    */
     recentPostSubs?: string[];
+    /**
+    * @deprecated recentCommentSubs should not be used.
+    */
     recentCommentSubs?: string[];
     mostRecentActivity?: number;
 }
@@ -97,7 +106,11 @@ export async function writeUserStatus (username: string, details: UserDetails, c
         isStale = true;
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-deprecated
+    delete details.bioText;
+    // eslint-disable-next-line @typescript-eslint/no-deprecated
     delete details.recentPostSubs;
+    // eslint-disable-next-line @typescript-eslint/no-deprecated
     delete details.recentCommentSubs;
 
     if (isStale) {
@@ -122,14 +135,6 @@ export async function setUserStatus (username: string, details: UserDetails, con
 
     // Set the reported at date from the original date, or current date/time if not set.
     details.reportedAt ??= currentStatus?.reportedAt ?? new Date().getTime();
-
-    if (currentStatus?.recentPostSubs && !details.recentPostSubs) {
-        details.recentPostSubs = currentStatus.recentPostSubs;
-    }
-
-    if (currentStatus?.recentCommentSubs && !details.recentCommentSubs) {
-        details.recentCommentSubs = currentStatus.recentCommentSubs;
-    }
 
     if (currentStatus?.mostRecentActivity && !details.mostRecentActivity) {
         details.mostRecentActivity = currentStatus.mostRecentActivity;
@@ -253,8 +258,11 @@ function compactDataForWiki (input: string): string | undefined {
     }
 
     delete status.reportedAt;
+    // eslint-disable-next-line @typescript-eslint/no-deprecated
     delete status.bioText;
+    // eslint-disable-next-line @typescript-eslint/no-deprecated
     delete status.recentPostSubs;
+    // eslint-disable-next-line @typescript-eslint/no-deprecated
     delete status.recentCommentSubs;
     delete status.mostRecentActivity;
 
