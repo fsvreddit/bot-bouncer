@@ -152,7 +152,7 @@ export async function addExternalSubmissionsToQueue (items: ExternalSubmission[]
     await Promise.all(items.map(item => context.redis.set(getExternalSubmissionDataKey(item.username), JSON.stringify(item), { expiration: addDays(new Date(), 28) })));
 
     if (scheduleJob) {
-        await scheduleAdhocExternalSubmissionsJob(context);
+        await scheduleAdhocExternalSubmissionsJob(context, 0);
     }
 }
 
