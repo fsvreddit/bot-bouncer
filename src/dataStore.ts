@@ -97,6 +97,9 @@ export async function writeUserStatus (username: string, details: UserDetails, c
         isStale = true;
     }
 
+    delete details.recentPostSubs;
+    delete details.recentCommentSubs;
+
     if (isStale) {
         await context.redis.hSet(STALE_USER_STORE, { [username]: JSON.stringify(details) });
         await context.redis.hDel(USER_STORE, [username]);
