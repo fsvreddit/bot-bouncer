@@ -60,7 +60,13 @@ export async function evaluateUserAccount (username: string, variables: Record<s
             }
         }
 
-        const isABot = await Promise.resolve(evaluator.evaluate(user, userItems));
+        let isABot;
+        try {
+            isABot = await Promise.resolve(evaluator.evaluate(user, userItems));
+        } catch (error) {
+            console.error(`Evaluator: ${username} threw an error during evaluation of ${evaluator.name}: ${error}`);
+            throw error;
+        }
         if (isABot) {
             if (evaluator.name !== "CQS Tester") {
                 console.log(`Evaluator: ${username} appears to be a bot via the evaluator: ${evaluator.name} 💥`);
