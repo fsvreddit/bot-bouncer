@@ -1,5 +1,5 @@
 import { Comment, JobContext, Post, TriggerContext } from "@devvit/public-api";
-import { addDays, addHours, addMinutes, format, subMinutes } from "date-fns";
+import { addDays, addHours, addMinutes, format, subDays, subMinutes } from "date-fns";
 import { parseExpression } from "cron-parser";
 import { CLEANUP_JOB_CRON, CONTROL_SUBREDDIT, PostFlairTemplate, UniversalJob } from "./constants.js";
 import { deleteUserStatus, getUserStatus, pauseRescheduleForUser, removeRecordOfSubmitterOrMod, updateAggregate, UserStatus, writeUserStatus } from "./dataStore.js";
@@ -12,17 +12,12 @@ const CLEANUP_LOG_KEY = "CleanupLog";
 const SUB_OR_MOD_LOG_KEY = "SubOrModLog";
 const DAYS_BETWEEN_CHECKS = 7;
 
-export async function setCleanupForUser (username: string, context: TriggerContext, controlSubOnly?: boolean, overrideDuration?: number) {
+export async function setCleanupForUser (username: string, context: TriggerContext, controlSubOnly?: boolean, overrideDate?: Date) {
     if (controlSubOnly && context.subredditName !== CONTROL_SUBREDDIT) {
         return;
     }
 
-    let cleanupTime: Date;
-    if (overrideDuration) {
-        cleanupTime = addHours(new Date(), overrideDuration);
-    } else {
-        cleanupTime = addDays(new Date(), DAYS_BETWEEN_CHECKS);
-    }
+    const cleanupTime = overrideDate ?? addDays(new Date(), DAYS_BETWEEN_CHECKS);
 
     await context.redis.zAdd(CLEANUP_LOG_KEY, ({ member: username, score: cleanupTime.getTime() }));
 }
@@ -109,7 +104,7 @@ export async function cleanupDeletedAccounts (_: unknown, context: JobContext) {
             continue;
         }
 
-        let overrideCleanupHours: number | undefined;
+        let overrideCleanupDate: Date | undefined;
         const currentStatus = await getUserStatus(username, context);
 
         // If no current status is defined, then this entry should not have been reached.
@@ -123,7 +118,10 @@ export async function cleanupDeletedAccounts (_: unknown, context: JobContext) {
             activeCount++;
             if (currentStatus.userStatus === UserStatus.Pending) {
                 // User is still pending, so set the next check date to be 1 hour from now.
-                overrideCleanupHours = 1;
+                overrideCleanupDate = addHours(new Date(), 1);
+            } else if (currentStatus.userStatus === UserStatus.Banned && new Date(currentStatus.lastUpdate) > subDays(new Date(), 8)) {
+                // Recheck banned but active users every day for the first week, then normal cadence after.
+                overrideCleanupDate = addDays(new Date(), 1);
             } else if (currentStatus.userStatus === UserStatus.Purged || currentStatus.userStatus === UserStatus.Retired) {
                 // User's last status was purged or retired, but user is now active again. Restore last status or Pending.
                 let newTemplate: PostFlairTemplate;
@@ -180,9 +178,14 @@ export async function cleanupDeletedAccounts (_: unknown, context: JobContext) {
             } else {
                 await writeUserStatus(username, currentStatus, context);
             }
+
+            // Recheck suspended users every day for the first week, then normal cadence after.
+            if (new Date(currentStatus.lastUpdate) > subDays(new Date(), 8)) {
+                overrideCleanupDate = addDays(new Date(), 1);
+            }
         }
 
-        await setCleanupForUser(username, context, false, overrideCleanupHours);
+        await setCleanupForUser(username, context, false, overrideCleanupDate);
     }
 
     console.log(`Cleanup: Active ${activeCount}, Deleted ${deletedCount}, Suspended ${suspendedCount}`);

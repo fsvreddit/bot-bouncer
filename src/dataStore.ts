@@ -3,7 +3,7 @@ import { compact, max, toPairs, uniq } from "lodash";
 import pako from "pako";
 import { scheduleAdhocCleanup, setCleanupForSubmittersAndMods, setCleanupForUser } from "./cleanup.js";
 import { ClientSubredditJob, CONTROL_SUBREDDIT } from "./constants.js";
-import { addMinutes, addSeconds, addWeeks, startOfSecond, subDays, subHours, subWeeks } from "date-fns";
+import { addHours, addMinutes, addSeconds, addWeeks, startOfSecond, subDays, subHours, subWeeks } from "date-fns";
 import pluralize from "pluralize";
 import { getControlSubSettings } from "./settings.js";
 import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
@@ -102,7 +102,7 @@ export async function writeUserStatus (username: string, details: UserDetails, c
         isStale = true;
     }
 
-    if ((details.userStatus === UserStatus.Purged || details.userStatus === UserStatus.Retired) && details.lastUpdate < subWeeks(new Date(), 2).getTime()) {
+    if ((details.userStatus === UserStatus.Purged || details.userStatus === UserStatus.Retired) && details.lastUpdate < subWeeks(new Date(), 1).getTime()) {
         isStale = true;
     }
 
@@ -154,7 +154,7 @@ export async function setUserStatus (username: string, details: UserDetails, con
     }
 
     if (details.userStatus === UserStatus.Pending) {
-        promises.push(setCleanupForUser(username, context, true, 1));
+        promises.push(setCleanupForUser(username, context, true, addHours(new Date(), 1)));
     } else {
         promises.push(setCleanupForUser(username, context, true));
     }
@@ -239,8 +239,8 @@ function compactDataForWiki (input: string): string | undefined {
         return;
     }
 
-    // Exclude entries for any user whose last observed activity is older than two months
-    if (status.mostRecentActivity && status.mostRecentActivity < subWeeks(new Date(), 6).getTime()) {
+    // Exclude entries for any user whose last observed activity is older than 4 weeks
+    if (status.mostRecentActivity && status.mostRecentActivity < subWeeks(new Date(), 4).getTime()) {
         return;
     }
 
