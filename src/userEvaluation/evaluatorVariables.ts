@@ -100,19 +100,19 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
 
     const variables = yamlToVariables(wikiPage.content);
 
-    const invalidRegexes = invalidEvaluatorVariablesRegexes(variables);
-    if (invalidRegexes.length > 0) {
+    const invalidEntries = invalidEvaluatorVariableCondition(variables);
+    if (invalidEntries.length > 0) {
         if (context.subredditName !== CONTROL_SUBREDDIT || !event.data?.username) {
-            console.error("Evaluator Variables: Evaluator variables contain invalid regexes. Will fall back to cached values.");
+            console.error("Evaluator Variables: Evaluator variables contains issues. Will fall back to cached values.");
             return;
         } else {
-            console.error("Evaluator Variables: Invalid regexes in evaluator variables", invalidRegexes);
+            console.error("Evaluator Variables: Invalid entries in evaluator variables", invalidEntries);
 
             let errorMessage = `There are invalid regexes in the evaluator variables. Please check the wiki page and try again.`;
-            errorMessage += `\n\nInvalid regexes:\n\n* ${invalidRegexes.join("\n* ")}`;
+            errorMessage += `* ${invalidEntries.join("\n* ")}`;
 
             await context.reddit.sendPrivateMessage({
-                subject: "Invalid regexes in evaluator variables",
+                subject: "Problem with evaluator variables config after edit",
                 to: event.data.username as string,
                 text: errorMessage,
             });
@@ -160,7 +160,7 @@ function isValidRegex (regex: string): boolean {
     }
 }
 
-function invalidEvaluatorVariablesRegexes (variables: Record<string, JSONValue>): string[] {
+export function invalidEvaluatorVariableCondition (variables: Record<string, JSONValue>): string[] {
     const stringVariablesWithRegexes: string[] = [
 
     ];
@@ -184,7 +184,8 @@ function invalidEvaluatorVariablesRegexes (variables: Record<string, JSONValue>)
         const value = variables[key] as string;
         if (!isValidRegex(value)) {
             invalidRegexes.push({ key, regex: value });
-        } else if (value.includes("||")) {
+        }
+        if (value.includes("||")) {
             invalidRegexes.push({ key, regex: value, warning: "This regex contains '||' which is dangerous." });
         }
     }
@@ -198,10 +199,24 @@ function invalidEvaluatorVariablesRegexes (variables: Record<string, JSONValue>)
         for (const regex of value) {
             if (!isValidRegex(regex)) {
                 invalidRegexes.push({ key, regex });
-            } else if (value.includes("||")) {
+            }
+            if (regex.includes("||")) {
                 invalidRegexes.push({ key, regex, warning: "This regex contains '||' which is dangerous." });
             }
         }
     }
-    return invalidRegexes.map(({ key, regex }) => `${key}: \`${regex}\``);
+    const results = invalidRegexes.map(({ key, regex }) => `Invalid regex on ${key}: \`${regex}\``);
+
+    // Now check for inconsistent types.
+    for (const key of Object.keys(variables)) {
+        const value = variables[key];
+        if (Array.isArray(value)) {
+            const distinctTypes = uniq(value.map(item => typeof item));
+            if (distinctTypes.length > 1) {
+                results.push(`Inconsistent types for ${key} which may be a result of an undoubled single quote: ${distinctTypes.join(", ")}`);
+            }
+        }
+    }
+
+    return results;
 }

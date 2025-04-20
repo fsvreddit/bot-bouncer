@@ -1,4 +1,4 @@
-import { yamlToVariables } from "./evaluatorVariables.js";
+import { invalidEvaluatorVariableCondition, yamlToVariables } from "./evaluatorVariables.js";
 
 test("Parsing YAML", () => {
     const yamlString = `
@@ -44,4 +44,42 @@ regexes:
         "(?:vanswoods|vidahsq)",
         "boop",
     ]);
+});
+
+test("Invalid regex", () => {
+    const variables = {
+        "biotext:bantext": [
+            "(?:addison|adele|allie",
+        ],
+    };
+
+    const result = invalidEvaluatorVariableCondition(variables);
+    expect(result.length).toBe(1);
+});
+
+test("Regex with || condition", () => {
+    const variables = {
+        "biotext:bantext": [
+            "(?:addison|adele||allie)",
+        ],
+    };
+
+    const result = invalidEvaluatorVariableCondition(variables);
+    expect(result.length).toBe(1);
+    console.log(result);
+});
+
+test("Regex with badly formed array", () => {
+    const variables = {
+        "randommodule:thing": [
+            "(?:addison|adele|allie)",
+            {
+                threshold: 1,
+                value: "test",
+            },
+        ],
+    };
+
+    const result = invalidEvaluatorVariableCondition(variables);
+    expect(result.length).toBe(1);
 });
