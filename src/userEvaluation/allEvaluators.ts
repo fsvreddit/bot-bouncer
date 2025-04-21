@@ -22,7 +22,6 @@ import { EvaluateShortTlcNew } from "./EvaluateShortTlcNew.js";
 import { EvaluateInconsistentGenderBot } from "./EvaluateInconsistentGenderBot.js";
 import { EvaluateOFLinksBot } from "./EvaluateOFLinksBot.js";
 import { EvaluateBadDisplayName } from "./EvaluateBadDisplayname.js";
-import { EvaluateCelebBotNew } from "./EvaluateCelebBotNew.js";
 import { EvaluateSequencePostBot } from "./EvaluateSequencePostBot.js";
 
 export const ALL_EVALUATORS = [
@@ -50,6 +49,5 @@ export const ALL_EVALUATORS = [
     EvaluateShortTlcNew,
     EvaluateOFLinksBot,
     EvaluateBadDisplayName,
-    EvaluateCelebBotNew,
     EvaluateSequencePostBot,
 ];
