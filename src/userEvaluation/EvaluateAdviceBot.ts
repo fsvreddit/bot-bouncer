@@ -154,11 +154,12 @@ export class EvaluateAdviceBot extends UserEvaluatorBase {
         }
 
         const scoreThreshold = this.getVariable<number>("scorethreshold", 1);
-        console.log("Score", score);
         if (score < scoreThreshold) {
             this.setReason(`Post has a score of ${score}, which is less than the threshold of ${scoreThreshold}`);
             return false;
         }
+
+        this.hitReason = `Post has a score of ${score}, which is greater than the threshold of ${scoreThreshold}`;
 
         return true;
     }
