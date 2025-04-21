@@ -47,6 +47,12 @@ Write in to [/r/BotBouncer's modmail](https://www.reddit.com/message/compose/?to
 
 # Change History
 
+Note: v1.7.0 is the latest public release.
+
+## Next
+
+* Internal changes to support operations on /r/BotBouncer
+
 ## v1.8.0
 
 * When a bot is detected, posts and comments that were modqueued are now removed.
