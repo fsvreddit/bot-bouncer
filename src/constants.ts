@@ -36,6 +36,7 @@ export enum ControlSubredditJob {
     CopyControlSubSettings = "copyControlSubSettings",
     UptimeAndMessageCheck = "uptimeAndMessageCheck",
     BioTextAnalyser = "bioTextAnalyser",
+    ScheduleAdhocExternalSubmissionJobAsync = "scheduleAdhocExternalSubmissionJobAsync",
 }
 
 /**

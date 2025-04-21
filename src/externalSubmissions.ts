@@ -1,4 +1,4 @@
-import { JobContext, TriggerContext, WikiPage } from "@devvit/public-api";
+import { JobContext, JSONObject, ScheduledJobEvent, TriggerContext, WikiPage } from "@devvit/public-api";
 import { CONTROL_SUBREDDIT, ControlSubredditJob, EXTERNAL_SUBMISSION_JOB_CRON } from "./constants.js";
 import { getUserStatus, setUserStatus, UserDetails, UserStatus } from "./dataStore.js";
 import { getControlSubSettings } from "./settings.js";
@@ -100,6 +100,11 @@ export async function addExternalSubmissionFromClientSub (data: ExternalSubmissi
     });
 }
 
+export async function scheduleAdhocExternalSubmissionJobAsync (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
+    const delay = event.data?.delay as number | undefined;
+    await scheduleAdhocExternalSubmissionsJob(context, delay);
+}
+
 export async function scheduleAdhocExternalSubmissionsJob (context: TriggerContext, delay = 20) {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
         return;
@@ -152,7 +157,11 @@ export async function addExternalSubmissionsToQueue (items: ExternalSubmission[]
     await Promise.all(items.map(item => context.redis.set(getExternalSubmissionDataKey(item.username), JSON.stringify(item), { expiration: addDays(new Date(), 28) })));
 
     if (scheduleJob) {
-        await scheduleAdhocExternalSubmissionsJob(context, 0);
+        await context.scheduler.runJob({
+            name: ControlSubredditJob.ScheduleAdhocExternalSubmissionJobAsync,
+            runAt: addSeconds(new Date(), 1),
+            data: { delay: 0 },
+        });
     }
 }
 

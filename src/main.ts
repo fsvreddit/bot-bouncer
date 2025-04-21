@@ -10,7 +10,7 @@ import { handleModAction } from "./handleModAction.js";
 import { handleModmail } from "./modmail/modmail.js";
 import { handleControlSubAccountEvaluation } from "./handleControlSubAccountEvaluation.js";
 import { handleReportUser, reportFormHandler } from "./handleReportUser.js";
-import { processExternalSubmissions } from "./externalSubmissions.js";
+import { processExternalSubmissions, scheduleAdhocExternalSubmissionJobAsync } from "./externalSubmissions.js";
 import { handleClientCommentCreate, handleClientCommentUpdate, handleClientPostCreate } from "./handleClientPostOrComment.js";
 import { handleClientSubCommentDelete, handleClientSubPostDelete } from "./handleClientSubContentDelete.js";
 import { handleClassificationChanges } from "./handleClientSubredditWikiUpdate.js";
@@ -178,6 +178,11 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: ControlSubredditJob.BioTextAnalyser,
     onRun: analyseBioText,
+});
+
+Devvit.addSchedulerJob({
+    name: ControlSubredditJob.ScheduleAdhocExternalSubmissionJobAsync,
+    onRun: scheduleAdhocExternalSubmissionJobAsync,
 });
 
 /**
