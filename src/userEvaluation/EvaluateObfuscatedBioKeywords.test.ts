@@ -24,6 +24,9 @@ const variables = {
         "snapchat",
         "whatsapp",
     ],
+    "obfuscatedbiowords:allowedterms": [
+        "snap chat",
+    ],
 };
 
 test("Bio text that should be banned", () => {
@@ -77,6 +80,13 @@ test("Bio text that should not be banned 4", () => {
 
 test("Bio text that should not be banned 5", () => {
     const fakeUser = createFakeUser("kinky redditor playing on Reddit, telegram, snap, discord and session. Message for my username on those apps! Open to anything legal and 18+");
+    const mockTriggerContext = {} as unknown as TriggerContext;
+    const evaluator = new EvaluateObfuscatedBioKeywords(mockTriggerContext, variables);
+    expect(evaluator.preEvaluateUser(fakeUser)).toBeFalsy();
+});
+
+test("Bio text that should not be banned 6", () => {
+    const fakeUser = createFakeUser("message my snap chat plz");
     const mockTriggerContext = {} as unknown as TriggerContext;
     const evaluator = new EvaluateObfuscatedBioKeywords(mockTriggerContext, variables);
     expect(evaluator.preEvaluateUser(fakeUser)).toBeFalsy();

@@ -2,7 +2,7 @@ import { JobContext, JSONObject, JSONValue, Post, ScheduledJobEvent, ZMember } f
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { uniq } from "lodash";
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "./constants.js";
-import { getUserStatus, USER_STORE, UserDetails, UserStatus } from "./dataStore.js";
+import { getAllKnownUsers, getUserStatus, UserDetails, UserStatus } from "./dataStore.js";
 import { evaluateUserAccount, USER_EVALUATION_RESULTS_KEY, userHasContinuousNSFWHistory } from "./handleControlSubAccountEvaluation.js";
 import { getControlSubSettings } from "./settings.js";
 import { addMinutes, addSeconds } from "date-fns";
@@ -130,7 +130,7 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
         const initialCount = accounts.length;
 
         // Filter out accounts already known to Bot Bouncer;
-        const knownAccounts = await context.redis.hKeys(USER_STORE);
+        const knownAccounts = await getAllKnownUsers(context);
         accounts = accounts.filter(account => !knownAccounts.includes(account));
         const filteredCount = initialCount - accounts.length;
 
@@ -143,25 +143,21 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
         return;
     }
 
+    const runLimit = addSeconds(new Date(), 25);
     await context.redis.set(sweepInProgressKey, new Date().getTime().toString(), { expiration: addMinutes(new Date(), 5) });
 
-    const batchSize = 10;
     let processed = 0;
     let userBanned = false;
 
-    if (accounts.length > batchSize) {
-        console.log(`Karma Farming Subs: Checking ${batchSize} accounts out of ${accounts.length}`);
-    } else {
-        console.log(`Karma Farming Subs: Checking final ${accounts.length} ${pluralize("account", accounts.length)}`);
-    }
-
     const variables = await getEvaluatorVariables(context);
 
-    while (processed < batchSize) {
+    while (new Date() < runLimit) {
         const username = accounts.shift();
         if (!username) {
             break;
         }
+
+        processed++;
 
         try {
             userBanned = await evaluateAndHandleUser(username, variables, context);
@@ -172,11 +168,10 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
         } catch (error) {
             console.error(`Karma Farming Subs: Error evaluating ${username}: ${error}`);
         }
-
-        processed++;
     }
 
     if (accounts.length > 0) {
+        console.log(`Karma Farming Subs: ${processed} checked, ${accounts.length} ${pluralize("account", accounts.length)} remaining to evaluate`);
         const nextRunSeconds = userBanned ? 30 : 0;
         await context.scheduler.runJob({
             name: ControlSubredditJob.EvaluateKarmaFarmingSubs,
@@ -185,6 +180,6 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
         });
     } else {
         await context.redis.del(sweepInProgressKey);
-        console.log("Karma Farming Subs: Finished checking all accounts.");
+        console.log(`Karma Farming Subs: Finished checking remaining ${processed} ${pluralize("account", processed)}.`);
     }
 }

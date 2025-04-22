@@ -12,12 +12,17 @@ export class EvaluateObfuscatedBioKeywords extends UserEvaluatorBase {
         return this.getVariable<string[]>("keywords", []);
     }
 
+    private getAllowedTerms (): string[] {
+        return this.getVariable<string[]>("allowedterms", []);
+    }
+
     private bioTextMatches (user: UserExtended): boolean {
         if (!user.userDescription) {
             return false;
         }
 
         const keywords = this.getKeywords();
+        const allowedTerms = this.getAllowedTerms();
         for (const keyword of keywords) {
             // eslint-disable-next-line @typescript-eslint/no-misused-spread
             const keywordLetters = [...keyword.toLowerCase()];
@@ -49,6 +54,10 @@ export class EvaluateObfuscatedBioKeywords extends UserEvaluatorBase {
             }
 
             if (matches[0].toLowerCase() === keyword.toLowerCase()) {
+                continue;
+            }
+
+            if (allowedTerms.includes(matches[0].toLowerCase())) {
                 continue;
             }
 

@@ -28,6 +28,10 @@ export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, contex
 
     // Delete cached control sub settings
     await context.redis.del("controlSubSettings");
+
+    // Delete obsolete key
+    await context.redis.del("activityCheckStore");
+    await context.redis.del("activityCheckQueue");
 }
 
 async function addControlSubredditJobs (context: TriggerContext) {
@@ -70,11 +74,6 @@ async function addControlSubredditJobs (context: TriggerContext) {
         context.scheduler.runJob({
             name: ControlSubredditJob.BioTextAnalyser,
             cron: "29 1/6 * * *",
-        }),
-
-        context.scheduler.runJob({
-            name: ControlSubredditJob.ActivityCheck,
-            runAt: new Date(),
         }),
     ]);
 

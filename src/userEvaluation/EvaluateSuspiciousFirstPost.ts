@@ -22,7 +22,8 @@ export class EvaluateSuspiciousFirstPost extends UserEvaluatorBase {
         }
 
         const domain = domainFromUrl(post.url);
-        return domain === "i.redd.it" || domain === "v.redd.it";
+        return (domain === "i.redd.it" || domain === "v.redd.it")
+            || post.url.startsWith("https://www.reddit.com/gallery/");
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars

@@ -35,6 +35,14 @@ test("User with inconsistent genders", () => {
         isNsfw: () => true,
     } as unknown as Post);
 
+    history.push({
+        id: "t3_fake_8",
+        createdAt: new Date(),
+        title: "20 [F4M]",
+        subredditName: "findsnapchat",
+        isNsfw: () => true,
+    } as unknown as Post);
+
     const evaluator = new EvaluateInconsistentGenderBot(mockContext, {});
     const evaluationResult = evaluator.evaluate({} as unknown as UserExtended, history);
     expect(evaluationResult).toBeTruthy();

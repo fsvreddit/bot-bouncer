@@ -1,16 +1,17 @@
 import { JobContext, TriggerContext, WikiPagePermissionLevel, WikiPage, CreateModNoteOptions } from "@devvit/public-api";
 import { compact, max, toPairs, uniq } from "lodash";
 import pako from "pako";
-import { scheduleAdhocCleanup, setCleanupForSubmittersAndMods, setCleanupForUsers } from "./cleanup.js";
+import { scheduleAdhocCleanup, setCleanupForSubmittersAndMods, setCleanupForUser } from "./cleanup.js";
 import { ClientSubredditJob, CONTROL_SUBREDDIT } from "./constants.js";
-import { addSeconds, addWeeks, startOfSecond, subDays, subHours, subWeeks } from "date-fns";
+import { addHours, addMinutes, addSeconds, addWeeks, startOfSecond, subDays, subHours, subWeeks } from "date-fns";
 import pluralize from "pluralize";
 import { getControlSubSettings } from "./settings.js";
 import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
 import { USER_EVALUATION_RESULTS_KEY } from "./handleControlSubAccountEvaluation.js";
-import { queueUserForActivityCheck, removeActivityCheckRecords } from "./activityHistory.js";
 
-export const USER_STORE = "UserStore";
+const USER_STORE = "UserStore";
+const STALE_USER_STORE = "StaleUserStore";
+
 export const AGGREGATE_STORE = "AggregateStore";
 
 const POST_STORE = "PostStore";
@@ -37,18 +38,44 @@ export interface UserDetails {
     submitter?: string;
     operator: string;
     reportedAt?: number;
+    /**
+    * @deprecated recentPostSubs should not be used.
+    */
     bioText?: string;
+    /**
+    * @deprecated recentPostSubs should not be used.
+    */
     recentPostSubs?: string[];
+    /**
+    * @deprecated recentCommentSubs should not be used.
+    */
     recentCommentSubs?: string[];
+    mostRecentActivity?: number;
+}
+
+export async function getFullDataStore (context: TriggerContext): Promise<Record<string, string>> {
+    const activeData = await context.redis.hGetAll(USER_STORE);
+    const staleData = await context.redis.hGetAll(STALE_USER_STORE);
+    return { ...activeData, ...staleData };
+}
+
+export async function getAllKnownUsers (context: TriggerContext): Promise<string[]> {
+    const activeUsers = await context.redis.hKeys(USER_STORE);
+    const staleUsers = await context.redis.hKeys(STALE_USER_STORE);
+    return uniq([...activeUsers, ...staleUsers]);
 }
 
 export async function getUserStatus (username: string, context: TriggerContext) {
     const value = await context.redis.hGet(USER_STORE, username);
-    if (!value) {
-        return;
+
+    if (value) {
+        return JSON.parse(value) as UserDetails;
     }
 
-    return JSON.parse(value) as UserDetails;
+    const staleValue = await context.redis.hGet(STALE_USER_STORE, username);
+    if (staleValue) {
+        return JSON.parse(staleValue) as UserDetails;
+    }
 }
 
 async function addModNote (options: CreateModNoteOptions, context: TriggerContext) {
@@ -56,6 +83,42 @@ async function addModNote (options: CreateModNoteOptions, context: TriggerContex
         await context.reddit.addModNote(options);
     } catch {
         console.error(`Failed to add mod note for ${options.user}`);
+    }
+}
+
+export async function pauseRescheduleForUser (username: string, context: TriggerContext) {
+    const redisKey = `pauseRescheduleForUser:${username}`;
+    await context.redis.set(redisKey, "true", { expiration: addMinutes(new Date(), 1) });
+}
+
+async function isReschedulePausedForUser (username: string, context: TriggerContext) {
+    const redisKey = `pauseRescheduleForUser:${username}`;
+    return await context.redis.exists(redisKey);
+}
+
+export async function writeUserStatus (username: string, details: UserDetails, context: TriggerContext) {
+    let isStale = false;
+    if (details.mostRecentActivity && new Date(details.mostRecentActivity) < subWeeks(new Date(), 4)) {
+        isStale = true;
+    }
+
+    if ((details.userStatus === UserStatus.Purged || details.userStatus === UserStatus.Retired) && details.lastUpdate < subWeeks(new Date(), 1).getTime()) {
+        isStale = true;
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-deprecated
+    delete details.bioText;
+    // eslint-disable-next-line @typescript-eslint/no-deprecated
+    delete details.recentPostSubs;
+    // eslint-disable-next-line @typescript-eslint/no-deprecated
+    delete details.recentCommentSubs;
+
+    if (isStale) {
+        await context.redis.hSet(STALE_USER_STORE, { [username]: JSON.stringify(details) });
+        await context.redis.hDel(USER_STORE, [username]);
+    } else {
+        await context.redis.hSet(USER_STORE, { [username]: JSON.stringify(details) });
+        await context.redis.hDel(STALE_USER_STORE, [username]);
     }
 }
 
@@ -73,15 +136,16 @@ export async function setUserStatus (username: string, details: UserDetails, con
     // Set the reported at date from the original date, or current date/time if not set.
     details.reportedAt ??= currentStatus?.reportedAt ?? new Date().getTime();
 
-    if (currentStatus?.recentPostSubs && !details.recentPostSubs) {
-        details.recentPostSubs = currentStatus.recentPostSubs;
+    if (currentStatus?.mostRecentActivity && !details.mostRecentActivity) {
+        details.mostRecentActivity = currentStatus.mostRecentActivity;
     }
-    if (currentStatus?.recentCommentSubs && !details.recentCommentSubs) {
-        details.recentCommentSubs = currentStatus.recentCommentSubs;
+
+    if (currentStatus && details.userStatus === UserStatus.Purged) {
+        details.lastUpdate = currentStatus.lastUpdate;
     }
 
     const promises: Promise<unknown>[] = [
-        context.redis.hSet(USER_STORE, { [username]: JSON.stringify(details) }),
+        writeUserStatus(username, details, context),
         context.redis.hSet(POST_STORE, { [details.trackingPostId]: username }),
     ];
 
@@ -90,9 +154,9 @@ export async function setUserStatus (username: string, details: UserDetails, con
     }
 
     if (details.userStatus === UserStatus.Pending) {
-        promises.push(setCleanupForUsers([username], context, true, 1));
+        promises.push(setCleanupForUser(username, context, true, addHours(new Date(), 1)));
     } else {
-        promises.push(setCleanupForUsers([username], context, true));
+        promises.push(setCleanupForUser(username, context, true));
     }
 
     const submittersAndMods = uniq(compact([details.submitter, details.operator]));
@@ -113,26 +177,26 @@ export async function setUserStatus (username: string, details: UserDetails, con
         }, context));
     }
 
-    if (context.subredditName === CONTROL_SUBREDDIT && details.userStatus === UserStatus.Banned) {
-        promises.push(queueUserForActivityCheck(username, context, true));
-    }
-
     await Promise.all(promises);
+
+    const isPaused = await isReschedulePausedForUser(username, context);
+    if (isPaused) {
+        return;
+    }
     await scheduleAdhocCleanup(context);
 }
 
-export async function deleteUserStatus (usernames: string[], context: TriggerContext) {
-    const currentStatuses = await Promise.all(usernames.map(username => getUserStatus(username, context)));
+export async function deleteUserStatus (username: string, context: TriggerContext) {
+    const currentStatus = await getUserStatus(username, context);
 
     const promises = [
-        context.redis.hDel(USER_STORE, usernames),
-        context.redis.hDel(USER_EVALUATION_RESULTS_KEY, usernames),
-        usernames.map(username => removeActivityCheckRecords(username, context)),
+        context.redis.hDel(USER_STORE, [username]),
+        context.redis.hDel(STALE_USER_STORE, [username]),
+        context.redis.hDel(USER_EVALUATION_RESULTS_KEY, [username]),
     ];
 
-    const postsToDeleteTrackingFor = compact(currentStatuses.map(item => item?.trackingPostId));
-    if (postsToDeleteTrackingFor.length > 0) {
-        promises.push(context.redis.hDel(POST_STORE, postsToDeleteTrackingFor));
+    if (currentStatus?.trackingPostId) {
+        promises.push(context.redis.hDel(POST_STORE, [currentStatus.trackingPostId]));
     }
 
     await Promise.all(promises);
@@ -175,6 +239,11 @@ function compactDataForWiki (input: string): string | undefined {
         return;
     }
 
+    // Exclude entries for any user whose last observed activity is older than 4 weeks
+    if (status.mostRecentActivity && status.mostRecentActivity < subWeeks(new Date(), 4).getTime()) {
+        return;
+    }
+
     status.operator = "";
     delete status.submitter;
     if (status.userStatus === UserStatus.Purged && status.lastStatus) {
@@ -189,9 +258,13 @@ function compactDataForWiki (input: string): string | undefined {
     }
 
     delete status.reportedAt;
+    // eslint-disable-next-line @typescript-eslint/no-deprecated
     delete status.bioText;
+    // eslint-disable-next-line @typescript-eslint/no-deprecated
     delete status.recentPostSubs;
+    // eslint-disable-next-line @typescript-eslint/no-deprecated
     delete status.recentCommentSubs;
+    delete status.mostRecentActivity;
 
     return JSON.stringify(status);
 }
