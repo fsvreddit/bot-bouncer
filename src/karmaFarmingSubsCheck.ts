@@ -180,6 +180,6 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
         });
     } else {
         await context.redis.del(sweepInProgressKey);
-        console.log("Karma Farming Subs: Finished checking all accounts.");
+        console.log(`Karma Farming Subs: Finished checking remaining ${accounts.length} ${pluralize("account", accounts.length)}.`);
     }
 }
