@@ -155,7 +155,8 @@ function isValidRegex (regex: string): boolean {
         new RegExp(regex, "u");
         return true;
     } catch (error) {
-        console.error(`Evaluator Variables: Invalid regex ${regex}`, error);
+        console.error(`Evaluator Variables: Invalid regex ${regex}`);
+        console.error(error);
         return false;
     }
 }
