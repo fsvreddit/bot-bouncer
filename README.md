@@ -47,9 +47,7 @@ Write in to [/r/BotBouncer's modmail](https://www.reddit.com/message/compose/?to
 
 # Change History
 
-Note: v1.7.0 is the latest public release.
-
-## v1.9.0
+## v1.9.1
 
 * When a bot is detected, posts and comments that were modqueued are now removed.
 * Reduce false positives on one bot evaluator
