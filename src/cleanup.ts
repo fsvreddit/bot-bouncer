@@ -1,5 +1,5 @@
 import { Comment, JobContext, Post, TriggerContext } from "@devvit/public-api";
-import { addDays, addHours, addMinutes, format, subDays, subMinutes } from "date-fns";
+import { addDays, addHours, addMinutes, addSeconds, format, subDays, subMinutes } from "date-fns";
 import { parseExpression } from "cron-parser";
 import { CLEANUP_JOB_CRON, CONTROL_SUBREDDIT, PostFlairTemplate, UniversalJob } from "./constants.js";
 import { deleteUserStatus, getUserStatus, pauseRescheduleForUser, removeRecordOfSubmitterOrMod, updateAggregate, UserStatus, writeUserStatus } from "./dataStore.js";
@@ -160,6 +160,8 @@ export async function cleanupDeletedAccounts (_: unknown, context: JobContext) {
                 currentStatus.mostRecentActivity = latestActivity.getTime();
                 await writeUserStatus(username, currentStatus, context);
                 console.log(`Cleanup: ${username} last activity: ${format(latestActivity, "yyyy-MM-dd")}`);
+            } else {
+                console.log(`Cleanup: Unable to get latest activity for ${username}`);
             }
         } else {
             suspendedCount++;
@@ -236,7 +238,7 @@ export async function scheduleAdhocCleanup (context: TriggerContext) {
 
         await context.scheduler.runJob({
             name: UniversalJob.AdhocCleanup,
-            runAt: nextCleanupJobTime > new Date() ? nextCleanupJobTime : new Date(),
+            runAt: nextCleanupJobTime > new Date() ? nextCleanupJobTime : addSeconds(new Date(), 1),
         });
     } else {
         console.log(`Cleanup: Next entry in cleanup log is after next scheduled run (${nextCleanupTime.toUTCString()}).`);
