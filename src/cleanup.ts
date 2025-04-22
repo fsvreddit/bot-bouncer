@@ -111,6 +111,8 @@ export async function cleanupDeletedAccounts (_: unknown, context: JobContext) {
         if (!currentStatus) {
             const submitterOrModFlag = await context.redis.zScore(SUB_OR_MOD_LOG_KEY, username);
             if (submitterOrModFlag) {
+                console.log(`Cleanup: ${username} has no status, but was in submitter or mod log.`);
+                await setCleanupForUser(username, context, true);
                 continue;
             }
             console.log(`Cleanup: No status for ${username}, but was in cleanup queue.`);
