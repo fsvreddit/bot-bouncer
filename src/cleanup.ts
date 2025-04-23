@@ -1,6 +1,6 @@
 import { Comment, JobContext, Post, TriggerContext } from "@devvit/public-api";
 import { addDays, addHours, addMinutes, addSeconds, format, subDays, subMinutes } from "date-fns";
-import { parseExpression } from "cron-parser";
+import { CronExpressionParser } from "cron-parser";
 import { CLEANUP_JOB_CRON, CONTROL_SUBREDDIT, PostFlairTemplate, UniversalJob } from "./constants.js";
 import { deleteUserStatus, getUserStatus, pauseRescheduleForUser, removeRecordOfSubmitterOrMod, updateAggregate, UserStatus, writeUserStatus } from "./dataStore.js";
 import { getUserOrUndefined } from "./utility.js";
@@ -224,7 +224,7 @@ export async function scheduleAdhocCleanup (context: TriggerContext) {
 
     const nextCleanupTime = new Date(nextEntries[0].score);
     const nextCleanupJobTime = addMinutes(nextCleanupTime, 5);
-    const nextScheduledTime = parseExpression(CLEANUP_JOB_CRON).next().toDate();
+    const nextScheduledTime = CronExpressionParser.parse(CLEANUP_JOB_CRON).next().toDate();
 
     if (nextCleanupJobTime < subMinutes(nextScheduledTime, 5)) {
         // It's worth running an ad-hoc job.

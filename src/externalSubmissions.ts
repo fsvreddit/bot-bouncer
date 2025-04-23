@@ -6,7 +6,7 @@ import Ajv, { JSONSchemaType } from "ajv";
 import { addDays, addMinutes, addSeconds } from "date-fns";
 import { getPostOrCommentById } from "./utility.js";
 import { isLinkId } from "@devvit/shared-types/tid.js";
-import { parseExpression } from "cron-parser";
+import { CronExpressionParser } from "cron-parser";
 import { createNewSubmission } from "./postCreation.js";
 import pluralize from "pluralize";
 import { getUserExtended, UserExtended } from "./extendedDevvit.js";
@@ -110,7 +110,7 @@ export async function scheduleAdhocExternalSubmissionsJob (context: TriggerConte
         return;
     }
 
-    const cron = parseExpression(EXTERNAL_SUBMISSION_JOB_CRON);
+    const cron = CronExpressionParser.parse(EXTERNAL_SUBMISSION_JOB_CRON);
     const nextRun = cron.next().toDate();
 
     if (nextRun < addMinutes(new Date(), 1)) {
