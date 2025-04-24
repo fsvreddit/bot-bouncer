@@ -3,6 +3,7 @@ import { CommentCreate } from "@devvit/protos";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
 import { UserExtended } from "../extendedDevvit.js";
 import markdownEscape from "markdown-escape";
+import { subWeeks } from "date-fns";
 
 export class EvaluatePostTitle extends UserEvaluatorBase {
     override name = "Bad Post Title Bot";
@@ -40,7 +41,7 @@ export class EvaluatePostTitle extends UserEvaluatorBase {
     }
 
     override evaluate (_: UserExtended, history: (Post | Comment)[]): boolean {
-        const userPosts = this.getPosts(history).filter(post => post.isNsfw());
+        const userPosts = this.getPosts(history, { since: subWeeks(new Date(), 1) }).filter(post => post.isNsfw());
         if (userPosts.length === 0) {
             this.setReason("User has no NSFW posts");
             return false;
