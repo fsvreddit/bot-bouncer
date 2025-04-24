@@ -1,6 +1,6 @@
-import { JobContext, JSONObject, JSONValue, Post, ScheduledJobEvent, ZMember } from "@devvit/public-api";
+import { JobContext, JSONValue, Post, ZMember } from "@devvit/public-api";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
-import { uniq } from "lodash";
+import { fromPairs, uniq } from "lodash";
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "./constants.js";
 import { getAllKnownUsers, getUserStatus, UserDetails, UserStatus } from "./dataStore.js";
 import { evaluateUserAccount, USER_EVALUATION_RESULTS_KEY, userHasContinuousNSFWHistory } from "./handleControlSubAccountEvaluation.js";
@@ -109,8 +109,9 @@ async function evaluateAndHandleUser (username: string, variables: Record<string
     return true;
 }
 
-export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
+export async function evaluateKarmaFarmingSubs (_: unknown, context: JobContext) {
     const sweepInProgressKey = "KarmaFarmingSubsSweepInProgress";
+    const accountsQueuedKey = "KarmaFarmingSubsAccountsQueued";
 
     const controlSubSettings = await getControlSubSettings(context);
     if (!controlSubSettings.proactiveEvaluationEnabled || controlSubSettings.evaluationDisabled) {
@@ -118,15 +119,17 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
         return;
     }
 
-    let accounts = event.data?.accounts as string[] | undefined;
-    if (!accounts) {
+    const runLimit = addSeconds(new Date(), 25);
+
+    const accountsQueued = await context.redis.exists(accountsQueuedKey);
+    if (!accountsQueued) {
         const sweepInProgress = await context.redis.exists(sweepInProgressKey);
         if (sweepInProgress) {
             console.log("Karma Farming Subs: Sweep already in progress. Skipping this run.");
             return;
         }
 
-        accounts = await getDistinctAccounts(context);
+        let accounts = await getDistinctAccounts(context);
         const initialCount = accounts.length;
 
         // Filter out accounts already known to Bot Bouncer;
@@ -134,16 +137,17 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
         accounts = accounts.filter(account => !knownAccounts.includes(account));
         const filteredCount = initialCount - accounts.length;
 
+        const accountsData = fromPairs(accounts.map(account => [account, account]));
+        await context.redis.hSet(accountsQueuedKey, accountsData);
         console.log(`Karma Farming Subs: Found ${accounts.length} ${pluralize("account", accounts.length)} to evaluate, filtered ${filteredCount} ${pluralize("account", filteredCount)} already known to Bot Bouncer`);
         await context.scheduler.runJob({
             name: ControlSubredditJob.EvaluateKarmaFarmingSubs,
             runAt: new Date(),
-            data: { accounts },
         });
         return;
     }
 
-    const runLimit = addSeconds(new Date(), 25);
+    const accounts = await context.redis.hKeys(accountsQueuedKey);
     await context.redis.set(sweepInProgressKey, new Date().getTime().toString(), { expiration: addMinutes(new Date(), 5) });
 
     let processed = 0;
@@ -163,11 +167,13 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
             userBanned = await evaluateAndHandleUser(username, variables, context);
             if (userBanned) {
                 // Only let one user be banned per run to avoid rate limiting
+                await context.redis.hDel(accountsQueuedKey, [username]);
                 break;
             }
         } catch (error) {
             console.error(`Karma Farming Subs: Error evaluating ${username}: ${error}`);
         }
+        await context.redis.hDel(accountsQueuedKey, [username]);
     }
 
     if (accounts.length > 0) {
@@ -176,10 +182,10 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
         await context.scheduler.runJob({
             name: ControlSubredditJob.EvaluateKarmaFarmingSubs,
             runAt: addSeconds(new Date(), nextRunSeconds),
-            data: { accounts },
         });
     } else {
         await context.redis.del(sweepInProgressKey);
+        await context.redis.del(accountsQueuedKey);
         console.log(`Karma Farming Subs: Finished checking remaining ${processed} ${pluralize("account", processed)}.`);
     }
 }
