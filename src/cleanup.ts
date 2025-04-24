@@ -154,10 +154,10 @@ export async function cleanupDeletedAccounts (_: unknown, context: JobContext) {
                 });
             }
 
-            const latestActivity = await getLatestContentDate(username, context);
+            const latestActivity = await getLatestContentDate(username, context) ?? currentStatus.reportedAt;
             if (latestActivity) {
                 // Store the latest activity date.
-                currentStatus.mostRecentActivity = latestActivity.getTime();
+                currentStatus.mostRecentActivity = latestActivity;
                 await writeUserStatus(username, currentStatus, context);
                 console.log(`Cleanup: ${username} last activity: ${format(latestActivity, "yyyy-MM-dd")}`);
             } else {
@@ -325,7 +325,7 @@ async function handleDeletedAccountClientSub (username: string, context: Trigger
     ]);
 }
 
-async function getLatestContentDate (username: string, context: JobContext): Promise<Date | undefined> {
+async function getLatestContentDate (username: string, context: JobContext): Promise<number | undefined> {
     let content: (Post | Comment)[];
     try {
         content = await context.reddit.getCommentsAndPostsByUser({
@@ -336,5 +336,5 @@ async function getLatestContentDate (username: string, context: JobContext): Pro
         return;
     }
 
-    return max(content.map(content => content.createdAt));
+    return max(content.map(content => content.createdAt.getTime()));
 }
