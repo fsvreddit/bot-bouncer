@@ -47,6 +47,13 @@ Write in to [/r/BotBouncer's modmail](https://www.reddit.com/message/compose/?to
 
 # Change History
 
+Note: The current release is v1.9.1.
+
+## Next
+
+* Reduce false positives on one evaluator
+* Internal changes to support operations on /r/BotBouncer
+
 ## v1.9.1
 
 * When a bot is detected, posts and comments that were modqueued are now removed.
