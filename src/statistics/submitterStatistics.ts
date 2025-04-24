@@ -2,6 +2,7 @@ import { JobContext, WikiPage, WikiPagePermissionLevel } from "@devvit/public-ap
 import { UserDetails, UserStatus } from "../dataStore.js";
 import { uniq } from "lodash";
 import { subMonths } from "date-fns";
+import json2md from "json2md";
 
 interface SubmitterStatistic {
     submitter: string;
@@ -41,12 +42,16 @@ export async function updateSubmitterStatistics (allData: Record<string, string>
         submitterStatistics.push({ submitter: user, count: totalCount, ratio });
     }
 
-    let wikiContent = "## Submitter statistics\n\n";
-    wikiContent += "This lists all users who have submitted an account for review within the last month.\n\n";
+    const wikiContent: json2md.DataObject[] = [];
+    wikiContent.push({ h1: "Submitter statistics" });
+    wikiContent.push({ p: "This lists all users who have submitted an account for review within the last month." });
 
-    for (const item of submitterStatistics.sort((a, b) => a.count - b.count)) {
-        wikiContent += `* **${item.submitter}**: ${item.count} (${item.ratio}% banned)\n`;
-    }
+    const tableRows = submitterStatistics
+        .sort((a, b) => b.count - a.count)
+        .map(item => [item.submitter, item.count.toLocaleString(), `${item.ratio}%`]);
+
+    wikiContent.push({ table: { headers: ["Submitter", "Total Accounts", "Ratio"], rows: tableRows } });
+    wikiContent.push({ p: "This page updates once a day at midnight UTC, and may update more frequently." });
 
     const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
     let wikiPage: WikiPage | undefined;
@@ -60,7 +65,7 @@ export async function updateSubmitterStatistics (allData: Record<string, string>
     await context.reddit.updateWikiPage({
         subredditName,
         page: submitterStatisticsWikiPage,
-        content: wikiContent,
+        content: json2md(wikiContent),
     });
 
     if (!wikiPage) {

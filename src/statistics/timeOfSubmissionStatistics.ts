@@ -1,6 +1,7 @@
 import { JobContext, WikiPage, WikiPagePermissionLevel } from "@devvit/public-api";
 import { UserDetails } from "../dataStore.js";
 import { eachDayOfInterval, endOfDay, format, isSameDay, startOfDay, subDays } from "date-fns";
+import json2md from "json2md";
 
 export async function createTimeOfSubmissionStatistics (allData: Record<string, string>, context: JobContext) {
     const endRange = startOfDay(new Date());
@@ -15,25 +16,27 @@ export async function createTimeOfSubmissionStatistics (allData: Record<string, 
 
     const days = eachDayOfInterval({ start: startRange, end: endOfDay(subDays(endRange, 1)) });
 
-    let content = "Here are the statistics for new submissions covering the last four weeks.\n\n";
-    content += "| Date | Number of submissions |\n";
-    content += "|:-|:-|\n";
-    for (const day of days.reverse()) {
-        const submissionInDay = allDates.filter(date => isSameDay(day, date)).length;
-        content += `| ${format(day, "yyyy-MM-dd (EEEE)")} | ${submissionInDay} |\n`;
-    }
+    const wikiContent: json2md.DataObject[] = [];
+    wikiContent.push({ h1: "Time of submission statistics" });
+    wikiContent.push({ p: "Here are the statistics for new submissions covering the last four weeks." });
 
-    content += "## Time of day statistics\n\n";
+    const dayTableRows = days.reverse()
+        .map((day) => {
+            const submissionInDay = allDates.filter(date => isSameDay(day, date)).length;
+            return [format(day, "yyyy-MM-dd (EEEE)"), submissionInDay.toLocaleString()];
+        });
+    wikiContent.push({ table: { headers: ["Date", "Number of submissions"], rows: dayTableRows } });
 
-    content += "| Time | Number of submissions |\n";
-    content += "|:-|:-|\n";
+    wikiContent.push({ p: "## Time of day statistics" });
 
-    for (let hour = 0; hour < 24; hour++) {
+    const timeOfDayRows = Array.from({ length: 24 }, (_, hour) => {
         const submissionInHour = allDates.filter(date => date.getHours() === hour).length;
-        content += `| ${hour} | ${submissionInHour} |\n`;
-    }
+        return [hour.toString(), submissionInHour.toLocaleString()];
+    });
 
-    content += "\n\nThis page updates once a day at midnight UTC.\n\n";
+    wikiContent.push({ table: { headers: ["Time", "Number of submissions"], rows: timeOfDayRows } });
+
+    wikiContent.push({ p: "This page updates once a day at midnight UTC, and may update more frequently." });
 
     const pageName = "statistics/time-of-submission";
 
@@ -48,7 +51,7 @@ export async function createTimeOfSubmissionStatistics (allData: Record<string, 
     await context.reddit.updateWikiPage({
         subredditName,
         page: pageName,
-        content,
+        content: json2md(wikiContent),
     });
 
     if (!wikiPage) {
