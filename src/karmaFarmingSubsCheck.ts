@@ -155,7 +155,7 @@ export async function evaluateKarmaFarmingSubs (_: unknown, context: JobContext)
 
     const variables = await getEvaluatorVariables(context);
 
-    while (new Date() < runLimit) {
+    while (new Date() < runLimit && processed < 30) {
         const username = accounts.shift();
         if (!username) {
             break;
