@@ -9,6 +9,7 @@ import { getControlSubSettings } from "./settings.js";
 import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
 import { USER_EVALUATION_RESULTS_KEY } from "./handleControlSubAccountEvaluation.js";
 import json2md from "json2md";
+import { sendMessageToWebhook } from "./utility.js";
 
 const USER_STORE = "UserStore";
 const STALE_USER_STORE = "StaleUserStore";
@@ -327,20 +328,20 @@ export async function updateWikiPage (_: unknown, context: JobContext) {
 
     console.log(`Wiki page has been updated with ${Object.keys(dataToWrite).length} entries`);
 
-    if (content.length > MAX_WIKI_PAGE_SIZE * 0.7) {
+    if (content.length > MAX_WIKI_PAGE_SIZE * 0.75) {
         const spaceAlertKey = "wikiSpaceAlert";
         const alertDone = await context.redis.exists(spaceAlertKey);
         if (!alertDone) {
-            const message: json2md.DataObject[] = [
-                { p: `The botbouncer wiki page is now at ${Math.round(content.length / MAX_WIKI_PAGE_SIZE * 100)}% of its maximum size. It's time to rethink how data is stored.` },
-                { p: `I will modmail you again in a week.` },
-            ];
+            const controlSubSettings = await getControlSubSettings(context);
+            const webhook = controlSubSettings.monitoringWebhook;
+            if (webhook) {
+                const message: json2md.DataObject[] = [
+                    { p: `The botbouncer wiki page is now at ${Math.round(content.length / MAX_WIKI_PAGE_SIZE * 100)}% of its maximum size. It's time to rethink how data is stored.` },
+                    { p: `I will notify you again in a week if the page is still over this threshold` },
+                ];
 
-            await context.reddit.modMail.createModInboxConversation({
-                subject: "r/BotBouncer wiki page size alert",
-                bodyMarkdown: json2md(message),
-                subredditId: context.subredditId,
-            });
+                await sendMessageToWebhook(webhook, json2md(message));
+            }
             await context.redis.set(spaceAlertKey, new Date().getTime().toString(), { expiration: addWeeks(new Date(), 1) });
         }
     }

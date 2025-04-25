@@ -4,6 +4,7 @@ import { formatDistanceToNow } from "date-fns";
 import { ControlSubSettings, getControlSubSettings } from "./settings.js";
 import { CONTROL_SUBREDDIT } from "./constants.js";
 import json2md from "json2md";
+import { sendMessageToWebhook } from "./utility.js";
 
 export async function checkUptimeAndMessages (_: unknown, context: JobContext) {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
@@ -70,23 +71,6 @@ async function checkUptime (settings: ControlSubSettings, context: JobContext) {
     await sendMessageToWebhook(webhookUrl, messageToSend);
 
     await context.redis.set(redisKey, new Date().getTime().toString());
-}
-
-async function sendMessageToWebhook (webhookUrl: string, message: string) {
-    const params = {
-        content: message,
-    };
-
-    await fetch(
-        webhookUrl,
-        {
-            method: "post",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify(params),
-        },
-    );
 }
 
 async function checkMessages (settings: ControlSubSettings, context: JobContext) {
