@@ -11,7 +11,7 @@ import { getUserExtended, UserExtended } from "../extendedDevvit.js";
 import { ALL_EVALUATORS } from "../userEvaluation/allEvaluators.js";
 import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
 import { getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
-import markdownEscape from "markdown-escape";
+import json2md from "json2md";
 
 function formatDifferenceInDates (start: Date, end: Date) {
     const units: (keyof Duration)[] = ["years", "months", "days"];
@@ -107,7 +107,7 @@ function femaleNameCheck (username: string) {
     const matches = femaleNameRegex.exec(username);
     if (matches && matches.length === 2) {
         const [, name] = matches;
-        return `* Username includes a female name (${name}), a common trait of bot accounts\n`;
+        return `Username includes a female name (${name}), a common trait of bot accounts\n`;
     }
 
     // Now repeat the checks, taking out doubled-up letters one by one
@@ -119,7 +119,7 @@ function femaleNameCheck (username: string) {
         const newMatches = femaleNameRegex.exec(newUsername);
         if (newMatches && newMatches.length === 2) {
             const [, name] = newMatches;
-            return `* Username includes a female name (${name}) with a doubled up letter, a common trait of bot accounts\n`;
+            return `Username includes a female name (${name}) with a doubled up letter, a common trait of bot accounts\n`;
         }
     }
 }
@@ -139,24 +139,26 @@ function numberToBlock (input: number): string {
     }
 }
 
-function activityByTimeOfDay (history: (Post | Comment)[]) {
+function activityByTimeOfDay (history: (Post | Comment)[]): json2md.DataObject[] {
     const hours = countBy(history.map(item => item.createdAt.getHours()));
     const max = Math.max(...Object.values(hours));
 
-    const line1 = "0|1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23";
-    const line2 = "-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-";
-    let line3 = "";
+    const headers: string[] = [];
+    const values: string[] = [];
 
     for (let i = 0; i < 24; i++) {
         const value = hours[i] || 0;
         const blockHeight = Math.round(8 * value / max);
-        line3 += numberToBlock(blockHeight);
-        if (i < 23) {
-            line3 += "|";
-        }
+        headers.push(i.toString());
+        values.push(numberToBlock(blockHeight));
     }
 
-    return `##Activity by time of day:\n\n${line1}\n${line2}\n${line3}\n\n`;
+    const result: json2md.DataObject[] = [
+        { h2: "Activity by time of day" },
+        { table: { headers, rows: [values] } },
+    ];
+
+    return result;
 }
 
 function domainsFromComment (comment: string): string[] {
@@ -208,10 +210,10 @@ function getHighCountDomains (history: Post[] | Comment[]): string {
         return "";
     }
 
-    return highCountDomains.map(item => `* Frequently shared domains: ${item.domain}: ${Math.round(100 * item.count / history.length)}%`).join(", ") + "\n";
+    return highCountDomains.map(item => `Frequently shared domains: ${item.domain}: ${Math.round(100 * item.count / history.length)}%`).join(", ");
 }
 
-export async function getSummaryTextForUser (username: string, source: "modmail" | "submission", context: TriggerContext): Promise<string | undefined> {
+export async function getSummaryForUser (username: string, source: "modmail" | "submission", context: TriggerContext): Promise<json2md.DataObject[] | undefined> {
     const user = await getUserOrUndefined(username, context);
     const extendedUser = await getUserExtended(username, context);
 
@@ -224,27 +226,31 @@ export async function getSummaryTextForUser (username: string, source: "modmail"
 
     const accountAge = formatDifferenceInDates(user.createdAt, new Date());
 
-    let summary = "## Account Properties\n\n";
-    summary += `* Account age: ${accountAge}\n`;
-    summary += `* Comment karma: ${user.commentKarma}\n`;
-    summary += `* Post karma: ${user.linkKarma}\n`;
-    summary += `* Verified Email: ${user.hasVerifiedEmail ? "Yes" : "No"}\n`;
-    summary += `* Subreddit Moderator: ${extendedUser.isModerator ? "Yes" : "No"}\n`;
+    const summary: json2md.DataObject[] = [];
+    summary.push({ h2: `Account Properties` });
+
+    const accountPropsBullets = [
+        `Account age: ${accountAge}`,
+        `Comment karma: ${user.commentKarma.toLocaleString()}`,
+        `Post karma: ${user.linkKarma.toLocaleString()}`,
+        `Verified Email: ${user.hasVerifiedEmail ? "Yes" : "No"}`,
+        `Subreddit Moderator: ${extendedUser.isModerator ? "Yes" : "No"}`,
+    ];
 
     const socialLinks = await user.getSocialLinks();
     const uniqueSocialDomains = compact(uniq(socialLinks.map(link => domainFromUrl(link.outboundUrl))));
     if (uniqueSocialDomains.length > 0) {
-        summary += `* Social links: ${uniqueSocialDomains.join(", ")}\n`;
+        accountPropsBullets.push(`Social links: ${uniqueSocialDomains.join(", ")}`);
     }
 
     if (autogenRegex.test(user.username)) {
-        summary += "* Username matches autogen pattern\n";
+        accountPropsBullets.push("Username matches autogen pattern");
     } else if (resemblesAutogen.test(user.username)) {
-        summary += "* Username resembles autogen pattern, but uses different keywords\n";
+        accountPropsBullets.push("Username resembles autogen pattern, but uses different keywords");
     } else {
         const femaleNameSummaryLine = femaleNameCheck(user.username);
         if (femaleNameSummaryLine) {
-            summary += femaleNameSummaryLine;
+            accountPropsBullets.push(femaleNameSummaryLine);
         }
     }
 
@@ -271,156 +277,169 @@ export async function getSummaryTextForUser (username: string, source: "modmail"
 
     const potentiallyBlocking = await isUserPotentiallyBlockingBot([...userComments, ...userPosts], context);
     if (potentiallyBlocking) {
-        summary += "* User is potentially blocking bot u/bot-bouncer (their visible history only shows subs where app is installed)\n";
+        accountPropsBullets.push("User is potentially blocking bot u/bot-bouncer (their visible history only shows subs where app is installed)");
     } else {
-        summary += "* User is not blocking u/bot-bouncer\n";
+        accountPropsBullets.push("User is not blocking u/bot-bouncer");
     }
 
     const userHasGold = extendedUser.isGold;
     if (userHasGold) {
-        summary += "* User has Reddit Premium\n";
+        accountPropsBullets.push("User has Reddit Premium");
     }
 
     const userDisplayName = extendedUser.displayName;
     if (userDisplayName) {
-        summary += `* Display name: ${userDisplayName}\n`;
+        accountPropsBullets.push(`Display name: ${userDisplayName}`);
     }
 
     const userBio = extendedUser.userDescription;
-    if (userBio) {
-        if (userBio.includes("\n")) {
-            summary += `* Bio:\n\n> ${userBio.split("\n").join("\n> ")}\n`;
-        } else {
-            summary += `* Bio: ${userBio}\n`;
-        }
+    if (userBio?.includes("\n")) {
+        summary.push({ ul: accountPropsBullets });
+        summary.push({ blockquote: userBio });
+    } else if (userBio) {
+        accountPropsBullets.push(`Bio: ${userBio}`);
+        summary.push({ ul: accountPropsBullets });
+    } else {
+        summary.push({ ul: accountPropsBullets });
     }
-
-    summary += "\n";
 
     if (source === "modmail") {
         const initialEvaluatorsMatched = await getAccountInitialEvaluationResults(username, context);
         const matchedEvaluators = await evaluatorsMatched(extendedUser, [...userComments, ...userPosts], context);
         if (matchedEvaluators.length > 0 || initialEvaluatorsMatched.length > 0) {
-            summary += "## Evaluation results\n\n";
+            summary.push({ h2: "Evaluation results" });
         }
 
         if (initialEvaluatorsMatched.length > 0) {
-            summary += `At the point of initial evaluation, user matched ${initialEvaluatorsMatched.length} ${pluralize("evaluator", initialEvaluatorsMatched.length)}\n\n`;
-            for (const evaluator of initialEvaluatorsMatched) {
-                summary += `* ${evaluator.botName} matched`;
+            summary.push({ p: `At the point of initial evaluation, user matched ${initialEvaluatorsMatched.length} ${pluralize("evaluator", initialEvaluatorsMatched.length)}` });
+
+            const hitsRows = initialEvaluatorsMatched.map((evaluator) => {
+                let row = `${evaluator.botName} matched`;
                 if (evaluator.hitReason) {
-                    summary += `: ${evaluator.hitReason}`;
+                    row += `: ${evaluator.hitReason}`;
                 }
-                summary += "\n";
-            }
-            summary += "\n";
+                return row;
+            });
+
+            summary.push({ ul: hitsRows });
         }
 
         if (matchedEvaluators.length > 0) {
-            summary += `User currently matches ${matchedEvaluators.length} ${pluralize("evaluator", matchedEvaluators.length)}\n\n`;
-            for (const evaluator of matchedEvaluators) {
-                summary += `* ${evaluator.name} matched`;
+            summary.push({ p: `User currently matches ${matchedEvaluators.length} ${pluralize("evaluator", matchedEvaluators.length)}` });
+
+            const hitsRows = matchedEvaluators.map((evaluator) => {
+                let row = `${evaluator.name} matched`;
                 if (evaluator.hitReason) {
-                    summary += `: ${evaluator.hitReason}`;
+                    row += `: ${evaluator.hitReason}`;
                 }
-                summary += "\n";
-            }
-            summary += "\n";
+                return row;
+            });
+
+            summary.push({ ul: hitsRows });
         }
     }
 
     if (userComments.length > 0) {
-        summary += "## Comments\n\n";
-        summary += `User has ${userComments.length} ${pluralize("comment", userComments.length)}\n\n`;
+        summary.push({ h2: "Comments" });
+        summary.push({ p: `User has ${userComments.length} ${pluralize("comment", userComments.length)}` });
+
+        const bullets: string[] = [];
         if (userComments.length > 2) {
-            summary += `* Min time between comments: ${timeBetween(userComments, "min")}\n`;
-            summary += `* 10th percentile time between comments: ${timeBetween(userComments, "10th")}\n`;
-            summary += `* Max time between comments: ${timeBetween(userComments, "max")}\n`;
-            summary += `* Average time between comments: ${averageInterval(userComments, "mean")} (median: ${averageInterval(userComments, "median")})\n`;
+            bullets.push(`Min time between comments: ${timeBetween(userComments, "min")}`);
+            bullets.push(`10th percentile time between comments: ${timeBetween(userComments, "10th")}`);
+            bullets.push(`Max time between comments: ${timeBetween(userComments, "max")}`);
+            bullets.push(`Average time between comments: ${averageInterval(userComments, "mean")} (median: ${averageInterval(userComments, "median")})`);
         } else if (userComments.length === 2) {
-            summary += `* Time between comments: ${timeBetween(userComments, "min")}\n`;
+            bullets.push(`Time between comments: ${timeBetween(userComments, "min")}`);
         }
-        summary += `* Length: ${minMaxAvg(userComments.map(comment => comment.body.length))}\n`;
-        summary += `* Word count: ${minMaxAvg(userComments.map(comment => count(comment.body, "words", {})))}\n`;
-        summary += `* Paragraphs: ${minMaxAvg(userComments.map(comment => comment.body.split("\n\n").length))}\n`;
-        summary += `* Comments with em-dashes: ${Math.round(100 * userComments.filter(comment => comment.body.includes("—")).length / userComments.length)}%\n`;
+
+        bullets.push(`Length: ${minMaxAvg(userComments.map(comment => comment.body.length))}`);
+        bullets.push(`Word count: ${minMaxAvg(userComments.map(comment => count(comment.body, "words", {})))}`);
+        bullets.push(`Paragraphs: ${minMaxAvg(userComments.map(comment => comment.body.split("\n\n").length))}`);
+        bullets.push(`Comments with em-dashes: ${Math.round(100 * userComments.filter(comment => comment.body.includes("—")).length / userComments.length)}%`);
+
         const topLevelPercentage = Math.floor(100 * userComments.filter(comment => isLinkId(comment.parentId)).length / userComments.length);
-        summary += `* Top level comments: ${topLevelPercentage}% of total\n`;
+        bullets.push(`Top level comments: ${topLevelPercentage}% of total`);
 
         const editedCommentPercentage = Math.round(100 * userComments.filter(comment => comment.edited).length / userComments.length);
         if (editedCommentPercentage > 0) {
-            summary += `* Edited comments: ${editedCommentPercentage}% of total\n`;
+            bullets.push(`Edited comments: ${editedCommentPercentage}% of total`);
         }
 
         const subreddits = countBy(compact(userComments.map(comment => comment.subredditName)));
-        summary += `* Comment subreddits: ${Object.entries(subreddits).map(([subreddit, count]) => `${markdownEscape(subreddit)}: ${count}`).join(", ")}\n`;
+        bullets.push(`Comment subreddits: ${Object.entries(subreddits).map(([subreddit, count]) => `${subreddit}: ${count}`).join(", ")}`);
 
         const commentsPerPost = countBy(Object.values(countBy(userComments.map(comment => comment.postId))));
-        summary += `* Comments per post: ${Object.entries(commentsPerPost).map(([count, posts]) => `${count} comments: ${posts}`).join(", ")}\n`;
+        bullets.push(`Comments per post: ${Object.entries(commentsPerPost).map(([count, posts]) => `${count} comments: ${posts}`).join(", ")}`);
 
-        summary += getHighCountDomains(userComments);
+        const highCountDomains = getHighCountDomains(userComments);
+        if (highCountDomains) {
+            bullets.push(highCountDomains);
+        }
 
         if (userComments.length < 90) {
-            summary += `* First comment was ${formatDifferenceInDates(user.createdAt, userComments[userComments.length - 1].createdAt)} after account creation\n`;
+            bullets.push(`First comment was ${formatDifferenceInDates(user.createdAt, userComments[userComments.length - 1].createdAt)} after account creation`);
         }
+
+        summary.push({ ul: bullets });
     }
 
-    summary += "\n";
-
     if (userPosts.length > 0) {
-        summary += "## Posts\n\n";
-        summary += `User has ${userPosts.length} ${pluralize("post", userPosts.length)}\n\n`;
+        summary.push({ h2: "Posts" });
+        summary.push({ p: `User has ${userPosts.length} ${pluralize("post", userPosts.length)}` });
+        const bullets: string[] = [];
+
         const nonStickied = userPosts
             .filter(post => !post.stickied)
             .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
         if (userPosts.length > 2) {
-            summary += `* Min time between posts: ${timeBetween(nonStickied, "min")}\n`;
-            summary += `* 10th percentile time between posts: ${timeBetween(nonStickied, "10th")}\n`;
-            summary += `* Max time between posts: ${timeBetween(nonStickied, "max")}\n`;
-            summary += `* Average time between posts: ${averageInterval(nonStickied, "mean")} (median: ${averageInterval(nonStickied, "median")})\n`;
+            bullets.push(`Min time between posts: ${timeBetween(nonStickied, "min")}`);
+            bullets.push(`10th percentile time between posts: ${timeBetween(nonStickied, "10th")}`);
+            bullets.push(`Max time between posts: ${timeBetween(nonStickied, "max")}`);
+            bullets.push(`Average time between posts: ${averageInterval(nonStickied, "mean")} (median: ${averageInterval(nonStickied, "median")})`);
         } else if (userPosts.length === 2) {
-            summary += `* Time between posts: ${timeBetween(nonStickied, "min")}\n`;
+            bullets.push(`Time between posts: ${timeBetween(nonStickied, "min")}`);
         }
 
         const editedPostPercentage = Math.round(100 * userPosts.filter(post => post.edited).length / userPosts.length);
         if (editedPostPercentage > 0) {
-            summary += `* Edited posts: ${editedPostPercentage}% of total\n`;
+            bullets.push(`Edited posts: ${editedPostPercentage}% of total`);
         }
 
         const domains = countBy(compact(userPosts.map(post => domainFromUrl(post.url))));
         if (Object.keys(domains).length > 0) {
-            summary += `* Domains: ${Object.entries(domains).map(([domain, count]) => `${domain}: ${count}`).join(", ")}\n`;
+            bullets.push(`Domains: ${Object.entries(domains).map(([domain, count]) => `${domain}: ${Math.round(100 * count / userPosts.length)}%`).join(", ")}`);
         }
 
         const subreddits = countBy(compact(userPosts.map(post => post.subredditName)));
-        summary += `* Post subreddits: ${Object.entries(subreddits).map(([subreddit, count]) => `${markdownEscape(subreddit)}: ${count}`).join(", ")}\n`;
+        bullets.push(`Post subreddits: ${Object.entries(subreddits).map(([subreddit, count]) => `${subreddit}: ${count}`).join(", ")}`);
         if (userPosts.length < 90) {
-            summary += `* First post was ${formatDifferenceInDates(user.createdAt, userPosts[userPosts.length - 1].createdAt)} after account creation\n`;
+            bullets.push(`First post was ${formatDifferenceInDates(user.createdAt, userPosts[userPosts.length - 1].createdAt)} after account creation`);
         }
+
+        summary.push({ ul: bullets });
     }
 
-    summary += "\n";
-
     if (userComments.length > 0 || userPosts.length > 0) {
-        summary += activityByTimeOfDay([...userComments, ...userPosts]);
+        summary.push(activityByTimeOfDay([...userComments, ...userPosts]));
     } else {
-        summary += "## Activity\n\n";
-        summary += "User has no comments or posts visible on their profile\n\n";
+        summary.push({ h2: "Activity" });
+        summary.push({ p: "User has no comments or posts visible on their profile" });
     }
 
     return summary;
 }
 
 export async function createUserSummary (username: string, postId: string, context: TriggerContext) {
-    const summary = await getSummaryTextForUser(username, "submission", context);
+    const summary = await getSummaryForUser(username, "submission", context);
     if (!summary) {
         return;
     }
 
     const newComment = await context.reddit.submitComment({
         id: postId,
-        text: summary,
+        text: json2md(summary),
     });
     await newComment.remove();
 

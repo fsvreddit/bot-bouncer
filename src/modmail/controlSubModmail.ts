@@ -1,10 +1,11 @@
 import { TriggerContext } from "@devvit/public-api";
 import { getUserStatus, UserStatus } from "../dataStore.js";
-import { getSummaryTextForUser } from "../UserSummary/userSummary.js";
+import { getSummaryForUser } from "../UserSummary/userSummary.js";
 import { getUserOrUndefined } from "../utility.js";
 import { CONFIGURATION_DEFAULTS, getControlSubSettings } from "../settings.js";
 import { handleBulkSubmission } from "./bulkSubmission.js";
 import { addDays } from "date-fns";
+import json2md from "json2md";
 
 export async function handleControlSubredditModmail (username: string, conversationId: string, isFirstMessage: boolean, message: string | undefined, context: TriggerContext): Promise<boolean> {
     const controlSubSettings = await getControlSubSettings(context);
@@ -43,18 +44,20 @@ async function handleModmailFromUser (username: string, conversationId: string, 
 
     const post = await context.reddit.getPostById(currentStatus.trackingPostId);
 
-    let message = `/u/${username} is currently listed as ${currentStatus.userStatus}, set by ${currentStatus.operator} at ${new Date(currentStatus.lastUpdate).toUTCString()} and reported by ${currentStatus.submitter ?? "unknown"}\n\n`;
-    message += `[Link to submission](${post.permalink})`;
+    const message: json2md.DataObject[] = [
+        { p: `/u/${username} is currently listed as ${currentStatus.userStatus}, set by ${currentStatus.operator} at ${new Date(currentStatus.lastUpdate).toUTCString()} and reported by ${currentStatus.submitter ?? "unknown"}` },
+        { link: { title: "Link to submission", source: `https://www.reddit.com${post.permalink}` } },
+    ];
 
     if (currentStatus.userStatus === UserStatus.Banned || currentStatus.userStatus === UserStatus.Purged) {
-        const userSummary = await getSummaryTextForUser(username, "modmail", context);
+        const userSummary = await getSummaryForUser(username, "modmail", context);
         if (userSummary) {
-            message += `\n\n${userSummary}`;
+            message.push(userSummary);
         }
     }
 
     await context.reddit.modMail.reply({
-        body: message,
+        body: json2md(message),
         conversationId,
         isInternal: true,
     });
