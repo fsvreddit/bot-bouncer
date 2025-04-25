@@ -8,6 +8,7 @@ import pluralize from "pluralize";
 import { getUserStatus, UserStatus } from "../dataStore.js";
 import { evaluateUserAccount } from "../handleControlSubAccountEvaluation.js";
 import { addExternalSubmissionsToQueue, ExternalSubmission } from "../externalSubmissions.js";
+import json2md from "json2md";
 
 interface UserBioText {
     username: string;
@@ -118,7 +119,7 @@ export async function analyseBioText (_: unknown, context: JobContext) {
         results[bioText.bioText] = [bioText, ...similarBioTexts];
     }
 
-    let output: string;
+    const output: json2md.DataObject[] = [];
     const addableUsers: string[] = [];
 
     if (Object.keys(results).length === 0) {
@@ -128,16 +129,19 @@ export async function analyseBioText (_: unknown, context: JobContext) {
             return;
         }
         console.log("No similar bio text patterns found.");
-        output = "No similar enough bio text patterns found on this run.\n\n";
+        output.push({ p: "No similar enough bio text patterns found on this run." });
     } else {
         const variables = await getEvaluatorVariables(context);
         let index = 1;
-        output = "Here are some similar bio text patterns not already covered by the Bio Text evaluator and seen on swept subreddits recently:\n\n";
-        // output += "To add all of these users to /r/BotBouncer with an initial status of pending, please reply with the command `!addall`, or to add with an initial status of banned, use `!addall banned`. Consider adjusting the list of regexes to capture these users\n\n";
+
+        const output: json2md.DataObject[] = [
+            { p: "Here are some similar bio text patterns not already covered by the Bio Text evaluator and seen on swept subreddits recently:" },
+        ];
+
         for (const similarTexts of Object.values(results)) {
-            output += `**Pattern ${index++}**\n\n`;
-            output += "| Username | Status | Evaluators | Bio Text |\n";
-            output += "| -------- | ------ | ---------- | -------- |\n";
+            output.push({ p: `**Pattern ${index++}**` });
+
+            const rows: string[][] = [];
             for (const bioTextEntry of similarTexts) {
                 const currentStatus = await getUserStatus(bioTextEntry.username, context);
                 let evaluators = "";
@@ -145,16 +149,19 @@ export async function analyseBioText (_: unknown, context: JobContext) {
                     const evaluatorsMatched = await evaluateUserAccount(bioTextEntry.username, variables, context, false);
                     evaluators = evaluatorsMatched.map(evaluator => evaluator.botName).join(", ");
                 }
-                output += `| /u/${bioTextEntry.username} | ${currentStatus?.userStatus ?? ""} | ${evaluators} | ${bioTextEntry.bioText} |\n`;
+                rows.push([`/u/${bioTextEntry.username}`, currentStatus?.userStatus ?? "", evaluators, bioTextEntry.bioText]);
                 if (!currentStatus && evaluators === "") {
                     addableUsers.push(bioTextEntry.username);
                 }
             }
-            output += "\n";
+
+            output.push({ table: { headers: ["Username", "Status", "Evaluators", "Bio Text"], rows } });
         }
 
-        output += "---\n\n";
-        output += `Subreddits currently being swept for bio text: /r/${subreddits.join(", /r/")}\n\n`;
+        output.push({ hr: {} });
+
+        output.push({ p: `Subreddits currently being swept for bio text: /r/${subreddits.join(", /r/")}` });
+        output.push({ p: `If you want to submit all users with similar bio text to Bot Bouncer, please reply to this modmail with \`!addall\` or \`!addall banned\`` });
 
         await context.redis.zAdd(BIO_TEXT_STORAGE_KEY, ...Object.values(results).flat().map(item => ({ member: item.bioText, score: new Date().getTime() })));
         await context.redis.set(BIO_TEXT_MODMAIL_SENT, "true", { expiration: addDays(new Date(), 1) });
@@ -163,7 +170,7 @@ export async function analyseBioText (_: unknown, context: JobContext) {
     const conversationId = await context.reddit.modMail.createModInboxConversation({
         subredditId: context.subredditId,
         subject: "Similar Bio Text Patterns spotted in swept subreddits",
-        bodyMarkdown: output,
+        bodyMarkdown: json2md(output),
     });
 
     const bioTextUserKey = `biotextusers~${conversationId}`;

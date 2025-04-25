@@ -11,6 +11,7 @@ import { createNewSubmission } from "./postCreation.js";
 import pluralize from "pluralize";
 import { getUserExtended, UserExtended } from "./extendedDevvit.js";
 import { EvaluationResult, USER_EVALUATION_RESULTS_KEY } from "./handleControlSubAccountEvaluation.js";
+import json2md from "json2md";
 
 const WIKI_PAGE = "externalsubmissions";
 export const EXTERNAL_SUBMISSION_QUEUE = "externalSubmissionQueue";
@@ -299,14 +300,18 @@ export async function processExternalSubmissions (_: unknown, context: JobContex
     const newPost = await createNewSubmission(user, newUserDetails, context);
 
     if (item.reportContext) {
-        let text = "The submitter added the following context for this submission:\n\n";
-        text += item.reportContext.split("\n").map(line => `> ${line}`).join("\n");
+        const body: json2md.DataObject[] = [
+            { p: "The submitter added the following context for this submission:" },
+            { blockquote: item.reportContext },
+        ];
+
         if (item.targetId) {
             const target = await getPostOrCommentById(item.targetId, context);
-            text += `\n\nUser was reported via [this ${isLinkId(target.id) ? "post" : "comment"}](${target.permalink})`;
+            body.push({ p: `User was reported via [this ${isLinkId(target.id) ? "post" : "comment"}](${target.permalink})` });
         }
-        text += `\n\n*I am a bot, and this action was performed automatically. Please [contact the moderators of this subreddit](/message/compose/?to=/r/${CONTROL_SUBREDDIT}) if you have any questions or concerns.*`;
-        const newComment = await newPost.addComment({ text });
+
+        body.push({ p: `*I am a bot, and this action was performed automatically. Please [contact the moderators of this subreddit](/message/compose/?to=/r/${CONTROL_SUBREDDIT}) if you have any questions or concerns.*` });
+        const newComment = await newPost.addComment({ text: json2md(body) });
 
         if (item.publicContext === false) {
             await newComment.remove();

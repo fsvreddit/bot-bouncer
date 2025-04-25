@@ -2,6 +2,7 @@ import { JobContext, TriggerContext } from "@devvit/public-api";
 import { format, subDays } from "date-fns";
 import { getUserStatus } from "../dataStore.js";
 import { AppSetting } from "../settings.js";
+import json2md from "json2md";
 
 function getReportsKey (date: Date) {
     return `digest:reports:${format(date, `yyyy-MM-dd`)}`;
@@ -27,39 +28,38 @@ export async function sendDailyDigest (_: unknown, context: JobContext) {
 
     if (featureEnabled && (reports.length > 0 || bans.length > 0)) {
         const subject = `Bot Bouncer Daily Digest for ${format(yesterday, `yyyy-MM-dd`)}, covering midnight to midnight UTC`;
-        let message = "";
+        const message: json2md.DataObject[] = [];
 
         if (reports.length === 0) {
-            message += `No new bots were detected or reported on /r/${subredditName} yesterday.\n\n`;
+            message.push({ p: `No new potential bots were detected or reported on /r/${subredditName} yesterday.` });
         } else {
-            message += `The following potential bots were detected or reported on /r/${subredditName} yesterday:\n\n`;
+            message.push({ p: `The following potential bots were detected or reported on /r/${subredditName} yesterday:` });
+
+            const bullets: string[] = [];
             for (const entry of reports) {
                 const currentStatus = await getUserStatus(entry.username, context);
                 if (currentStatus) {
-                    message += `* /u/${entry.username} reported ${entry.type}: now listed as ${currentStatus.userStatus}\n`;
+                    bullets.push(`/u/${entry.username} reported ${entry.type}: now listed as ${currentStatus.userStatus}`);
                 } else {
-                    message += `* /u/${entry.username} reported ${entry.type}\n`;
+                    bullets.push(`/u/${entry.username} reported ${entry.type}`);
                 }
             }
-            message += "\n";
+            message.push({ ul: bullets });
         }
 
         if (bans.length === 0) {
-            message += `No new bans were issued by Bot Bouncer on /r/${subredditName} yesterday.`;
+            message.push({ p: `No new bans were issued by Bot Bouncer on /r/${subredditName} yesterday.` });
         } else {
-            message += `The following users were banned on /r/${subredditName} yesterday:\n\n`;
-            for (const username of bans.map(ban => ban.member)) {
-                message += `* /u/${username}\n`;
-            }
-            message += "\n";
+            message.push({ p: `The following users were banned on /r/${subredditName} yesterday:` });
+            message.push({ ul: bans.map(ban => `/u/${ban.member}`) });
         }
 
-        message += `If you no longer want to receive these notifications, you can turn them off on the [app configuration page](https://developers.reddit.com/r/${subredditName}/apps/${context.appName}).`;
+        message.push({ p: `If you no longer want to receive these notifications, you can turn them off on the [app configuration page](https://developers.reddit.com/r/${subredditName}/apps/${context.appName}).` });
 
         promises.push(context.reddit.modMail.createModInboxConversation({
             subredditId: context.subredditId,
             subject,
-            bodyMarkdown: message,
+            bodyMarkdown: json2md(message),
         }));
     }
 

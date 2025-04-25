@@ -9,6 +9,7 @@ import { addMinutes, addSeconds } from "date-fns";
 import { getUserExtended } from "./extendedDevvit.js";
 import { createNewSubmission } from "./postCreation.js";
 import pluralize from "pluralize";
+import json2md from "json2md";
 
 const CHECK_DATE_KEY = "KarmaFarmingSubsCheckDates";
 
@@ -92,12 +93,16 @@ async function evaluateAndHandleUser (username: string, variables: Record<string
 
     const newPost = await createNewSubmission(user, newDetails, context);
 
-    let text = "This user was detected automatically through proactive bot hunting activity.\n\n";
+    const body: json2md.DataObject[] = [
+        { p: "This user was detected automatically through proactive bot hunting activity." },
+        { p: `*I am a bot, and this action was performed automatically. Please [contact the moderators of this subreddit](/message/compose/?to=/r/${CONTROL_SUBREDDIT}) if you have any questions or concerns.*` },
+    ];
+
     if (hasContinuousNSFWHistory) {
         await context.reddit.report(newPost, { reason: "User has continuous NSFW history, so needs manual checking." });
     }
-    text += `\n\n*I am a bot, and this action was performed automatically. Please [contact the moderators of this subreddit](/message/compose/?to=/r/${CONTROL_SUBREDDIT}) if you have any questions or concerns.*`;
-    await newPost.addComment({ text });
+
+    await newPost.addComment({ text: json2md(body) });
 
     console.log(`Karma Farming Subs: Banned ${username}`);
 
