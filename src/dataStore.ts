@@ -8,6 +8,7 @@ import pluralize from "pluralize";
 import { getControlSubSettings } from "./settings.js";
 import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
 import { USER_EVALUATION_RESULTS_KEY } from "./handleControlSubAccountEvaluation.js";
+import json2md from "json2md";
 
 const USER_STORE = "UserStore";
 const STALE_USER_STORE = "StaleUserStore";
@@ -330,10 +331,14 @@ export async function updateWikiPage (_: unknown, context: JobContext) {
         const spaceAlertKey = "wikiSpaceAlert";
         const alertDone = await context.redis.exists(spaceAlertKey);
         if (!alertDone) {
-            const message = `The botbouncer wiki page is now at ${Math.round(content.length / MAX_WIKI_PAGE_SIZE * 100)}% of its maximum size. It's time to rethink how data is stored.\n\nI will modmail you again in a week.`;
+            const message: json2md.DataObject[] = [
+                { p: `The botbouncer wiki page is now at ${Math.round(content.length / MAX_WIKI_PAGE_SIZE * 100)}% of its maximum size. It's time to rethink how data is stored.` },
+                { p: `I will modmail you again in a week.` },
+            ];
+
             await context.reddit.modMail.createModInboxConversation({
                 subject: "r/BotBouncer wiki page size alert",
-                bodyMarkdown: message,
+                bodyMarkdown: json2md(message),
                 subredditId: context.subredditId,
             });
             await context.redis.set(spaceAlertKey, new Date().getTime().toString(), { expiration: addWeeks(new Date(), 1) });

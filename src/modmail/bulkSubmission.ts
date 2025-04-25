@@ -5,6 +5,7 @@ import { countBy, uniq } from "lodash";
 import { addExternalSubmissionsToQueue, ExternalSubmission, scheduleAdhocExternalSubmissionsJob } from "../externalSubmissions.js";
 import { getUserOrUndefined } from "../utility.js";
 import { subMonths } from "date-fns";
+import json2md from "json2md";
 
 interface BulkSubmission {
     usernames: string[];
@@ -58,7 +59,10 @@ export async function handleBulkSubmission (submitter: string, trusted: boolean,
     } catch (error) {
         await context.reddit.modMail.reply({
             conversationId,
-            body: `Error parsing JSON:\n\n${error}`,
+            body: json2md([
+                { p: "Error parsing JSON" },
+                { blockquote: error },
+            ]),
             isAuthorHidden: false,
         });
         await context.reddit.modMail.archiveConversation(conversationId);
@@ -71,7 +75,10 @@ export async function handleBulkSubmission (submitter: string, trusted: boolean,
     if (!validate(data)) {
         await context.reddit.modMail.reply({
             conversationId,
-            body: `Invalid JSON:\n\n${ajv.errorsText(validate.errors)}`,
+            body: json2md([
+                { p: "Invalid JSON" },
+                { blockquote: ajv.errorsText(validate.errors) },
+            ]),
             isAuthorHidden: false,
         });
         await context.reddit.modMail.archiveConversation(conversationId);

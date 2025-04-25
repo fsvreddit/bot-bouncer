@@ -3,6 +3,7 @@ import { CONTROL_SUBREDDIT } from "../constants.js";
 import { parseAllDocuments } from "yaml";
 import { uniq } from "lodash";
 import { replaceAll } from "../utility.js";
+import json2md from "json2md";
 
 const EVALUATOR_VARIABLES_KEY = "evaluatorVariables";
 const EVALUATOR_VARIABLES_YAML_PAGE = "evaluator-config";
@@ -108,13 +109,15 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
         } else {
             console.error("Evaluator Variables: Invalid entries in evaluator variables", invalidEntries);
 
-            let errorMessage = `There are invalid regexes in the evaluator variables. Please check the wiki page and try again.`;
-            errorMessage += `* ${invalidEntries.join("\n* ")}`;
+            const body: json2md.DataObject[] = [
+                { p: "There are invalid regexes in the evaluator variables. Please check the wiki page and try again." },
+                { ul: invalidEntries },
+            ];
 
             await context.reddit.sendPrivateMessage({
                 subject: "Problem with evaluator variables config after edit",
                 to: event.data.username as string,
-                text: errorMessage,
+                text: json2md(body),
             });
 
             return;

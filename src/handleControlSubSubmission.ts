@@ -114,7 +114,8 @@ export async function handleControlSubSubmission (event: PostCreate, context: Tr
 
             submissionResponse.push(
                 { p: "Hi, thanks for your submission" },
-                { p: `The post tracking ${user.username} can be found [here](${newPost.permalink}).\n\nYour post has been removed, and can be deleted.` },
+                { p: `The post tracking ${user.username} can be found [here](${newPost.permalink}).` },
+                { p: `Your post has been removed, and can be deleted.` },
             );
 
             await context.scheduler.runJob({

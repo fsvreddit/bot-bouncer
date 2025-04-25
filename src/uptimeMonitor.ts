@@ -3,6 +3,7 @@ import { isMessageId } from "@devvit/shared-types/tid.js";
 import { formatDistanceToNow } from "date-fns";
 import { ControlSubSettings, getControlSubSettings } from "./settings.js";
 import { CONTROL_SUBREDDIT } from "./constants.js";
+import json2md from "json2md";
 
 export async function checkUptimeAndMessages (_: unknown, context: JobContext) {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
@@ -132,13 +133,17 @@ async function checkMessages (settings: ControlSubSettings, context: JobContext)
             continue;
         }
 
-        let alertMessage = `Uh-oh! ${context.appName} has a message from Reddit Admin in the inbox, sent at ${message.created.toUTCString()}.\n\n`;
-        alertMessage += "> " + message.body.split("\n").join("\n> ");
-        if (alertMessage.length > 2000) {
-            alertMessage = alertMessage.substring(0, 1997) + "...";
+        const alertMessage: json2md.DataObject[] = [
+            { p: `Uh-oh! ${context.appName} has a message from Reddit Admin in the inbox, sent at ${message.created.toUTCString()}.` },
+            { blockquote: message.body },
+        ];
+
+        let markdown = json2md(alertMessage);
+        if (markdown.length > 2000) {
+            markdown = markdown.substring(0, 1997) + "...";
         }
         console.log(alertMessage);
-        await sendMessageToWebhook(webhookUrl, alertMessage);
+        await sendMessageToWebhook(webhookUrl, markdown);
         console.log(`Sent message to webhook for ${message.id}.`);
     }
 }
