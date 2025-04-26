@@ -12,14 +12,20 @@ function getBansKey (date: Date) {
     return `digest:bans:${format(date, `yyyy-MM-dd`)}`;
 }
 
+function getUnbansKey (date: Date) {
+    return `digest:unbans:${format(date, `yyyy-MM-dd`)}`;
+}
+
 export async function sendDailyDigest (_: unknown, context: JobContext) {
     const yesterday = subDays(new Date(), 1);
     const reportsKey = getReportsKey(yesterday);
-    const bansKey = getBansKey(subDays(new Date(), 1));
+    const bansKey = getBansKey(yesterday);
+    const unbansKey = getUnbansKey(yesterday);
 
     const reportsSet = await context.redis.hGetAll(reportsKey);
     const reports = Object.entries(reportsSet).map(([username, type]) => ({ username, type }));
     const bans = await context.redis.zRange(bansKey, 0, -1);
+    const unbans = await context.redis.zRange(unbansKey, 0, -1);
 
     const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
     const featureEnabled = await context.settings.get<boolean>(AppSetting.DailyDigest);
@@ -54,6 +60,13 @@ export async function sendDailyDigest (_: unknown, context: JobContext) {
             message.push({ ul: bans.map(ban => `/u/${ban.member}`) });
         }
 
+        if (unbans.length === 0) {
+            message.push({ p: `No new unbans were processed by Bot Bouncer on /r/${subredditName} yesterday.` });
+        } else {
+            message.push({ p: `The following users were unbanned on /r/${subredditName} yesterday:` });
+            message.push({ ul: unbans.map(unban => `/u/${unban.member}`) });
+        }
+
         message.push({ p: `If you no longer want to receive these notifications, you can turn them off on the [app configuration page](https://developers.reddit.com/r/${subredditName}/apps/${context.appName}).` });
 
         promises.push(context.reddit.modMail.createModInboxConversation({
@@ -66,6 +79,7 @@ export async function sendDailyDigest (_: unknown, context: JobContext) {
     promises.push(
         context.redis.del(reportsKey),
         context.redis.del(bansKey),
+        context.redis.del(unbansKey),
     );
 
     await Promise.all(promises);
@@ -79,6 +93,12 @@ export async function recordReportForDigest (username: string, type: "automatica
 
 export async function recordBanForDigest (username: string, context: TriggerContext | JobContext) {
     const key = getBansKey(new Date());
+    await context.redis.zAdd(key, { member: username, score: new Date().getTime() });
+    await context.redis.expire(key, 60 * 60 * 24 * 2);
+}
+
+export async function recordUnbanForDigest (username: string, context: TriggerContext | JobContext) {
+    const key = getUnbansKey(new Date());
     await context.redis.zAdd(key, { member: username, score: new Date().getTime() });
     await context.redis.expire(key, 60 * 60 * 24 * 2);
 }

@@ -7,7 +7,7 @@ import { AppSetting, CONFIGURATION_DEFAULTS } from "./settings.js";
 import { isBanned, replaceAll } from "./utility.js";
 import { ClientSubredditJob } from "./constants.js";
 import { fromPairs } from "lodash";
-import { recordBanForDigest, removeRecordOfBanForDigest } from "./modmail/dailyDigest.js";
+import { recordBanForDigest, recordUnbanForDigest, removeRecordOfBanForDigest } from "./modmail/dailyDigest.js";
 
 const UNBAN_WHITELIST = "UnbanWhitelist";
 const BAN_STORE = "BanStore";
@@ -22,6 +22,7 @@ export async function removeRecordOfBan (username: string, context: TriggerConte
     await Promise.all([
         context.redis.zRem(BAN_STORE, [username]),
         removeRecordOfBanForDigest(username, context),
+        recordUnbanForDigest(username, context),
     ]);
     console.log(`Removed record of ban for ${username}`);
 }

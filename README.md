@@ -53,6 +53,7 @@ Note: The current release is v1.9.1.
 
 * Reduce false positives on one evaluator
 * Remove "bot mentions" feature due to low numbers of bot detections
+* Daily digest now includes details of users who were unbanned
 * Internal changes to support operations on /r/BotBouncer
 
 ## v1.9.1
