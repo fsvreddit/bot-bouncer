@@ -1,9 +1,10 @@
 import { AppInstall, AppUpgrade } from "@devvit/protos";
 import { TriggerContext } from "@devvit/public-api";
-import { CLEANUP_JOB_CRON, ClientSubredditJob, CONTROL_SUBREDDIT, ControlSubredditJob, EXTERNAL_SUBMISSION_JOB_CRON, UniversalJob } from "./constants.js";
+import { CLEANUP_JOB_CRON, ClientSubredditJob, CONTROL_SUBREDDIT, ControlSubredditJob, POST_CREATION_JOB_CRON, UniversalJob } from "./constants.js";
 import { scheduleAdhocCleanup } from "./cleanup.js";
 import { handleExternalSubmissionsPageUpdate } from "./externalSubmissions.js";
 import { removeRetiredEvaluatorsFromStats } from "./userEvaluation/evaluatorHelpers.js";
+import { schedulePostCreation } from "./postCreation.js";
 
 export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, context: TriggerContext) {
     console.log("App Install: Detected an app install or update event");
@@ -62,8 +63,8 @@ async function addControlSubredditJobs (context: TriggerContext) {
         }),
 
         context.scheduler.runJob({
-            name: ControlSubredditJob.ExternalSubmission,
-            cron: EXTERNAL_SUBMISSION_JOB_CRON,
+            name: ControlSubredditJob.AsyncPostCreation,
+            cron: POST_CREATION_JOB_CRON,
         }),
 
         context.scheduler.runJob({
@@ -80,6 +81,7 @@ async function addControlSubredditJobs (context: TriggerContext) {
     await Promise.all([
         handleExternalSubmissionsPageUpdate(context),
         removeRetiredEvaluatorsFromStats(context),
+        schedulePostCreation(context),
     ]);
 
     console.log("App Install: Control subreddit jobs added");

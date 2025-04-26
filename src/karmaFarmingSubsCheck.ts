@@ -7,7 +7,7 @@ import { evaluateUserAccount, USER_EVALUATION_RESULTS_KEY, userHasContinuousNSFW
 import { getControlSubSettings } from "./settings.js";
 import { addMinutes, addSeconds } from "date-fns";
 import { getUserExtended } from "./extendedDevvit.js";
-import { createNewSubmission } from "./postCreation.js";
+import { AsyncSubmission, queuePostCreation } from "./postCreation.js";
 import pluralize from "pluralize";
 import json2md from "json2md";
 
@@ -91,20 +91,19 @@ async function evaluateAndHandleUser (username: string, variables: Record<string
         trackingPostId: "",
     };
 
-    const newPost = await createNewSubmission(user, newDetails, context);
+    const submission: AsyncSubmission = {
+        user,
+        details: newDetails,
+        commentToAdd: json2md([
+            { p: "This user was detected automatically through proactive bot hunting activity." },
+            { p: `*I am a bot, and this action was performed automatically. Please [contact the moderators of this subreddit](/message/compose/?to=/r/${CONTROL_SUBREDDIT}) if you have any questions or concerns.*` },
+        ]),
+        immediate: false,
+    };
 
-    const body: json2md.DataObject[] = [
-        { p: "This user was detected automatically through proactive bot hunting activity." },
-        { p: `*I am a bot, and this action was performed automatically. Please [contact the moderators of this subreddit](/message/compose/?to=/r/${CONTROL_SUBREDDIT}) if you have any questions or concerns.*` },
-    ];
+    await queuePostCreation(submission, context, true);
 
-    if (hasContinuousNSFWHistory) {
-        await context.reddit.report(newPost, { reason: "User has continuous NSFW history, so needs manual checking." });
-    }
-
-    await newPost.addComment({ text: json2md(body) });
-
-    console.log(`Karma Farming Subs: Banned ${username}`);
+    console.log(`Karma Farming Subs: Queued post creation for ${username}`);
 
     const evaluationResultsToStore = evaluationResults.filter(result => result.canAutoBan);
     if (evaluationResultsToStore.length > 0) {
@@ -147,7 +146,7 @@ export async function evaluateKarmaFarmingSubs (_: unknown, context: JobContext)
         console.log(`Karma Farming Subs: Found ${accounts.length} ${pluralize("account", accounts.length)} to evaluate, filtered ${filteredCount} ${pluralize("account", filteredCount)} already known to Bot Bouncer`);
         await context.scheduler.runJob({
             name: ControlSubredditJob.EvaluateKarmaFarmingSubs,
-            runAt: new Date(),
+            runAt: addSeconds(new Date(), 5),
         });
         return;
     }
@@ -183,7 +182,7 @@ export async function evaluateKarmaFarmingSubs (_: unknown, context: JobContext)
 
     if (accounts.length > 0) {
         console.log(`Karma Farming Subs: ${processed} checked, ${accounts.length} ${pluralize("account", accounts.length)} remaining to evaluate`);
-        const nextRunSeconds = userBanned ? 30 : 0;
+        const nextRunSeconds = userBanned ? 5 : 0;
         await context.scheduler.runJob({
             name: ControlSubredditJob.EvaluateKarmaFarmingSubs,
             runAt: addSeconds(new Date(), nextRunSeconds),

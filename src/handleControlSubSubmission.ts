@@ -1,11 +1,11 @@
 import { TriggerContext } from "@devvit/public-api";
 import { PostCreate } from "@devvit/protos";
-import { CONTROL_SUBREDDIT, ControlSubredditJob } from "./constants.js";
+import { CONTROL_SUBREDDIT } from "./constants.js";
 import { getUsernameFromUrl, isModerator } from "./utility.js";
 import { getUserStatus, UserDetails, UserStatus } from "./dataStore.js";
 import { subMonths } from "date-fns";
 import { getControlSubSettings } from "./settings.js";
-import { createNewSubmission } from "./postCreation.js";
+import { AsyncSubmission, queuePostCreation } from "./postCreation.js";
 import { getUserExtended, UserExtended } from "./extendedDevvit.js";
 import json2md from "json2md";
 
@@ -108,24 +108,23 @@ export async function handleControlSubSubmission (event: PostCreate, context: Tr
                 trackingPostId: "",
             };
 
-            const newPost = await createNewSubmission(user, newDetails, context);
-
-            console.log(`Created new post for ${username}`);
-
-            submissionResponse.push(
-                { p: "Hi, thanks for your submission" },
-                { p: `The post tracking ${user.username} can be found [here](${newPost.permalink}).` },
-                { p: `Your post has been removed, and can be deleted.` },
-            );
-
-            await context.scheduler.runJob({
-                name: ControlSubredditJob.EvaluateUser,
-                runAt: new Date(),
-                data: {
-                    username: user.username,
-                    postId: newPost.id,
+            const submission: AsyncSubmission = {
+                user,
+                details: newDetails,
+                callback: {
+                    postId: event.post.id,
+                    comment: json2md([
+                        { p: "Hi, thanks for your submission" },
+                        { p: `The post tracking ${user.username} can be found [here]({{permalink}}).` },
+                        { p: `Your post has been removed, and can be deleted.` },
+                    ]),
                 },
-            });
+                immediate: true,
+            };
+
+            await queuePostCreation(submission, context, true);
+
+            console.log(`Queued post creation for ${username}`);
         }
     }
 

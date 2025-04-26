@@ -56,7 +56,7 @@ export async function handleModmail (event: ModMail, context: TriggerContext) {
         const addAllMatches = addAllRegex.exec(currentMessage.bodyMarkdown);
         if (context.subredditName === CONTROL_SUBREDDIT && addAllMatches && addAllMatches.length === 2) {
             const status = addAllMatches[1] === "banned" ? UserStatus.Banned : UserStatus.Pending;
-            await addAllUsersFromModmail(event.conversationId, status, context);
+            await addAllUsersFromModmail(event.conversationId, currentMessage.author?.name, status, context);
             return;
         }
     }

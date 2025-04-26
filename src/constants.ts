@@ -30,13 +30,13 @@ export enum UniversalJob {
 export enum ControlSubredditJob {
     UpdateWikiPage = "updateWikiPage",
     EvaluateUser = "evaluateUser",
-    ExternalSubmission = "externalSubmission",
     UpdateStatisticsPage = "updateStatisticsPage",
     EvaluateKarmaFarmingSubs = "evaluateKarmaFarmingSubs",
     CopyControlSubSettings = "copyControlSubSettings",
     UptimeAndMessageCheck = "uptimeAndMessageCheck",
     BioTextAnalyser = "bioTextAnalyser",
-    ScheduleAdhocExternalSubmissionJobAsync = "scheduleAdhocExternalSubmissionJobAsync",
+    AsyncPostCreation = "asyncPostCreation",
+    AsyncPostCreationSchedule = "asyncPostCreationSchedule",
 }
 
 /**
@@ -54,4 +54,4 @@ export enum ClientSubredditJob {
  * Job crons
  */
 export const CLEANUP_JOB_CRON = "0 6 * * *";
-export const EXTERNAL_SUBMISSION_JOB_CRON = "17 * * * *";
+export const POST_CREATION_JOB_CRON = "17 * * * *";

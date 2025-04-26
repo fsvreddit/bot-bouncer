@@ -7,8 +7,8 @@ import { getSubstitutedText } from "./substitutions.js";
 import pluralize from "pluralize";
 import { getUserStatus, UserStatus } from "../dataStore.js";
 import { evaluateUserAccount } from "../handleControlSubAccountEvaluation.js";
-import { addExternalSubmissionsToQueue, ExternalSubmission } from "../externalSubmissions.js";
 import json2md from "json2md";
+import { AsyncSubmission, queuePostCreation, schedulePostCreation } from "../postCreation.js";
 
 interface UserBioText {
     username: string;
@@ -179,7 +179,7 @@ export async function analyseBioText (_: unknown, context: JobContext) {
     }
 }
 
-export async function addAllUsersFromModmail (conversationId: string, initialStatus: UserStatus, context: TriggerContext) {
+export async function addAllUsersFromModmail (conversationId: string, submitter: string | undefined, initialStatus: UserStatus, context: TriggerContext) {
     const bioTextUserKey = `biotextusers~${conversationId}`;
     const bioTextUsers = await context.redis.get(bioTextUserKey);
     const usersToAdd: string[] = [];
@@ -203,13 +203,28 @@ export async function addAllUsersFromModmail (conversationId: string, initialSta
         return;
     };
 
-    const accountsToSubmit: ExternalSubmission[] = usersToAdd.map(username => ({
-        username,
-        initialStatus,
-        reportContext: "User with similar bio text to other users",
-    }));
+    for (const username of usersToAdd) {
+        const user = await getUserExtended(username, context);
+        if (!user) {
+            continue;
+        }
 
-    await addExternalSubmissionsToQueue(accountsToSubmit, context);
+        const submission: AsyncSubmission = {
+            user,
+            details: {
+                userStatus: initialStatus,
+                lastUpdate: new Date().getTime(),
+                submitter,
+                operator: context.appName,
+                trackingPostId: "",
+                reportedAt: new Date().getTime(),
+            },
+            immediate: false,
+        };
+
+        await queuePostCreation(submission, context, false);
+    }
+    await schedulePostCreation(context);
 
     await context.reddit.modMail.reply({
         conversationId,
