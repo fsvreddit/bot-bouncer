@@ -52,6 +52,7 @@ Note: The current release is v1.9.1.
 ## Next
 
 * Reduce false positives on one evaluator
+* Remove "bot mentions" feature due to low numbers of bot detections
 * Internal changes to support operations on /r/BotBouncer
 
 ## v1.9.1
