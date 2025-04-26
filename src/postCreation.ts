@@ -5,6 +5,7 @@ import { UserExtended } from "./extendedDevvit.js";
 import { addSeconds } from "date-fns";
 import { CronExpressionParser } from "cron-parser";
 import { getControlSubSettings } from "./settings.js";
+import pluralize from "pluralize";
 
 // This is only exported for unit testing purposes.
 export const statusToFlair: Record<UserStatus, PostFlairTemplate> = {
@@ -166,7 +167,8 @@ export async function processQueuedSubmission (_: unknown, context: JobContext) 
     await context.redis.hDel(SUBMISSION_DETAILS, [firstSubmission.member]);
 
     if (queuedSubmissions.length > 1) {
-        console.log("Post Creation: There are more submissions in the queue, rescheduling the job.");
+        const queuedCount = await context.redis.zCard(SUBMISSION_QUEUE);
+        console.log(`Post Creation: ${queuedCount} ${pluralize("submission", queuedCount)} remain in the queue, rescheduling the job.`);
         // There are more submissions in the queue, so we need to reschedule the job.
         await schedulePostCreation(context, 20);
     }
