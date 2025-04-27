@@ -15,7 +15,7 @@ import { handleClassificationChanges } from "./handleClientSubredditWikiUpdate.j
 import { handleControlSubPostDelete } from "./handleControlSubPostDelete.js";
 import { updateEvaluatorVariablesFromWikiHandler } from "./userEvaluation/evaluatorVariables.js";
 import { evaluateKarmaFarmingSubs } from "./karmaFarmingSubsCheck.js";
-import { handleControlSubForm } from "./handleControlSubMenu.js";
+import { handleControlSubForm, sendQueryToSubmitter } from "./handleControlSubMenu.js";
 import { checkForUpdates } from "./upgradeNotifier.js";
 import { sendDailyDigest } from "./modmail/dailyDigest.js";
 import { updateStatisticsPages } from "./statistics/allStatistics.js";
@@ -105,6 +105,18 @@ export const reportForm = Devvit.createForm({
 }, reportFormHandler);
 
 export const controlSubForm = Devvit.createForm(data => ({ title: data.title as string, description: data.description as string, fields: data.fields as FormField[] }), handleControlSubForm);
+
+export const controlSubQuerySubmissionForm = Devvit.createForm({
+    fields: [
+        {
+            type: "paragraph",
+            label: "Additional text to include in modmail to submitter",
+            placeholder: "This doesn't look like a bot to me, but maybe you can see something we didn't!",
+            name: "querySubmissionText",
+            lineHeight: 4,
+        },
+    ],
+}, sendQueryToSubmitter);
 
 /**
  * Jobs that run on all subreddits
