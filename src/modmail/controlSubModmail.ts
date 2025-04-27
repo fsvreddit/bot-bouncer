@@ -4,7 +4,7 @@ import { getSummaryForUser } from "../UserSummary/userSummary.js";
 import { getUserOrUndefined } from "../utility.js";
 import { CONFIGURATION_DEFAULTS, getControlSubSettings } from "../settings.js";
 import { handleBulkSubmission } from "./bulkSubmission.js";
-import { addDays, format } from "date-fns";
+import { addDays } from "date-fns";
 import json2md from "json2md";
 
 export async function handleControlSubredditModmail (username: string, conversationId: string, isFirstMessage: boolean, message: string | undefined, context: TriggerContext): Promise<boolean> {
@@ -54,21 +54,6 @@ async function handleModmailFromUser (username: string, conversationId: string, 
         if (userSummary) {
             message.push(userSummary);
         }
-    }
-
-    const modmailDataForUser = await context.reddit.modMail.getUserConversations(conversationId);
-    const conversations = Object.values(modmailDataForUser.recentConvos)
-        .filter(conversation => conversation.id !== conversationId)
-        .filter(conversation => conversation.date && conversation.subject && conversation.permalink);
-
-    if (conversations.length > 0) {
-        message.push({ p: "Recent modmails from user:" });
-        message.push({
-            table: {
-                headers: ["Date", "Link to Message"],
-                rows: conversations.map(conversation => [conversation.date ? format(conversation.date, "yyyy-MM-dd") : "unknown", `[${conversation.subject}](${conversation.permalink})`]),
-            },
-        });
     }
 
     await context.reddit.modMail.reply({
