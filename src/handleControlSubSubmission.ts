@@ -122,7 +122,7 @@ export async function handleControlSubSubmission (event: PostCreate, context: Tr
                 immediate: true,
             };
 
-            await queuePostCreation(submission, context, true);
+            await queuePostCreation(submission, context);
 
             console.log(`Queued post creation for ${username}`);
         }

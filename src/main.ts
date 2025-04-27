@@ -21,7 +21,7 @@ import { sendDailyDigest } from "./modmail/dailyDigest.js";
 import { updateStatisticsPages } from "./statistics/allStatistics.js";
 import { checkUptimeAndMessages } from "./uptimeMonitor.js";
 import { analyseBioText } from "./similarBioTextFinder/bioTextFinder.js";
-import { processQueuedSubmission, schedulePostCreationAsync } from "./postCreation.js";
+import { processQueuedSubmission } from "./postCreation.js";
 
 Devvit.addSettings(appSettings);
 
@@ -137,11 +137,6 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: ControlSubredditJob.AsyncPostCreation,
     onRun: processQueuedSubmission,
-});
-
-Devvit.addSchedulerJob({
-    name: ControlSubredditJob.AsyncPostCreationSchedule,
-    onRun: schedulePostCreationAsync,
 });
 
 Devvit.addSchedulerJob({

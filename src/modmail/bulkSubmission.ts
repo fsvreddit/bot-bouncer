@@ -4,9 +4,10 @@ import { getUserStatus, UserStatus } from "../dataStore.js";
 import { countBy, uniq } from "lodash";
 import { subMonths } from "date-fns";
 import json2md from "json2md";
-import { AsyncSubmission, queuePostCreation, schedulePostCreation } from "../postCreation.js";
+import { AsyncSubmission, queuePostCreation } from "../postCreation.js";
 import { getUserExtended, UserExtended } from "../extendedDevvit.js";
 import { CONTROL_SUBREDDIT } from "../constants.js";
+import pluralize from "pluralize";
 
 interface BulkSubmission {
     usernames: string[];
@@ -111,7 +112,7 @@ export async function handleBulkSubmission (submitter: string, trusted: boolean,
             immediate: false,
         };
 
-        queuePromises.push(queuePostCreation(submission, context, false));
+        queuePromises.push(queuePostCreation(submission, context));
         queued++;
     }
 
@@ -120,7 +121,7 @@ export async function handleBulkSubmission (submitter: string, trusted: boolean,
     await context.reddit.modMail.archiveConversation(conversationId);
 
     if (queued > 0) {
-        await schedulePostCreation(context);
+        console.log(`Bulk submission: Queued ${queued} ${pluralize("user", queued)} for submission.`);
     }
 
     return true;

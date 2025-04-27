@@ -56,7 +56,7 @@ async function getDistinctAccounts (context: JobContext): Promise<string[]> {
     return uniq(results.flat());
 }
 
-async function evaluateAndHandleUser (username: string, variables: Record<string, JSONValue>, context: JobContext): Promise<boolean> {
+async function evaluateAndHandleUser (username: string, variables: Record<string, JSONValue>, context: JobContext) {
     const userStatus = await getUserStatus(username, context);
     if (userStatus) {
         return false;
@@ -65,22 +65,22 @@ async function evaluateAndHandleUser (username: string, variables: Record<string
     const evaluationResults = await evaluateUserAccount(username, variables, context, false);
 
     if (evaluationResults.length === 0) {
-        return false;
+        return;
     }
 
     if (evaluationResults.every(item => !item.metThreshold)) {
-        return false;
+        return;
     }
 
     if (!evaluationResults.some(item => item.canAutoBan)) {
-        return false;
+        return;
     }
 
     const hasContinuousNSFWHistory = await userHasContinuousNSFWHistory(username, context);
 
     const user = await getUserExtended(username, context);
     if (!user) {
-        return false;
+        return;
     }
 
     const newDetails: UserDetails = {
@@ -101,7 +101,7 @@ async function evaluateAndHandleUser (username: string, variables: Record<string
         immediate: false,
     };
 
-    await queuePostCreation(submission, context, true);
+    await queuePostCreation(submission, context);
 
     console.log(`Karma Farming Subs: Queued post creation for ${username}`);
 
@@ -109,8 +109,6 @@ async function evaluateAndHandleUser (username: string, variables: Record<string
     if (evaluationResultsToStore.length > 0) {
         await context.redis.hSet(USER_EVALUATION_RESULTS_KEY, { [username]: JSON.stringify(evaluationResultsToStore) });
     }
-
-    return true;
 }
 
 export async function evaluateKarmaFarmingSubs (_: unknown, context: JobContext) {
@@ -155,7 +153,6 @@ export async function evaluateKarmaFarmingSubs (_: unknown, context: JobContext)
     await context.redis.set(sweepInProgressKey, new Date().getTime().toString(), { expiration: addMinutes(new Date(), 5) });
 
     let processed = 0;
-    let userBanned = false;
 
     const variables = await getEvaluatorVariables(context);
 
@@ -168,12 +165,7 @@ export async function evaluateKarmaFarmingSubs (_: unknown, context: JobContext)
         processed++;
 
         try {
-            userBanned = await evaluateAndHandleUser(username, variables, context);
-            if (userBanned) {
-                // Only let one user be banned per run to avoid rate limiting
-                await context.redis.hDel(accountsQueuedKey, [username]);
-                break;
-            }
+            await evaluateAndHandleUser(username, variables, context);
         } catch (error) {
             console.error(`Karma Farming Subs: Error evaluating ${username}: ${error}`);
         }
@@ -182,10 +174,9 @@ export async function evaluateKarmaFarmingSubs (_: unknown, context: JobContext)
 
     if (accounts.length > 0) {
         console.log(`Karma Farming Subs: ${processed} checked, ${accounts.length} ${pluralize("account", accounts.length)} remaining to evaluate`);
-        const nextRunSeconds = userBanned ? 5 : 0;
         await context.scheduler.runJob({
             name: ControlSubredditJob.EvaluateKarmaFarmingSubs,
-            runAt: addSeconds(new Date(), nextRunSeconds),
+            runAt: new Date(),
         });
     } else {
         await context.redis.del(sweepInProgressKey);

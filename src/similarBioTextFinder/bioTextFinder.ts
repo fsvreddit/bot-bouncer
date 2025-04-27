@@ -8,7 +8,7 @@ import pluralize from "pluralize";
 import { getUserStatus, UserStatus } from "../dataStore.js";
 import { evaluateUserAccount } from "../handleControlSubAccountEvaluation.js";
 import json2md from "json2md";
-import { AsyncSubmission, queuePostCreation, schedulePostCreation } from "../postCreation.js";
+import { AsyncSubmission, queuePostCreation } from "../postCreation.js";
 
 interface UserBioText {
     username: string;
@@ -222,9 +222,8 @@ export async function addAllUsersFromModmail (conversationId: string, submitter:
             immediate: false,
         };
 
-        await queuePostCreation(submission, context, false);
+        await queuePostCreation(submission, context);
     }
-    await schedulePostCreation(context);
 
     await context.reddit.modMail.reply({
         conversationId,

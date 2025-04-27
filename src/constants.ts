@@ -36,7 +36,6 @@ export enum ControlSubredditJob {
     UptimeAndMessageCheck = "uptimeAndMessageCheck",
     BioTextAnalyser = "bioTextAnalyser",
     AsyncPostCreation = "asyncPostCreation",
-    AsyncPostCreationSchedule = "asyncPostCreationSchedule",
 }
 
 /**
@@ -54,4 +53,3 @@ export enum ClientSubredditJob {
  * Job crons
  */
 export const CLEANUP_JOB_CRON = "0 6 * * *";
-export const POST_CREATION_JOB_CRON = "17 * * * *";

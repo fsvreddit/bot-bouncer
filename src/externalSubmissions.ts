@@ -6,7 +6,7 @@ import Ajv, { JSONSchemaType } from "ajv";
 import { addMinutes } from "date-fns";
 import { getPostOrCommentById } from "./utility.js";
 import { isLinkId } from "@devvit/shared-types/tid.js";
-import { AsyncSubmission, queuePostCreation, schedulePostCreation } from "./postCreation.js";
+import { AsyncSubmission, queuePostCreation } from "./postCreation.js";
 import pluralize from "pluralize";
 import { getUserExtended } from "./extendedDevvit.js";
 import { EvaluationResult, USER_EVALUATION_RESULTS_KEY } from "./handleControlSubAccountEvaluation.js";
@@ -95,7 +95,7 @@ export async function addExternalSubmissionFromClientSub (data: ExternalSubmissi
     });
 }
 
-async function addExternalSubmissionsToPostCreationQueue (items: ExternalSubmission[], context: TriggerContext, scheduleJob = true) {
+async function addExternalSubmissionsToPostCreationQueue (items: ExternalSubmission[], context: TriggerContext) {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
         throw new Error("This function can only be called from the control subreddit.");
     }
@@ -155,7 +155,7 @@ async function addExternalSubmissionsToPostCreationQueue (items: ExternalSubmiss
             removeComment: item.publicContext === false,
         };
 
-        await queuePostCreation(submission, context, false);
+        await queuePostCreation(submission, context);
         console.log(`External Submissions: Queued post creation for ${item.username}`);
 
         if (item.evaluatorName) {
@@ -167,10 +167,6 @@ async function addExternalSubmissionsToPostCreationQueue (items: ExternalSubmiss
             } as EvaluationResult;
             await context.redis.hSet(USER_EVALUATION_RESULTS_KEY, { [item.username]: JSON.stringify([evaluationResult]) });
         }
-    }
-
-    if (scheduleJob) {
-        await schedulePostCreation(context);
     }
 }
 
@@ -199,7 +195,7 @@ export async function handleExternalSubmissionsPageUpdate (context: TriggerConte
         return;
     }
 
-    await addExternalSubmissionsToPostCreationQueue(currentSubmissionList, context, true);
+    await addExternalSubmissionsToPostCreationQueue(currentSubmissionList, context);
 
     // Resave.
     await context.reddit.updateWikiPage({
