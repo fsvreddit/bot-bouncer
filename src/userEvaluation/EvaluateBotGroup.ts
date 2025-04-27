@@ -2,7 +2,7 @@ import { Comment, Post } from "@devvit/public-api";
 import { CommentCreate } from "@devvit/protos";
 import { UserEvaluatorBase } from "./UserEvaluatorBase.js";
 import { UserExtended } from "../extendedDevvit.js";
-import markdownEscape from "markdown-escape";
+import { endOfDay, parse } from "date-fns";
 
 interface BotGroup {
     name: string;
@@ -17,8 +17,61 @@ export class EvaluateBotGroup extends UserEvaluatorBase {
     override shortname = "botgroup";
     override banContentThreshold = 1;
 
-    private getBotGroups (): BotGroup[] {
-        const keys = this.var
+    public getBotGroups (): BotGroup[] {
+        const results: BotGroup[] = [];
+        const variables = this.getAllVariables("group");
+        const groups = Object.entries(variables).map(([key, value]) => ({ key, group: value as Record<string, unknown> }));
+        for (const { key, group } of groups) {
+            const name = group.name as string | undefined;
+            const dateFrom = group.dateFrom as string | undefined;
+            const dateTo = group.dateTo as string | undefined;
+            const subreddits = group.subreddits as string[] | undefined;
+            const usernameRegex = group.usernameRegex as string | undefined;
+
+            if (!name || !dateFrom || !dateTo || !usernameRegex) {
+                throw new Error(`Bot group ${key} is missing required fields. Mandatory fields are name, dateFrom, dateTo, and usernameRegex.`);
+            }
+
+            const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+            if (!dateRegex.test(dateFrom)) {
+                throw new Error(`Invalid date format for dateFrom in bot group ${key}. Expected format is YYYY-MM-DD.`);
+            }
+            if (!dateRegex.test(dateTo)) {
+                throw new Error(`Invalid date format for dateTo in bot group ${key}. Expected format is YYYY-MM-DD.`);
+            }
+
+            try {
+                new RegExp(usernameRegex);
+            } catch {
+                throw new Error(`Invalid regex for usernameRegex in bot group ${key}.`);
+            }
+
+            try {
+                results.push({
+                    name,
+                    usernameRegex: new RegExp(usernameRegex),
+                    dateFrom: parse(dateFrom, "yyyy-MM-dd", new Date()),
+                    dateTo: endOfDay(parse(dateTo, "yyyy-MM-dd", new Date())),
+                    subreddits,
+                });
+            } catch (error) {
+                throw new Error(`Error parsing bot group ${key}: ${error}`);
+            }
+        }
+
+        return results;
+    }
+
+    override validateVariables (): string[] {
+        try {
+            this.getBotGroups();
+            return [];
+        } catch (error) {
+            if (error instanceof Error) {
+                return [`Error parsing bot groups: ${error.message}`];
+            }
+            return [`Error parsing bot groups: ${error}`];
+        }
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -26,55 +79,29 @@ export class EvaluateBotGroup extends UserEvaluatorBase {
         return false;
     }
 
-    private getBioText () {
-        const bannableBioText = this.getVariable<string[]>("bantext", []);
-        const reportableBioText = this.getVariable<string[]>("reporttext", []);
-        return { bannableBioText, reportableBioText };
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    override preEvaluatePost (_: Post): boolean {
-        const { bannableBioText, reportableBioText } = this.getBioText();
-
-        return bannableBioText.length > 0 || reportableBioText.length > 0;
+    override preEvaluatePost (post: Post): boolean {
+        const botGroups = this.getBotGroups();
+        return botGroups.some(group => group.subreddits?.some(subreddit => subreddit === post.subredditName));
     }
 
     override preEvaluateUser (user: UserExtended): boolean {
-        const { bannableBioText, reportableBioText } = this.getBioText();
-
-        if (bannableBioText.length === 0 && reportableBioText.length === 0) {
-            return false;
-        }
-
-        if (user.commentKarma > 2000 || user.linkKarma > 2000) {
-            return false;
-        }
-
-        const problematicBioText = [...bannableBioText, ...reportableBioText];
-
-        return problematicBioText.some(bioText => user.userDescription && new RegExp(bioText, "u").test(user.userDescription));
+        const botGroups = this.getBotGroups();
+        return botGroups.some(group => group.usernameRegex.test(user.username) && user.createdAt > group.dateFrom && user.createdAt < group.dateTo);
     }
 
     override evaluate (user: UserExtended, history: (Post | Comment)[]): boolean {
-        const { bannableBioText, reportableBioText } = this.getBioText();
+        const botGroups = this.getBotGroups();
+        const matchedGroup = botGroups.find(group => group.usernameRegex.test(user.username)
+            && user.createdAt > group.dateFrom
+            && user.createdAt < group.dateTo
+            && (!group.subreddits || history.some(item => group.subreddits?.some(subreddit => subreddit === item.subredditName))));
 
-        if (bannableBioText.length === 0 && reportableBioText.length === 0) {
+        if (!matchedGroup) {
+            this.setReason("User does not match any bot group");
             return false;
         }
 
-        const bannableBioTextFound = bannableBioText.find(bio => user.userDescription && new RegExp(bio, "u").test(user.userDescription));
-        const reportableBioTextFound = reportableBioText.find(bio => user.userDescription && new RegExp(bio, "u").test(user.userDescription));
-
-        if (bannableBioTextFound) {
-            this.canAutoBan = true;
-            this.hitReason = `Bio text matched regex: ${markdownEscape(bannableBioTextFound)}`;
-        } else if (reportableBioTextFound) {
-            this.canAutoBan = false;
-            this.hitReason = `Bio text matched regex: ${markdownEscape(reportableBioTextFound)}`;
-        } else {
-            return false;
-        }
-
-        return user.nsfw || this.getPosts(history).some(post => post.isNsfw());
+        this.hitReason = `User matches bot group ${matchedGroup.name}`;
+        return true;
     }
 }

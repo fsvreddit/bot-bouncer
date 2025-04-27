@@ -4,6 +4,7 @@ import { parseAllDocuments } from "yaml";
 import { uniq } from "lodash";
 import { replaceAll } from "../utility.js";
 import json2md from "json2md";
+import { ALL_EVALUATORS } from "./allEvaluators.js";
 
 const EVALUATOR_VARIABLES_KEY = "evaluatorVariables";
 const EVALUATOR_VARIABLES_YAML_PAGE = "evaluator-config";
@@ -219,6 +220,15 @@ export function invalidEvaluatorVariableCondition (variables: Record<string, JSO
             if (distinctTypes.length > 1) {
                 results.push(`Inconsistent types for ${key} which may be a result of an undoubled single quote: ${distinctTypes.join(", ")}`);
             }
+        }
+    }
+
+    // Now check evaluator-specific validators
+    for (const Evaluator of ALL_EVALUATORS) {
+        const evaluator = new Evaluator({} as unknown as TriggerContext, variables);
+        const errors = evaluator.validateVariables();
+        if (errors.length > 0) {
+            results.push(`Evaluator ${evaluator.shortname} has the following errors: ${errors.join(", ")}`);
         }
     }
 

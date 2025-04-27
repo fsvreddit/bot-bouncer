@@ -83,3 +83,21 @@ test("Regex with badly formed array", () => {
     const result = invalidEvaluatorVariableCondition(variables);
     expect(result.length).toBe(1);
 });
+
+test("Bot Groups test", () => {
+    const yaml = `
+name: botgroup
+killswitch: false
+
+group1:
+    name: AccidentalSlapstick Group
+    dateFrom: 2022-05-01
+    dateTo: 2022-05-02
+    usernameRegex: '^(?:[A-Z][a-z]+){2}$'
+    subreddits:
+        - AccidentalSlapstick
+`;
+    const variables = yamlToVariables(yaml);
+    const results = invalidEvaluatorVariableCondition(variables);
+    expect(results.length).toBe(0);
+});
