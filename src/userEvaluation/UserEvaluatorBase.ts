@@ -1,5 +1,5 @@
 import { CommentCreate, CommentUpdate } from "@devvit/protos";
-import { Comment, Post, TriggerContext } from "@devvit/public-api";
+import { Comment, JSONValue, Post, TriggerContext } from "@devvit/public-api";
 import { UserExtended } from "../extendedDevvit.js";
 import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
 
@@ -35,6 +35,11 @@ export abstract class UserEvaluatorBase {
 
     public evaluatorDisabled () {
         return this.getVariable<boolean>("killswitch", false);
+    }
+
+    protected getAllVariables (root?: string): Record<string, JSONValue> {
+        const result: Record<string, JSONValue> = {};
+
     }
 
     protected getVariable<Type> (name: string, defaultValue: Type): Type {
