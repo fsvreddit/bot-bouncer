@@ -40,6 +40,10 @@ export class EvaluateBotGroup extends UserEvaluatorBase {
                 throw new Error(`Invalid date format for dateTo in bot group ${key}. Expected format is YYYY-MM-DD.`);
             }
 
+            if (dateFrom > dateTo) {
+                throw new Error(`dateFrom cannot be after dateTo in bot group ${key}.`);
+            }
+
             try {
                 new RegExp(usernameRegex);
             } catch {
