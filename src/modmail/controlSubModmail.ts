@@ -56,7 +56,7 @@ async function handleModmailFromUser (username: string, conversationId: string, 
         }
     }
 
-    const modmailDataForUser = await context.reddit.modMail.getUserConversations(username);
+    const modmailDataForUser = await context.reddit.modMail.getUserConversations(conversationId);
     const conversations = Object.values(modmailDataForUser.recentConvos)
         .filter(conversation => conversation.id !== conversationId)
         .filter(conversation => conversation.date && conversation.subject && conversation.permalink);
