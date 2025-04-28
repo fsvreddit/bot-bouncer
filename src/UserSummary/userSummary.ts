@@ -214,8 +214,10 @@ function getHighCountDomains (history: Post[] | Comment[]): string {
 }
 
 export async function getSummaryForUser (username: string, source: "modmail" | "submission", context: TriggerContext): Promise<json2md.DataObject[] | undefined> {
-    const user = await getUserOrUndefined(username, context);
-    const extendedUser = await getUserExtended(username, context);
+    const [user, extendedUser] = await Promise.all([
+        getUserOrUndefined(username, context),
+        getUserExtended(username, context),
+    ]);
 
     if (!user || !extendedUser) {
         console.log(`User Summary: User ${username} is already shadowbanned or suspended, so summary will not be created.`);
@@ -254,34 +256,6 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
         }
     }
 
-    let userComments: Comment[];
-    let userPosts: Post[];
-
-    try {
-        [userComments, userPosts] = await Promise.all([
-            context.reddit.getCommentsByUser({
-                username,
-                sort: "new",
-                limit: 100,
-            }).all(),
-            context.reddit.getPostsByUser({
-                username,
-                sort: "new",
-                limit: 100,
-            }).all(),
-        ]);
-    } catch {
-        console.log(`User Summary: Error retrieving user history for ${username}. User may have been shadowbanned while account was being processed.`);
-        return;
-    }
-
-    const potentiallyBlocking = await isUserPotentiallyBlockingBot([...userComments, ...userPosts], context);
-    if (potentiallyBlocking) {
-        accountPropsBullets.push("User is potentially blocking bot u/bot-bouncer (their visible history only shows subs where app is installed)");
-    } else {
-        accountPropsBullets.push("User is not blocking u/bot-bouncer");
-    }
-
     const userHasGold = extendedUser.isGold;
     if (userHasGold) {
         accountPropsBullets.push("User has Reddit Premium");
@@ -301,6 +275,50 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
         summary.push({ ul: accountPropsBullets });
     } else {
         summary.push({ ul: accountPropsBullets });
+    }
+
+    let userComments: Comment[] | undefined;
+    let userPosts: Post[] | undefined;
+
+    try {
+        [userComments, userPosts] = await Promise.all([
+            context.reddit.getCommentsByUser({
+                username,
+                sort: "new",
+                limit: 100,
+            }).all(),
+            context.reddit.getPostsByUser({
+                username,
+                sort: "new",
+                limit: 100,
+            }).all(),
+        ]);
+    } catch {
+        if (source === "modmail") {
+            const initialEvaluatorsMatched = await getAccountInitialEvaluationResults(username, context);
+            summary.push({ p: `At the point of initial evaluation, user matched ${initialEvaluatorsMatched.length} ${pluralize("evaluator", initialEvaluatorsMatched.length)}` });
+
+            const hitsRows = initialEvaluatorsMatched.map((evaluator) => {
+                let row = `${evaluator.botName} matched`;
+                if (evaluator.hitReason) {
+                    row += `: ${evaluator.hitReason}`;
+                }
+                return row;
+            });
+
+            summary.push({ ul: hitsRows });
+        }
+
+        summary.push({ h2: "User Activity" });
+        summary.push({ p: "An error occurred when fetching user activity. This may be due to the user being shadowbanned or suspended, or due to a Reddit bug that prevents some posts from being retrieved by the Dev Platform." });
+        return summary;
+    }
+
+    const potentiallyBlocking = await isUserPotentiallyBlockingBot([...userComments, ...userPosts], context);
+    if (potentiallyBlocking) {
+        accountPropsBullets.push("User is potentially blocking bot u/bot-bouncer (their visible history only shows subs where app is installed)");
+    } else {
+        accountPropsBullets.push("User is not blocking u/bot-bouncer");
     }
 
     if (source === "modmail") {
