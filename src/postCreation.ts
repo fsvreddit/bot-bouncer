@@ -108,7 +108,7 @@ export async function queuePostCreation (submission: AsyncSubmission, context: T
 }
 
 export async function processQueuedSubmission (_: unknown, context: JobContext) {
-    const queuedSubmissions = await context.redis.zRange(SUBMISSION_QUEUE, 0, 1);
+    const queuedSubmissions = await context.redis.zRange(SUBMISSION_QUEUE, 0, -1);
     if (queuedSubmissions.length === 0) {
         return;
     }
@@ -125,7 +125,6 @@ export async function processQueuedSubmission (_: unknown, context: JobContext) 
     await context.redis.hDel(SUBMISSION_DETAILS, [firstSubmission.member]);
 
     if (queuedSubmissions.length > 1) {
-        const queuedCount = await context.redis.zCard(SUBMISSION_QUEUE);
-        console.log(`Post Creation: ${queuedCount} ${pluralize("submission", queuedCount)} still in the queue.`);
+        console.log(`Post Creation: ${queuedSubmissions.length - 1} ${pluralize("submission", queuedSubmissions.length - 1)} still in the queue.`);
     }
 }
