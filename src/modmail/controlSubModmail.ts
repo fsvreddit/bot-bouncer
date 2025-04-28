@@ -20,6 +20,39 @@ export async function handleControlSubredditModmail (username: string, conversat
     }
 }
 
+export function markdownToText (markdown: json2md.DataObject[], limit = 10000): string[] {
+    const text = json2md(markdown);
+    if (text.length < limit) {
+        return [text];
+    }
+
+    const workingMarkdown = [...markdown];
+
+    // Split the markdown into chunks that fit within the limit
+    const chunks: string[] = [];
+    const currentChunkMarkdown: json2md.DataObject[] = [];
+    while (workingMarkdown.length > 0) {
+        const firstElement = workingMarkdown.shift();
+        if (!firstElement) {
+            // Impossible, but satisfy the TypeScript compiler
+            break;
+        }
+        const text = json2md([...currentChunkMarkdown, firstElement]);
+        if (text.length > limit) {
+            chunks.push(json2md(currentChunkMarkdown));
+            currentChunkMarkdown.length = 0; // Clear the current chunk
+        }
+        currentChunkMarkdown.push(firstElement);
+    }
+
+    // Add the last chunk if it exists
+    if (currentChunkMarkdown.length > 0) {
+        chunks.push(json2md(currentChunkMarkdown));
+    }
+
+    return chunks;
+}
+
 async function handleModmailFromUser (username: string, conversationId: string, context: TriggerContext): Promise<boolean> {
     const currentStatus = await getUserStatus(username, context);
 
@@ -56,11 +89,15 @@ async function handleModmailFromUser (username: string, conversationId: string, 
         }
     }
 
-    await context.reddit.modMail.reply({
-        body: json2md(message),
-        conversationId,
-        isInternal: true,
-    });
+    const modmailStrings = markdownToText(message);
+
+    for (const string of modmailStrings) {
+        await context.reddit.modMail.reply({
+            body: string,
+            conversationId,
+            isInternal: true,
+        });
+    }
 
     if (currentStatus.userStatus !== UserStatus.Banned && currentStatus.userStatus !== UserStatus.Purged) {
         // User is not banned or purged, so we should not send the "Appeal Received" message.

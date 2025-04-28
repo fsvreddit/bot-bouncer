@@ -277,8 +277,8 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
         summary.push({ ul: accountPropsBullets });
     }
 
-    let userComments: Comment[] | undefined;
-    let userPosts: Post[] | undefined;
+    let userComments: Comment[];
+    let userPosts: Post[];
 
     try {
         [userComments, userPosts] = await Promise.all([
