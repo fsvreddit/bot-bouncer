@@ -28,7 +28,7 @@ export class EvaluateBotGroup extends UserEvaluatorBase {
             const subreddits = group.subreddits as string[] | undefined;
             const usernameRegex = group.usernameRegex as string | undefined;
 
-            if (!name || !dateFrom || !dateTo || !usernameRegex) {
+            if (!name || !dateFrom || !usernameRegex) {
                 throw new Error(`Bot group ${key} is missing required fields. Mandatory fields are name, dateFrom, dateTo, and usernameRegex.`);
             }
 
@@ -36,11 +36,12 @@ export class EvaluateBotGroup extends UserEvaluatorBase {
             if (!dateRegex.test(dateFrom)) {
                 throw new Error(`Invalid date format for dateFrom in bot group ${key}. Expected format is YYYY-MM-DD.`);
             }
-            if (!dateRegex.test(dateTo)) {
+
+            if (dateTo && !dateRegex.test(dateTo)) {
                 throw new Error(`Invalid date format for dateTo in bot group ${key}. Expected format is YYYY-MM-DD.`);
             }
 
-            if (dateFrom > dateTo) {
+            if (dateTo && dateFrom > dateTo) {
                 throw new Error(`dateFrom cannot be after dateTo in bot group ${key}.`);
             }
 
@@ -55,7 +56,7 @@ export class EvaluateBotGroup extends UserEvaluatorBase {
                     name,
                     usernameRegex: new RegExp(usernameRegex),
                     dateFrom: parse(dateFrom, "yyyy-MM-dd", new Date()),
-                    dateTo: endOfDay(parse(dateTo, "yyyy-MM-dd", new Date())),
+                    dateTo: dateTo ? endOfDay(parse(dateTo, "yyyy-MM-dd", new Date())) : new Date(),
                     subreddits,
                 });
             } catch (error) {
