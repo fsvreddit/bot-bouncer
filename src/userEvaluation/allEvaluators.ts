@@ -15,7 +15,6 @@ import { EvaluateBioText } from "./EvaluateBioText.js";
 import { EvaluateObfuscatedBioKeywords } from "./EvaluateObfuscatedBioKeywords.js";
 import { EvaluateSocialLinks } from "./EvaluateSocialLinks.js";
 import { EvaluateSuspiciousFirstPost } from "./EvaluateSuspiciousFirstPost.js";
-import { EvaluateSecretLinksBot } from "./EvaluateSecretLinksBot.js";
 import { EvaluateEditedComment } from "./EvaluateEditedComment.js";
 import { EvaluateInconsistentAgeBot } from "./EvaluateInconsistentAgeBot.js";
 import { EvaluateShortTlcNew } from "./EvaluateShortTlcNew.js";
@@ -47,7 +46,6 @@ export const ALL_EVALUATORS = [
     EvaluateObfuscatedBioKeywords,
     EvaluateSocialLinks,
     EvaluateSuspiciousFirstPost,
-    EvaluateSecretLinksBot,
     EvaluateEditedComment,
     EvaluateInconsistentAgeBot,
     EvaluateInconsistentGenderBot,
