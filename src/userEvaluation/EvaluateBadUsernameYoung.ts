@@ -16,10 +16,10 @@ export class EvaluateBadUsernameYoung extends EvaluateBadUsername {
         const contentInConfiguredSubreddits = subList.filter(subredditName => history.some(item => item.subredditName === subredditName));
         if (contentInConfiguredSubreddits.length === 0) {
             this.setReason("User has no content in configured subreddits");
-            return true;
+            return false;
         }
 
-        this.hitReason = `User has content in configured subreddits: ${contentInConfiguredSubreddits.join(", ")}`;
+        this.hitReason = this.hitReason ? this.hitReason + ", " : "" + `User has content in configured subreddits: ${contentInConfiguredSubreddits.join(", ")}`;
         return true;
     }
 }
