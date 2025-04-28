@@ -14,7 +14,7 @@ export class EvaluateBadUsernameYoung extends EvaluateBadUsername {
 
         const subList = this.getVariable<string[]>("sublist", []);
         const contentInConfiguredSubreddits = subList.filter(subredditName => history.some(item => item.subredditName === subredditName));
-        if (contentInConfiguredSubreddits.length > 0) {
+        if (contentInConfiguredSubreddits.length === 0) {
             this.setReason("User has no content in configured subreddits");
             return true;
         }
