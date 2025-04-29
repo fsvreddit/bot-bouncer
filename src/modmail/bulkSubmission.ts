@@ -73,13 +73,13 @@ export async function handleBulkSubmission (submitter: string, trusted: boolean,
     for (const username of uniq(data.usernames)) {
         const user = await getUserExtended(username, context);
         if (!user) {
-            console.error(`Bulk submission: User ${username} is deleted or shadowbanned, skipping.`);
+            console.log(`Bulk submission: User ${username} is deleted or shadowbanned, skipping.`);
             continue;
         }
 
         const currentStatus = await getUserStatus(username, context);
         if (currentStatus) {
-            console.error(`Bulk submission: User ${username} already has a status of ${currentStatus.userStatus}.`);
+            console.log(`Bulk submission: User ${username} already has a status of ${currentStatus.userStatus}.`);
             continue;
         }
 

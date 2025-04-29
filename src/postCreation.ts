@@ -36,7 +36,7 @@ export interface AsyncSubmission {
 async function createNewSubmission (submission: AsyncSubmission, context: TriggerContext) {
     const currentStatus = await getUserStatus(submission.user.username, context);
     if (currentStatus) {
-        console.error(`Post Creation: User ${submission.user.username} already has a status of ${currentStatus.userStatus}.`);
+        console.log(`Post Creation: User ${submission.user.username} already has a status of ${currentStatus.userStatus}.`);
         return;
     }
 
@@ -91,13 +91,13 @@ async function createNewSubmission (submission: AsyncSubmission, context: Trigge
 export async function queuePostCreation (submission: AsyncSubmission, context: TriggerContext) {
     const currentStatus = await getUserStatus(submission.user.username, context);
     if (currentStatus) {
-        console.error(`Post Creation: User ${submission.user.username} already has a status of ${currentStatus.userStatus}.`);
+        console.log(`Post Creation: User ${submission.user.username} already has a status of ${currentStatus.userStatus}.`);
         return;
     }
 
     const alreadyInQueue = await context.redis.zScore(SUBMISSION_QUEUE, submission.user.username);
     if (alreadyInQueue) {
-        console.error(`Post Creation: User ${submission.user.username} is already in the queue.`);
+        console.log(`Post Creation: User ${submission.user.username} is already in the queue.`);
         return;
     }
 

@@ -20,7 +20,7 @@ export async function handleControlSubredditModmail (username: string, conversat
     }
 }
 
-export function markdownToText (markdown: json2md.DataObject[], limit = 10000): string[] {
+export function markdownToText (markdown: json2md.DataObject[], limit = 9500): string[] {
     const text = json2md(markdown);
     if (text.length < limit) {
         return [text];
@@ -30,7 +30,7 @@ export function markdownToText (markdown: json2md.DataObject[], limit = 10000): 
 
     // Split the markdown into chunks that fit within the limit
     const chunks: string[] = [];
-    const currentChunkMarkdown: json2md.DataObject[] = [];
+    let currentChunkMarkdown: json2md.DataObject[] = [];
     while (workingMarkdown.length > 0) {
         const firstElement = workingMarkdown.shift();
         if (!firstElement) {
@@ -40,7 +40,7 @@ export function markdownToText (markdown: json2md.DataObject[], limit = 10000): 
         const text = json2md([...currentChunkMarkdown, firstElement]);
         if (text.length > limit) {
             chunks.push(json2md(currentChunkMarkdown));
-            currentChunkMarkdown.length = 0; // Clear the current chunk
+            currentChunkMarkdown = []; // Clear the current chunk
         }
         currentChunkMarkdown.push(firstElement);
     }
