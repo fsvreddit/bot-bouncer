@@ -100,7 +100,7 @@ async function isReschedulePausedForUser (username: string, context: TriggerCont
 
 export async function writeUserStatus (username: string, details: UserDetails, context: TriggerContext) {
     let isStale = false;
-    if (details.mostRecentActivity && new Date(details.mostRecentActivity) < subWeeks(new Date(), 4)) {
+    if (details.mostRecentActivity && new Date(details.mostRecentActivity) < subWeeks(new Date(), 3)) {
         isStale = true;
     }
 
@@ -267,6 +267,10 @@ function compactDataForWiki (input: string): string | undefined {
     // eslint-disable-next-line @typescript-eslint/no-deprecated
     delete status.recentCommentSubs;
     delete status.mostRecentActivity;
+
+    if (status.userStatus !== UserStatus.Banned) {
+        status.trackingPostId = "";
+    }
 
     return JSON.stringify(status);
 }
