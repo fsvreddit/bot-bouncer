@@ -48,8 +48,3 @@ export enum ClientSubredditJob {
     UpgradeNotifier = "upgradeNotifier",
     SendDailyDigest = "sendDailyDigest",
 }
-
-/**
- * Job crons
- */
-export const CLEANUP_JOB_CRON = "0 6 * * *";

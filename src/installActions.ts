@@ -1,7 +1,6 @@
 import { AppInstall, AppUpgrade } from "@devvit/protos";
 import { TriggerContext } from "@devvit/public-api";
-import { CLEANUP_JOB_CRON, ClientSubredditJob, CONTROL_SUBREDDIT, ControlSubredditJob, UniversalJob } from "./constants.js";
-import { scheduleAdhocCleanup } from "./cleanup.js";
+import { ClientSubredditJob, CONTROL_SUBREDDIT, ControlSubredditJob, UniversalJob } from "./constants.js";
 import { handleExternalSubmissionsPageUpdate } from "./externalSubmissions.js";
 import { removeRetiredEvaluatorsFromStats } from "./userEvaluation/evaluatorHelpers.js";
 
@@ -16,13 +15,6 @@ export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, contex
     } else {
         await addClientSubredditJobs(context);
     }
-
-    await context.scheduler.runJob({
-        name: UniversalJob.Cleanup,
-        cron: CLEANUP_JOB_CRON,
-    });
-
-    await scheduleAdhocCleanup(context);
 
     await checkJobsAreApplicable(context);
 
@@ -75,6 +67,11 @@ async function addControlSubredditJobs (context: TriggerContext) {
             name: ControlSubredditJob.BioTextAnalyser,
             cron: "29 1/6 * * *",
         }),
+
+        context.scheduler.runJob({
+            name: UniversalJob.Cleanup,
+            cron: "1/5 * * * *", // every 5 minutes
+        }),
     ]);
 
     await Promise.all([
@@ -122,6 +119,12 @@ async function addClientSubredditJobs (context: TriggerContext) {
         cron: `${randomMinute} 0 * * *`,
     });
 
+    randomMinute = Math.floor(Math.random() * 60);
+    await context.scheduler.runJob({
+        name: UniversalJob.Cleanup,
+        cron: `${randomMinute} 0/2 * * *`, // Every two hours
+    });
+
     console.log("App Install: Client subreddit jobs added");
 }
 
@@ -142,5 +145,9 @@ async function checkJobsAreApplicable (context: TriggerContext) {
 
     for (const job of badJobs) {
         console.error(`App Install: Job ${job.name} is not applicable to this subreddit!`);
+    }
+
+    if (!allJobs.some(job => job.name === UniversalJob.Cleanup as string)) {
+        console.error("App Install: Cleanup job is not configured on this subreddit!");
     }
 }

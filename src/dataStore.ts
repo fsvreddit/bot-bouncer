@@ -1,9 +1,9 @@
 import { JobContext, TriggerContext, WikiPagePermissionLevel, WikiPage, CreateModNoteOptions } from "@devvit/public-api";
 import { compact, max, toPairs, uniq } from "lodash";
 import pako from "pako";
-import { scheduleAdhocCleanup, setCleanupForSubmittersAndMods, setCleanupForUser } from "./cleanup.js";
+import { setCleanupForSubmittersAndMods, setCleanupForUser } from "./cleanup.js";
 import { ClientSubredditJob, CONTROL_SUBREDDIT } from "./constants.js";
-import { addHours, addMinutes, addSeconds, addWeeks, startOfSecond, subDays, subHours, subWeeks } from "date-fns";
+import { addHours, addSeconds, addWeeks, startOfSecond, subDays, subHours, subWeeks } from "date-fns";
 import pluralize from "pluralize";
 import { getControlSubSettings } from "./settings.js";
 import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
@@ -88,16 +88,6 @@ async function addModNote (options: CreateModNoteOptions, context: TriggerContex
     }
 }
 
-export async function pauseRescheduleForUser (username: string, context: TriggerContext) {
-    const redisKey = `pauseRescheduleForUser:${username}`;
-    await context.redis.set(redisKey, "true", { expiration: addMinutes(new Date(), 1) });
-}
-
-async function isReschedulePausedForUser (username: string, context: TriggerContext) {
-    const redisKey = `pauseRescheduleForUser:${username}`;
-    return await context.redis.exists(redisKey);
-}
-
 export async function writeUserStatus (username: string, details: UserDetails, context: TriggerContext) {
     let isStale = false;
     if (details.mostRecentActivity && new Date(details.mostRecentActivity) < subWeeks(new Date(), 3)) {
@@ -180,12 +170,6 @@ export async function setUserStatus (username: string, details: UserDetails, con
     }
 
     await Promise.all(promises);
-
-    const isPaused = await isReschedulePausedForUser(username, context);
-    if (isPaused) {
-        return;
-    }
-    await scheduleAdhocCleanup(context);
 }
 
 export async function deleteUserStatus (username: string, context: TriggerContext) {
