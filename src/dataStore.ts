@@ -94,7 +94,7 @@ export async function writeUserStatus (username: string, details: UserDetails, c
         isStale = true;
     }
 
-    if ((details.userStatus === UserStatus.Purged || details.userStatus === UserStatus.Retired) && details.lastUpdate < subWeeks(new Date(), 1).getTime()) {
+    if ((details.userStatus === UserStatus.Purged || details.userStatus === UserStatus.Retired) && details.lastUpdate < subDays(new Date(), 1).getTime()) {
         isStale = true;
     }
 
@@ -220,8 +220,8 @@ function compactDataForWiki (input: string): string | undefined {
         return;
     }
 
-    // Exclude entries for users marked as "purged" after a week
-    if (status.userStatus === UserStatus.Purged && status.lastUpdate < subWeeks(new Date(), 1).getTime()) {
+    // Exclude entries for users marked as "purged" or "retired" after an hour
+    if ((status.userStatus === UserStatus.Purged || status.userStatus === UserStatus.Retired) && status.lastUpdate < subHours(new Date(), 1).getTime()) {
         return;
     }
 
