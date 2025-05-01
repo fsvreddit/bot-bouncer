@@ -2,9 +2,10 @@ import { JobContext, JSONObject, JSONValue, ScheduledJobEvent, TriggerContext, W
 import { CONTROL_SUBREDDIT } from "../constants.js";
 import { parseAllDocuments } from "yaml";
 import { uniq } from "lodash";
-import { replaceAll } from "../utility.js";
+import { replaceAll, sendMessageToWebhook } from "../utility.js";
 import json2md from "json2md";
 import { ALL_EVALUATORS } from "./allEvaluators.js";
+import { getControlSubSettings } from "../settings.js";
 
 const EVALUATOR_VARIABLES_KEY = "evaluatorVariables";
 const EVALUATOR_VARIABLES_YAML_PAGE = "evaluator-config";
@@ -115,11 +116,27 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
                 { ul: invalidEntries },
             ];
 
+            let messageBody = json2md(body);
+            if (messageBody.length > 10000) {
+                messageBody = messageBody.substring(0, 9997) + "...";
+            }
+
+            const username = event.data.username as string;
             await context.reddit.sendPrivateMessage({
                 subject: "Problem with evaluator variables config after edit",
-                to: event.data.username as string,
-                text: json2md(body),
+                to: username,
+                text: messageBody,
             });
+
+            const controlSubSettings = await getControlSubSettings(context);
+            if (controlSubSettings.monitoringWebhook) {
+                const message: json2md.DataObject[] = [
+                    { p: `${username} has updated the evaluator config, but there's an error! Please check and correct as soon as possible` },
+                    { p: "Falling back on known good values." },
+                ];
+
+                await sendMessageToWebhook(controlSubSettings.monitoringWebhook, json2md(message));
+            }
 
             return;
         }
