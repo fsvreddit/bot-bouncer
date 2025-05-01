@@ -4,7 +4,7 @@ import { addMonths } from "date-fns";
 import { CONTROL_SUBREDDIT } from "../constants.js";
 import { getSummaryForUser } from "../UserSummary/userSummary.js";
 import { handleClientSubredditModmail } from "./clientSubModmail.js";
-import { handleControlSubredditModmail } from "./controlSubModmail.js";
+import { handleControlSubredditModmail, markdownToText } from "./controlSubModmail.js";
 import { dataExtract } from "./dataExtract.js";
 import { addAllUsersFromModmail } from "../similarBioTextFinder/bioTextFinder.js";
 import { UserStatus } from "../dataStore.js";
@@ -99,9 +99,13 @@ async function addSummaryForUser (conversationId: string, username: string, cont
     ];
     const messageText = userSummary ?? shadowbannedSummary;
 
-    await context.reddit.modMail.reply({
-        body: json2md(messageText),
-        conversationId,
-        isInternal: true,
-    });
+    const modmailStrings = markdownToText(messageText);
+
+    for (const string of modmailStrings) {
+        await context.reddit.modMail.reply({
+            body: string,
+            conversationId,
+            isInternal: true,
+        });
+    }
 }

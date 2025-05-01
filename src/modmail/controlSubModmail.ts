@@ -26,6 +26,8 @@ export function markdownToText (markdown: json2md.DataObject[], limit = 9500): s
         return [text];
     }
 
+    console.log(`Markdown to text conversion: ${text.length} > ${limit}`);
+
     const workingMarkdown = [...markdown];
 
     // Split the markdown into chunks that fit within the limit
@@ -40,6 +42,7 @@ export function markdownToText (markdown: json2md.DataObject[], limit = 9500): s
         const text = json2md([...currentChunkMarkdown, firstElement]);
         if (text.length > limit) {
             chunks.push(json2md(currentChunkMarkdown));
+            console.log(`Markdown to text conversion: ${text.length} > ${limit}, chunk size: ${currentChunkMarkdown.length}`);
             currentChunkMarkdown = []; // Clear the current chunk
         }
         currentChunkMarkdown.push(firstElement);
