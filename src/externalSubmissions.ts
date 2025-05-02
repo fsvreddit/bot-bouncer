@@ -3,7 +3,7 @@ import { CONTROL_SUBREDDIT } from "./constants.js";
 import { getUserStatus, setUserStatus, UserStatus } from "./dataStore.js";
 import { getControlSubSettings } from "./settings.js";
 import Ajv, { JSONSchemaType } from "ajv";
-import { addMinutes } from "date-fns";
+import { addDays, addMinutes } from "date-fns";
 import { getPostOrCommentById } from "./utility.js";
 import { isLinkId } from "@devvit/shared-types/tid.js";
 import { AsyncSubmission, queuePostCreation } from "./postCreation.js";
@@ -23,6 +23,7 @@ export interface ExternalSubmission {
     initialStatus?: UserStatus;
     evaluatorName?: string;
     hitReason?: string;
+    sendFeedback?: boolean;
 };
 
 const schema: JSONSchemaType<ExternalSubmission[]> = {
@@ -38,6 +39,7 @@ const schema: JSONSchemaType<ExternalSubmission[]> = {
             initialStatus: { type: "string", nullable: true, enum: Object.values(UserStatus) },
             evaluatorName: { type: "string", nullable: true },
             hitReason: { type: "string", nullable: true },
+            sendFeedback: { type: "boolean", nullable: true },
         },
         required: ["username"],
     },
@@ -156,6 +158,9 @@ async function addExternalSubmissionsToPostCreationQueue (items: ExternalSubmiss
         };
 
         await queuePostCreation(submission, context);
+        if (item.sendFeedback) {
+            await context.redis.set(`sendFeedback:${item.username}`, "true", { expiration: addDays(new Date(), 1) });
+        }
         console.log(`External Submissions: Queued post creation for ${item.username}`);
 
         if (item.evaluatorName) {

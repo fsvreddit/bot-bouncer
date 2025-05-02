@@ -51,6 +51,7 @@ Note: The current release is v1.9.1.
 
 ## Next
 
+* Add ability for mods submitting accounts manually to receive feedback on the account's classification
 * Reduce false positives on one evaluator
 * Remove "bot mentions" feature due to low numbers of bot detections
 * Daily digest now includes details of users who were unbanned

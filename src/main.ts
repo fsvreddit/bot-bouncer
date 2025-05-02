@@ -101,6 +101,13 @@ export const reportForm = Devvit.createForm({
             defaultValue: true,
             name: "publicContext",
         },
+        {
+            type: "boolean",
+            label: "Receive a notification when this account is classified",
+            helpText: "You must have DMs enabled to receive this notification.",
+            defaultValue: false,
+            name: "sendFeedback",
+        },
     ],
 }, reportFormHandler);
 
