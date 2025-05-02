@@ -181,9 +181,12 @@ export async function cleanupDeletedAccounts (_: unknown, context: JobContext) {
                 await writeUserStatus(username, currentStatus, context);
             }
 
-            // Recheck suspended users every day for the first week, then normal cadence after.
+            // Recheck suspended users every day for the first week
             if (new Date(currentStatus.lastUpdate) > subDays(new Date(), 8)) {
                 overrideCleanupDate = addDays(new Date(), 1);
+            } else if (new Date(currentStatus.lastUpdate) < subDays(new Date(), 28)) {
+                // If the user has been suspended for more than 28 days, set the cleanup date to 28 days from now.
+                overrideCleanupDate = addDays(new Date(), 28);
             }
         }
 
