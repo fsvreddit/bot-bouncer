@@ -90,7 +90,7 @@ async function sendFeedback (username: string, submitter: string, operator: stri
     const automaticText = operator === context.appName ? "automatically" : "manually";
     const message: json2md.DataObject[] = [
         { p: `Hi ${submitter}, you recently submitted /u/${username} to /r/${CONTROL_SUBREDDIT}.` },
-        { p: `The bot has been classified ${automaticText} as **${userStatus}**.` },
+        { p: `The account has been classified ${automaticText} as **${userStatus}**.` },
     ];
 
     if (userStatus in statusToExplanation) {
