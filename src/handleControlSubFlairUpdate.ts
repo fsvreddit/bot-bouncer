@@ -100,7 +100,7 @@ async function sendFeedback (username: string, submitter: string, operator: stri
     message.push({ p: "This status may change in the future if we receive more information or if the user questions their classification." });
 
     if (userStatus === UserStatus.Organic || userStatus === UserStatus.Declined || userStatus === UserStatus.Service) {
-        message.push({ p: `If you have any more information to help us understand why this may be a harmful or disruptive bot, please [message /r/${CONTROL_SUBREDDIT}](https://www.reddit.com/message/compose?to=/r/${CONTROL_SUBREDDIT}&subject=More%20information%20about%20/u/${username}` });
+        message.push({ p: `If you have any more information to help us understand why this may be a harmful or disruptive bot, please [message /r/${CONTROL_SUBREDDIT}](https://www.reddit.com/message/compose?to=/r/${CONTROL_SUBREDDIT}&subject=More%20information%20about%20/u/${username})` });
     }
 
     message.push({ p: "*Please do not reply to this message, replies will not be read. If you have any questions please contact /r/BotBouncer by modmail*" });
