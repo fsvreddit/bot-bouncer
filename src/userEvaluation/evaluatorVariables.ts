@@ -97,7 +97,7 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
     }
 
     const lastRevision = await context.redis.get(EVALUATOR_VARIABLES_LAST_REVISION_KEY);
-    if (lastRevision === wikiPage.revisionId) {
+    if (lastRevision === wikiPage.revisionId || event.data?.username === context.appName) {
         return;
     }
 
@@ -122,21 +122,16 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
             }
 
             const username = event.data.username as string;
+            const controlSubSettings = await getControlSubSettings(context);
+            if (controlSubSettings.monitoringWebhook) {
+                await sendMessageToWebhook(controlSubSettings.monitoringWebhook, `${username} has updated the evaluator config, but there's an error! Please check and correct as soon as possible. Falling back on known good values.`);
+            }
+
             await context.reddit.sendPrivateMessage({
                 subject: "Problem with evaluator variables config after edit",
                 to: username,
                 text: messageBody,
             });
-
-            const controlSubSettings = await getControlSubSettings(context);
-            if (controlSubSettings.monitoringWebhook) {
-                const message: json2md.DataObject[] = [
-                    { p: `${username} has updated the evaluator config, but there's an error! Please check and correct as soon as possible` },
-                    { p: "Falling back on known good values." },
-                ];
-
-                await sendMessageToWebhook(controlSubSettings.monitoringWebhook, json2md(message));
-            }
 
             return;
         }
