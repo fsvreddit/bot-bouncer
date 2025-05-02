@@ -77,14 +77,14 @@ export async function handleControlSubFlairUpdate (event: PostFlairUpdate, conte
 
 async function sendFeedback (username: string, submitter: string, operator: string, userStatus: UserStatus, context: TriggerContext) {
     const statusToExplanation: Record<UserStatus, string> = {
-        [UserStatus.Organic]: "This means that the account is likely to be a human run account rather than a bot.",
-        [UserStatus.Banned]: "This means that the account has been classified as a bot and will be banned from any subreddit using Bot Bouncer.",
-        [UserStatus.Declined]: "This means that the account is potentially problematic, but there is not enough information to definitively classify it as a bot.",
-        [UserStatus.Service]: "This means that the account is considered a bot, but performs a useful function such as moderation or is invoked explicitly by users.",
-        [UserStatus.Retired]: "This means that the account was deleted, suspended or shadowbanned before it could be classified by a human moderator.",
-        [UserStatus.Purged]: "This means that the account was deleted, suspended or shadowbanned after it was classified as a bot.",
-        [UserStatus.Inactive]: "This means that the account has no recent activity and so has not been classified explicitly.",
-        [UserStatus.Pending]: "This means that the account is still being evaluated and has not been classified yet.",
+        [UserStatus.Organic]: "is likely to be a human run account rather than a bot.",
+        [UserStatus.Banned]: "has been classified as a bot and will be banned from any subreddit using Bot Bouncer.",
+        [UserStatus.Declined]: "is potentially problematic, but there is not enough information to definitively classify it as a bot.",
+        [UserStatus.Service]: "is considered a bot, but performs a useful function such as moderation or is invoked explicitly by users, so will not be banned automatically.",
+        [UserStatus.Retired]: "was deleted, suspended or shadowbanned before it could be classified by a human moderator.",
+        [UserStatus.Purged]: "was deleted, suspended or shadowbanned after it was classified as a bot.",
+        [UserStatus.Inactive]: "has no recent activity and so has not been classified explicitly.",
+        [UserStatus.Pending]: "is still being evaluated and has not been classified yet.",
     };
 
     const automaticText = operator === context.appName ? "automatically" : "manually";
@@ -94,7 +94,7 @@ async function sendFeedback (username: string, submitter: string, operator: stri
     ];
 
     if (userStatus in statusToExplanation) {
-        message.push({ p: statusToExplanation[userStatus] });
+        message.push({ p: `This means that the account ${statusToExplanation[userStatus]}` });
     }
 
     message.push({ p: "This status may change in the future if we receive more information or if the user questions their classification." });
