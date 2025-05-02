@@ -89,13 +89,15 @@ async function sendFeedback (username: string, submitter: string, operator: stri
 
     const automaticText = operator === context.appName ? "automatically" : "manually";
     const message: json2md.DataObject[] = [
-        { p: `Hi ${submitter}, you recently submitted /u/${username} to /r/${CONTROL_SUBREDDIT}.` },
-        { p: `The account has been classified ${automaticText} as **${userStatus}**.` },
+        { p: `Hi ${submitter}, you recently reported /u/${username} to /r/${CONTROL_SUBREDDIT}.` },
     ];
 
+    let nextLine = `The account has been classified ${automaticText} as **${userStatus}**.`;
     if (userStatus in statusToExplanation) {
-        message.push({ p: `This means that the account ${statusToExplanation[userStatus]}` });
+        nextLine += ` This means that the account ${statusToExplanation[userStatus]}`;
     }
+
+    message.push({ p: nextLine });
 
     message.push({ p: "This status may change in the future if we receive more information or if the user questions their classification." });
 
