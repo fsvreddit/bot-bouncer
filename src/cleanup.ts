@@ -1,5 +1,5 @@
 import { Comment, JobContext, Post, TriggerContext } from "@devvit/public-api";
-import { addDays, addHours, format, subDays } from "date-fns";
+import { addDays, addHours, addSeconds, format, subDays } from "date-fns";
 import { CONTROL_SUBREDDIT, PostFlairTemplate, UniversalJob } from "./constants.js";
 import { deleteUserStatus, getUserStatus, removeRecordOfSubmitterOrMod, updateAggregate, UserStatus, writeUserStatus } from "./dataStore.js";
 import { getUserOrUndefined } from "./utility.js";
@@ -199,7 +199,7 @@ export async function cleanupDeletedAccounts (_: unknown, context: JobContext) {
         // In a backlog, so force another run.
         await context.scheduler.runJob({
             name: UniversalJob.Cleanup,
-            runAt: new Date(),
+            runAt: addSeconds(new Date(), 2),
         });
     }
 }
