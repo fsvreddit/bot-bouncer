@@ -25,6 +25,7 @@ import { EvaluateAdviceBot } from "./EvaluateAdviceBot.js";
 import { EvaluateWorldTraveller } from "./EvaluateWorldTraveller.js";
 import { EvaluateBotGroup } from "./EvaluateBotGroup.js";
 import { EvaluateBadUsernameYoung } from "./EvaluateBadUsernameYoung.js";
+import { EvaluateCommentPhrase } from "./EvaluateCommentPhrase.js";
 
 export const ALL_EVALUATORS = [
     EvaluateBadUsername,
@@ -54,4 +55,5 @@ export const ALL_EVALUATORS = [
     EvaluateAdviceBot,
     EvaluateWorldTraveller,
     EvaluateBotGroup,
+    EvaluateCommentPhrase,
 ];
