@@ -184,12 +184,14 @@ export function invalidEvaluatorVariableCondition (variables: Record<string, JSO
 
     const arrayVariablesWithRegexes = [
         "badusername:regexes",
+        "badusernameyoung:regexes",
         "biotext:bantext",
         "pinnedpost:bantext",
         "pinnedpost:reporttext",
         "posttitle:bantext",
         "posttitle:reporttext",
         "zombiensfw:regexes",
+        "commentphrase:phrases",
     ];
 
     const invalidRegexes: InvalidRegex[] = [];
