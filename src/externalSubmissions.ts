@@ -24,6 +24,7 @@ export interface ExternalSubmission {
     evaluatorName?: string;
     hitReason?: string;
     sendFeedback?: boolean;
+    proactive?: boolean;
 };
 
 const schema: JSONSchemaType<ExternalSubmission[]> = {
@@ -40,6 +41,7 @@ const schema: JSONSchemaType<ExternalSubmission[]> = {
             evaluatorName: { type: "string", nullable: true },
             hitReason: { type: "string", nullable: true },
             sendFeedback: { type: "boolean", nullable: true },
+            proactive: { type: "boolean", nullable: true },
         },
         required: ["username"],
     },
@@ -127,7 +129,13 @@ async function addExternalSubmissionsToPostCreationQueue (items: ExternalSubmiss
         const initialStatus = item.initialStatus ??= item.submitter && controlSubSettings.trustedSubmitters.includes(item.submitter) ? UserStatus.Banned : UserStatus.Pending;
 
         let commentToAdd: string | undefined;
-        if (item.reportContext) {
+
+        if (item.proactive) {
+            commentToAdd = json2md([
+                { p: "This user was detected automatically through proactive bot hunting activity." },
+                { p: `*I am a bot, and this action was performed automatically. Please [contact the moderators of this subreddit](/message/compose/?to=/r/${CONTROL_SUBREDDIT}) if you have any questions or concerns.*` },
+            ]);
+        } else if (item.reportContext) {
             const body: json2md.DataObject[] = [
                 { p: "The submitter added the following context for this submission:" },
                 { blockquote: item.reportContext },
