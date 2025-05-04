@@ -1,5 +1,5 @@
 import { JobContext, TriggerContext } from "@devvit/public-api";
-import { getUserStatus, setUserStatus, UserDetails, UserStatus } from "./dataStore.js";
+import { getUserStatus, setUserStatus, storeInitialAccountProperties, UserDetails, UserStatus } from "./dataStore.js";
 import { CONTROL_SUBREDDIT, ControlSubredditJob, PostFlairTemplate } from "./constants.js";
 import { UserExtended } from "./extendedDevvit.js";
 import { addSeconds } from "date-fns";
@@ -84,6 +84,8 @@ async function createNewSubmission (submission: AsyncSubmission, context: Trigge
         });
         await newComment.distinguish(true);
     }
+
+    await storeInitialAccountProperties(submission.user.username, context);
 
     console.log(`Post Creation: Created new post for ${submission.user.username} with status ${submission.details.userStatus}.`);
 }

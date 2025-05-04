@@ -1,4 +1,4 @@
-import { JobContext, TriggerContext, WikiPagePermissionLevel, WikiPage, CreateModNoteOptions } from "@devvit/public-api";
+import { JobContext, TriggerContext, WikiPagePermissionLevel, WikiPage, CreateModNoteOptions, UserSocialLink } from "@devvit/public-api";
 import { compact, max, toPairs, uniq } from "lodash";
 import pako from "pako";
 import { setCleanupForSubmittersAndMods, setCleanupForUser } from "./cleanup.js";
@@ -10,9 +10,14 @@ import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
 import { USER_EVALUATION_RESULTS_KEY } from "./handleControlSubAccountEvaluation.js";
 import json2md from "json2md";
 import { sendMessageToWebhook } from "./utility.js";
+import { getUserExtended } from "./extendedDevvit.js";
 
 const USER_STORE = "UserStore";
 const STALE_USER_STORE = "StaleUserStore";
+
+const BIO_TEXT_STORE = "BioTextStore";
+const DISPLAY_NAME_STORE = "DisplayNameStore";
+const SOCIAL_LINKS_STORE = "SocialLinksStore";
 
 export const AGGREGATE_STORE = "AggregateStore";
 
@@ -175,10 +180,13 @@ export async function setUserStatus (username: string, details: UserDetails, con
 export async function deleteUserStatus (username: string, context: TriggerContext) {
     const currentStatus = await getUserStatus(username, context);
 
-    const promises = [
+    const promises: Promise<number>[] = [
         context.redis.hDel(USER_STORE, [username]),
         context.redis.hDel(STALE_USER_STORE, [username]),
         context.redis.hDel(USER_EVALUATION_RESULTS_KEY, [username]),
+        context.redis.hDel(BIO_TEXT_STORE, [username]),
+        context.redis.hDel(DISPLAY_NAME_STORE, [username]),
+        context.redis.hDel(SOCIAL_LINKS_STORE, [username]),
     ];
 
     if (currentStatus?.trackingPostId) {
@@ -445,4 +453,48 @@ export async function removeRecordOfSubmitterOrMod (username: string, context: T
     }
 
     console.log(`Cleanup: Removed records of ${username} as submitter or operator`);
+}
+
+export async function storeInitialAccountProperties (username: string, context: TriggerContext) {
+    const [userExtended, user] = await Promise.all([
+        getUserExtended(username, context),
+        context.reddit.getUserByUsername(username),
+    ]);
+
+    if (!userExtended || !user) {
+        return;
+    }
+
+    const promises: Promise<number>[] = [];
+    if (userExtended.userDescription) {
+        promises.push(context.redis.hSet(BIO_TEXT_STORE, { [username]: userExtended.userDescription }));
+        console.log(`Data Store: Stored bio for ${username}`);
+    }
+
+    if (userExtended.displayName && userExtended.displayName !== username && userExtended.displayName !== `u_${username}`) {
+        promises.push(context.redis.hSet(DISPLAY_NAME_STORE, { [username]: userExtended.displayName }));
+        console.log(`Data Store: Stored display name for ${username}`);
+    }
+
+    const socialLinks = await user.getSocialLinks();
+    if (socialLinks.length > 0) {
+        promises.push(context.redis.hSet(SOCIAL_LINKS_STORE, { [username]: JSON.stringify(socialLinks) }));
+        console.log(`Data Store: Stored social links for ${username}`);
+    }
+
+    await Promise.all(promises);
+}
+
+export async function getInitialAccountProperties (username: string, context: TriggerContext) {
+    const [bioText, displayName, socialLinks] = await Promise.all([
+        context.redis.hGet(BIO_TEXT_STORE, username),
+        context.redis.hGet(DISPLAY_NAME_STORE, username),
+        context.redis.hGet(SOCIAL_LINKS_STORE, username),
+    ]);
+
+    return {
+        bioText,
+        displayName,
+        socialLinks: socialLinks ? JSON.parse(socialLinks) as UserSocialLink[] : [],
+    };
 }
