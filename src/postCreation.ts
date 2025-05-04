@@ -2,7 +2,7 @@ import { JobContext, TriggerContext } from "@devvit/public-api";
 import { getUserStatus, setUserStatus, storeInitialAccountProperties, UserDetails, UserStatus } from "./dataStore.js";
 import { CONTROL_SUBREDDIT, ControlSubredditJob, PostFlairTemplate } from "./constants.js";
 import { UserExtended } from "./extendedDevvit.js";
-import { addSeconds } from "date-fns";
+import { addHours, addSeconds } from "date-fns";
 import { getControlSubSettings } from "./settings.js";
 import pluralize from "pluralize";
 
@@ -39,6 +39,13 @@ async function createNewSubmission (submission: AsyncSubmission, context: Trigge
         console.log(`Post Creation: User ${submission.user.username} already has a status of ${currentStatus.userStatus}.`);
         return;
     }
+
+    const postCreationLockKey = `postCreationLock:${submission.user.username}`;
+    if (await context.redis.exists(postCreationLockKey)) {
+        console.log(`Post Creation: User ${submission.user.username}'s lock already set.`);
+        return;
+    }
+    await context.redis.set(postCreationLockKey, "locked", { expiration: addHours(new Date(), 1) });
 
     const newPost = await context.reddit.submitPost({
         subredditName: CONTROL_SUBREDDIT,
