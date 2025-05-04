@@ -103,6 +103,7 @@ export class EvaluateDomainSharer extends UserEvaluatorBase {
             const autobanDomains = this.getVariable<string[]>("autobandomains", []);
             if (autobanDomains.some(domain => dominantDomains.some(item => item.domain === domain))) {
                 this.canAutoBan = true;
+                this.banContentThreshold = 5;
             }
             this.hitReason = `User has shared ${contentInAllowedSubs.length} posts with the same domain: ${dominantDomains.map(item => item.domain).join(", ")}`;
             return true;
