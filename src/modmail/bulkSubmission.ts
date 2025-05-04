@@ -1,7 +1,7 @@
 import { Comment, Post, TriggerContext } from "@devvit/public-api";
 import Ajv, { JSONSchemaType } from "ajv";
 import { getUserStatus, UserStatus } from "../dataStore.js";
-import { countBy, uniq } from "lodash";
+import { compact, countBy, uniq } from "lodash";
 import { subMonths } from "date-fns";
 import json2md from "json2md";
 import { AsyncSubmission, queuePostCreation } from "../postCreation.js";
@@ -31,6 +31,52 @@ const schema: JSONSchemaType<BulkSubmission> = {
     required: ["usernames"],
     additionalProperties: false,
 };
+
+async function handleBulkItem (username: string, initialStatus: UserStatus, submitter: string, reason: string | undefined, context: TriggerContext): Promise<boolean> {
+    const user = await getUserExtended(username, context);
+    if (!user) {
+        console.log(`Bulk submission: User ${username} is deleted or shadowbanned, skipping.`);
+        return false;
+    }
+
+    const currentStatus = await getUserStatus(username, context);
+    if (currentStatus) {
+        console.log(`Bulk submission: User ${username} already has a status of ${currentStatus.userStatus}.`);
+        return false;
+    }
+
+    if (initialStatus === UserStatus.Banned) {
+        const overrideStatus = await trustedSubmitterInitialStatus(user, context);
+        if (overrideStatus && initialStatus !== overrideStatus) {
+            initialStatus = overrideStatus;
+        }
+    }
+
+    let commentToAdd: string | undefined;
+    if (reason) {
+        commentToAdd = json2md([
+            { p: "The submitter added the following context for this submission:" },
+            { blockquote: reason },
+            { p: `*I am a bot, and this action was performed automatically. Please [contact the moderators of this subreddit](/message/compose/?to=/r/${CONTROL_SUBREDDIT}) if you have any questions or concerns.*` },
+        ]);
+    }
+
+    const submission: AsyncSubmission = {
+        user,
+        details: {
+            userStatus: initialStatus,
+            lastUpdate: new Date().getTime(),
+            submitter,
+            operator: context.appName,
+            trackingPostId: "",
+        },
+        commentToAdd,
+        immediate: false,
+    };
+
+    await queuePostCreation(submission, context);
+    return true;
+}
 
 export async function handleBulkSubmission (submitter: string, trusted: boolean, conversationId: string, message: string, context: TriggerContext): Promise<boolean> {
     console.log(`Bulk submission: New submission from ${submitter}`);
@@ -66,57 +112,9 @@ export async function handleBulkSubmission (submitter: string, trusted: boolean,
         return false;
     }
 
-    const queuePromises: Promise<unknown>[] = [];
-
-    let initialStatus = trusted ? UserStatus.Banned : UserStatus.Pending;
-    let queued = 0;
-    for (const username of uniq(data.usernames)) {
-        const user = await getUserExtended(username, context);
-        if (!user) {
-            console.log(`Bulk submission: User ${username} is deleted or shadowbanned, skipping.`);
-            continue;
-        }
-
-        const currentStatus = await getUserStatus(username, context);
-        if (currentStatus) {
-            console.log(`Bulk submission: User ${username} already has a status of ${currentStatus.userStatus}.`);
-            continue;
-        }
-
-        if (initialStatus === UserStatus.Banned) {
-            const overrideStatus = await trustedSubmitterInitialStatus(user, context);
-            if (overrideStatus && initialStatus !== overrideStatus) {
-                initialStatus = overrideStatus;
-            }
-        }
-
-        let commentToAdd: string | undefined;
-        if (data.reason) {
-            commentToAdd = json2md([
-                { p: "The submitter added the following context for this submission:" },
-                { blockquote: data.reason },
-                { p: `*I am a bot, and this action was performed automatically. Please [contact the moderators of this subreddit](/message/compose/?to=/r/${CONTROL_SUBREDDIT}) if you have any questions or concerns.*` },
-            ]);
-        }
-
-        const submission: AsyncSubmission = {
-            user,
-            details: {
-                userStatus: initialStatus,
-                lastUpdate: new Date().getTime(),
-                submitter,
-                operator: context.appName,
-                trackingPostId: "",
-            },
-            commentToAdd,
-            immediate: false,
-        };
-
-        queuePromises.push(queuePostCreation(submission, context));
-        queued++;
-    }
-
-    await Promise.all(queuePromises);
+    const initialStatus = trusted ? UserStatus.Banned : UserStatus.Pending;
+    const results = await Promise.all(uniq(data.usernames).map(username => handleBulkItem(username, initialStatus, submitter, data.reason, context)));
+    const queued = compact(results).length;
 
     await context.reddit.modMail.archiveConversation(conversationId);
 
