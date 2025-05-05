@@ -54,4 +54,4 @@ export enum ClientSubredditJob {
  * Job Crons
  */
 
-export const EVALUATE_KARMA_FARMING_SUBS_CRON = "1/10 * * * *"; // Every ten minutes
+export const EVALUATE_KARMA_FARMING_SUBS_CRON = "6/10 * * * *"; // Every ten minutes
