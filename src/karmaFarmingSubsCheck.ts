@@ -153,6 +153,10 @@ export async function evaluateKarmaFarmingSubs (_: unknown, context: JobContext)
     const runLimit = addSeconds(new Date(), 25);
 
     const accounts = await context.redis.hKeys(ACCOUNTS_QUEUED_KEY);
+    if (accounts.length === 0) {
+        console.log("Karma Farming Subs: No accounts to evaluate.");
+        return;
+    }
 
     let processed = 0;
 
