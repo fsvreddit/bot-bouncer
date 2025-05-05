@@ -14,7 +14,7 @@ import { handleClientCommentCreate, handleClientCommentUpdate, handleClientPostC
 import { handleClassificationChanges } from "./handleClientSubredditWikiUpdate.js";
 import { handleControlSubPostDelete } from "./handleControlSubPostDelete.js";
 import { updateEvaluatorVariablesFromWikiHandler } from "./userEvaluation/evaluatorVariables.js";
-import { evaluateKarmaFarmingSubs } from "./karmaFarmingSubsCheck.js";
+import { evaluateKarmaFarmingSubs, queueKarmaFarmingSubs } from "./karmaFarmingSubsCheck.js";
 import { handleControlSubForm, sendQueryToSubmitter } from "./handleControlSubMenu.js";
 import { checkForUpdates } from "./upgradeNotifier.js";
 import { sendDailyDigest } from "./modmail/dailyDigest.js";
@@ -161,6 +161,11 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: ControlSubredditJob.UpdateStatisticsPage,
     onRun: updateStatisticsPages,
+});
+
+Devvit.addSchedulerJob({
+    name: ControlSubredditJob.QueueKarmaFarmingSubs,
+    onRun: queueKarmaFarmingSubs,
 });
 
 Devvit.addSchedulerJob({

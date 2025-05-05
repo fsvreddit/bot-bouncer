@@ -1,15 +1,16 @@
 import { JobContext, JSONValue, Post, ZMember } from "@devvit/public-api";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { fromPairs, uniq } from "lodash";
-import { CONTROL_SUBREDDIT, ControlSubredditJob } from "./constants.js";
+import { CONTROL_SUBREDDIT, ControlSubredditJob, EVALUATE_KARMA_FARMING_SUBS_CRON } from "./constants.js";
 import { getAllKnownUsers, getUserStatus, UserDetails, UserStatus } from "./dataStore.js";
 import { evaluateUserAccount, USER_EVALUATION_RESULTS_KEY, userHasContinuousNSFWHistory } from "./handleControlSubAccountEvaluation.js";
 import { getControlSubSettings } from "./settings.js";
-import { addMinutes, addSeconds } from "date-fns";
+import { addSeconds } from "date-fns";
 import { getUserExtended } from "./extendedDevvit.js";
 import { AsyncSubmission, queuePostCreation } from "./postCreation.js";
 import pluralize from "pluralize";
 import json2md from "json2md";
+import { CronExpressionParser } from "cron-parser";
 
 const CHECK_DATE_KEY = "KarmaFarmingSubsCheckDates";
 
@@ -111,46 +112,47 @@ async function evaluateAndHandleUser (username: string, variables: Record<string
     }
 }
 
-export async function evaluateKarmaFarmingSubs (_: unknown, context: JobContext) {
-    const sweepInProgressKey = "KarmaFarmingSubsSweepInProgress";
-    const accountsQueuedKey = "KarmaFarmingSubsAccountsQueued";
+const ACCOUNTS_QUEUED_KEY = "KarmaFarmingSubsAccountsQueued";
 
+async function isEvaluationDisabled (context: JobContext): Promise<boolean> {
     const controlSubSettings = await getControlSubSettings(context);
-    if (!controlSubSettings.proactiveEvaluationEnabled || controlSubSettings.evaluationDisabled) {
+    return !controlSubSettings.proactiveEvaluationEnabled || controlSubSettings.evaluationDisabled;
+}
+
+export async function queueKarmaFarmingSubs (_: unknown, context: JobContext) {
+    if (await isEvaluationDisabled(context)) {
         console.log("Karma Farming Subs: Proactive evaluation is disabled.");
+        return;
+    }
+
+    let accounts = await getDistinctAccounts(context);
+    const initialCount = accounts.length;
+
+    // Filter out accounts already known to Bot Bouncer;
+    const knownAccounts = await getAllKnownUsers(context);
+    accounts = accounts.filter(account => !knownAccounts.includes(account));
+    const filteredCount = initialCount - accounts.length;
+
+    const accountsData = fromPairs(accounts.map(account => [account, account]));
+    await context.redis.hSet(ACCOUNTS_QUEUED_KEY, accountsData);
+    console.log(`Karma Farming Subs: Queued ${accounts.length} ${pluralize("account", accounts.length)} to evaluate, filtered ${filteredCount} ${pluralize("account", filteredCount)} already known to Bot Bouncer`);
+}
+
+export async function evaluateKarmaFarmingSubs (_: unknown, context: JobContext) {
+    if (await isEvaluationDisabled(context)) {
+        console.log("Karma Farming Subs: Proactive evaluation is disabled.");
+        return;
+    }
+
+    const nextScheduledRun = CronExpressionParser.parse(EVALUATE_KARMA_FARMING_SUBS_CRON).next().toDate();
+    if (nextScheduledRun < addSeconds(new Date(), 45)) {
+        console.log(`Karma Farming Subs: Next scheduled run is too soon, skipping this run.`);
         return;
     }
 
     const runLimit = addSeconds(new Date(), 25);
 
-    const accountsQueued = await context.redis.exists(accountsQueuedKey);
-    if (!accountsQueued) {
-        const sweepInProgress = await context.redis.exists(sweepInProgressKey);
-        if (sweepInProgress) {
-            console.log("Karma Farming Subs: Sweep already in progress. Skipping this run.");
-            return;
-        }
-
-        let accounts = await getDistinctAccounts(context);
-        const initialCount = accounts.length;
-
-        // Filter out accounts already known to Bot Bouncer;
-        const knownAccounts = await getAllKnownUsers(context);
-        accounts = accounts.filter(account => !knownAccounts.includes(account));
-        const filteredCount = initialCount - accounts.length;
-
-        const accountsData = fromPairs(accounts.map(account => [account, account]));
-        await context.redis.hSet(accountsQueuedKey, accountsData);
-        console.log(`Karma Farming Subs: Found ${accounts.length} ${pluralize("account", accounts.length)} to evaluate, filtered ${filteredCount} ${pluralize("account", filteredCount)} already known to Bot Bouncer`);
-        await context.scheduler.runJob({
-            name: ControlSubredditJob.EvaluateKarmaFarmingSubs,
-            runAt: addSeconds(new Date(), 5),
-        });
-        return;
-    }
-
-    const accounts = await context.redis.hKeys(accountsQueuedKey);
-    await context.redis.set(sweepInProgressKey, new Date().getTime().toString(), { expiration: addMinutes(new Date(), 5) });
+    const accounts = await context.redis.hKeys(ACCOUNTS_QUEUED_KEY);
 
     let processed = 0;
 
@@ -169,7 +171,7 @@ export async function evaluateKarmaFarmingSubs (_: unknown, context: JobContext)
         } catch (error) {
             console.error(`Karma Farming Subs: Error evaluating ${username}: ${error}`);
         }
-        await context.redis.hDel(accountsQueuedKey, [username]);
+        await context.redis.hDel(ACCOUNTS_QUEUED_KEY, [username]);
     }
 
     if (accounts.length > 0) {
@@ -179,8 +181,6 @@ export async function evaluateKarmaFarmingSubs (_: unknown, context: JobContext)
             runAt: new Date(),
         });
     } else {
-        await context.redis.del(sweepInProgressKey);
-        await context.redis.del(accountsQueuedKey);
         console.log(`Karma Farming Subs: Finished checking remaining ${processed} ${pluralize("account", processed)}.`);
     }
 }

@@ -32,6 +32,7 @@ export enum ControlSubredditJob {
     EvaluateUser = "evaluateUser",
     UpdateStatisticsPage = "updateStatisticsPage",
     EvaluateKarmaFarmingSubs = "evaluateKarmaFarmingSubs",
+    QueueKarmaFarmingSubs = "queueKarmaFarmingSubs",
     CopyControlSubSettings = "copyControlSubSettings",
     UptimeAndMessageCheck = "uptimeAndMessageCheck",
     BioTextAnalyser = "bioTextAnalyser",
@@ -48,3 +49,9 @@ export enum ClientSubredditJob {
     UpgradeNotifier = "upgradeNotifier",
     SendDailyDigest = "sendDailyDigest",
 }
+
+/**
+ * Job Crons
+ */
+
+export const EVALUATE_KARMA_FARMING_SUBS_CRON = "1/10 * * * *"; // Every ten minutes
