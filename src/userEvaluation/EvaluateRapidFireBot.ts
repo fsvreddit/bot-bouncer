@@ -7,6 +7,7 @@ import { UserExtended } from "../extendedDevvit.js";
 export class EvaluateRapidFireBot extends UserEvaluatorBase {
     override name = "Rapid Fire Bot";
     override shortname = "rapidfire";
+    override banContentThreshold = 5;
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     override preEvaluateComment (_: CommentCreate): boolean {
