@@ -1,7 +1,5 @@
 import { EvaluateDomainSharer } from "./EvaluateDomainSharer.js";
 import { EvaluateMixedBot } from "./EvaluateMixedBot.js";
-import { EvaluateZombie } from "./EvaluateZombie.js";
-import { EvaluateCQSTester } from "./EvaluateCQSTester.js";
 import { EvaluateFirstCommentEmDash } from "./EvaluateFirstCommentEmDash.js";
 import { EvaluateResumeSpam } from "./EvaluateResumeSpam.js";
 import { EvaluateBadUsername } from "./EvaluateBadUsername.js";
@@ -34,8 +32,6 @@ export const ALL_EVALUATORS = [
     EvaluateBioText,
     EvaluateMixedBot,
     EvaluateDomainSharer,
-    EvaluateZombie,
-    EvaluateCQSTester,
     EvaluateFirstCommentEmDash,
     EvaluateResumeSpam,
     EvaluatePinnedPostTitles,
