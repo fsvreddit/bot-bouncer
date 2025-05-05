@@ -57,6 +57,7 @@ Note: The current release is v1.9.1.
 * Daily digest now includes details of users who were unbanned
 * Add new evaluator for users with suspicious history in unrelated geosubs
 * Add new evaluator for very specific bot groups
+* Add new evaluator for rapid fire comment or post creation
 * Remove evaluators for bot types that are no longer in operation
 * Internal changes to support operations on /r/BotBouncer
 
