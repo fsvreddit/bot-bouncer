@@ -47,9 +47,7 @@ Write in to [/r/BotBouncer's modmail](https://www.reddit.com/message/compose/?to
 
 # Change History
 
-Note: The current release is v1.9.1.
-
-## Next
+## v1.10.0
 
 * Add ability for mods submitting accounts manually to receive feedback on the account's classification
 * Reduce false positives on one evaluator
