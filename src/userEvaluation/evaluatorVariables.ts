@@ -2,7 +2,10 @@ import { JobContext, JSONObject, JSONValue, ScheduledJobEvent, TriggerContext, W
 import { CONTROL_SUBREDDIT } from "../constants.js";
 import { parseAllDocuments } from "yaml";
 import { uniq } from "lodash";
-import { replaceAll } from "../utility.js";
+import { replaceAll, sendMessageToWebhook } from "../utility.js";
+import json2md from "json2md";
+import { ALL_EVALUATORS } from "./allEvaluators.js";
+import { getControlSubSettings } from "../settings.js";
 
 const EVALUATOR_VARIABLES_KEY = "evaluatorVariables";
 const EVALUATOR_VARIABLES_YAML_PAGE = "evaluator-config";
@@ -94,7 +97,7 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
     }
 
     const lastRevision = await context.redis.get(EVALUATOR_VARIABLES_LAST_REVISION_KEY);
-    if (lastRevision === wikiPage.revisionId) {
+    if (lastRevision === wikiPage.revisionId || event.data?.username === context.appName) {
         return;
     }
 
@@ -108,13 +111,26 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
         } else {
             console.error("Evaluator Variables: Invalid entries in evaluator variables", invalidEntries);
 
-            let errorMessage = `There are invalid regexes in the evaluator variables. Please check the wiki page and try again.`;
-            errorMessage += `* ${invalidEntries.join("\n* ")}`;
+            const body: json2md.DataObject[] = [
+                { p: "There are invalid regexes in the evaluator variables. Please check the wiki page and try again." },
+                { ul: invalidEntries },
+            ];
+
+            let messageBody = json2md(body);
+            if (messageBody.length > 10000) {
+                messageBody = messageBody.substring(0, 9997) + "...";
+            }
+
+            const username = event.data.username as string;
+            const controlSubSettings = await getControlSubSettings(context);
+            if (controlSubSettings.monitoringWebhook) {
+                await sendMessageToWebhook(controlSubSettings.monitoringWebhook, `${username} has updated the evaluator config, but there's an error! Please check and correct as soon as possible. Falling back on known good values.`);
+            }
 
             await context.reddit.sendPrivateMessage({
                 subject: "Problem with evaluator variables config after edit",
-                to: event.data.username as string,
-                text: errorMessage,
+                to: username,
+                text: messageBody,
             });
 
             return;
@@ -168,12 +184,14 @@ export function invalidEvaluatorVariableCondition (variables: Record<string, JSO
 
     const arrayVariablesWithRegexes = [
         "badusername:regexes",
+        "badusernameyoung:regexes",
         "biotext:bantext",
         "pinnedpost:bantext",
         "pinnedpost:reporttext",
         "posttitle:bantext",
         "posttitle:reporttext",
         "zombiensfw:regexes",
+        "commentphrase:phrases",
     ];
 
     const invalidRegexes: InvalidRegex[] = [];
@@ -216,6 +234,15 @@ export function invalidEvaluatorVariableCondition (variables: Record<string, JSO
             if (distinctTypes.length > 1) {
                 results.push(`Inconsistent types for ${key} which may be a result of an undoubled single quote: ${distinctTypes.join(", ")}`);
             }
+        }
+    }
+
+    // Now check evaluator-specific validators
+    for (const Evaluator of ALL_EVALUATORS) {
+        const evaluator = new Evaluator({} as unknown as TriggerContext, variables);
+        const errors = evaluator.validateVariables();
+        if (errors.length > 0) {
+            results.push(`Evaluator ${evaluator.shortname} has the following errors: ${errors.join(", ")}`);
         }
     }
 

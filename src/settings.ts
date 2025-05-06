@@ -2,6 +2,7 @@ import { SettingsFormField, TriggerContext, WikiPage, WikiPagePermissionLevel } 
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "./constants.js";
 import Ajv, { JSONSchemaType } from "ajv";
 import { addHours } from "date-fns";
+import json2md from "json2md";
 
 export const CONFIGURATION_DEFAULTS = {
     banMessage: `Bots and bot-like accounts are not welcome on /r/{subreddit}.
@@ -220,12 +221,16 @@ export async function getControlSubSettings (context: TriggerContext): Promise<C
 }
 
 async function reportControlSubValidationError (username: string, message: string, context: TriggerContext) {
-    let messageBody = `Hi ${username},\n\nThere is an issue with the control sub settings on r/${CONTROL_SUBREDDIT}:\n\n> ${message}\n\n`;
-    messageBody += "Please correct this issue as soon as possible. The settings can be found [here](https://www.reddit.com/r/BotBouncer/wiki/controlsubsettings).\n\n";
+    const messageBody: json2md.DataObject[] = [
+        { p: `Hi ${username}, ` },
+        { p: `There is an issue with the control sub settings on r/${CONTROL_SUBREDDIT}:` },
+        { blockquote: message },
+        { p: `Please correct this issue as soon as possible. The settings can be found [here](https://www.reddit.com/r/BotBouncer/wiki/controlsubsettings).` },
+    ];
 
     await context.reddit.sendPrivateMessage({
         subject: "Validation error in r/BotBouncer control sub settings",
-        text: messageBody,
+        text: json2md(messageBody),
         to: username,
     });
 }
@@ -243,15 +248,6 @@ export async function validateControlSubConfigChange (username: string, context:
 
     if (!wikiPage || wikiPage.revisionId === lastRevision) {
         return;
-    }
-
-    // Check for updates by the app account
-    if (wikiPage.revisionAuthor?.username === context.appName) {
-        await context.reddit.modMail.createModInboxConversation({
-            subredditId: context.subredditId,
-            subject: "Control sub settings updated by app account!",
-            bodyMarkdown: `The control sub settings have been updated by the app account ${context.appName}. Please check and revert if necessary.`,
-        });
     }
 
     let json: ControlSubSettings | undefined;

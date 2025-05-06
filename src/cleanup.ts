@@ -1,11 +1,9 @@
 import { Comment, JobContext, Post, TriggerContext } from "@devvit/public-api";
-import { addDays, addHours, addMinutes, addSeconds, format, subDays, subMinutes } from "date-fns";
-import { parseExpression } from "cron-parser";
-import { CLEANUP_JOB_CRON, CONTROL_SUBREDDIT, PostFlairTemplate, UniversalJob } from "./constants.js";
-import { deleteUserStatus, getUserStatus, pauseRescheduleForUser, removeRecordOfSubmitterOrMod, updateAggregate, UserStatus, writeUserStatus } from "./dataStore.js";
+import { addDays, addHours, addSeconds, format, subDays } from "date-fns";
+import { CONTROL_SUBREDDIT, PostFlairTemplate, UniversalJob } from "./constants.js";
+import { deleteUserStatus, getUserStatus, removeRecordOfSubmitterOrMod, updateAggregate, UserStatus, writeUserStatus } from "./dataStore.js";
 import { getUserOrUndefined } from "./utility.js";
 import { removeRecordOfBan, removeWhitelistUnban } from "./handleClientSubredditWikiUpdate.js";
-import { getControlSubSettings } from "./settings.js";
 import { max } from "lodash";
 
 const CLEANUP_LOG_KEY = "CleanupLog";
@@ -75,7 +73,6 @@ export async function cleanupDeletedAccounts (_: unknown, context: JobContext) {
     if (items.length === 0) {
         // No user accounts need to be checked.
         console.log("Cleanup: No users to check.");
-        await scheduleAdhocCleanup(context);
         return;
     }
 
@@ -146,7 +143,6 @@ export async function cleanupDeletedAccounts (_: unknown, context: JobContext) {
                         break;
                 }
 
-                await pauseRescheduleForUser(username, context);
                 await context.reddit.setPostFlair({
                     postId: currentStatus.trackingPostId,
                     subredditName: CONTROL_SUBREDDIT,
@@ -154,10 +150,10 @@ export async function cleanupDeletedAccounts (_: unknown, context: JobContext) {
                 });
             }
 
-            const latestActivity = await getLatestContentDate(username, context);
+            const latestActivity = await getLatestContentDate(username, context) ?? currentStatus.reportedAt;
             if (latestActivity) {
                 // Store the latest activity date.
-                currentStatus.mostRecentActivity = latestActivity.getTime();
+                currentStatus.mostRecentActivity = latestActivity;
                 await writeUserStatus(username, currentStatus, context);
                 console.log(`Cleanup: ${username} last activity: ${format(latestActivity, "yyyy-MM-dd")}`);
             } else {
@@ -168,7 +164,6 @@ export async function cleanupDeletedAccounts (_: unknown, context: JobContext) {
             // User's current status is Suspended or Shadowbanned.
             if (currentStatus.userStatus === UserStatus.Pending) {
                 // Users who are currently pending but where the user is suspended or shadowbanned should be set to Retired.
-                await pauseRescheduleForUser(username, context);
                 await context.reddit.setPostFlair({
                     postId: currentStatus.trackingPostId,
                     subredditName: CONTROL_SUBREDDIT,
@@ -177,7 +172,6 @@ export async function cleanupDeletedAccounts (_: unknown, context: JobContext) {
             } else if (currentStatus.userStatus !== UserStatus.Purged && currentStatus.userStatus !== UserStatus.Retired) {
                 // User is active in the DB, but currently suspended or shadowbanned.
                 // Change the post flair to Purged.
-                await pauseRescheduleForUser(username, context);
                 await context.reddit.setPostFlair({
                     postId: currentStatus.trackingPostId,
                     subredditName: CONTROL_SUBREDDIT,
@@ -187,9 +181,12 @@ export async function cleanupDeletedAccounts (_: unknown, context: JobContext) {
                 await writeUserStatus(username, currentStatus, context);
             }
 
-            // Recheck suspended users every day for the first week, then normal cadence after.
+            // Recheck suspended users every day for the first week
             if (new Date(currentStatus.lastUpdate) > subDays(new Date(), 8)) {
                 overrideCleanupDate = addDays(new Date(), 1);
+            } else if (new Date(currentStatus.lastUpdate) < subDays(new Date(), 28)) {
+                // If the user has been suspended for more than 28 days, set the cleanup date to 28 days from now.
+                overrideCleanupDate = addDays(new Date(), 28);
             }
         }
 
@@ -202,47 +199,8 @@ export async function cleanupDeletedAccounts (_: unknown, context: JobContext) {
         // In a backlog, so force another run.
         await context.scheduler.runJob({
             name: UniversalJob.Cleanup,
-            runAt: new Date(),
+            runAt: addSeconds(new Date(), 2),
         });
-    } else {
-        await scheduleAdhocCleanup(context);
-    }
-}
-
-export async function scheduleAdhocCleanup (context: TriggerContext) {
-    const nextEntries = await context.redis.zRange(CLEANUP_LOG_KEY, 0, 0, { by: "rank" });
-
-    if (nextEntries.length === 0) {
-        return;
-    }
-
-    const controlSubSettings = await getControlSubSettings(context);
-    if (controlSubSettings.cleanupDisabled) {
-        console.log("Cleanup: Cleanup disabled in control subreddit settings.");
-        return;
-    }
-
-    const nextCleanupTime = new Date(nextEntries[0].score);
-    const nextCleanupJobTime = addMinutes(nextCleanupTime, 5);
-    const nextScheduledTime = parseExpression(CLEANUP_JOB_CRON).next().toDate();
-
-    if (nextCleanupJobTime < subMinutes(nextScheduledTime, 5)) {
-        // It's worth running an ad-hoc job.
-        console.log(`Cleanup: Next ad-hoc cleanup: ${nextCleanupJobTime.toUTCString()}`);
-
-        const jobs = await context.scheduler.listJobs();
-        const cleanupJobs = jobs.filter(job => job.name === UniversalJob.AdhocCleanup as string);
-        if (cleanupJobs.length > 0) {
-            await Promise.all(cleanupJobs.map(job => context.scheduler.cancelJob(job.id)));
-        }
-
-        await context.scheduler.runJob({
-            name: UniversalJob.AdhocCleanup,
-            runAt: nextCleanupJobTime > new Date() ? nextCleanupJobTime : addSeconds(new Date(), 1),
-        });
-    } else {
-        console.log(`Cleanup: Next entry in cleanup log is after next scheduled run (${nextCleanupTime.toUTCString()}).`);
-        console.log(`Cleanup: Next cleanup job: ${nextScheduledTime.toUTCString()}`);
     }
 }
 
@@ -325,7 +283,7 @@ async function handleDeletedAccountClientSub (username: string, context: Trigger
     ]);
 }
 
-async function getLatestContentDate (username: string, context: JobContext): Promise<Date | undefined> {
+async function getLatestContentDate (username: string, context: JobContext): Promise<number | undefined> {
     let content: (Post | Comment)[];
     try {
         content = await context.reddit.getCommentsAndPostsByUser({
@@ -336,5 +294,5 @@ async function getLatestContentDate (username: string, context: JobContext): Pro
         return;
     }
 
-    return max(content.map(content => content.createdAt));
+    return max(content.map(content => content.createdAt.getTime()));
 }

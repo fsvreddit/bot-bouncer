@@ -2,12 +2,13 @@ import { GetConversationResponse, ModMailConversationState, TriggerContext } fro
 import { ModMail } from "@devvit/protos";
 import { addMonths } from "date-fns";
 import { CONTROL_SUBREDDIT } from "../constants.js";
-import { getSummaryTextForUser } from "../UserSummary/userSummary.js";
+import { getSummaryForUser } from "../UserSummary/userSummary.js";
 import { handleClientSubredditModmail } from "./clientSubModmail.js";
-import { handleControlSubredditModmail } from "./controlSubModmail.js";
+import { handleControlSubredditModmail, markdownToText } from "./controlSubModmail.js";
 import { dataExtract } from "./dataExtract.js";
 import { addAllUsersFromModmail } from "../similarBioTextFinder/bioTextFinder.js";
 import { UserStatus } from "../dataStore.js";
+import json2md from "json2md";
 
 function conversationHandledRedisKey (conversationId: string) {
     return `conversationHandled~${conversationId}`;
@@ -55,7 +56,7 @@ export async function handleModmail (event: ModMail, context: TriggerContext) {
         const addAllMatches = addAllRegex.exec(currentMessage.bodyMarkdown);
         if (context.subredditName === CONTROL_SUBREDDIT && addAllMatches && addAllMatches.length === 2) {
             const status = addAllMatches[1] === "banned" ? UserStatus.Banned : UserStatus.Pending;
-            await addAllUsersFromModmail(event.conversationId, status, context);
+            await addAllUsersFromModmail(event.conversationId, currentMessage.author?.name, status, context);
             return;
         }
     }
@@ -92,12 +93,19 @@ export async function handleModmail (event: ModMail, context: TriggerContext) {
 }
 
 async function addSummaryForUser (conversationId: string, username: string, context: TriggerContext) {
-    const userSummary = await getSummaryTextForUser(username, "modmail", context);
-    const messageText = userSummary ?? "No summary available, user may be shadowbanned";
+    const userSummary = await getSummaryForUser(username, "modmail", context);
+    const shadowbannedSummary: json2md.DataObject[] = [
+        { p: "No summary available, user may be shadowbanned." },
+    ];
+    const messageText = userSummary ?? shadowbannedSummary;
 
-    await context.reddit.modMail.reply({
-        body: messageText,
-        conversationId,
-        isInternal: true,
-    });
+    const modmailStrings = markdownToText(messageText);
+
+    for (const string of modmailStrings) {
+        await context.reddit.modMail.reply({
+            body: string,
+            conversationId,
+            isInternal: true,
+        });
+    }
 }

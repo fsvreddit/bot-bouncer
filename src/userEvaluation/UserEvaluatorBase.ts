@@ -37,6 +37,21 @@ export abstract class UserEvaluatorBase {
         return this.getVariable<boolean>("killswitch", false);
     }
 
+    public validateVariables (): string[] {
+        return [];
+    }
+
+    protected getAllVariables (filter?: string): Record<string, unknown> {
+        const result: Record<string, unknown> = {};
+        const root = this.shortname + ":" + (filter ?? "");
+        for (const key in this.variables) {
+            if (key.startsWith(root)) {
+                result[key] = this.variables[key];
+            }
+        }
+        return result;
+    }
+
     protected getVariable<Type> (name: string, defaultValue: Type): Type {
         return this.variables[`${this.shortname}:${name}`] as Type | undefined ?? defaultValue;
     }

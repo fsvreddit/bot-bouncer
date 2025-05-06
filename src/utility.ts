@@ -81,3 +81,20 @@ export function median (numbers: number[]): number {
 
     return sorted[middle];
 }
+
+export async function sendMessageToWebhook (webhookUrl: string, message: string) {
+    const params = {
+        content: message,
+    };
+
+    await fetch(
+        webhookUrl,
+        {
+            method: "post",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(params),
+        },
+    );
+}

@@ -47,6 +47,18 @@ Write in to [/r/BotBouncer's modmail](https://www.reddit.com/message/compose/?to
 
 # Change History
 
+## v1.10.0
+
+* Add ability for mods submitting accounts manually to receive feedback on the account's classification
+* Reduce false positives on one evaluator
+* Remove "bot mentions" feature due to low numbers of bot detections
+* Daily digest now includes details of users who were unbanned
+* Add new evaluator for users with suspicious history in unrelated geosubs
+* Add new evaluator for very specific bot groups
+* Add new evaluator for rapid fire comment or post creation
+* Remove evaluators for bot types that are no longer in operation
+* Internal changes to support operations on /r/BotBouncer
+
 ## v1.9.1
 
 * When a bot is detected, posts and comments that were modqueued are now removed.

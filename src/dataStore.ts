@@ -1,16 +1,23 @@
-import { JobContext, TriggerContext, WikiPagePermissionLevel, WikiPage, CreateModNoteOptions } from "@devvit/public-api";
+import { JobContext, TriggerContext, WikiPagePermissionLevel, WikiPage, CreateModNoteOptions, UserSocialLink } from "@devvit/public-api";
 import { compact, max, toPairs, uniq } from "lodash";
 import pako from "pako";
-import { scheduleAdhocCleanup, setCleanupForSubmittersAndMods, setCleanupForUser } from "./cleanup.js";
+import { setCleanupForSubmittersAndMods, setCleanupForUser } from "./cleanup.js";
 import { ClientSubredditJob, CONTROL_SUBREDDIT } from "./constants.js";
-import { addHours, addMinutes, addSeconds, addWeeks, startOfSecond, subDays, subHours, subWeeks } from "date-fns";
+import { addHours, addSeconds, addWeeks, startOfSecond, subDays, subHours, subWeeks } from "date-fns";
 import pluralize from "pluralize";
 import { getControlSubSettings } from "./settings.js";
 import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
 import { USER_EVALUATION_RESULTS_KEY } from "./handleControlSubAccountEvaluation.js";
+import json2md from "json2md";
+import { sendMessageToWebhook } from "./utility.js";
+import { getUserExtended } from "./extendedDevvit.js";
 
 const USER_STORE = "UserStore";
 const STALE_USER_STORE = "StaleUserStore";
+
+const BIO_TEXT_STORE = "BioTextStore";
+const DISPLAY_NAME_STORE = "DisplayNameStore";
+const SOCIAL_LINKS_STORE = "SocialLinksStore";
 
 export const AGGREGATE_STORE = "AggregateStore";
 
@@ -86,23 +93,13 @@ async function addModNote (options: CreateModNoteOptions, context: TriggerContex
     }
 }
 
-export async function pauseRescheduleForUser (username: string, context: TriggerContext) {
-    const redisKey = `pauseRescheduleForUser:${username}`;
-    await context.redis.set(redisKey, "true", { expiration: addMinutes(new Date(), 1) });
-}
-
-async function isReschedulePausedForUser (username: string, context: TriggerContext) {
-    const redisKey = `pauseRescheduleForUser:${username}`;
-    return await context.redis.exists(redisKey);
-}
-
 export async function writeUserStatus (username: string, details: UserDetails, context: TriggerContext) {
     let isStale = false;
-    if (details.mostRecentActivity && new Date(details.mostRecentActivity) < subWeeks(new Date(), 4)) {
+    if (details.mostRecentActivity && new Date(details.mostRecentActivity) < subWeeks(new Date(), 3)) {
         isStale = true;
     }
 
-    if ((details.userStatus === UserStatus.Purged || details.userStatus === UserStatus.Retired) && details.lastUpdate < subWeeks(new Date(), 1).getTime()) {
+    if ((details.userStatus === UserStatus.Purged || details.userStatus === UserStatus.Retired) && details.lastUpdate < subDays(new Date(), 1).getTime()) {
         isStale = true;
     }
 
@@ -178,21 +175,18 @@ export async function setUserStatus (username: string, details: UserDetails, con
     }
 
     await Promise.all(promises);
-
-    const isPaused = await isReschedulePausedForUser(username, context);
-    if (isPaused) {
-        return;
-    }
-    await scheduleAdhocCleanup(context);
 }
 
 export async function deleteUserStatus (username: string, context: TriggerContext) {
     const currentStatus = await getUserStatus(username, context);
 
-    const promises = [
+    const promises: Promise<number>[] = [
         context.redis.hDel(USER_STORE, [username]),
         context.redis.hDel(STALE_USER_STORE, [username]),
         context.redis.hDel(USER_EVALUATION_RESULTS_KEY, [username]),
+        context.redis.hDel(BIO_TEXT_STORE, [username]),
+        context.redis.hDel(DISPLAY_NAME_STORE, [username]),
+        context.redis.hDel(SOCIAL_LINKS_STORE, [username]),
     ];
 
     if (currentStatus?.trackingPostId) {
@@ -234,8 +228,8 @@ function compactDataForWiki (input: string): string | undefined {
         return;
     }
 
-    // Exclude entries for users marked as "purged" after a week
-    if (status.userStatus === UserStatus.Purged && status.lastUpdate < subWeeks(new Date(), 1).getTime()) {
+    // Exclude entries for users marked as "purged" or "retired" after an hour
+    if ((status.userStatus === UserStatus.Purged || status.userStatus === UserStatus.Retired) && status.lastUpdate < subHours(new Date(), 1).getTime()) {
         return;
     }
 
@@ -265,6 +259,10 @@ function compactDataForWiki (input: string): string | undefined {
     // eslint-disable-next-line @typescript-eslint/no-deprecated
     delete status.recentCommentSubs;
     delete status.mostRecentActivity;
+
+    if (status.userStatus !== UserStatus.Banned) {
+        status.trackingPostId = "";
+    }
 
     return JSON.stringify(status);
 }
@@ -326,16 +324,20 @@ export async function updateWikiPage (_: unknown, context: JobContext) {
 
     console.log(`Wiki page has been updated with ${Object.keys(dataToWrite).length} entries`);
 
-    if (content.length > MAX_WIKI_PAGE_SIZE * 0.7) {
+    if (content.length > MAX_WIKI_PAGE_SIZE * 0.75) {
         const spaceAlertKey = "wikiSpaceAlert";
         const alertDone = await context.redis.exists(spaceAlertKey);
         if (!alertDone) {
-            const message = `The botbouncer wiki page is now at ${Math.round(content.length / MAX_WIKI_PAGE_SIZE * 100)}% of its maximum size. It's time to rethink how data is stored.\n\nI will modmail you again in a week.`;
-            await context.reddit.modMail.createModInboxConversation({
-                subject: "r/BotBouncer wiki page size alert",
-                bodyMarkdown: message,
-                subredditId: context.subredditId,
-            });
+            const controlSubSettings = await getControlSubSettings(context);
+            const webhook = controlSubSettings.monitoringWebhook;
+            if (webhook) {
+                const message: json2md.DataObject[] = [
+                    { p: `The botbouncer wiki page is now at ${Math.round(content.length / MAX_WIKI_PAGE_SIZE * 100)}% of its maximum size. It's time to rethink how data is stored.` },
+                    { p: `I will notify you again in a week if the page is still over this threshold` },
+                ];
+
+                await sendMessageToWebhook(webhook, json2md(message));
+            }
             await context.redis.set(spaceAlertKey, new Date().getTime().toString(), { expiration: addWeeks(new Date(), 1) });
         }
     }
@@ -451,4 +453,48 @@ export async function removeRecordOfSubmitterOrMod (username: string, context: T
     }
 
     console.log(`Cleanup: Removed records of ${username} as submitter or operator`);
+}
+
+export async function storeInitialAccountProperties (username: string, context: TriggerContext) {
+    const [userExtended, user] = await Promise.all([
+        getUserExtended(username, context),
+        context.reddit.getUserByUsername(username),
+    ]);
+
+    if (!userExtended || !user) {
+        return;
+    }
+
+    const promises: Promise<number>[] = [];
+    if (userExtended.userDescription) {
+        promises.push(context.redis.hSet(BIO_TEXT_STORE, { [username]: userExtended.userDescription }));
+        console.log(`Data Store: Stored bio for ${username}`);
+    }
+
+    if (userExtended.displayName && userExtended.displayName !== username && userExtended.displayName !== `u_${username}`) {
+        promises.push(context.redis.hSet(DISPLAY_NAME_STORE, { [username]: userExtended.displayName }));
+        console.log(`Data Store: Stored display name for ${username}`);
+    }
+
+    const socialLinks = await user.getSocialLinks();
+    if (socialLinks.length > 0) {
+        promises.push(context.redis.hSet(SOCIAL_LINKS_STORE, { [username]: JSON.stringify(socialLinks) }));
+        console.log(`Data Store: Stored social links for ${username}`);
+    }
+
+    await Promise.all(promises);
+}
+
+export async function getInitialAccountProperties (username: string, context: TriggerContext) {
+    const [bioText, displayName, socialLinks] = await Promise.all([
+        context.redis.hGet(BIO_TEXT_STORE, username),
+        context.redis.hGet(DISPLAY_NAME_STORE, username),
+        context.redis.hGet(SOCIAL_LINKS_STORE, username),
+    ]);
+
+    return {
+        bioText,
+        displayName,
+        socialLinks: socialLinks ? JSON.parse(socialLinks) as UserSocialLink[] : [],
+    };
 }

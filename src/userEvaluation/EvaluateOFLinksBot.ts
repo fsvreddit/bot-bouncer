@@ -25,9 +25,8 @@ export class EvaluateOFLinksBot extends UserEvaluatorBase {
         return false;
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    override preEvaluatePost (_: Post): boolean {
-        return true;
+    override preEvaluatePost (post: Post): boolean {
+        return post.isNsfw();
     }
 
     override async preEvaluateUser (user: UserExtended): Promise<boolean> {

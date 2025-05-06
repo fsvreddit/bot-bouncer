@@ -37,7 +37,8 @@ export class EvaluateSuspiciousFirstPost extends UserEvaluatorBase {
 
     override preEvaluateUser (user: UserExtended): boolean {
         const maxAgeInDays = this.getVariable<number>("maxageindays", 14);
-        return user.createdAt > subDays(new Date(), maxAgeInDays) && user.commentKarma < 50;
+        const maxCommentKarma = this.getVariable<number>("maxcommentkarma", 50);
+        return user.createdAt > subDays(new Date(), maxAgeInDays) && user.commentKarma < maxCommentKarma;
     }
 
     override evaluate (_: UserExtended, history: (Post | Comment)[]): boolean {

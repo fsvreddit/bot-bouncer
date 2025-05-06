@@ -10,19 +10,18 @@ import { handleModAction } from "./handleModAction.js";
 import { handleModmail } from "./modmail/modmail.js";
 import { handleControlSubAccountEvaluation } from "./handleControlSubAccountEvaluation.js";
 import { handleReportUser, reportFormHandler } from "./handleReportUser.js";
-import { processExternalSubmissions, scheduleAdhocExternalSubmissionJobAsync } from "./externalSubmissions.js";
 import { handleClientCommentCreate, handleClientCommentUpdate, handleClientPostCreate } from "./handleClientPostOrComment.js";
-import { handleClientSubCommentDelete, handleClientSubPostDelete } from "./handleClientSubContentDelete.js";
 import { handleClassificationChanges } from "./handleClientSubredditWikiUpdate.js";
 import { handleControlSubPostDelete } from "./handleControlSubPostDelete.js";
 import { updateEvaluatorVariablesFromWikiHandler } from "./userEvaluation/evaluatorVariables.js";
-import { evaluateKarmaFarmingSubs } from "./karmaFarmingSubsCheck.js";
-import { handleControlSubForm } from "./handleControlSubMenu.js";
+import { evaluateKarmaFarmingSubs, queueKarmaFarmingSubs } from "./karmaFarmingSubsCheck.js";
+import { handleControlSubForm, sendQueryToSubmitter } from "./handleControlSubMenu.js";
 import { checkForUpdates } from "./upgradeNotifier.js";
 import { sendDailyDigest } from "./modmail/dailyDigest.js";
 import { updateStatisticsPages } from "./statistics/allStatistics.js";
 import { checkUptimeAndMessages } from "./uptimeMonitor.js";
 import { analyseBioText } from "./similarBioTextFinder/bioTextFinder.js";
+import { processQueuedSubmission } from "./postCreation.js";
 
 Devvit.addSettings(appSettings);
 
@@ -58,17 +57,7 @@ Devvit.addTrigger({
 
 Devvit.addTrigger({
     event: "PostDelete",
-    onEvent: handleClientSubPostDelete,
-});
-
-Devvit.addTrigger({
-    event: "PostDelete",
     onEvent: handleControlSubPostDelete,
-});
-
-Devvit.addTrigger({
-    event: "CommentDelete",
-    onEvent: handleClientSubCommentDelete,
 });
 
 Devvit.addTrigger({
@@ -112,10 +101,29 @@ export const reportForm = Devvit.createForm({
             defaultValue: true,
             name: "publicContext",
         },
+        {
+            type: "boolean",
+            label: "Receive a notification when this account is classified",
+            helpText: "You must have DMs enabled to receive this notification.",
+            defaultValue: false,
+            name: "sendFeedback",
+        },
     ],
 }, reportFormHandler);
 
 export const controlSubForm = Devvit.createForm(data => ({ title: data.title as string, description: data.description as string, fields: data.fields as FormField[] }), handleControlSubForm);
+
+export const controlSubQuerySubmissionForm = Devvit.createForm({
+    fields: [
+        {
+            type: "paragraph",
+            label: "Additional text to include in modmail to submitter",
+            placeholder: "This doesn't look like a bot to me, but maybe you can see something we didn't!",
+            name: "querySubmissionText",
+            lineHeight: 4,
+        },
+    ],
+}, sendQueryToSubmitter);
 
 /**
  * Jobs that run on all subreddits
@@ -146,13 +154,18 @@ Devvit.addSchedulerJob({
 });
 
 Devvit.addSchedulerJob({
-    name: ControlSubredditJob.ExternalSubmission,
-    onRun: processExternalSubmissions,
+    name: ControlSubredditJob.AsyncPostCreation,
+    onRun: processQueuedSubmission,
 });
 
 Devvit.addSchedulerJob({
     name: ControlSubredditJob.UpdateStatisticsPage,
     onRun: updateStatisticsPages,
+});
+
+Devvit.addSchedulerJob({
+    name: ControlSubredditJob.QueueKarmaFarmingSubs,
+    onRun: queueKarmaFarmingSubs,
 });
 
 Devvit.addSchedulerJob({
@@ -178,11 +191,6 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: ControlSubredditJob.BioTextAnalyser,
     onRun: analyseBioText,
-});
-
-Devvit.addSchedulerJob({
-    name: ControlSubredditJob.ScheduleAdhocExternalSubmissionJobAsync,
-    onRun: scheduleAdhocExternalSubmissionJobAsync,
 });
 
 /**

@@ -1,6 +1,7 @@
 import { JobContext, WikiPage, WikiPagePermissionLevel } from "@devvit/public-api";
 import { AGGREGATE_STORE, UserDetails, UserStatus } from "../dataStore.js";
 import { countBy, sum } from "lodash";
+import json2md from "json2md";
 
 export async function updateMainStatisticsPage (allData: Record<string, string>, context: JobContext) {
     await correctAggregateData(allData, context);
@@ -8,14 +9,14 @@ export async function updateMainStatisticsPage (allData: Record<string, string>,
     let results = await context.redis.zRange(AGGREGATE_STORE, 0, -1);
     results = results.filter(item => item.member !== "pending");
 
-    let wikiContent = "# Bot Bouncer statistics\n\nThis page details the number of accounts that have been processed by Bot Bouncer.\n\n";
+    const wikiContent: json2md.DataObject[] = [];
+    wikiContent.push({ h1: "Bot Bouncer statistics" });
+    wikiContent.push({ p: "This page details the number of accounts that have been processed by Bot Bouncer." });
 
-    for (const item of results) {
-        wikiContent += `* **${item.member}**: ${item.score.toLocaleString()}\n`;
-    }
+    wikiContent.push({ ul: results.map(item => `**${item.member}**: ${item.score.toLocaleString()}`) });
 
-    wikiContent += `\n**Total accounts processed**: ${sum(results.map(item => item.score)).toLocaleString()}\n\n`;
-    wikiContent += "These statistics update once a day at midnight UTC.";
+    wikiContent.push({ p: `**Total accounts processed**: ${sum(results.map(item => item.score)).toLocaleString()}` });
+    wikiContent.push({ p: "These statistics update once a day at midnight UTC, and may update more frequently." });
 
     const wikiPageName = "statistics";
     const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
@@ -27,11 +28,13 @@ export async function updateMainStatisticsPage (allData: Record<string, string>,
         //
     }
 
-    if (wikiContent.trim() !== wikiPage?.content.trim()) {
+    const content = json2md(wikiContent);
+
+    if (content.trim() !== wikiPage?.content.trim()) {
         await context.reddit.updateWikiPage({
             subredditName,
             page: wikiPageName,
-            content: wikiContent,
+            content,
         });
     }
 

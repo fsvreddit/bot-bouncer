@@ -133,6 +133,9 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
     }
 
     if (reportReason) {
+        if (currentStatus?.submitter) {
+            reportReason += ` Submitted by ${currentStatus.submitter}`;
+        }
         const post = await context.reddit.getPostById(postId);
         await context.reddit.report(post, { reason: reportReason });
         if (!event.data?.skipSummary) {

@@ -1,10 +1,11 @@
 import { Comment, Context, FormField, FormOnSubmitEvent, JSONObject, Post } from "@devvit/public-api";
 import { getUsernameFromUrl } from "./utility.js";
-import { getUserStatus, UserStatus } from "./dataStore.js";
-import { controlSubForm } from "./main.js";
+import { getUsernameFromPostId, getUserStatus, UserStatus } from "./dataStore.js";
+import { controlSubForm, controlSubQuerySubmissionForm } from "./main.js";
 import { CONTROL_SUBREDDIT } from "./constants.js";
 import { createUserSummary } from "./UserSummary/userSummary.js";
 import { getAccountInitialEvaluationResults } from "./handleControlSubAccountEvaluation.js";
+import json2md from "json2md";
 
 enum ControlSubAction {
     RegenerateSummary = "generateSummary",
@@ -108,7 +109,7 @@ export async function handleControlSubForm (event: FormOnSubmitEvent<JSONObject>
             await handleRegenerateSummary(username, post, context);
             break;
         case ControlSubAction.QuerySubmission:
-            await handleQuerySubmission(username, post, context);
+            context.ui.showForm(controlSubQuerySubmissionForm);
             break;
         default:
             context.ui.showToast("You must select an action");
@@ -129,22 +130,42 @@ async function handleRegenerateSummary (username: string, post: Post, context: C
     context.ui.showToast("Summary regenerated");
 }
 
-async function handleQuerySubmission (username: string, post: Post, context: Context) {
+export async function sendQueryToSubmitter (event: FormOnSubmitEvent<JSONObject>, context: Context) {
+    if (!context.postId) {
+        context.ui.showToast("This option can only be used from a user submission post");
+        return;
+    }
+
+    const post = await context.reddit.getPostById(context.postId);
+    const username = await getUsernameFromPostId(post.id, context);
+    if (!username) {
+        context.ui.showToast("This option can only be used from a user submission post");
+        return;
+    }
+
     const currentStatus = await getUserStatus(username, context);
     if (!currentStatus?.submitter) {
         context.ui.showToast("Cannot identify who reported this user.");
         return;
     }
 
-    const modmail = `Hi u/${currentStatus.submitter}, you recently reported u/${username} to Bot Bouncer, their tracking post can be found [here](${post.permalink}}).
+    const modmailText: json2md.DataObject[] = [
+        { p: `Hi /u/${currentStatus.submitter},` },
+        { p: `We are reaching out to you regarding your recent [report](${post.permalink}) of u/${username} on r/BotBouncer.` },
+        { p: "We are unable to determine why this user might be considered a bot based on a look at their profile alone. If you're able to add more context to help us, please reply to this message." },
+    ];
 
-We can't determine why this user might be considered a bot based on their profile alone. If you're able to add more context to help us, please reply to this message.`;
+    const querySubmissionText = event.values.querySubmissionText as string | undefined;
+    if (querySubmissionText) {
+        modmailText.push({ p: "The mods of /r/BotBouncer have added the following extra information:" });
+        modmailText.push({ blockquote: querySubmissionText });
+    }
 
     const response = await context.reddit.modMail.createConversation({
         to: currentStatus.submitter,
         subject: `Query regarding u/${username} on r/BotBouncer`,
         subredditName: CONTROL_SUBREDDIT,
-        body: modmail,
+        body: json2md(modmailText),
         isAuthorHidden: true,
     });
 
@@ -152,5 +173,5 @@ We can't determine why this user might be considered a bot based on their profil
         await context.reddit.modMail.archiveConversation(response.conversation.id);
     }
 
-    context.ui.showToast("Query sent to the original reporter.");
+    context.ui.showToast(`Query sent to /u/${currentStatus.submitter}.`);
 }

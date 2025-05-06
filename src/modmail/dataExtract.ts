@@ -4,6 +4,7 @@ import Ajv, { JSONSchemaType } from "ajv";
 import { fromPairs } from "lodash";
 import pluralize from "pluralize";
 import { getYear } from "date-fns";
+import json2md from "json2md";
 
 interface ModmailDataExtract {
     status?: UserStatus;
@@ -55,7 +56,10 @@ export async function dataExtract (message: string | undefined, conversationId: 
     } catch (error) {
         await context.reddit.modMail.reply({
             conversationId,
-            body: `Error parsing JSON:\n\n${error}`,
+            body: json2md([
+                { p: "Error parsing JSON" },
+                { blockquote: error },
+            ]),
             isAuthorHidden: false,
         });
         return;
@@ -67,7 +71,10 @@ export async function dataExtract (message: string | undefined, conversationId: 
     if (!validate(request)) {
         await context.reddit.modMail.reply({
             conversationId,
-            body: `Invalid JSON:\n\n${ajv.errorsText(validate.errors)}`,
+            body: json2md([
+                { p: "Invalid JSON" },
+                { blockquote: ajv.errorsText(validate.errors) },
+            ]),
             isAuthorHidden: false,
         });
         return;

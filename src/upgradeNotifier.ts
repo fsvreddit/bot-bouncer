@@ -1,6 +1,7 @@
 import { JobContext, WikiPage } from "@devvit/public-api";
 import { AppSetting } from "./settings.js";
 import { lt } from "semver";
+import json2md from "json2md";
 
 interface AppUpdate {
     appname: string;
@@ -52,18 +53,20 @@ export async function checkForUpdates (_: unknown, context: JobContext) {
         return;
     }
 
-    let message = "A new version of Bot Bouncer is available to install.\n\n";
+    const message: json2md.DataObject[] = [
+        { p: `A new version of Bot Bouncer is available to install.` },
+    ];
     if (update.whatsNewBullets.length > 0) {
-        message += "Here's what's new:\n\n";
-        message += update.whatsNewBullets.map(bullet => `* ${bullet}`).join("\n");
+        message.push({ p: "Here's what's new:" });
+        message.push({ ul: update.whatsNewBullets });
     }
 
-    message += `\n\nTo install this update, or to disable these notifications, visit the [Bot Bouncer Configuration Page](https://developers.reddit.com/r/${subredditName}/apps/${context.appName}) for /r/${subredditName}.`;
+    message.push({ p: `To install this update, or to disable these notifications, visit the [Bot Bouncer Configuration Page](https://developers.reddit.com/r/${subredditName}/apps/${context.appName}) for /r/${subredditName}.` });
 
     await context.reddit.modMail.createModNotification({
         subredditId: context.subredditId,
         subject: `New Bot Bouncer Update Available: v${update.version}`,
-        bodyMarkdown: message,
+        bodyMarkdown: json2md(message),
     });
 
     console.log(`Update Checker: Notification sent for version ${update.version}`);

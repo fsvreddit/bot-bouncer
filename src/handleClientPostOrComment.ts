@@ -1,6 +1,6 @@
 import { Post, Comment, TriggerContext, SettingsValues, JSONValue } from "@devvit/public-api";
 import { CommentCreate, CommentUpdate, PostCreate } from "@devvit/protos";
-import { addDays, addMinutes, addWeeks, formatDate, subMinutes } from "date-fns";
+import { addDays, addWeeks, formatDate, subMinutes } from "date-fns";
 import { getUserStatus, UserDetails, UserStatus } from "./dataStore.js";
 import { isUserWhitelisted, recordBan } from "./handleClientSubredditWikiUpdate.js";
 import { CONTROL_SUBREDDIT } from "./constants.js";
@@ -99,7 +99,6 @@ export async function handleClientCommentCreate (event: CommentCreate, context: 
     }
 
     if (!possibleBot) {
-        await checkForBotMentions(event, context);
         return;
     }
 
@@ -373,28 +372,4 @@ async function checkAndReportPotentialBot (username: string, target: Post | Comm
     }
 
     await Promise.all(promises);
-}
-
-async function checkForBotMentions (event: CommentCreate, context: TriggerContext) {
-    if (!event.comment) {
-        return;
-    }
-
-    const botRegex = [
-        /\bbots?\b/i,
-        /\bChatGPT\b/i,
-        /\bLLM\b/i,
-    ];
-
-    const commentBody = event.comment.body;
-    const parentId = event.comment.parentId;
-
-    if (!botRegex.some(regex => regex.test(commentBody))) {
-        return;
-    }
-
-    const parentItem = await getPostOrCommentById(parentId, context);
-
-    await context.redis.set(`botmention:${parentItem.id}`, parentItem.authorName, { expiration: addMinutes(new Date(), 1) });
-    console.log(`Bot mention: https://www.reddit.com${event.comment.permalink}`);
 }
