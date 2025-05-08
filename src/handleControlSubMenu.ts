@@ -1,6 +1,6 @@
 import { Comment, Context, FormField, FormOnSubmitEvent, JSONObject, Post } from "@devvit/public-api";
 import { getUsernameFromUrl } from "./utility.js";
-import { getUsernameFromPostId, getUserStatus, UserStatus } from "./dataStore.js";
+import { deleteUserStatus, getUsernameFromPostId, getUserStatus, UserStatus } from "./dataStore.js";
 import { controlSubForm, controlSubQuerySubmissionForm } from "./main.js";
 import { CONTROL_SUBREDDIT } from "./constants.js";
 import { createUserSummary } from "./UserSummary/userSummary.js";
@@ -10,6 +10,7 @@ import json2md from "json2md";
 enum ControlSubAction {
     RegenerateSummary = "generateSummary",
     QuerySubmission = "querySubmission",
+    RemoveRecordForUser = "removeRecordForUser",
 }
 
 export async function handleControlSubReportUser (target: Post | Comment, context: Context) {
@@ -49,6 +50,11 @@ export async function handleControlSubReportUser (target: Post | Comment, contex
         if (currentStatus.submitter && currentStatus.submitter !== context.appName) {
             formOptions.push({ label: "Query Submission", value: ControlSubAction.QuerySubmission });
         }
+
+        formOptions.push({
+            label: "Remove record for user after valid takedown request",
+            value: ControlSubAction.RemoveRecordForUser,
+        });
 
         fields.push({
             name: "action",
@@ -110,6 +116,9 @@ export async function handleControlSubForm (event: FormOnSubmitEvent<JSONObject>
             break;
         case ControlSubAction.QuerySubmission:
             context.ui.showForm(controlSubQuerySubmissionForm);
+            break;
+        case ControlSubAction.RemoveRecordForUser:
+            await handleRemoveRecordForUser(username, post, context);
             break;
         default:
             context.ui.showToast("You must select an action");
@@ -174,4 +183,16 @@ export async function sendQueryToSubmitter (event: FormOnSubmitEvent<JSONObject>
     }
 
     context.ui.showToast(`Query sent to /u/${currentStatus.submitter}.`);
+}
+
+async function handleRemoveRecordForUser (username: string, post: Post, context: Context) {
+    await deleteUserStatus(username, context);
+    if (post.authorName === context.appName) {
+        await post.delete();
+        return;
+    } else {
+        await post.remove();
+    }
+
+    context.ui.showToast(`Removed all data and deleted post for u/${username}.`);
 }
