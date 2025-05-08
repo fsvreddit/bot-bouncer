@@ -208,8 +208,8 @@ async function handleRemoveRecordForUser (username: string, post: Post, context:
         promises.push(post.remove());
     }
 
-    if (currentStatus) {
-        promises.push(updateAggregate(currentStatus.userStatus, 1, context));
+    if (currentStatus && currentStatus.userStatus !== UserStatus.Purged && currentStatus.userStatus !== UserStatus.Retired) {
+        promises.push(updateAggregate(currentStatus.userStatus, -1, context));
     }
 
     promises.push(context.redis.zRem(CLEANUP_LOG_KEY, [username]));
