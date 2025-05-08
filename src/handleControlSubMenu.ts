@@ -186,13 +186,14 @@ export async function sendQueryToSubmitter (event: FormOnSubmitEvent<JSONObject>
 }
 
 async function handleRemoveRecordForUser (username: string, post: Post, context: Context) {
-    await deleteUserStatus(username, context);
+    const promises: Promise<void>[] = [deleteUserStatus(username, context)];
     if (post.authorName === context.appName) {
-        await post.delete();
-        return;
+        promises.push(post.delete());
     } else {
-        await post.remove();
+        promises.push(post.remove());
     }
+
+    await Promise.all(promises);
 
     context.ui.showToast(`Removed all data and deleted post for u/${username}.`);
 }
