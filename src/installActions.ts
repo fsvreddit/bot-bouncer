@@ -1,6 +1,6 @@
 import { AppInstall, AppUpgrade } from "@devvit/protos";
 import { TriggerContext } from "@devvit/public-api";
-import { ClientSubredditJob, CONTROL_SUBREDDIT, ControlSubredditJob, EVALUATE_KARMA_FARMING_SUBS_CRON, UniversalJob } from "./constants.js";
+import { ClientSubredditJob, CONTROL_SUB_CLEANUP_CRON, CONTROL_SUBREDDIT, ControlSubredditJob, EVALUATE_KARMA_FARMING_SUBS_CRON, UniversalJob } from "./constants.js";
 import { handleExternalSubmissionsPageUpdate } from "./externalSubmissions.js";
 import { removeRetiredEvaluatorsFromStats } from "./userEvaluation/evaluatorHelpers.js";
 
@@ -75,7 +75,7 @@ async function addControlSubredditJobs (context: TriggerContext) {
 
         context.scheduler.runJob({
             name: UniversalJob.Cleanup,
-            cron: "1/5 * * * *", // every 5 minutes
+            cron: CONTROL_SUB_CLEANUP_CRON, // every 5 minutes
         }),
     ]);
 

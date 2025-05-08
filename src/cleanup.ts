@@ -1,10 +1,11 @@
 import { Comment, JobContext, Post, TriggerContext } from "@devvit/public-api";
 import { addDays, addHours, addSeconds, format, subDays } from "date-fns";
-import { CONTROL_SUBREDDIT, PostFlairTemplate, UniversalJob } from "./constants.js";
+import { CONTROL_SUB_CLEANUP_CRON, CONTROL_SUBREDDIT, PostFlairTemplate, UniversalJob } from "./constants.js";
 import { deleteUserStatus, getUserStatus, removeRecordOfSubmitterOrMod, updateAggregate, UserStatus, writeUserStatus } from "./dataStore.js";
 import { getUserOrUndefined } from "./utility.js";
 import { removeRecordOfBan, removeWhitelistUnban } from "./handleClientSubredditWikiUpdate.js";
 import { max } from "lodash";
+import { CronExpressionParser } from "cron-parser";
 
 const CLEANUP_LOG_KEY = "CleanupLog";
 const SUB_OR_MOD_LOG_KEY = "SubOrModLog";
@@ -196,7 +197,16 @@ export async function cleanupDeletedAccounts (_: unknown, context: JobContext) {
     console.log(`Cleanup: Active ${activeCount}, Deleted ${deletedCount}, Suspended ${suspendedCount}`);
 
     if (items.length > itemsToCheck) {
-        // In a backlog, so force another run.
+        // In a backlog.
+        // If in control subreddit, check to see if next run is imminent.
+        if (context.subredditName === CONTROL_SUBREDDIT) {
+            const nextRun = CronExpressionParser.parse(CONTROL_SUB_CLEANUP_CRON).next().toDate();
+            if (nextRun < addSeconds(new Date(), 30)) {
+                console.log(`Cleanup: Next run is imminent, skip next ad-hoc run.`);
+                return;
+            }
+        }
+
         await context.scheduler.runJob({
             name: UniversalJob.Cleanup,
             runAt: addSeconds(new Date(), 2),
