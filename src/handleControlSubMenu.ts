@@ -64,6 +64,19 @@ export async function handleControlSubReportUser (target: Post | Comment, contex
             multiSelect: false,
             required: true,
         });
+    } else {
+        fields.push({
+            name: "action",
+            type: "select",
+            label: "Select an action",
+            options: [{
+                label: "Remove record for user after valid takedown request",
+                value: ControlSubAction.RemoveRecordForUser,
+            }],
+            multiSelect: false,
+            defaultValue: [],
+            required: false,
+        });
     }
 
     const initialEvaluationResult = await getAccountInitialEvaluationResults(username, context);
