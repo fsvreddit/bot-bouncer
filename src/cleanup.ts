@@ -7,7 +7,7 @@ import { removeRecordOfBan, removeWhitelistUnban } from "./handleClientSubreddit
 import { max } from "lodash";
 import { CronExpressionParser } from "cron-parser";
 
-const CLEANUP_LOG_KEY = "CleanupLog";
+export const CLEANUP_LOG_KEY = "CleanupLog";
 const SUB_OR_MOD_LOG_KEY = "SubOrModLog";
 const DAYS_BETWEEN_CHECKS = 7;
 

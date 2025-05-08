@@ -1,11 +1,12 @@
 import { Comment, Context, FormField, FormOnSubmitEvent, JSONObject, Post } from "@devvit/public-api";
 import { getUsernameFromUrl } from "./utility.js";
-import { deleteUserStatus, getUsernameFromPostId, getUserStatus, UserStatus } from "./dataStore.js";
+import { deleteUserStatus, getUsernameFromPostId, getUserStatus, updateAggregate, UserStatus } from "./dataStore.js";
 import { controlSubForm, controlSubQuerySubmissionForm } from "./main.js";
 import { CONTROL_SUBREDDIT } from "./constants.js";
 import { createUserSummary } from "./UserSummary/userSummary.js";
 import { getAccountInitialEvaluationResults } from "./handleControlSubAccountEvaluation.js";
 import json2md from "json2md";
+import { CLEANUP_LOG_KEY } from "./cleanup.js";
 
 enum ControlSubAction {
     RegenerateSummary = "generateSummary",
@@ -199,12 +200,19 @@ export async function sendQueryToSubmitter (event: FormOnSubmitEvent<JSONObject>
 }
 
 async function handleRemoveRecordForUser (username: string, post: Post, context: Context) {
-    const promises: Promise<void>[] = [deleteUserStatus(username, context)];
+    const currentStatus = await getUserStatus(username, context);
+    const promises: Promise<unknown>[] = [deleteUserStatus(username, context)];
     if (post.authorName === context.appName) {
         promises.push(post.delete());
     } else {
         promises.push(post.remove());
     }
+
+    if (currentStatus) {
+        promises.push(updateAggregate(currentStatus.userStatus, 1, context));
+    }
+
+    promises.push(context.redis.zRem(CLEANUP_LOG_KEY, [username]));
 
     await Promise.all(promises);
 
