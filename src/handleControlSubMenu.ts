@@ -7,6 +7,8 @@ import { createUserSummary } from "./UserSummary/userSummary.js";
 import { getAccountInitialEvaluationResults } from "./handleControlSubAccountEvaluation.js";
 import json2md from "json2md";
 import { CLEANUP_LOG_KEY } from "./cleanup.js";
+// eslint-disable-next-line camelcase
+import { FieldConfig_Selection_Item } from "@devvit/protos";
 
 enum ControlSubAction {
     RegenerateSummary = "generateSummary",
@@ -43,42 +45,39 @@ export async function handleControlSubReportUser (target: Post | Comment, contex
     }
 
     const fields: FormField[] = [];
+    // eslint-disable-next-line camelcase
+    const actions: FieldConfig_Selection_Item[] = [];
     if (currentStatus.userStatus === UserStatus.Pending) {
-        const formOptions = [
-            { label: "Regenerate Summary", value: ControlSubAction.RegenerateSummary },
-        ];
+        actions.push({ label: "Regenerate Summary", value: ControlSubAction.RegenerateSummary });
 
         if (currentStatus.submitter && currentStatus.submitter !== context.appName) {
-            formOptions.push({ label: "Query Submission", value: ControlSubAction.QuerySubmission });
+            actions.push({ label: "Query Submission", value: ControlSubAction.QuerySubmission });
         }
 
-        formOptions.push({
+        actions.push({
             label: "Remove record for user after valid takedown request",
             value: ControlSubAction.RemoveRecordForUser,
         });
-
-        fields.push({
-            name: "action",
-            type: "select",
-            label: "Select an action",
-            options: formOptions,
-            multiSelect: false,
-            required: true,
-        });
-    } else {
-        fields.push({
-            name: "action",
-            type: "select",
-            label: "Select an action",
-            options: [{
-                label: "Remove record for user after valid takedown request",
-                value: ControlSubAction.RemoveRecordForUser,
-            }],
-            multiSelect: false,
-            defaultValue: [],
-            required: false,
-        });
     }
+
+    if (currentStatus.submitter && currentStatus.submitter !== context.appName) {
+        actions.push({ label: "Query Submission", value: ControlSubAction.QuerySubmission });
+    }
+
+    actions.push({
+        label: "Remove record for user after valid takedown request",
+        value: ControlSubAction.RemoveRecordForUser,
+    });
+
+    fields.push({
+        name: "action",
+        type: "select",
+        label: "Select an action",
+        options: actions,
+        multiSelect: false,
+        defaultValue: [],
+        required: false,
+    });
 
     const initialEvaluationResult = await getAccountInitialEvaluationResults(username, context);
     for (const hit of initialEvaluationResult) {
