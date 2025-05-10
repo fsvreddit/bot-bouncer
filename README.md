@@ -47,6 +47,10 @@ Write in to [/r/BotBouncer's modmail](https://www.reddit.com/message/compose/?to
 
 # Change History
 
+## Next
+
+* Internal changes to support operations on /r/BotBsouncer
+
 ## v1.10.0
 
 * Add ability for mods submitting accounts manually to receive feedback on the account's classification

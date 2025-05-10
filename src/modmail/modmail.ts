@@ -16,8 +16,7 @@ function conversationHandledRedisKey (conversationId: string) {
 
 export async function getConversationHandled (conversationId: string, context: TriggerContext) {
     const redisKey = conversationHandledRedisKey(conversationId);
-    const handled = await context.redis.get(redisKey);
-    return handled !== undefined;
+    return await context.redis.exists(redisKey);
 }
 
 export async function setConversationHandled (conversationId: string, context: TriggerContext) {
@@ -82,7 +81,7 @@ export async function handleModmail (event: ModMail, context: TriggerContext) {
 
     if (context.subredditName === CONTROL_SUBREDDIT) {
         if (isFirstMessage && firstMessage.author?.name === username) {
-            await handleControlSubredditModmail(username, event.conversationId, isFirstMessage, currentMessage?.bodyMarkdown, context);
+            await handleControlSubredditModmail(username, event.conversationId, isFirstMessage, conversationResponse.conversation.subject, currentMessage?.bodyMarkdown, context);
         }
     } else {
         if (conversationResponse.conversation.state === ModMailConversationState.Archived) {

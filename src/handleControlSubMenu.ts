@@ -1,15 +1,19 @@
 import { Comment, Context, FormField, FormOnSubmitEvent, JSONObject, Post } from "@devvit/public-api";
 import { getUsernameFromUrl } from "./utility.js";
-import { getUsernameFromPostId, getUserStatus, UserStatus } from "./dataStore.js";
+import { deleteUserStatus, getUsernameFromPostId, getUserStatus, updateAggregate, UserStatus } from "./dataStore.js";
 import { controlSubForm, controlSubQuerySubmissionForm } from "./main.js";
 import { CONTROL_SUBREDDIT } from "./constants.js";
 import { createUserSummary } from "./UserSummary/userSummary.js";
 import { getAccountInitialEvaluationResults } from "./handleControlSubAccountEvaluation.js";
 import json2md from "json2md";
+import { CLEANUP_LOG_KEY } from "./cleanup.js";
+// eslint-disable-next-line camelcase
+import { FieldConfig_Selection_Item } from "@devvit/protos";
 
 enum ControlSubAction {
     RegenerateSummary = "generateSummary",
     QuerySubmission = "querySubmission",
+    RemoveRecordForUser = "removeRecordForUser",
 }
 
 export async function handleControlSubReportUser (target: Post | Comment, context: Context) {
@@ -41,24 +45,39 @@ export async function handleControlSubReportUser (target: Post | Comment, contex
     }
 
     const fields: FormField[] = [];
+    // eslint-disable-next-line camelcase
+    const actions: FieldConfig_Selection_Item[] = [];
     if (currentStatus.userStatus === UserStatus.Pending) {
-        const formOptions = [
-            { label: "Regenerate Summary", value: ControlSubAction.RegenerateSummary },
-        ];
+        actions.push({ label: "Regenerate Summary", value: ControlSubAction.RegenerateSummary });
 
         if (currentStatus.submitter && currentStatus.submitter !== context.appName) {
-            formOptions.push({ label: "Query Submission", value: ControlSubAction.QuerySubmission });
+            actions.push({ label: "Query Submission", value: ControlSubAction.QuerySubmission });
         }
 
-        fields.push({
-            name: "action",
-            type: "select",
-            label: "Select an action",
-            options: formOptions,
-            multiSelect: false,
-            required: true,
+        actions.push({
+            label: "Remove record for user after valid takedown request",
+            value: ControlSubAction.RemoveRecordForUser,
         });
     }
+
+    if (currentStatus.submitter && currentStatus.submitter !== context.appName) {
+        actions.push({ label: "Query Submission", value: ControlSubAction.QuerySubmission });
+    }
+
+    actions.push({
+        label: "Remove record for user after valid takedown request",
+        value: ControlSubAction.RemoveRecordForUser,
+    });
+
+    fields.push({
+        name: "action",
+        type: "select",
+        label: "Select an action",
+        options: actions,
+        multiSelect: false,
+        defaultValue: [],
+        required: false,
+    });
 
     const initialEvaluationResult = await getAccountInitialEvaluationResults(username, context);
     for (const hit of initialEvaluationResult) {
@@ -110,6 +129,9 @@ export async function handleControlSubForm (event: FormOnSubmitEvent<JSONObject>
             break;
         case ControlSubAction.QuerySubmission:
             context.ui.showForm(controlSubQuerySubmissionForm);
+            break;
+        case ControlSubAction.RemoveRecordForUser:
+            await handleRemoveRecordForUser(username, post, context);
             break;
         default:
             context.ui.showToast("You must select an action");
@@ -174,4 +196,24 @@ export async function sendQueryToSubmitter (event: FormOnSubmitEvent<JSONObject>
     }
 
     context.ui.showToast(`Query sent to /u/${currentStatus.submitter}.`);
+}
+
+async function handleRemoveRecordForUser (username: string, post: Post, context: Context) {
+    const currentStatus = await getUserStatus(username, context);
+    const promises: Promise<unknown>[] = [deleteUserStatus(username, context)];
+    if (post.authorName === context.appName) {
+        promises.push(post.delete());
+    } else {
+        promises.push(post.remove());
+    }
+
+    if (currentStatus && currentStatus.userStatus !== UserStatus.Purged && currentStatus.userStatus !== UserStatus.Retired) {
+        promises.push(updateAggregate(currentStatus.userStatus, -1, context));
+    }
+
+    promises.push(context.redis.zRem(CLEANUP_LOG_KEY, [username]));
+
+    await Promise.all(promises);
+
+    context.ui.showToast(`Removed all data and deleted post for u/${username}.`);
 }
