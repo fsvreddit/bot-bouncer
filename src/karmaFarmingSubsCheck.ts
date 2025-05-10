@@ -1,11 +1,11 @@
 import { JobContext, JSONValue, Post, ZMember } from "@devvit/public-api";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
-import { fromPairs, uniq } from "lodash";
+import { compact, fromPairs, uniq } from "lodash";
 import { CONTROL_SUBREDDIT, ControlSubredditJob, EVALUATE_KARMA_FARMING_SUBS_CRON } from "./constants.js";
 import { getAllKnownUsers, getUserStatus, UserDetails, UserStatus } from "./dataStore.js";
 import { evaluateUserAccount, USER_EVALUATION_RESULTS_KEY, userHasContinuousNSFWHistory } from "./handleControlSubAccountEvaluation.js";
 import { getControlSubSettings } from "./settings.js";
-import { addSeconds } from "date-fns";
+import { addSeconds, subWeeks } from "date-fns";
 import { getUserExtended } from "./extendedDevvit.js";
 import { AsyncSubmission, queuePostCreation } from "./postCreation.js";
 import pluralize from "pluralize";
@@ -14,20 +14,27 @@ import { CronExpressionParser } from "cron-parser";
 
 const CHECK_DATE_KEY = "KarmaFarmingSubsCheckDates";
 
-async function getAccountsFromSub (subredditName: string, since: Date, context: JobContext): Promise<string[]> {
+interface AccountsToCheck {
+    subredditName: string;
+    accounts: string[];
+}
+
+async function getAccountsFromSub (subredditName: string, since: Date, context: JobContext): Promise<AccountsToCheck | undefined> {
     let posts: Post[];
     try {
         posts = await context.reddit.getNewPosts({
             subredditName,
             limit: 100,
         }).all();
-        await context.redis.zAdd(CHECK_DATE_KEY, { member: subredditName, score: new Date().getTime() });
     } catch (error) {
         console.error(`Karma Farming Subs: Error getting posts from ${subredditName}: ${error}`);
-        return [];
+        return;
     }
 
-    return uniq(posts.filter(post => post.createdAt > since).map(post => post.authorName));
+    return {
+        subredditName,
+        accounts: uniq(posts.filter(post => post.createdAt > since).map(post => post.authorName)),
+    };
 }
 
 function lastCheckDateForSub (subredditName: string, lastCheckDates: ZMember[]): Date {
@@ -49,12 +56,16 @@ async function getDistinctAccounts (context: JobContext): Promise<string[]> {
 
     console.log(`Karma Farming Subs: Checking ${distinctSubs.length} distinct subs`);
 
+    // Remove check dates older than a week.
+    await context.redis.zRemRangeByScore(CHECK_DATE_KEY, 0, subWeeks(new Date(), 1).getTime());
+
     const lastDates = await context.redis.zRange(CHECK_DATE_KEY, 0, -1);
 
     const promises = distinctSubs.map(sub => getAccountsFromSub(sub, lastCheckDateForSub(sub, lastDates), context));
-    const results = await Promise.all(promises);
+    const results = compact(await Promise.all(promises));
 
-    return uniq(results.flat());
+    await context.redis.zAdd(CHECK_DATE_KEY, ...results.map(item => ({ member: item.subredditName, score: new Date().getTime() })));
+    return uniq(results.map(item => item.accounts).flat());
 }
 
 async function evaluateAndHandleUser (username: string, variables: Record<string, JSONValue>, context: JobContext) {
