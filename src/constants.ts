@@ -48,6 +48,7 @@ export enum ClientSubredditJob {
     HandleClassificationChanges = "handleClassificationChanges",
     UpgradeNotifier = "upgradeNotifier",
     SendDailyDigest = "sendDailyDigest",
+    CheckForBanNotes = "checkForBanNotes",
 }
 
 /**
