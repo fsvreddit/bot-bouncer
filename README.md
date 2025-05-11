@@ -49,7 +49,8 @@ Write in to [/r/BotBouncer's modmail](https://www.reddit.com/message/compose/?to
 
 ## Next
 
-* Internal changes to support operations on /r/BotBsouncer
+* Add new evaluator for Amazon affiliate spam
+* Internal changes to support operations on /r/BotBouncer
 
 ## v1.10.0
 
