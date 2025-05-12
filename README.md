@@ -50,6 +50,7 @@ Write in to [/r/BotBouncer's modmail](https://www.reddit.com/message/compose/?to
 ## Next
 
 * Add new evaluator for Amazon affiliate spam
+* Auto-report users banned from a sub using Bot Bouncer with a reason that implies bot activity
 * Internal changes to support operations on /r/BotBouncer
 
 ## v1.10.0
