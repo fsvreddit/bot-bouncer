@@ -45,7 +45,7 @@ async function addControlSubredditJobs (context: TriggerContext) {
 
         context.scheduler.runJob({
             name: ControlSubredditJob.QueueKarmaFarmingSubs,
-            cron: "5/30 * * * *",
+            cron: "5/10 * * * *",
         }),
 
         context.scheduler.runJob({
