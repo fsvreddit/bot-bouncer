@@ -6,7 +6,7 @@ import { endOfDay, parse } from "date-fns";
 
 interface BotGroup {
     name: string;
-    usernameRegex: RegExp;
+    usernameRegexes: RegExp[];
     dateFrom: Date;
     dateTo: Date;
     subreddits?: string[];
@@ -26,9 +26,16 @@ export class EvaluateBotGroup extends UserEvaluatorBase {
             const dateFrom = group.dateFrom as string | undefined;
             const dateTo = group.dateTo as string | undefined;
             const subreddits = group.subreddits as string[] | undefined;
-            const usernameRegex = group.usernameRegex as string | undefined;
+            let usernameRegexes: string[] | undefined;
+            if (group.usernameRegex) {
+                if (typeof group.usernameRegex === "string") {
+                    usernameRegexes = [group.usernameRegex];
+                } else if (Array.isArray(group.usernameRegex)) {
+                    usernameRegexes = group.usernameRegex;
+                }
+            }
 
-            if (!name || !dateFrom || !usernameRegex) {
+            if (!name || !dateFrom || !usernameRegexes) {
                 throw new Error(`Bot group ${key} is missing required fields. Mandatory fields are name, dateFrom, dateTo, and usernameRegex.`);
             }
 
@@ -46,7 +53,9 @@ export class EvaluateBotGroup extends UserEvaluatorBase {
             }
 
             try {
-                new RegExp(usernameRegex);
+                for (const usernameRegex of usernameRegexes) {
+                    new RegExp(usernameRegex);
+                }
             } catch {
                 throw new Error(`Invalid regex for usernameRegex in bot group ${key}.`);
             }
@@ -54,7 +63,7 @@ export class EvaluateBotGroup extends UserEvaluatorBase {
             try {
                 results.push({
                     name,
-                    usernameRegex: new RegExp(usernameRegex),
+                    usernameRegexes: usernameRegexes.map(regex => new RegExp(regex)),
                     dateFrom: parse(dateFrom, "yyyy-MM-dd", new Date()),
                     dateTo: dateTo ? endOfDay(parse(dateTo, "yyyy-MM-dd", new Date())) : new Date(),
                     subreddits,
@@ -91,12 +100,13 @@ export class EvaluateBotGroup extends UserEvaluatorBase {
 
     override preEvaluateUser (user: UserExtended): boolean {
         const botGroups = this.getBotGroups();
-        return botGroups.some(group => group.usernameRegex.test(user.username) && user.createdAt > group.dateFrom && user.createdAt < group.dateTo);
+        return botGroups.some(group => group.usernameRegexes.some(regex => regex.test(user.username) && user.createdAt > group.dateFrom && user.createdAt < group.dateTo));
     }
 
     override evaluate (user: UserExtended, history: (Post | Comment)[]): boolean {
         const botGroups = this.getBotGroups();
-        const matchedGroup = botGroups.find(group => group.usernameRegex.test(user.username)
+
+        const matchedGroup = botGroups.find(group => group.usernameRegexes.some(regex => regex.test(user.username))
             && user.createdAt > group.dateFrom
             && user.createdAt < group.dateTo
             && (!group.subreddits || history.some(item => group.subreddits?.some(subreddit => subreddit === item.subredditName))));
