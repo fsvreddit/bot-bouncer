@@ -4,16 +4,18 @@ import { deleteUserStatus, getUsernameFromPostId, getUserStatus, updateAggregate
 import { controlSubForm, controlSubQuerySubmissionForm } from "./main.js";
 import { CONTROL_SUBREDDIT } from "./constants.js";
 import { createUserSummary } from "./UserSummary/userSummary.js";
-import { getAccountInitialEvaluationResults } from "./handleControlSubAccountEvaluation.js";
+import { evaluateUserAccount, getAccountInitialEvaluationResults } from "./handleControlSubAccountEvaluation.js";
 import json2md from "json2md";
 import { CLEANUP_LOG_KEY } from "./cleanup.js";
 // eslint-disable-next-line camelcase
 import { FieldConfig_Selection_Item } from "@devvit/protos";
+import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 
 enum ControlSubAction {
     RegenerateSummary = "generateSummary",
     QuerySubmission = "querySubmission",
     RemoveRecordForUser = "removeRecordForUser",
+    CheckCurrentEvaluation = "checkCurrentEvaluation",
 }
 
 export async function handleControlSubReportUser (target: Post | Comment, context: Context) {
@@ -64,6 +66,8 @@ export async function handleControlSubReportUser (target: Post | Comment, contex
         actions.push({ label: "Query Submission", value: ControlSubAction.QuerySubmission });
     }
 
+    actions.push({ label: "Check current evaluation", value: ControlSubAction.CheckCurrentEvaluation });
+
     actions.push({
         label: "Remove record for user after valid takedown request",
         value: ControlSubAction.RemoveRecordForUser,
@@ -81,22 +85,13 @@ export async function handleControlSubReportUser (target: Post | Comment, contex
 
     const initialEvaluationResult = await getAccountInitialEvaluationResults(username, context);
     for (const hit of initialEvaluationResult) {
-        if (hit.hitReason) {
-            fields.push({
-                name: hit.botName,
-                label: `User hit ${hit.botName}`,
-                type: "paragraph",
-                lineHeight: Math.min(Math.ceil(hit.hitReason.length / 60), 8),
-                defaultValue: hit.hitReason,
-            });
-        } else {
-            fields.push({
-                name: hit.botName,
-                label: `User hit ${hit.botName}`,
-                type: "string",
-                placeholder: "No detail available",
-            });
-        }
+        fields.push({
+            name: hit.botName,
+            label: `User hit ${hit.botName}`,
+            type: "paragraph",
+            lineHeight: 4,
+            defaultValue: hit.hitReason,
+        });
     }
 
     context.ui.showForm(controlSubForm, { title, description, fields: fields as unknown as JSONObject });
@@ -132,6 +127,9 @@ export async function handleControlSubForm (event: FormOnSubmitEvent<JSONObject>
             break;
         case ControlSubAction.RemoveRecordForUser:
             await handleRemoveRecordForUser(username, post, context);
+            break;
+        case ControlSubAction.CheckCurrentEvaluation:
+            await reevaluateUserAccount(username, context);
             break;
         default:
             context.ui.showToast("You must select an action");
@@ -216,4 +214,39 @@ async function handleRemoveRecordForUser (username: string, post: Post, context:
     await Promise.all(promises);
 
     context.ui.showToast(`Removed all data and deleted post for u/${username}.`);
+}
+
+async function reevaluateUserAccount (username: string, context: Context) {
+    const fields: FormField[] = [];
+
+    const variables = await getEvaluatorVariables(context);
+    const evaluationResults = await evaluateUserAccount(username, variables, context, false);
+    if (evaluationResults.length === 0) {
+        fields.push({
+            type: "string",
+            label: "User did not match evaluators",
+            name: "noMatch",
+        });
+    } else {
+        for (const hit of evaluationResults) {
+            if (hit.hitReason) {
+                fields.push({
+                    type: "paragraph",
+                    label: `User hit ${hit.botName}`,
+                    name: hit.botName,
+                    lineHeight: Math.min(Math.ceil(hit.hitReason.length / 60), 8),
+                    defaultValue: hit.hitReason,
+                });
+            } else {
+                fields.push({
+                    type: "string",
+                    label: `User hit ${hit.botName}`,
+                    name: hit.botName,
+                    placeholder: "No detail available",
+                });
+            }
+        }
+    }
+
+    context.ui.showForm(controlSubForm, { title: "Evaluation Results", fields: fields as unknown as JSONObject });
 }
