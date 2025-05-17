@@ -48,6 +48,7 @@ export enum ClientSubredditJob {
     HandleClassificationChanges = "handleClassificationChanges",
     UpgradeNotifier = "upgradeNotifier",
     SendDailyDigest = "sendDailyDigest",
+    CheckForBanNotes = "checkForBanNotes",
 }
 
 /**
@@ -55,3 +56,4 @@ export enum ClientSubredditJob {
  */
 
 export const EVALUATE_KARMA_FARMING_SUBS_CRON = "6/10 * * * *"; // Every ten minutes
+export const CONTROL_SUB_CLEANUP_CRON = "1/5 * * * *"; // Every 5 minutes

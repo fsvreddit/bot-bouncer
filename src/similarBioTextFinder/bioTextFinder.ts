@@ -134,9 +134,7 @@ export async function analyseBioText (_: unknown, context: JobContext) {
         const variables = await getEvaluatorVariables(context);
         let index = 1;
 
-        const output: json2md.DataObject[] = [
-            { p: "Here are some similar bio text patterns not already covered by the Bio Text evaluator and seen on swept subreddits recently:" },
-        ];
+        output.push({ p: "Here are some similar bio text patterns not already covered by the Bio Text evaluator and seen on swept subreddits recently:" });
 
         for (const similarTexts of Object.values(results)) {
             output.push({ p: `**Pattern ${index++}**` });

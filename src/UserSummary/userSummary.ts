@@ -6,7 +6,7 @@ import { compact, countBy, mean, uniq } from "lodash";
 import { count } from "@wordpress/wordcount";
 import { isUserPotentiallyBlockingBot } from "./blockChecker.js";
 import pluralize from "pluralize";
-import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
+import { isLinkId } from "@devvit/shared-types/tid.js";
 import { getUserExtended, UserExtended } from "../extendedDevvit.js";
 import { ALL_EVALUATORS } from "../userEvaluation/allEvaluators.js";
 import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
@@ -160,58 +160,6 @@ function activityByTimeOfDay (history: (Post | Comment)[]): json2md.DataObject[]
     ];
 
     return result;
-}
-
-function domainsFromComment (comment: string): string[] {
-    // eslint-disable-next-line no-useless-escape
-    const domainRegex = /(https?:\/\/[\w\.]+)[\/\)]/g;
-    const matches = comment.matchAll(domainRegex);
-
-    const domains: (string | undefined)[] = [];
-    const redditDomains = [
-        "i.redd.it",
-        "v.redd.it",
-        "reddit.com",
-        "old.reddit.com",
-        "new.reddit.com",
-        "sh.reddit.com",
-    ];
-
-    for (const match of matches) {
-        const [, url] = match;
-        const domain = domainFromUrl(url);
-        if (domain && !redditDomains.includes(domain)) {
-            domains.push(domainFromUrl(url));
-        }
-    }
-
-    return uniq(compact((domains)).filter(domain => !redditDomains.includes(domain)));
-}
-
-function getCommonDomainsFromContent (history: Post[] | Comment[]): Record<string, number> {
-    const posts = history.filter(item => isLinkId(item.id)) as Post[];
-    if (posts.length > 0) {
-        return countBy(compact(posts.map(post => domainFromUrl(post.url))));
-    }
-
-    const comments = history.filter(item => isCommentId(item.id)) as Comment[];
-    if (comments.length > 0) {
-        return countBy(compact(comments.flatMap(comment => domainsFromComment(comment.body))));
-    }
-
-    return {};
-}
-
-function getHighCountDomains (history: Post[] | Comment[]): string {
-    const commonDomains = getCommonDomainsFromContent(history);
-
-    const domainEntries = Object.entries(commonDomains).map(([domain, count]) => ({ domain, count }));
-    const highCountDomains = domainEntries.filter(item => item.count > history.length / 5);
-    if (highCountDomains.length === 0) {
-        return "";
-    }
-
-    return highCountDomains.map(item => `Frequently shared domains: ${item.domain}: ${Math.round(100 * item.count / history.length)}%`).join(", ");
 }
 
 export async function getSummaryForUser (username: string, source: "modmail" | "submission", context: TriggerContext): Promise<json2md.DataObject[] | undefined> {
@@ -391,11 +339,6 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
         const commentsPerPost = countBy(Object.values(countBy(userComments.map(comment => comment.postId))));
         bullets.push(`Comments per post: ${Object.entries(commentsPerPost).map(([count, posts]) => `${count} comments: ${posts}`).join(", ")}`);
 
-        const highCountDomains = getHighCountDomains(userComments);
-        if (highCountDomains) {
-            bullets.push(highCountDomains);
-        }
-
         if (userComments.length < 90) {
             bullets.push(`First comment was ${formatDifferenceInDates(user.createdAt, userComments[userComments.length - 1].createdAt)} after account creation`);
         }
@@ -424,11 +367,6 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
         const editedPostPercentage = Math.round(100 * userPosts.filter(post => post.edited).length / userPosts.length);
         if (editedPostPercentage > 0) {
             bullets.push(`Edited posts: ${editedPostPercentage}% of total`);
-        }
-
-        const domains = countBy(compact(userPosts.map(post => domainFromUrl(post.url))));
-        if (Object.keys(domains).length > 0) {
-            bullets.push(`Domains: ${Object.entries(domains).map(([domain, count]) => `${domain}: ${Math.round(100 * count / userPosts.length)}%`).join(", ")}`);
         }
 
         const subreddits = countBy(compact(userPosts.map(post => post.subredditName)));
