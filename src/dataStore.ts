@@ -59,10 +59,7 @@ export interface UserDetails {
     mostRecentActivity?: number;
 }
 
-const ALL_POTENTIAL_USER_PREFIXES = [
-    // eslint-disable-next-line @typescript-eslint/no-misused-spread
-    ..."ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_",
-];
+const ALL_POTENTIAL_USER_PREFIXES = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_".split("");
 
 function getStaleStoreKey (username: string): string {
     return `StaleUserStore~${username[0]}`;
