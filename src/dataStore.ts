@@ -13,7 +13,7 @@ import { sendMessageToWebhook } from "./utility.js";
 import { getUserExtended } from "./extendedDevvit.js";
 
 const USER_STORE = "UserStore";
-const STALE_USER_STORE = "StaleUserStore";
+const LEGACY_STALE_USER_STORE = "StaleUserStore";
 
 const BIO_TEXT_STORE = "BioTextStore";
 const DISPLAY_NAME_STORE = "DisplayNameStore";
@@ -73,7 +73,7 @@ export async function getFullDataStore (context: TriggerContext): Promise<Record
     const activeData = await context.redis.hGetAll(USER_STORE);
     const staleDataArray = await Promise.all(ALL_POTENTIAL_USER_PREFIXES.map(prefix => context.redis.hGetAll(getStaleStoreKey(prefix))));
     const staleData = Object.assign({}, ...staleDataArray) as Record<string, string>;
-    const legacyStaleData = await context.redis.hGetAll(STALE_USER_STORE);
+    const legacyStaleData = await context.redis.hGetAll(LEGACY_STALE_USER_STORE);
 
     return { ...activeData, ...staleData, ...legacyStaleData };
 }
@@ -81,7 +81,7 @@ export async function getFullDataStore (context: TriggerContext): Promise<Record
 export async function getAllKnownUsers (context: TriggerContext): Promise<string[]> {
     const activeUsers = await context.redis.hKeys(USER_STORE);
     const staleUsers = await Promise.all(ALL_POTENTIAL_USER_PREFIXES.map(prefix => context.redis.hKeys(getStaleStoreKey(prefix))));
-    const legacyStaleUsers = await context.redis.hKeys(STALE_USER_STORE);
+    const legacyStaleUsers = await context.redis.hKeys(LEGACY_STALE_USER_STORE);
 
     return uniq([...activeUsers, ...staleUsers.flat(), ...legacyStaleUsers]);
 }
@@ -93,14 +93,14 @@ export async function getUserStatus (username: string, context: TriggerContext) 
         return JSON.parse(value) as UserDetails;
     }
 
-    const legacyStaleValue = await context.redis.hGet(STALE_USER_STORE, username);
-    if (legacyStaleValue) {
-        return JSON.parse(legacyStaleValue) as UserDetails;
-    }
-
     const staleValue = await context.redis.hGet(getStaleStoreKey(username), username);
     if (staleValue) {
         return JSON.parse(staleValue) as UserDetails;
+    }
+
+    const legacyStaleValue = await context.redis.hGet(LEGACY_STALE_USER_STORE, username);
+    if (legacyStaleValue) {
+        return JSON.parse(legacyStaleValue) as UserDetails;
     }
 }
 
@@ -132,11 +132,11 @@ export async function writeUserStatus (username: string, details: UserDetails, c
     if (isStale) {
         await context.redis.hSet(getStaleStoreKey(username), { [username]: JSON.stringify(details) });
         await context.redis.hDel(USER_STORE, [username]);
-        await context.redis.hDel(STALE_USER_STORE, [username]);
+        await context.redis.hDel(LEGACY_STALE_USER_STORE, [username]);
     } else {
         await context.redis.hSet(USER_STORE, { [username]: JSON.stringify(details) });
         await context.redis.hDel(getStaleStoreKey(username), [username]);
-        await context.redis.hDel(STALE_USER_STORE, [username]);
+        await context.redis.hDel(LEGACY_STALE_USER_STORE, [username]);
     }
 }
 
@@ -203,7 +203,8 @@ export async function deleteUserStatus (username: string, context: TriggerContex
 
     const promises: Promise<number>[] = [
         context.redis.hDel(USER_STORE, [username]),
-        context.redis.hDel(STALE_USER_STORE, [username]),
+        context.redis.hDel(getStaleStoreKey(username), [username]),
+        context.redis.hDel(LEGACY_STALE_USER_STORE, [username]),
         context.redis.hDel(USER_EVALUATION_RESULTS_KEY, [username]),
         context.redis.hDel(BIO_TEXT_STORE, [username]),
         context.redis.hDel(DISPLAY_NAME_STORE, [username]),
