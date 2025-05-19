@@ -13,6 +13,7 @@ import { sendMessageToWebhook } from "./utility.js";
 import { getUserExtended } from "./extendedDevvit.js";
 
 const USER_STORE = "UserStore";
+const TEMP_DECLINE_STORE = "TempDeclineStore";
 
 const BIO_TEXT_STORE = "BioTextStore";
 const DISPLAY_NAME_STORE = "DisplayNameStore";
@@ -305,6 +306,23 @@ export async function updateWikiPage (_: unknown, context: JobContext) {
         }
     }
 
+    // Add in entries from temp decline store.
+    const tempDeclineEntries = await context.redis.zRange(TEMP_DECLINE_STORE, 0, -1);
+    for (const entry of tempDeclineEntries) {
+        if (dataToWrite[entry.member]) {
+            continue;
+        }
+
+        const declineEntry: UserDetails = {
+            userStatus: UserStatus.Declined,
+            trackingPostId: "",
+            lastUpdate: entry.score,
+            operator: "",
+        };
+
+        dataToWrite[entry.member] = JSON.stringify(declineEntry);
+    }
+
     const content = compressData(dataToWrite);
     if (content === wikiPage?.content) {
         return;
@@ -505,4 +523,11 @@ export async function getInitialAccountProperties (username: string, context: Tr
         displayName,
         socialLinks: socialLinks ? JSON.parse(socialLinks) as UserSocialLink[] : [],
     };
+}
+
+export async function addUserToTempDeclineStore (username: string, context: TriggerContext) {
+    await context.redis.zAdd(TEMP_DECLINE_STORE, { member: username, score: new Date().getTime() });
+
+    // Remove stale entries.
+    await context.redis.zRemRangeByScore(TEMP_DECLINE_STORE, 0, subHours(new Date(), 1).getTime());
 }

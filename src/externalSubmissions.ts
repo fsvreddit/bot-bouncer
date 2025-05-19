@@ -1,6 +1,6 @@
 import { TriggerContext, WikiPage } from "@devvit/public-api";
 import { CONTROL_SUBREDDIT } from "./constants.js";
-import { getUserStatus, setUserStatus, UserStatus } from "./dataStore.js";
+import { addUserToTempDeclineStore, getUserStatus, setUserStatus, UserStatus } from "./dataStore.js";
 import { ControlSubSettings, getControlSubSettings } from "./settings.js";
 import Ajv, { JSONSchemaType } from "ajv";
 import { addDays, addMinutes, addSeconds } from "date-fns";
@@ -123,6 +123,7 @@ async function addExternalSubmissionToPostCreationQueue (item: ExternalSubmissio
         const evaluationResults = await evaluateUserAccount(item.username, variables, context, false);
         if (evaluationResults.length === 0) {
             console.log(`External Submissions: No evaluators matched for ${item.username}.`);
+            await addUserToTempDeclineStore(item.username, context);
             return false;
         }
     }
