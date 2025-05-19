@@ -308,6 +308,7 @@ export async function updateWikiPage (_: unknown, context: JobContext) {
 
     // Add in entries from temp decline store.
     const tempDeclineEntries = await context.redis.zRange(TEMP_DECLINE_STORE, 0, -1);
+    console.log(`Found ${tempDeclineEntries.length} ${pluralize("entry", tempDeclineEntries.length)} in the temp decline store`);
     for (const entry of tempDeclineEntries) {
         if (dataToWrite[entry.member]) {
             continue;

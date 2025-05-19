@@ -30,6 +30,7 @@ export async function handleModmail (event: ModMail, context: TriggerContext) {
             conversationId: event.conversationId,
         });
     } catch (error) {
+        console.log("Error in modmail event:", JSON.stringify(event, null, 2));
         console.log(error);
         return;
     }
