@@ -18,7 +18,7 @@ export async function handleReportUser (event: MenuItemOnPressEvent, context: Co
 
     const currentStatus = await getUserStatus(target.authorName, context);
     if (currentStatus) {
-        context.ui.showToast(`${target.authorName} has already been reported to Bot Bouncer.`);
+        context.ui.showToast(`${target.authorName} has already been reported to Bot Bouncer with status: ${currentStatus.userStatus}`);
         return;
     }
 
