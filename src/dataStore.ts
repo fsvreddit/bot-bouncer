@@ -159,7 +159,7 @@ export async function setUserStatus (username: string, details: UserDetails, con
         promises.push(queueWikiUpdate(context));
     }
 
-    if (details.userStatus === UserStatus.Pending) {
+    if (details.userStatus === UserStatus.Pending || details.userStatus === UserStatus.Purged || details.userStatus === UserStatus.Retired) {
         promises.push(setCleanupForUser(username, context, true, addHours(new Date(), 1)));
     } else {
         promises.push(setCleanupForUser(username, context, true));
