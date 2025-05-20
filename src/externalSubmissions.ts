@@ -1,6 +1,6 @@
 import { TriggerContext, WikiPage } from "@devvit/public-api";
 import { CONTROL_SUBREDDIT } from "./constants.js";
-import { getUserStatus, setUserStatus, UserStatus } from "./dataStore.js";
+import { addUserToTempDeclineStore, getUserStatus, setUserStatus, UserStatus } from "./dataStore.js";
 import { ControlSubSettings, getControlSubSettings } from "./settings.js";
 import Ajv, { JSONSchemaType } from "ajv";
 import { addDays, addMinutes, addSeconds } from "date-fns";
@@ -9,8 +9,9 @@ import { isLinkId } from "@devvit/shared-types/tid.js";
 import { AsyncSubmission, queuePostCreation } from "./postCreation.js";
 import pluralize from "pluralize";
 import { getUserExtended } from "./extendedDevvit.js";
-import { EvaluationResult, USER_EVALUATION_RESULTS_KEY } from "./handleControlSubAccountEvaluation.js";
+import { evaluateUserAccount, EvaluationResult, USER_EVALUATION_RESULTS_KEY } from "./handleControlSubAccountEvaluation.js";
 import json2md from "json2md";
+import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 
 const WIKI_PAGE = "externalsubmissions";
 
@@ -114,6 +115,17 @@ async function addExternalSubmissionToPostCreationQueue (item: ExternalSubmissio
     if (currentStatus) {
         console.log(`External Submissions: User ${item.username} already has a status of ${currentStatus.userStatus}.`);
         return false;
+    }
+
+    if (!item.submitter) {
+        // Automatic submission. Check if any evaluators match.
+        const variables = await getEvaluatorVariables(context);
+        const evaluationResults = await evaluateUserAccount(item.username, variables, context, false);
+        if (evaluationResults.length === 0) {
+            console.log(`External Submissions: No evaluators matched for ${item.username}.`);
+            await addUserToTempDeclineStore(item.username, context);
+            return false;
+        }
     }
 
     const initialStatus = item.initialStatus ??= item.submitter && controlSubSettings.trustedSubmitters.includes(item.submitter) ? UserStatus.Banned : UserStatus.Pending;

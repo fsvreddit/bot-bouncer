@@ -24,6 +24,8 @@ import { EvaluateBotGroup } from "./EvaluateBotGroup.js";
 import { EvaluateBadUsernameYoung } from "./EvaluateBadUsernameYoung.js";
 import { EvaluateCommentPhrase } from "./EvaluateCommentPhrase.js";
 import { EvaluateRapidFireBot } from "./EvaluateRapidFireBot.js";
+import { EvaluateAmazonSpam } from "./EvaluateAmazonSpam.js";
+import { EvaluateSuspiciousFirstPostPhrase } from "./EvaluateSuspiciousFirstPostPhrase.js";
 
 export const ALL_EVALUATORS = [
     EvaluateBadUsername,
@@ -52,4 +54,6 @@ export const ALL_EVALUATORS = [
     EvaluateBotGroup,
     EvaluateCommentPhrase,
     EvaluateRapidFireBot,
+    EvaluateAmazonSpam,
+    EvaluateSuspiciousFirstPostPhrase,
 ];

@@ -4,19 +4,19 @@ import { getSummaryForUser } from "../UserSummary/userSummary.js";
 import { getUserOrUndefined } from "../utility.js";
 import { CONFIGURATION_DEFAULTS, getControlSubSettings } from "../settings.js";
 import { handleBulkSubmission } from "./bulkSubmission.js";
-import { addDays } from "date-fns";
+import { addDays, subMinutes } from "date-fns";
 import json2md from "json2md";
 
-export async function handleControlSubredditModmail (username: string, conversationId: string, isFirstMessage: boolean, message: string | undefined, context: TriggerContext): Promise<boolean> {
+export async function handleControlSubredditModmail (username: string, conversationId: string, isFirstMessage: boolean, subject: string | undefined, message: string | undefined, context: TriggerContext) {
     const controlSubSettings = await getControlSubSettings(context);
 
     if (controlSubSettings.bulkSubmitters?.includes(username) && message?.startsWith("{")) {
         const isTrusted = controlSubSettings.trustedSubmitters.includes(username);
         return handleBulkSubmission(username, isTrusted, conversationId, message, context);
     } else if (isFirstMessage) {
-        return handleModmailFromUser(username, conversationId, context);
+        return handleModmailFromUser(username, conversationId, subject, context);
     } else {
-        return false;
+        return;
     }
 }
 
@@ -56,11 +56,37 @@ export function markdownToText (markdown: json2md.DataObject[], limit = 9500): s
     return chunks;
 }
 
-async function handleModmailFromUser (username: string, conversationId: string, context: TriggerContext): Promise<boolean> {
+async function handleModmailFromUser (username: string, conversationId: string, subject: string | undefined, context: TriggerContext) {
     const currentStatus = await getUserStatus(username, context);
 
     if (!currentStatus || currentStatus.userStatus === UserStatus.Pending) {
-        return false;
+        return;
+    }
+
+    if (subject?.startsWith(`Ban dispute for /u/${username}`) && (currentStatus.userStatus === UserStatus.Organic || currentStatus.userStatus === UserStatus.Declined)) {
+        console.log(`Modmail: /u/${username} is appealing a ban, but is currently marked as human. Sending reply.`);
+        const message: json2md.DataObject[] = [
+            { p: `Hi /u/${username},` },
+            { p: "Thanks for appealing your ban. A moderator of /r/BotBouncer has already reviewed your account proactively and marked you as human." },
+        ];
+
+        if (new Date(currentStatus.lastUpdate) < subMinutes(new Date(), 10)) {
+            message.push({ p: "Any bans received should have already lifted, and you should already be able to post or comment again." });
+        } else {
+            message.push({ p: "This was done recently, so you may need to wait up to ten minutes for bans to lift." });
+        }
+
+        message.push({ p: "Please accept our apologies for the inconvenience or worry this may have caused you." });
+        message.push({ p: "*This is an automated message.*" });
+
+        await context.reddit.modMail.reply({
+            body: json2md(message),
+            conversationId,
+            isInternal: false,
+            isAuthorHidden: true,
+        });
+        await context.reddit.modMail.archiveConversation(conversationId);
+        return;
     }
 
     const recentAppealKey = `recentAppeal~${username}`;
@@ -75,7 +101,7 @@ async function handleModmailFromUser (username: string, conversationId: string, 
             isAuthorHidden: false,
         });
         await context.reddit.modMail.archiveConversation(conversationId);
-        return true;
+        return;
     }
 
     const post = await context.reddit.getPostById(currentStatus.trackingPostId);
@@ -104,7 +130,7 @@ async function handleModmailFromUser (username: string, conversationId: string, 
 
     if (currentStatus.userStatus !== UserStatus.Banned && currentStatus.userStatus !== UserStatus.Purged) {
         // User is not banned or purged, so we should not send the "Appeal Received" message.
-        return true;
+        return;
     }
 
     const user = await getUserOrUndefined(username, context);
@@ -117,7 +143,7 @@ async function handleModmailFromUser (username: string, conversationId: string, 
             isAuthorHidden: false,
         });
         await context.reddit.modMail.archiveConversation(conversationId);
-        return true;
+        return;
     }
 
     await context.reddit.modMail.reply({
@@ -128,6 +154,4 @@ async function handleModmailFromUser (username: string, conversationId: string, 
     });
 
     await context.redis.set(recentAppealKey, new Date().getTime().toString(), { expiration: addDays(new Date(), 1) });
-
-    return true;
 }

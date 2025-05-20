@@ -146,6 +146,7 @@ export interface ControlSubSettings {
     uptimeMonitoringEnabled?: boolean;
     messageMonitoringEnabled?: boolean;
     monitoringWebhook?: string;
+    banNoteCheckingEnabled?: boolean;
 }
 
 const CONTROL_SUB_SETTINGS_WIKI_PAGE = "control-sub-settings";
@@ -165,6 +166,7 @@ const schema: JSONSchemaType<ControlSubSettings> = {
         uptimeMonitoringEnabled: { type: "boolean", nullable: true },
         messageMonitoringEnabled: { type: "boolean", nullable: true },
         monitoringWebhook: { type: "string", nullable: true },
+        banNoteCheckingEnabled: { type: "boolean", nullable: true },
     },
     required: ["evaluationDisabled", "trustedSubmitters", "reporterBlacklist"],
 };

@@ -150,7 +150,7 @@ async function trustedSubmitterInitialStatus (user: UserExtended, context: Trigg
         return UserStatus.Pending;
     }
 
-    const recentComments = recentHistory.filter(item => item instanceof Comment) as Comment[];
+    const recentComments = recentHistory.filter(item => item instanceof Comment);
     const commentPosts = countBy(recentComments.map(comment => comment.postId));
     if (Object.values(commentPosts).some(count => count > 1)) {
         console.log(`Trusted submitter override: ${user.username} has commented multiple times in the same post`);

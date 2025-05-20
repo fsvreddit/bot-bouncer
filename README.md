@@ -47,6 +47,16 @@ Write in to [/r/BotBouncer's modmail](https://www.reddit.com/message/compose/?to
 
 # Change History
 
+## v1.11.0
+
+* Add new evaluator for Amazon affiliate spam
+* Add new evaluator to find accounts whose first posts are advertising certain products or services
+* Auto-report users banned from a sub using Bot Bouncer with a reason that implies bot activity
+* Fixed a bug that resulted in posts and comments that had already been spammed by mods to be removed as not spam
+* When attempting to report a post from a context menu, the current status (if any) is displayed.
+* Prevent accidental reporting of subreddit moderators
+* Internal changes to support operations on /r/BotBouncer
+
 ## v1.10.0
 
 * Add ability for mods submitting accounts manually to receive feedback on the account's classification

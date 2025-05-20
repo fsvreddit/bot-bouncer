@@ -1,6 +1,6 @@
 import { Context, MenuItemOnPressEvent, JSONObject, FormOnSubmitEvent } from "@devvit/public-api";
 import { CONTROL_SUBREDDIT } from "./constants.js";
-import { getPostOrCommentById, getUserOrUndefined } from "./utility.js";
+import { getPostOrCommentById, getUserOrUndefined, isModerator } from "./utility.js";
 import { getUserStatus } from "./dataStore.js";
 import { addExternalSubmissionFromClientSub } from "./externalSubmissions.js";
 import { reportForm } from "./main.js";
@@ -18,7 +18,7 @@ export async function handleReportUser (event: MenuItemOnPressEvent, context: Co
 
     const currentStatus = await getUserStatus(target.authorName, context);
     if (currentStatus) {
-        context.ui.showToast(`${target.authorName} has already been reported to Bot Bouncer.`);
+        context.ui.showToast(`${target.authorName} has already been reported to Bot Bouncer with status: ${currentStatus.userStatus}`);
         return;
     }
 
@@ -34,6 +34,21 @@ export async function handleReportUser (event: MenuItemOnPressEvent, context: Co
 
     if (controlSubSettings.reporterBlacklist.includes(currentUser.username)) {
         context.ui.showToast("You are not currently permitted to submit bots to r/BotBouncer. Please write in to modmail if you believe this is a mistake");
+        return;
+    }
+
+    if (target.authorName === `${context.subredditName}-ModTeam}`) {
+        context.ui.showToast("You cannot report the subreddit's -ModTeam user.");
+        return;
+    }
+
+    if (target.authorName === currentUser.username) {
+        context.ui.showToast("You cannot report yourself.");
+        return;
+    }
+
+    if (await isModerator(target.authorName, context)) {
+        context.ui.showToast("You cannot report a moderator of this subreddit.");
         return;
     }
 

@@ -13,7 +13,7 @@ import { sendMessageToWebhook } from "./utility.js";
 import { getUserExtended } from "./extendedDevvit.js";
 
 const USER_STORE = "UserStore";
-const STALE_USER_STORE = "StaleUserStore";
+const TEMP_DECLINE_STORE = "TempDeclineStore";
 
 const BIO_TEXT_STORE = "BioTextStore";
 const DISPLAY_NAME_STORE = "DisplayNameStore";
@@ -60,16 +60,25 @@ export interface UserDetails {
     mostRecentActivity?: number;
 }
 
+const ALL_POTENTIAL_USER_PREFIXES = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_".split("");
+
+function getStaleStoreKey (username: string): string {
+    return `StaleUserStore~${username[0]}`;
+}
+
 export async function getFullDataStore (context: TriggerContext): Promise<Record<string, string>> {
     const activeData = await context.redis.hGetAll(USER_STORE);
-    const staleData = await context.redis.hGetAll(STALE_USER_STORE);
+    const staleDataArray = await Promise.all(ALL_POTENTIAL_USER_PREFIXES.map(prefix => context.redis.hGetAll(getStaleStoreKey(prefix))));
+    const staleData = Object.assign({}, ...staleDataArray) as Record<string, string>;
+
     return { ...activeData, ...staleData };
 }
 
 export async function getAllKnownUsers (context: TriggerContext): Promise<string[]> {
     const activeUsers = await context.redis.hKeys(USER_STORE);
-    const staleUsers = await context.redis.hKeys(STALE_USER_STORE);
-    return uniq([...activeUsers, ...staleUsers]);
+    const staleUsers = await Promise.all(ALL_POTENTIAL_USER_PREFIXES.map(prefix => context.redis.hKeys(getStaleStoreKey(prefix))));
+
+    return uniq([...activeUsers, ...staleUsers.flat()]);
 }
 
 export async function getUserStatus (username: string, context: TriggerContext) {
@@ -79,7 +88,7 @@ export async function getUserStatus (username: string, context: TriggerContext) 
         return JSON.parse(value) as UserDetails;
     }
 
-    const staleValue = await context.redis.hGet(STALE_USER_STORE, username);
+    const staleValue = await context.redis.hGet(getStaleStoreKey(username), username);
     if (staleValue) {
         return JSON.parse(staleValue) as UserDetails;
     }
@@ -111,11 +120,11 @@ export async function writeUserStatus (username: string, details: UserDetails, c
     delete details.recentCommentSubs;
 
     if (isStale) {
-        await context.redis.hSet(STALE_USER_STORE, { [username]: JSON.stringify(details) });
+        await context.redis.hSet(getStaleStoreKey(username), { [username]: JSON.stringify(details) });
         await context.redis.hDel(USER_STORE, [username]);
     } else {
         await context.redis.hSet(USER_STORE, { [username]: JSON.stringify(details) });
-        await context.redis.hDel(STALE_USER_STORE, [username]);
+        await context.redis.hDel(getStaleStoreKey(username), [username]);
     }
 }
 
@@ -150,7 +159,7 @@ export async function setUserStatus (username: string, details: UserDetails, con
         promises.push(queueWikiUpdate(context));
     }
 
-    if (details.userStatus === UserStatus.Pending) {
+    if (details.userStatus === UserStatus.Pending || details.userStatus === UserStatus.Purged || details.userStatus === UserStatus.Retired) {
         promises.push(setCleanupForUser(username, context, true, addHours(new Date(), 1)));
     } else {
         promises.push(setCleanupForUser(username, context, true));
@@ -182,7 +191,7 @@ export async function deleteUserStatus (username: string, context: TriggerContex
 
     const promises: Promise<number>[] = [
         context.redis.hDel(USER_STORE, [username]),
-        context.redis.hDel(STALE_USER_STORE, [username]),
+        context.redis.hDel(getStaleStoreKey(username), [username]),
         context.redis.hDel(USER_EVALUATION_RESULTS_KEY, [username]),
         context.redis.hDel(BIO_TEXT_STORE, [username]),
         context.redis.hDel(DISPLAY_NAME_STORE, [username]),
@@ -295,6 +304,24 @@ export async function updateWikiPage (_: unknown, context: JobContext) {
         if (compactedData) {
             dataToWrite[username] = compactedData;
         }
+    }
+
+    // Add in entries from temp decline store.
+    const tempDeclineEntries = await context.redis.zRange(TEMP_DECLINE_STORE, 0, -1);
+    console.log(`Found ${tempDeclineEntries.length} ${pluralize("entry", tempDeclineEntries.length)} in the temp decline store`);
+    for (const entry of tempDeclineEntries) {
+        if (dataToWrite[entry.member]) {
+            continue;
+        }
+
+        const declineEntry: UserDetails = {
+            userStatus: UserStatus.Declined,
+            trackingPostId: "",
+            lastUpdate: entry.score,
+            operator: "",
+        };
+
+        dataToWrite[entry.member] = JSON.stringify(declineEntry);
     }
 
     const content = compressData(dataToWrite);
@@ -497,4 +524,11 @@ export async function getInitialAccountProperties (username: string, context: Tr
         displayName,
         socialLinks: socialLinks ? JSON.parse(socialLinks) as UserSocialLink[] : [],
     };
+}
+
+export async function addUserToTempDeclineStore (username: string, context: TriggerContext) {
+    await context.redis.zAdd(TEMP_DECLINE_STORE, { member: username, score: new Date().getTime() });
+
+    // Remove stale entries.
+    await context.redis.zRemRangeByScore(TEMP_DECLINE_STORE, 0, subHours(new Date(), 1).getTime());
 }
