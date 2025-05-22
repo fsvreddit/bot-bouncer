@@ -100,7 +100,7 @@ export async function addExternalSubmissionFromClientSub (data: ExternalSubmissi
     });
 }
 
-async function addExternalSubmissionToPostCreationQueue (item: ExternalSubmission, immediate: boolean, controlSubSettings: ControlSubSettings, context: TriggerContext): Promise<boolean> {
+export async function addExternalSubmissionToPostCreationQueue (item: ExternalSubmission, immediate: boolean, controlSubSettings: ControlSubSettings, context: TriggerContext): Promise<boolean> {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
         throw new Error("This function can only be called from the control subreddit.");
     }
