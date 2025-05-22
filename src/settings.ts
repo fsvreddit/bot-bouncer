@@ -147,6 +147,7 @@ export interface ControlSubSettings {
     messageMonitoringEnabled?: boolean;
     monitoringWebhook?: string;
     banNoteCheckingEnabled?: boolean;
+    observerSubreddits?: string[];
 }
 
 const CONTROL_SUB_SETTINGS_WIKI_PAGE = "control-sub-settings";
@@ -167,6 +168,7 @@ const schema: JSONSchemaType<ControlSubSettings> = {
         messageMonitoringEnabled: { type: "boolean", nullable: true },
         monitoringWebhook: { type: "string", nullable: true },
         banNoteCheckingEnabled: { type: "boolean", nullable: true },
+        observerSubreddits: { type: "array", items: { type: "string" }, nullable: true },
     },
     required: ["evaluationDisabled", "trustedSubmitters", "reporterBlacklist"],
 };
