@@ -1,8 +1,7 @@
 import { Comment, JobContext, JSONObject, JSONValue, Post, ScheduledJobEvent, SubredditInfo, TriggerContext } from "@devvit/public-api";
+import { ALL_EVALUATORS, UserEvaluatorBase } from "@fsvreddit/bot-bouncer-evaluation";
 import { getUserStatus, UserStatus } from "./dataStore.js";
 import { CONTROL_SUBREDDIT, PostFlairTemplate } from "./constants.js";
-import { ALL_EVALUATORS } from "./userEvaluation/allEvaluators.js";
-import { UserEvaluatorBase } from "./userEvaluation/UserEvaluatorBase.js";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { createUserSummary } from "./UserSummary/userSummary.js";
 import { addWeeks, subMonths } from "date-fns";

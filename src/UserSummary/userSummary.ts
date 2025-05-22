@@ -8,11 +8,11 @@ import { isUserPotentiallyBlockingBot } from "./blockChecker.js";
 import pluralize from "pluralize";
 import { isLinkId } from "@devvit/shared-types/tid.js";
 import { getUserExtended, UserExtended } from "../extendedDevvit.js";
-import { ALL_EVALUATORS } from "../userEvaluation/allEvaluators.js";
 import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
 import { getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
 import json2md from "json2md";
 import markdownEscape from "markdown-escape";
+import { ALL_EVALUATORS } from "@fsvreddit/bot-bouncer-evaluation";
 
 function formatDifferenceInDates (start: Date, end: Date) {
     const units: (keyof Duration)[] = ["years", "months", "days"];

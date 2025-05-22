@@ -1,10 +1,10 @@
 import { JobContext, JSONObject, JSONValue, ScheduledJobEvent, TriggerContext, WikiPage } from "@devvit/public-api";
+import { ALL_EVALUATORS } from "@fsvreddit/bot-bouncer-evaluation";
 import { CONTROL_SUBREDDIT } from "../constants.js";
 import { parseAllDocuments } from "yaml";
 import { uniq } from "lodash";
 import { replaceAll, sendMessageToWebhook } from "../utility.js";
 import json2md from "json2md";
-import { ALL_EVALUATORS } from "./allEvaluators.js";
 import { getControlSubSettings } from "../settings.js";
 
 const EVALUATOR_VARIABLES_KEY = "evaluatorVariables";
