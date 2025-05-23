@@ -84,12 +84,12 @@ async function createNewSubmission (submission: AsyncSubmission, context: Trigge
     }
 
     if (submission.callback) {
-        const commentText = submission.callback.comment.replace("{{permalink}}", newPost.permalink);
-        const newComment = await context.reddit.submitComment({
-            id: submission.callback.postId,
-            text: commentText,
-        });
-        await newComment.distinguish(true);
+        const callbackPost = await context.reddit.getPostById(submission.callback.postId);
+        if (callbackPost.authorName !== "[deleted]") {
+            const commentText = submission.callback.comment.replace("{{permalink}}", newPost.permalink);
+            const newComment = await callbackPost.addComment({ text: commentText });
+            await newComment.distinguish(true);
+        }
     }
 
     await storeInitialAccountProperties(submission.user.username, context);
