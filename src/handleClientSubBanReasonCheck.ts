@@ -2,6 +2,7 @@ import { JobContext, JSONObject, ScheduledJobEvent } from "@devvit/public-api";
 import { CONTROL_SUBREDDIT } from "./constants.js";
 import { AppSetting } from "./settings.js";
 import { addExternalSubmissionFromClientSub, ExternalSubmission } from "./externalSubmissions.js";
+import { getUserStatus } from "./dataStore.js";
 
 export async function checkForBanNotes (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
     if (context.subredditName === CONTROL_SUBREDDIT) {
@@ -39,6 +40,12 @@ export async function checkForBanNotes (event: ScheduledJobEvent<JSONObject | un
     const regex = /\b(?:AI|ChatGPT|LLM|bot|spambot)\b/i;
     if (!regex.test(entry.description)) {
         console.log(`Ban note check: No AI-related terms found in ban entry for ${username}`);
+        return;
+    }
+
+    const userStatus = await getUserStatus(username, context);
+    if (userStatus) {
+        console.log(`Ban note check: User ${username} already has a status of ${userStatus.userStatus}`);
         return;
     }
 
