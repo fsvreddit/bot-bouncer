@@ -8,11 +8,31 @@ import { AsyncSubmission, queuePostCreation } from "../postCreation.js";
 import { getUserExtended, UserExtended } from "../extendedDevvit.js";
 import { CONTROL_SUBREDDIT } from "../constants.js";
 import pluralize from "pluralize";
+import { addExternalSubmissionToPostCreationQueue, ExternalSubmission } from "../externalSubmissions.js";
+import { getControlSubSettings } from "../settings.js";
 
 interface BulkSubmission {
-    usernames: string[];
+    usernames?: string[];
+    externalSubmissions?: ExternalSubmission[];
     reason?: string;
 }
+
+const externalSubmissionSchema: JSONSchemaType<ExternalSubmission> = {
+    type: "object",
+    properties: {
+        username: { type: "string" },
+        submitter: { type: "string", nullable: true },
+        reportContext: { type: "string", nullable: true },
+        publicContext: { type: "boolean", nullable: true },
+        targetId: { type: "string", nullable: true },
+        initialStatus: { type: "string", nullable: true, enum: Object.values(UserStatus) },
+        evaluatorName: { type: "string", nullable: true },
+        hitReason: { type: "string", nullable: true },
+        sendFeedback: { type: "boolean", nullable: true },
+        proactive: { type: "boolean", nullable: true },
+    },
+    required: ["username"],
+};
 
 const schema: JSONSchemaType<BulkSubmission> = {
     type: "object",
@@ -22,13 +42,18 @@ const schema: JSONSchemaType<BulkSubmission> = {
             items: {
                 type: "string",
             },
+            nullable: true,
+        },
+        externalSubmissions: {
+            type: "array",
+            items: externalSubmissionSchema,
+            nullable: true,
         },
         reason: {
             type: "string",
             nullable: true,
         },
     },
-    required: ["usernames"],
     additionalProperties: false,
 };
 
@@ -112,9 +137,19 @@ export async function handleBulkSubmission (submitter: string, trusted: boolean,
         return false;
     }
 
-    const initialStatus = trusted ? UserStatus.Banned : UserStatus.Pending;
-    const results = await Promise.all(uniq(data.usernames).map(username => handleBulkItem(username, initialStatus, submitter, data.reason, context)));
-    const queued = compact(results).length;
+    let queued = 0;
+
+    if (data.usernames) {
+        const initialStatus = trusted ? UserStatus.Banned : UserStatus.Pending;
+        const results = await Promise.all(uniq(data.usernames).map(username => handleBulkItem(username, initialStatus, submitter, data.reason, context)));
+        queued += compact(results).length;
+    }
+
+    if (data.externalSubmissions) {
+        const controlSubSettings = await getControlSubSettings(context);
+        const results = await Promise.all(data.externalSubmissions.map(item => addExternalSubmissionToPostCreationQueue(item, false, controlSubSettings, context)));
+        queued += compact(results).length;
+    }
 
     await context.reddit.modMail.archiveConversation(conversationId);
 

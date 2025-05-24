@@ -47,6 +47,11 @@ Write in to [/r/BotBouncer's modmail](https://www.reddit.com/message/compose/?to
 
 # Change History
 
+## Next
+
+* Make daily digest fully configurable
+* Internal changes to support operations on /r/BotBouncer
+
 ## v1.11.0
 
 * Add new evaluator for Amazon affiliate spam
