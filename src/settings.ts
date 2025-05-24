@@ -50,6 +50,9 @@ export enum AppSetting {
     ReportPotentialBots = "reportPotentialBots",
     RemoveContentWhenReporting = "removeContentWhenReporting",
     DailyDigest = "dailyDigest",
+    DailyDigestIncludeReported = "dailyDigestIncludeReported",
+    DailyDigestIncludeBanned = "dailyDigestIncludeBanned",
+    DailyDigestIncludeUnbanned = "dailyDigestIncludeUnbanned",
     UpgradeNotifier = "upgradeNotifier",
 }
 
@@ -113,8 +116,7 @@ export const appSettings: SettingsFormField[] = [
     },
     {
         type: "group",
-        label: "Notifications",
-        helpText: "Options for receiving notifications from Bot Bouncer",
+        label: "Daily Digest",
         fields: [
             {
                 type: "boolean",
@@ -123,6 +125,31 @@ export const appSettings: SettingsFormField[] = [
                 helpText: "If enabled, you will receive a daily message with a summary of actions taken by Bot Bouncer in the previous 24 hours, if any.",
                 defaultValue: false,
             },
+            {
+                type: "boolean",
+                label: "Include details of accounts reported to Bot Bouncer",
+                name: AppSetting.DailyDigestIncludeReported,
+                defaultValue: true,
+            },
+            {
+                type: "boolean",
+                label: "Include details of accounts banned by Bot Bouncer",
+                name: AppSetting.DailyDigestIncludeBanned,
+                defaultValue: true,
+            },
+            {
+                type: "boolean",
+                label: "Include defails of accounts unbanned by Bot Bouncer",
+                name: AppSetting.DailyDigestIncludeUnbanned,
+                defaultValue: true,
+            },
+        ],
+    },
+    {
+        type: "group",
+        label: "Upgrade Notifications",
+        helpText: "Options for receiving notifications from Bot Bouncer",
+        fields: [
             {
                 type: "boolean",
                 label: "Upgrade notifications",

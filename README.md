@@ -49,6 +49,7 @@ Write in to [/r/BotBouncer's modmail](https://www.reddit.com/message/compose/?to
 
 ## Next
 
+* Make daily digest fully configurable
 * Internal changes to support operations on /r/BotBouncer
 
 ## v1.11.0
