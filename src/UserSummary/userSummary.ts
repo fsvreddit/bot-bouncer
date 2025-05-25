@@ -283,7 +283,7 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
             const hitsRows = initialEvaluatorsMatched.map((evaluator) => {
                 let row = `${evaluator.botName} matched`;
                 if (evaluator.hitReason) {
-                    row += `: ${evaluator.hitReason}`;
+                    row += `: ${evaluator.hitReason.slice(0, 1000)}`;
                 }
                 return row;
             });
@@ -297,7 +297,7 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
             const hitsRows = matchedEvaluators.map((evaluator) => {
                 let row = `${evaluator.name} matched`;
                 if (evaluator.hitReason) {
-                    row += `: ${evaluator.hitReason}`;
+                    row += `: ${evaluator.hitReason.slice(0, 1000)}`;
                 }
                 return row;
             });
