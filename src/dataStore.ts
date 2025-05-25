@@ -15,7 +15,7 @@ import { getUserExtended } from "./extendedDevvit.js";
 const USER_STORE = "UserStore";
 const TEMP_DECLINE_STORE = "TempDeclineStore";
 
-const BIO_TEXT_STORE = "BioTextStore";
+export const BIO_TEXT_STORE = "BioTextStore";
 const DISPLAY_NAME_STORE = "DisplayNameStore";
 const SOCIAL_LINKS_STORE = "SocialLinksStore";
 
