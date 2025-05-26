@@ -1,5 +1,5 @@
 import { TriggerContext, WikiPage, WikiPagePermissionLevel } from "@devvit/public-api";
-import { BIO_TEXT_STORE, UserDetails, UserStatus } from "../dataStore.js";
+import { BIO_TEXT_STORE, getFullDataStore, UserDetails, UserStatus } from "../dataStore.js";
 import Ajv, { JSONSchemaType } from "ajv";
 import { fromPairs } from "lodash";
 import pluralize from "pluralize";
@@ -119,7 +119,7 @@ export async function dataExtract (message: string | undefined, conversationId: 
     }
 
     // Get all data from database.
-    const allData = await context.redis.hGetAll("UserStore");
+    const allData = await getFullDataStore(context);
     let data = Object.entries(allData).map(([username, data]) => ({ username, data: JSON.parse(data) as UserDetails }));
 
     // Filter data by request fields.
