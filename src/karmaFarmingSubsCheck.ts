@@ -83,7 +83,7 @@ async function evaluateAndHandleUser (username: string, variables: Record<string
         return false;
     }
 
-    const evaluationResults = await evaluateUserAccount(username, variables, context, false);
+    const evaluationResults = await evaluateUserAccount(username, variables, context, true);
 
     if (evaluationResults.length === 0) {
         return;

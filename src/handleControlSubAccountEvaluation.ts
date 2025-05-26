@@ -20,12 +20,9 @@ export interface EvaluationResult {
     metThreshold: boolean;
 }
 
-export async function evaluateUserAccount (username: string, variables: Record<string, JSONValue>, context: JobContext, verbose: boolean): Promise<EvaluationResult[]> {
+export async function evaluateUserAccount (username: string, variables: Record<string, JSONValue>, context: JobContext, storeStats: boolean): Promise<EvaluationResult[]> {
     const user = await getUserExtended(username, context);
     if (!user) {
-        if (verbose) {
-            console.log(`Evaluation: ${username} has already been shadowbanned`);
-        }
         return [];
     }
 
@@ -52,9 +49,6 @@ export async function evaluateUserAccount (username: string, variables: Record<s
                 }).all();
             } catch {
                 // Error retrieving user history, likely shadowbanned.
-                if (verbose) {
-                    console.log(`Evaluator: ${username} appears to be shadowbanned.`);
-                }
                 return [];
             }
         }
@@ -80,19 +74,21 @@ export async function evaluateUserAccount (username: string, variables: Record<s
         return [];
     }
 
-    const redisKey = "EvaluatorStats";
-    const existingStatsVal = await context.redis.get(redisKey);
+    if (storeStats) {
+        const redisKey = "EvaluatorStats";
+        const existingStatsVal = await context.redis.get(redisKey);
 
-    const allStats: Record<string, EvaluatorStats> = existingStatsVal ? JSON.parse(existingStatsVal) as Record<string, EvaluatorStats> : {};
+        const allStats: Record<string, EvaluatorStats> = existingStatsVal ? JSON.parse(existingStatsVal) as Record<string, EvaluatorStats> : {};
 
-    for (const bot of detectedBots.filter(bot => bot.name !== "CQS Tester")) {
-        const botStats = allStats[bot.name] ?? { hitCount: 0, lastHit: 0 };
-        botStats.hitCount++;
-        botStats.lastHit = new Date().getTime();
-        allStats[bot.name] = botStats;
+        for (const bot of detectedBots.filter(bot => bot.name !== "CQS Tester")) {
+            const botStats = allStats[bot.name] ?? { hitCount: 0, lastHit: 0 };
+            botStats.hitCount++;
+            botStats.lastHit = new Date().getTime();
+            allStats[bot.name] = botStats;
+        }
+
+        await context.redis.set(redisKey, JSON.stringify(allStats));
     }
-
-    await context.redis.set(redisKey, JSON.stringify(allStats));
 
     const itemCount = userItems?.length ?? 0;
     return detectedBots.map(bot => ({ botName: bot.name, hitReason: bot.hitReason, canAutoBan: bot.canAutoBan, metThreshold: itemCount >= bot.banContentThreshold }));
