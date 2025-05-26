@@ -13,6 +13,7 @@ import { getAccountInitialEvaluationResults } from "../handleControlSubAccountEv
 import json2md from "json2md";
 import markdownEscape from "markdown-escape";
 import { ALL_EVALUATORS } from "@fsvreddit/bot-bouncer-evaluation";
+import { BIO_TEXT_STORE } from "../dataStore.js";
 
 function formatDifferenceInDates (start: Date, end: Date) {
     const units: (keyof Duration)[] = ["years", "months", "days"];
@@ -224,6 +225,18 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
         summary.push({ ul: accountPropsBullets });
     } else {
         summary.push({ ul: accountPropsBullets });
+    }
+
+    if (source === "modmail") {
+        const originalBio = await context.redis.hGet(BIO_TEXT_STORE, username);
+        if (originalBio && originalBio.trim() !== userBio?.trim()) {
+            if (userBio?.includes("\n")) {
+                summary.push({ p: "Original bio:" });
+                summary.push({ blockquote: originalBio });
+            } else {
+                summary.push({ p: `Original bio: ${originalBio}` });
+            }
+        }
     }
 
     let userComments: Comment[];
