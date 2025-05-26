@@ -1,5 +1,5 @@
 import { TriggerContext, WikiPage, WikiPagePermissionLevel } from "@devvit/public-api";
-import { BIO_TEXT_STORE, UserDetails, UserStatus } from "../dataStore.js";
+import { BIO_TEXT_STORE, getFullDataStore, UserDetails, UserStatus } from "../dataStore.js";
 import Ajv, { JSONSchemaType } from "ajv";
 import { fromPairs } from "lodash";
 import pluralize from "pluralize";
@@ -7,7 +7,7 @@ import json2md from "json2md";
 import { format } from "date-fns";
 
 interface ModmailDataExtract {
-    status?: UserStatus;
+    status?: UserStatus[];
     submitter?: string;
     operator?: string;
     usernameRegex?: string;
@@ -19,7 +19,11 @@ const schema: JSONSchemaType<ModmailDataExtract> = {
     type: "object",
     properties: {
         status: {
-            type: "string",
+            type: "array",
+            items: {
+                type: "string",
+                enum: Object.values(UserStatus),
+            },
             nullable: true,
         },
         submitter: {
@@ -109,22 +113,22 @@ export async function dataExtract (message: string | undefined, conversationId: 
         return;
     }
 
-    if (!request.status && !request.submitter && !request.usernameRegex) {
+    if (!request.status && !request.submitter && !request.usernameRegex && !request.since) {
         await context.reddit.modMail.reply({
             conversationId,
-            body: "Request is empty. Please provide at least one of the following fields: `status`, `submitter`, `usernameRegex`, `bioTextRegex`, `recentPostSubs`, `recentCommentSubs`.",
+            body: "Request is empty. Please provide at least one of the following fields: `status`, `submitter`, `usernameRegex`, `since`. `bioRegex` cannot be used on its own.",
             isAuthorHidden: false,
         });
         return;
     }
 
     // Get all data from database.
-    const allData = await context.redis.hGetAll("UserStore");
+    const allData = await getFullDataStore(context);
     let data = Object.entries(allData).map(([username, data]) => ({ username, data: JSON.parse(data) as UserDetails }));
 
     // Filter data by request fields.
     if (request.status) {
-        data = data.filter(entry => entry.data.userStatus === request.status);
+        data = data.filter(entry => request.status?.includes(entry.data.userStatus));
         console.log(`Filtered data by status: ${request.status}, remaining entries: ${data.length}`);
     }
 
