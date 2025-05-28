@@ -6,6 +6,7 @@ import { getUserOrUndefined } from "./utility.js";
 import { removeRecordOfBan, removeWhitelistUnban } from "./handleClientSubredditWikiUpdate.js";
 import { max } from "lodash";
 import { CronExpressionParser } from "cron-parser";
+import { getControlSubSettings } from "./settings.js";
 
 export const CLEANUP_LOG_KEY = "CleanupLog";
 const SUB_OR_MOD_LOG_KEY = "SubOrModLog";
@@ -70,6 +71,12 @@ async function userActive (username: string, context: TriggerContext): Promise<U
 }
 
 export async function cleanupDeletedAccounts (_: unknown, context: JobContext) {
+    const controlSubSettings = await getControlSubSettings(context);
+    if (controlSubSettings.cleanupDisabled && context.subredditName === CONTROL_SUBREDDIT) {
+        console.log("Cleanup: Cleanup is disabled, skipping.");
+        return;
+    }
+
     const items = await context.redis.zRange(CLEANUP_LOG_KEY, 0, new Date().getTime(), { by: "score" });
     if (items.length === 0) {
         // No user accounts need to be checked.
