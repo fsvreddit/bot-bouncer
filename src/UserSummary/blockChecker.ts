@@ -13,12 +13,17 @@ async function isAppModOfSub (subredditName: string, context: TriggerContext): P
         return JSON.parse(isMod) as boolean;
     }
 
-    const modList = await context.reddit.getModerators({
-        subredditName,
-        username: context.appName,
-    }).all();
+    let isModOfSub: boolean;
+    try {
+        const modList = await context.reddit.getModerators({
+            subredditName,
+            username: context.appName,
+        }).all();
+        isModOfSub = modList.length > 0;
+    } catch {
+        isModOfSub = false;
+    }
 
-    const isModOfSub = modList.length > 0;
     await context.redis.set(redisKey, JSON.stringify(isModOfSub), { expiration: addWeeks(new Date(), 1) });
 
     return isModOfSub;
