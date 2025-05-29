@@ -88,6 +88,7 @@ export async function handleModmail (event: ModMail, context: TriggerContext) {
         if (controlSubSettings.bulkSubmitters?.includes(username) && currentMessage?.bodyMarkdown?.startsWith("{")) {
             const isTrusted = controlSubSettings.trustedSubmitters.includes(username);
             await handleBulkSubmission(username, isTrusted, event.conversationId, currentMessage.bodyMarkdown, context);
+            return;
         }
         if (isFirstMessage && firstMessage.author?.name === username) {
             await handleControlSubredditModmail(username, event.conversationId, isFirstMessage, conversationResponse.conversation.subject, currentMessage?.bodyMarkdown, context);
