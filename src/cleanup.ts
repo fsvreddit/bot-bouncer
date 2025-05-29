@@ -158,12 +158,22 @@ export async function cleanupDeletedAccounts (_: unknown, context: JobContext) {
                 });
             }
 
-            const latestActivity = await getLatestContentDate(username, context) ?? currentStatus.reportedAt;
+            const latestContent = await getLatestContentDate(username, context);
+            const latestActivity = latestContent ?? currentStatus.reportedAt;
             if (latestActivity) {
                 // Store the latest activity date.
                 currentStatus.mostRecentActivity = latestActivity;
                 await writeUserStatus(username, currentStatus, context);
                 console.log(`Cleanup: ${username} last activity: ${format(latestActivity, "yyyy-MM-dd")}`);
+
+                if (latestContent && new Date(latestContent) > subDays(new Date(), 14) && currentStatus.userStatus === UserStatus.Inactive) {
+                    // User flagged as "Inactive", but with recent activity. Set to "Pending".
+                    await context.reddit.setPostFlair({
+                        postId: currentStatus.trackingPostId,
+                        subredditName: CONTROL_SUBREDDIT,
+                        flairTemplateId: PostFlairTemplate.Pending,
+                    });
+                }
             } else {
                 console.log(`Cleanup: Unable to get latest activity for ${username}`);
             }
