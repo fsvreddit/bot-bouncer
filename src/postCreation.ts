@@ -6,7 +6,6 @@ import { addHours, addSeconds } from "date-fns";
 import { getControlSubSettings } from "./settings.js";
 import pluralize from "pluralize";
 
-// This is only exported for unit testing purposes.
 export const statusToFlair: Record<UserStatus, PostFlairTemplate> = {
     [UserStatus.Pending]: PostFlairTemplate.Pending,
     [UserStatus.Banned]: PostFlairTemplate.Banned,

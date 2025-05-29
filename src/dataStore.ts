@@ -21,7 +21,7 @@ const SOCIAL_LINKS_STORE = "SocialLinksStore";
 
 export const AGGREGATE_STORE = "AggregateStore";
 
-const POST_STORE = "PostStore";
+export const POST_STORE = "PostStore";
 const WIKI_UPDATE_DUE = "WikiUpdateDue";
 const WIKI_PAGE = "botbouncer";
 const MAX_WIKI_PAGE_SIZE = 512 * 1024;
