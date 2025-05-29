@@ -2,18 +2,12 @@ import { TriggerContext } from "@devvit/public-api";
 import { getUserStatus, UserStatus } from "../dataStore.js";
 import { getSummaryForUser } from "../UserSummary/userSummary.js";
 import { getUserOrUndefined } from "../utility.js";
-import { CONFIGURATION_DEFAULTS, getControlSubSettings } from "../settings.js";
-import { handleBulkSubmission } from "./bulkSubmission.js";
+import { CONFIGURATION_DEFAULTS } from "../settings.js";
 import { addDays, subMinutes } from "date-fns";
 import json2md from "json2md";
 
 export async function handleControlSubredditModmail (username: string, conversationId: string, isFirstMessage: boolean, subject: string | undefined, message: string | undefined, context: TriggerContext) {
-    const controlSubSettings = await getControlSubSettings(context);
-
-    if (controlSubSettings.bulkSubmitters?.includes(username) && message?.startsWith("{")) {
-        const isTrusted = controlSubSettings.trustedSubmitters.includes(username);
-        return handleBulkSubmission(username, isTrusted, conversationId, message, context);
-    } else if (isFirstMessage) {
+    if (isFirstMessage) {
         return handleModmailFromUser(username, conversationId, subject, context);
     } else {
         return;
