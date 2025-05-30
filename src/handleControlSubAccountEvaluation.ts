@@ -4,7 +4,7 @@ import { getUserStatus, UserStatus } from "./dataStore.js";
 import { CONTROL_SUBREDDIT, PostFlairTemplate } from "./constants.js";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { createUserSummary } from "./UserSummary/userSummary.js";
-import { addWeeks, subMonths } from "date-fns";
+import { addMonths, addWeeks, subMonths } from "date-fns";
 import { getUserExtended } from "./extendedDevvit.js";
 import { uniq } from "lodash";
 
@@ -146,22 +146,43 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
     });
 
     const evaluationResultsToStore = evaluationResults.filter(result => result.canAutoBan);
-    if (evaluationResultsToStore.length > 0) {
-        await context.redis.hSet(USER_EVALUATION_RESULTS_KEY, { [username]: JSON.stringify(evaluationResultsToStore) });
-    }
+    await storeAccountInitialEvaluationResults(username, evaluationResultsToStore, context);
 
     console.log(`Evaluator: Post flair changed for ${username}`);
 }
 
-export const USER_EVALUATION_RESULTS_KEY = "UserEvaluationResults";
+function getEvaluationResultsKey (username: string): string {
+    return `evaluationResults:${username}`;
+}
+
+export async function storeAccountInitialEvaluationResults (username: string, results: EvaluationResult[], context: TriggerContext) {
+    if (results.length === 0) {
+        return;
+    }
+
+    const resultsToStore: EvaluationResult[] = results.map(result => ({
+        botName: result.botName,
+        hitReason: result.hitReason && result.hitReason.length > 1000 ? `${result.hitReason.substring(0, 1000)}...` : result.hitReason,
+        canAutoBan: result.canAutoBan,
+        metThreshold: result.metThreshold,
+    }));
+
+    const resultsKey = getEvaluationResultsKey(username);
+    await context.redis.set(resultsKey, JSON.stringify(resultsToStore), { expiration: addMonths(new Date(), 6) });
+}
 
 export async function getAccountInitialEvaluationResults (username: string, context: TriggerContext): Promise<EvaluationResult[]> {
-    const results = await context.redis.hGet(USER_EVALUATION_RESULTS_KEY, username);
+    const results = await context.redis.get(getEvaluationResultsKey(username));
+
     if (!results) {
         return [];
     }
 
     return JSON.parse(results) as EvaluationResult[];
+}
+
+export async function deleteAccountInitialEvaluationResults (username: string, context: TriggerContext) {
+    await context.redis.del(getEvaluationResultsKey(username));
 }
 
 async function subIsNSFW (subredditName: string, context: TriggerContext): Promise<boolean> {

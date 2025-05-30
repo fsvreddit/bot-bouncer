@@ -91,6 +91,8 @@ async function addControlSubredditJobs (context: TriggerContext) {
         removeRetiredEvaluatorsFromStats(context),
     ]);
 
+    await context.redis.del("UserEvaluationResults");
+
     console.log("App Install: Control subreddit jobs added");
 }
 

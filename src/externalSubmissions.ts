@@ -9,7 +9,7 @@ import { isLinkId } from "@devvit/shared-types/tid.js";
 import { AsyncSubmission, queuePostCreation } from "./postCreation.js";
 import pluralize from "pluralize";
 import { getUserExtended } from "./extendedDevvit.js";
-import { evaluateUserAccount, EvaluationResult, USER_EVALUATION_RESULTS_KEY } from "./handleControlSubAccountEvaluation.js";
+import { evaluateUserAccount, EvaluationResult, storeAccountInitialEvaluationResults } from "./handleControlSubAccountEvaluation.js";
 import json2md from "json2md";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 
@@ -180,7 +180,7 @@ export async function addExternalSubmissionToPostCreationQueue (item: ExternalSu
             canAutoBan: true,
             metThreshold: true,
         } as EvaluationResult;
-        await context.redis.hSet(USER_EVALUATION_RESULTS_KEY, { [item.username]: JSON.stringify([evaluationResult]) });
+        await storeAccountInitialEvaluationResults(item.username, [evaluationResult], context);
     }
     return true;
 }

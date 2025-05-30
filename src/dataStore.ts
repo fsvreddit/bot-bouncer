@@ -7,7 +7,7 @@ import { addHours, addSeconds, addWeeks, startOfSecond, subDays, subHours, subWe
 import pluralize from "pluralize";
 import { getControlSubSettings } from "./settings.js";
 import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
-import { USER_EVALUATION_RESULTS_KEY } from "./handleControlSubAccountEvaluation.js";
+import { deleteAccountInitialEvaluationResults } from "./handleControlSubAccountEvaluation.js";
 import json2md from "json2md";
 import { sendMessageToWebhook } from "./utility.js";
 import { getUserExtended } from "./extendedDevvit.js";
@@ -189,10 +189,10 @@ export async function setUserStatus (username: string, details: UserDetails, con
 export async function deleteUserStatus (username: string, context: TriggerContext) {
     const currentStatus = await getUserStatus(username, context);
 
-    const promises: Promise<number>[] = [
+    const promises: Promise<unknown>[] = [
         context.redis.hDel(USER_STORE, [username]),
         context.redis.hDel(getStaleStoreKey(username), [username]),
-        context.redis.hDel(USER_EVALUATION_RESULTS_KEY, [username]),
+        deleteAccountInitialEvaluationResults(username, context),
         context.redis.hDel(BIO_TEXT_STORE, [username]),
         context.redis.hDel(DISPLAY_NAME_STORE, [username]),
         context.redis.hDel(SOCIAL_LINKS_STORE, [username]),

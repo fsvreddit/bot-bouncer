@@ -3,7 +3,7 @@ import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { compact, fromPairs, uniq } from "lodash";
 import { CONTROL_SUBREDDIT, ControlSubredditJob, EVALUATE_KARMA_FARMING_SUBS_CRON } from "./constants.js";
 import { getAllKnownUsers, getUserStatus, UserDetails, UserStatus } from "./dataStore.js";
-import { evaluateUserAccount, USER_EVALUATION_RESULTS_KEY, userHasContinuousNSFWHistory } from "./handleControlSubAccountEvaluation.js";
+import { evaluateUserAccount, storeAccountInitialEvaluationResults, userHasContinuousNSFWHistory } from "./handleControlSubAccountEvaluation.js";
 import { getControlSubSettings } from "./settings.js";
 import { addSeconds, subMinutes, subWeeks } from "date-fns";
 import { getUserExtended } from "./extendedDevvit.js";
@@ -127,9 +127,7 @@ async function evaluateAndHandleUser (username: string, variables: Record<string
     console.log(`Karma Farming Subs: Queued post creation for ${username}`);
 
     const evaluationResultsToStore = evaluationResults.filter(result => result.canAutoBan);
-    if (evaluationResultsToStore.length > 0) {
-        await context.redis.hSet(USER_EVALUATION_RESULTS_KEY, { [username]: JSON.stringify(evaluationResultsToStore) });
-    }
+    await storeAccountInitialEvaluationResults(username, evaluationResultsToStore, context);
 }
 
 const ACCOUNTS_QUEUED_KEY = "KarmaFarmingSubsAccountsQueued";
