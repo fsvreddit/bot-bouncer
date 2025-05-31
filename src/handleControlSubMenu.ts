@@ -226,20 +226,23 @@ export async function sendQueryToSubmitter (event: FormOnSubmitEvent<JSONObject>
 
 async function handleRemoveRecordForUser (username: string, post: Post, context: Context) {
     const currentStatus = await getUserStatus(username, context);
-    const promises: Promise<unknown>[] = [deleteUserStatus(username, context)];
-    if (post.authorName === context.appName) {
-        promises.push(post.delete());
-    } else {
-        promises.push(post.remove());
-    }
 
+    const txn = await context.redis.watch();
+    await txn.multi();
+
+    await deleteUserStatus(username, currentStatus?.trackingPostId, txn);
     if (currentStatus && currentStatus.userStatus !== UserStatus.Purged && currentStatus.userStatus !== UserStatus.Retired) {
-        promises.push(updateAggregate(currentStatus.userStatus, -1, context));
+        await updateAggregate(currentStatus.userStatus, -1, txn);
     }
 
-    promises.push(context.redis.zRem(CLEANUP_LOG_KEY, [username]));
+    await txn.zRem(CLEANUP_LOG_KEY, [username]);
+    await txn.exec();
 
-    await Promise.all(promises);
+    if (post.authorName === context.appName) {
+        await post.delete();
+    } else {
+        await post.remove();
+    }
 
     context.ui.showToast(`Removed all data and deleted post for u/${username}.`);
 }

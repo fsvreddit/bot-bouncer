@@ -1,4 +1,4 @@
-import { Comment, JobContext, JSONObject, Post, ScheduledJobEvent, SettingsValues, TriggerContext } from "@devvit/public-api";
+import { Comment, JobContext, JSONObject, Post, ScheduledJobEvent, SettingsValues, TriggerContext, TxClientLike } from "@devvit/public-api";
 import { addSeconds, formatDate, subWeeks } from "date-fns";
 import pluralize from "pluralize";
 import { getUserStatus, UserStatus } from "./dataStore.js";
@@ -12,18 +12,16 @@ import { recordBanForDigest, recordUnbanForDigest, removeRecordOfBanForDigest } 
 const UNBAN_WHITELIST = "UnbanWhitelist";
 const BAN_STORE = "BanStore";
 
-export async function recordBan (username: string, context: TriggerContext) {
-    await context.redis.zAdd(BAN_STORE, { member: username, score: new Date().getTime() });
-    await setCleanupForUser(username, context, false);
+export async function recordBan (username: string, txn: TxClientLike) {
+    await txn.zAdd(BAN_STORE, { member: username, score: new Date().getTime() });
+    await setCleanupForUser(username, txn);
     console.log(`Ban recorded for ${username}`);
 }
 
-export async function removeRecordOfBan (username: string, context: TriggerContext) {
-    await Promise.all([
-        context.redis.zRem(BAN_STORE, [username]),
-        removeRecordOfBanForDigest(username, context),
-        recordUnbanForDigest(username, context),
-    ]);
+export async function removeRecordOfBan (username: string, txn: TxClientLike) {
+    await txn.zRem(BAN_STORE, [username]);
+    await removeRecordOfBanForDigest(username, txn);
+    await recordUnbanForDigest(username, txn);
     console.log(`Removed record of ban for ${username}`);
 }
 
@@ -43,12 +41,15 @@ export async function recordWhitelistUnban (username: string, context: TriggerCo
         return;
     }
 
-    await context.redis.zAdd(UNBAN_WHITELIST, { member: username, score: new Date().getTime() });
-    await setCleanupForUser(username, context);
+    const txn = await context.redis.watch();
+    await txn.multi();
+    await txn.zAdd(UNBAN_WHITELIST, { member: username, score: new Date().getTime() });
+    await setCleanupForUser(username, txn);
+    await txn.exec();
 }
 
-export async function removeWhitelistUnban (username: string, context: TriggerContext) {
-    await context.redis.zRem(UNBAN_WHITELIST, [username]);
+export async function removeWhitelistUnban (username: string, txn: TxClientLike) {
+    await txn.zRem(UNBAN_WHITELIST, [username]);
 }
 
 export async function isUserWhitelisted (username: string, context: TriggerContext) {
@@ -91,7 +92,10 @@ async function handleSetOrganic (username: string, subredditName: string, contex
         console.log(`Wiki Update: Unbanned ${username}`);
     }
 
-    await removeRecordOfBan(username, context);
+    const txn = await context.redis.watch();
+    await txn.multi();
+    await removeRecordOfBan(username, txn);
+    await txn.exec();
 }
 
 async function handleSetBanned (username: string, subredditName: string, settings: SettingsValues, context: TriggerContext) {
@@ -141,10 +145,21 @@ async function handleSetBanned (username: string, subredditName: string, setting
             message,
             note: banNote,
         }),
-        recordBan(username, context),
-        recordBanForDigest(username, context),
         ...removableContent.map(item => item.remove()),
     ]);
+
+    const txn = await context.redis.watch();
+    await txn.multi();
+    await recordBan(username, txn);
+    await recordBanForDigest(username, txn);
+
+    if (removableContent.length > 0) {
+        await txn.hSet(`removedItems:${username}`, fromPairs(removableContent.map(item => ([item.id, item.id]))));
+        // Expire key after 14 days
+        await txn.expire(`removedItems:${username}`, 60 * 60 * 24 * 14);
+    }
+
+    await txn.exec();
 
     const failedPromises = results.filter(result => result.status === "rejected");
     if (failedPromises.length > 0) {
@@ -152,12 +167,6 @@ async function handleSetBanned (username: string, subredditName: string, setting
         console.log(failedPromises);
     } else {
         console.log(`Wiki Update: ${username} has been banned following wiki update. ${removableContent.length} ${pluralize("item", removableContent.length)} removed.`);
-    }
-
-    if (removableContent.length > 0) {
-        await context.redis.hSet(`removedItems:${username}`, fromPairs(removableContent.map(item => ([item.id, item.id]))));
-        // Expire key after 14 days
-        await context.redis.expire(`removedItems:${username}`, 60 * 60 * 24 * 14);
     }
 }
 

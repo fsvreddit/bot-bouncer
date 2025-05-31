@@ -1,4 +1,4 @@
-import { Comment, JobContext, JSONObject, JSONValue, Post, ScheduledJobEvent, SubredditInfo, TriggerContext } from "@devvit/public-api";
+import { Comment, JobContext, JSONObject, JSONValue, Post, ScheduledJobEvent, SubredditInfo, TriggerContext, TxClientLike } from "@devvit/public-api";
 import { ALL_EVALUATORS, UserEvaluatorBase } from "@fsvreddit/bot-bouncer-evaluation";
 import { getUserStatus, UserStatus } from "./dataStore.js";
 import { CONTROL_SUBREDDIT, PostFlairTemplate } from "./constants.js";
@@ -181,8 +181,8 @@ export async function getAccountInitialEvaluationResults (username: string, cont
     return JSON.parse(results) as EvaluationResult[];
 }
 
-export async function deleteAccountInitialEvaluationResults (username: string, context: TriggerContext) {
-    await context.redis.del(getEvaluationResultsKey(username));
+export async function deleteAccountInitialEvaluationResults (username: string, txn: TxClientLike) {
+    await txn.del(getEvaluationResultsKey(username));
 }
 
 async function subIsNSFW (subredditName: string, context: TriggerContext): Promise<boolean> {

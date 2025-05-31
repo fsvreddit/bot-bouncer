@@ -1,4 +1,4 @@
-import { JobContext, TriggerContext } from "@devvit/public-api";
+import { JobContext, TxClientLike } from "@devvit/public-api";
 import { format, subDays } from "date-fns";
 import { getUserStatus } from "../dataStore.js";
 import { AppSetting } from "../settings.js";
@@ -102,25 +102,25 @@ export async function sendDailyDigest (_: unknown, context: JobContext) {
     await Promise.all(promises);
 }
 
-export async function recordReportForDigest (username: string, type: "automatically" | "manually", context: TriggerContext | JobContext) {
+export async function recordReportForDigest (username: string, type: "automatically" | "manually", txn: TxClientLike) {
     const key = getReportsKey(new Date());
-    await context.redis.hSet(key, { [username]: type });
-    await context.redis.expire(key, 60 * 60 * 24 * 2);
+    await txn.hSet(key, { [username]: type });
+    await txn.expire(key, 60 * 60 * 24 * 2);
 }
 
-export async function recordBanForDigest (username: string, context: TriggerContext | JobContext) {
+export async function recordBanForDigest (username: string, txn: TxClientLike) {
     const key = getBansKey(new Date());
-    await context.redis.zAdd(key, { member: username, score: new Date().getTime() });
-    await context.redis.expire(key, 60 * 60 * 24 * 2);
+    await txn.zAdd(key, { member: username, score: new Date().getTime() });
+    await txn.expire(key, 60 * 60 * 24 * 2);
 }
 
-export async function recordUnbanForDigest (username: string, context: TriggerContext | JobContext) {
+export async function recordUnbanForDigest (username: string, txn: TxClientLike) {
     const key = getUnbansKey(new Date());
-    await context.redis.zAdd(key, { member: username, score: new Date().getTime() });
-    await context.redis.expire(key, 60 * 60 * 24 * 2);
+    await txn.zAdd(key, { member: username, score: new Date().getTime() });
+    await txn.expire(key, 60 * 60 * 24 * 2);
 }
 
-export async function removeRecordOfBanForDigest (username: string, context: TriggerContext | JobContext) {
+export async function removeRecordOfBanForDigest (username: string, txn: TxClientLike) {
     const key = getBansKey(new Date());
-    await context.redis.zRem(key, [username]);
+    await txn.zRem(key, [username]);
 }
