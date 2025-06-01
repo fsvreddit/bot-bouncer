@@ -38,6 +38,7 @@ export enum ControlSubredditJob {
     BioTextAnalyser = "bioTextAnalyser",
     AsyncPostCreation = "asyncPostCreation",
     CleanupPostStore = "cleanupPostStore",
+    EvaluatorAccuracyStatistics = "evaluatorAccuracyStatistics",
 }
 
 /**
