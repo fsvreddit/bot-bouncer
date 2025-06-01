@@ -98,7 +98,7 @@ async function addModNote (options: CreateModNoteOptions, context: TriggerContex
     try {
         await context.reddit.addModNote(options);
     } catch {
-        console.error(`Failed to add mod note for ${options.user}`);
+        console.warn(`Failed to add mod note for ${options.user}, likely deleted account.`);
     }
 }
 
