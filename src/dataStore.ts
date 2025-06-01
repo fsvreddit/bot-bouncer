@@ -46,17 +46,9 @@ export interface UserDetails {
     operator: string;
     reportedAt?: number;
     /**
-    * @deprecated recentPostSubs should not be used.
+    * @deprecated bioText should not be used.
     */
     bioText?: string;
-    /**
-    * @deprecated recentPostSubs should not be used.
-    */
-    recentPostSubs?: string[];
-    /**
-    * @deprecated recentCommentSubs should not be used.
-    */
-    recentCommentSubs?: string[];
     mostRecentActivity?: number;
 }
 
@@ -239,10 +231,6 @@ function compactDataForWiki (input: string): string | undefined {
     delete status.reportedAt;
     // eslint-disable-next-line @typescript-eslint/no-deprecated
     delete status.bioText;
-    // eslint-disable-next-line @typescript-eslint/no-deprecated
-    delete status.recentPostSubs;
-    // eslint-disable-next-line @typescript-eslint/no-deprecated
-    delete status.recentCommentSubs;
     delete status.mostRecentActivity;
 
     if (status.userStatus !== UserStatus.Banned) {
