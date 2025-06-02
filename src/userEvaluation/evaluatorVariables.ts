@@ -154,7 +154,7 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
     await context.reddit.updateWikiPage({
         subredditName: CONTROL_SUBREDDIT,
         page: EVALUATOR_VARIABLES_WIKI_PAGE,
-        content: JSON.stringify(variables, null, 4),
+        content: JSON.stringify(variables),
     });
 
     console.log("Evaluator Variables: Updated from wiki");
