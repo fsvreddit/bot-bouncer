@@ -433,7 +433,8 @@ export async function updateLocalStoreFromWiki (_: unknown, context: JobContext)
 }
 
 export async function removeRecordOfSubmitterOrMod (username: string, context: TriggerContext) {
-    const data = await context.redis.hGetAll(USER_STORE);
+    console.log(`Cleanup: Removing records of ${username} as submitter or operator`);
+    const data = await getFullDataStore(context);
     const entries = Object.entries(data).map(([key, value]) => ({ username: key, details: JSON.parse(value) as UserDetails }));
 
     for (const entry of entries.filter(item => item.details.operator === username || item.details.submitter === username)) {
