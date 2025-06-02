@@ -286,8 +286,9 @@ async function handleDeletedAccountControlSub (username: string, context: Trigge
                 subredditName: CONTROL_SUBREDDIT,
                 flairTemplateId: status.userStatus === UserStatus.Pending ? PostFlairTemplate.Retired : PostFlairTemplate.Purged,
             });
-        } catch {
+        } catch (error) {
             console.log(`Cleanup: Unable to set flair for ${username} on post ${status.trackingPostId}`);
+            console.error(error);
         }
     }
 
