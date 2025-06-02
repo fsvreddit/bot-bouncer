@@ -107,8 +107,13 @@ export async function writeUserStatus (username: string, details: UserDetails, t
     const keyToSet = isStale ? getStaleStoreKey(username) : USER_STORE;
     const keyToDelete = isStale ? USER_STORE : getStaleStoreKey(username);
 
-    await txn.hSet(keyToSet, { [username]: JSON.stringify(details) });
-    await txn.hDel(keyToDelete, [username]);
+    try {
+        await txn.hSet(keyToSet, { [username]: JSON.stringify(details) });
+        await txn.hDel(keyToDelete, [username]);
+    } catch (error) {
+        console.error(`Failed to write user status for ${username}:`, error);
+        throw new Error(`Failed to write user status for ${username}`);
+    }
 }
 
 export async function setUserStatus (username: string, details: UserDetails, context: TriggerContext) {
