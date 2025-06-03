@@ -92,10 +92,7 @@ async function handleSetOrganic (username: string, subredditName: string, contex
         console.log(`Wiki Update: Unbanned ${username}`);
     }
 
-    const txn = await context.redis.watch();
-    await txn.multi();
-    await removeRecordOfBan(username, txn);
-    await txn.exec();
+    await removeRecordOfBan(username, context.redis);
 }
 
 async function handleSetBanned (username: string, subredditName: string, settings: SettingsValues, context: TriggerContext) {
