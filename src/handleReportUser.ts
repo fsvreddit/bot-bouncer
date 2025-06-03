@@ -98,7 +98,7 @@ export async function reportFormHandler (event: FormOnSubmitEvent<JSONObject>, c
             targetId: target.id,
             sendFeedback: event.values.sendFeedback as boolean | undefined,
         }, "manual", context),
-        recordReportForDigest(target.authorName, "manually", context),
+        recordReportForDigest(target.authorName, "manually", context.redis),
     ]);
 
     context.ui.showToast(`${target.authorName} has been submitted to /r/${CONTROL_SUBREDDIT}. A tracking post will be created shortly.`);

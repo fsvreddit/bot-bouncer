@@ -23,7 +23,7 @@ async function handleModActionClientSub (event: ModAction, context: TriggerConte
      * If a user is unbanned on a client subreddit, remove the record of their ban.
      */
     if (event.action === "unbanuser" && event.moderator?.name !== context.appName && event.targetUser) {
-        await removeRecordOfBan(event.targetUser.name, context);
+        await removeRecordOfBan(event.targetUser.name, context.redis);
         await recordWhitelistUnban(event.targetUser.name, context);
     }
 

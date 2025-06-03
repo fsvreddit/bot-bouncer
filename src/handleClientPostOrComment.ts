@@ -252,8 +252,8 @@ async function handleContentCreation (username: string, currentStatus: UserDetai
             note: banNote,
         }));
 
-        promises.push(recordBan(username, context));
-        promises.push(recordBanForDigest(username, context));
+        promises.push(recordBan(username, context.redis));
+        promises.push(recordBanForDigest(username, context.redis));
         console.log(`Content Create: ${user.username} banned from ${subredditName}`);
     }
 
@@ -356,7 +356,7 @@ async function checkAndReportPotentialBot (username: string, target: Post | Comm
             submitter: currentUser?.username,
             reportContext,
         }, "automatic", context),
-        recordReportForDigest(user.username, "automatically", context),
+        recordReportForDigest(user.username, "automatically", context.redis),
     );
 
     console.log(`Created external submission via automated evaluation for ${user.username} for bot style ${botName}`);

@@ -1,4 +1,4 @@
-import { Comment, JobContext, JSONObject, Post, ScheduledJobEvent, SettingsValues, TriggerContext, TxClientLike } from "@devvit/public-api";
+import { Comment, JobContext, JSONObject, Post, RedisClient, ScheduledJobEvent, SettingsValues, TriggerContext, TxClientLike } from "@devvit/public-api";
 import { addSeconds, formatDate, subWeeks } from "date-fns";
 import pluralize from "pluralize";
 import { getUserStatus, UserStatus } from "./dataStore.js";
@@ -12,16 +12,16 @@ import { recordBanForDigest, recordUnbanForDigest, removeRecordOfBanForDigest } 
 const UNBAN_WHITELIST = "UnbanWhitelist";
 const BAN_STORE = "BanStore";
 
-export async function recordBan (username: string, txn: TxClientLike) {
-    await txn.zAdd(BAN_STORE, { member: username, score: new Date().getTime() });
-    await setCleanupForUser(username, txn);
+export async function recordBan (username: string, redis: RedisClient | TxClientLike) {
+    await redis.zAdd(BAN_STORE, { member: username, score: new Date().getTime() });
+    await setCleanupForUser(username, redis);
     console.log(`Ban recorded for ${username}`);
 }
 
-export async function removeRecordOfBan (username: string, txn: TxClientLike) {
-    await txn.zRem(BAN_STORE, [username]);
-    await removeRecordOfBanForDigest(username, txn);
-    await recordUnbanForDigest(username, txn);
+export async function removeRecordOfBan (username: string, redis: RedisClient | TxClientLike) {
+    await redis.zRem(BAN_STORE, [username]);
+    await removeRecordOfBanForDigest(username, redis);
+    await recordUnbanForDigest(username, redis);
     console.log(`Removed record of ban for ${username}`);
 }
 

@@ -1,4 +1,4 @@
-import { JobContext, TxClientLike } from "@devvit/public-api";
+import { JobContext, RedisClient, TxClientLike } from "@devvit/public-api";
 import { format, subDays } from "date-fns";
 import { getUserStatus } from "../dataStore.js";
 import { AppSetting } from "../settings.js";
@@ -102,25 +102,25 @@ export async function sendDailyDigest (_: unknown, context: JobContext) {
     await Promise.all(promises);
 }
 
-export async function recordReportForDigest (username: string, type: "automatically" | "manually", txn: TxClientLike) {
+export async function recordReportForDigest (username: string, type: "automatically" | "manually", redis: RedisClient | TxClientLike) {
     const key = getReportsKey(new Date());
-    await txn.hSet(key, { [username]: type });
-    await txn.expire(key, 60 * 60 * 24 * 2);
+    await redis.hSet(key, { [username]: type });
+    await redis.expire(key, 60 * 60 * 24 * 2);
 }
 
-export async function recordBanForDigest (username: string, txn: TxClientLike) {
+export async function recordBanForDigest (username: string, redis: RedisClient | TxClientLike) {
     const key = getBansKey(new Date());
-    await txn.zAdd(key, { member: username, score: new Date().getTime() });
-    await txn.expire(key, 60 * 60 * 24 * 2);
+    await redis.zAdd(key, { member: username, score: new Date().getTime() });
+    await redis.expire(key, 60 * 60 * 24 * 2);
 }
 
-export async function recordUnbanForDigest (username: string, txn: TxClientLike) {
+export async function recordUnbanForDigest (username: string, redis: RedisClient | TxClientLike) {
     const key = getUnbansKey(new Date());
-    await txn.zAdd(key, { member: username, score: new Date().getTime() });
-    await txn.expire(key, 60 * 60 * 24 * 2);
+    await redis.zAdd(key, { member: username, score: new Date().getTime() });
+    await redis.expire(key, 60 * 60 * 24 * 2);
 }
 
-export async function removeRecordOfBanForDigest (username: string, txn: TxClientLike) {
+export async function removeRecordOfBanForDigest (username: string, redis: RedisClient | TxClientLike) {
     const key = getBansKey(new Date());
-    await txn.zRem(key, [username]);
+    await redis.zRem(key, [username]);
 }
