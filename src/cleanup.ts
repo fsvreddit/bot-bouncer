@@ -1,5 +1,5 @@
 import { Comment, JobContext, Post, RedisClient, TriggerContext, TxClientLike } from "@devvit/public-api";
-import { addDays, addHours, addSeconds, format, subDays } from "date-fns";
+import { addDays, addHours, addSeconds, format, subDays, subSeconds } from "date-fns";
 import { CONTROL_SUB_CLEANUP_CRON, CONTROL_SUBREDDIT, PostFlairTemplate, UniversalJob } from "./constants.js";
 import { deleteUserStatus, getUserStatus, removeRecordOfSubmitterOrMod, updateAggregate, UserStatus, writeUserStatus } from "./dataStore.js";
 import { getUserOrUndefined } from "./utility.js";
@@ -13,7 +13,14 @@ const SUB_OR_MOD_LOG_KEY = "SubOrModLog";
 const DAYS_BETWEEN_CHECKS = 7;
 
 export async function setCleanupForUser (username: string, redis: RedisClient | TxClientLike, overrideDate?: Date) {
-    const cleanupTime = overrideDate ?? addDays(new Date(), DAYS_BETWEEN_CHECKS);
+    let cleanupTime = overrideDate ?? addDays(new Date(), DAYS_BETWEEN_CHECKS);
+
+    // Fuzz cleanup time in case a big batch happened at the same time.
+    if (!overrideDate) {
+        const secondsInOneDay = 24 * 60 * 60;
+        const fuzzFactor = Math.floor(Math.random() * secondsInOneDay);
+        cleanupTime = subSeconds(cleanupTime, fuzzFactor);
+    }
 
     await redis.zAdd(CLEANUP_LOG_KEY, ({ member: username, score: cleanupTime.getTime() }));
 }
