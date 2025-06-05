@@ -235,7 +235,7 @@ export async function dataExtract (message: string | undefined, conversationId: 
             const userDetails = userDetailsToFriendly(entry.data);
             const row: string[] = [
                 `[${entry.username}](https://www.reddit.com/user/${entry.username})`,
-                `https://www.redd.it/${userDetails.postId.substring(3)}`,
+                `https://redd.it/${userDetails.postId.substring(3)}`,
                 userDetails.userStatus,
                 userDetails.reportedAt ?? "",
                 userDetails.lastUpdate,
