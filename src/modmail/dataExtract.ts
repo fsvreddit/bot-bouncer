@@ -13,6 +13,7 @@ interface ModmailDataExtract {
     usernameRegex?: string;
     bioRegex?: string;
     since?: string;
+    format?: "json" | "table";
 }
 
 const schema: JSONSchemaType<ModmailDataExtract> = {
@@ -46,6 +47,11 @@ const schema: JSONSchemaType<ModmailDataExtract> = {
             type: "string",
             nullable: true,
             pattern: "^\\d{4}-\\d{2}-\\d{2}$", // YYYY-MM-DD format
+        },
+        format: {
+            type: "string",
+            enum: ["json", "table"],
+            nullable: true,
         },
     },
     additionalProperties: false,
@@ -201,7 +207,6 @@ export async function dataExtract (message: string | undefined, conversationId: 
 
     const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
     const wikiPageName = "data-extract";
-    const dataToExport = fromPairs(data.map(entry => [entry.username, userDetailsToFriendly(entry.data)]));
 
     let wikiPage: WikiPage | undefined;
     try {
@@ -210,7 +215,45 @@ export async function dataExtract (message: string | undefined, conversationId: 
         //
     }
 
-    const content = JSON.stringify(dataToExport);
+    let content: string;
+    if (request.format === "json") {
+        const dataToExport = fromPairs(data.map(entry => [entry.username, userDetailsToFriendly(entry.data)]));
+        content = JSON.stringify(dataToExport);
+    } else {
+        const markdown: json2md.DataObject[] = [
+            { p: `Data export for ${data.length} ${pluralize("user", data.length)}.` },
+        ];
+
+        const headers = ["User", "Tracking Post", "Status", "Reported At", "Last Update", "Submitter", "Operator"];
+        if (request.bioRegex) {
+            headers.push("Bio Text");
+        }
+
+        const rows: string[][] = [];
+
+        for (const entry of data) {
+            const userDetails = userDetailsToFriendly(entry.data);
+            const row: string[] = [
+                `[${entry.username}](https://www.reddit.com/user/${entry.username})`,
+                `https://www.redd.it/${userDetails.postId.substring(3)}`,
+                userDetails.userStatus,
+                userDetails.reportedAt ?? "",
+                userDetails.lastUpdate,
+                userDetails.submitter ?? "",
+                userDetails.operator,
+            ];
+
+            if (request.bioRegex) {
+                row.push(userDetails.bioText ?? "");
+            }
+
+            rows.push(row);
+        }
+
+        markdown.push({ table: { headers, rows } });
+        content = json2md(markdown);
+    }
+
     if (content.length > 512 * 1024) {
         await context.reddit.modMail.reply({
             conversationId,
