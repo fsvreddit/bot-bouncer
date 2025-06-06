@@ -18,7 +18,6 @@ export async function updateClassificationStatistics (context: JobContext) {
     const endDate = startOfDay(subDays(new Date(), 1));
     const dayToDelete = subDays(new Date(), 8);
     const allDaysInRange = eachDayOfInterval({ start: startDate, end: endDate });
-    console.log(allDaysInRange);
 
     await context.redis.del(classificationKeyForDate(dayToDelete));
 
