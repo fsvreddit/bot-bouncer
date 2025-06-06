@@ -11,6 +11,7 @@ import { deleteAccountInitialEvaluationResults } from "./handleControlSubAccount
 import json2md from "json2md";
 import { sendMessageToWebhook } from "./utility.js";
 import { getUserExtended } from "./extendedDevvit.js";
+import { storeClassificationEvent } from "./statistics/classificationStatistics.js";
 
 const USER_STORE = "UserStore";
 const TEMP_DECLINE_STORE = "TempDeclineStore";
@@ -173,6 +174,10 @@ export async function setUserStatus (username: string, details: UserDetails, con
             user: username,
             note: `Status changed to ${details.userStatus} by ${details.operator}.`,
         }, context);
+    }
+
+    if (currentStatus?.userStatus === UserStatus.Pending && details.userStatus !== UserStatus.Pending) {
+        await storeClassificationEvent(details.operator, context);
     }
 }
 

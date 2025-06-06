@@ -5,6 +5,7 @@ import { updateEvaluatorHitsWikiPage } from "./evaluatorHitsStatistics.js";
 import { createTimeOfSubmissionStatistics } from "./timeOfSubmissionStatistics.js";
 import { getFullDataStore } from "../dataStore.js";
 import { ControlSubredditJob } from "../constants.js";
+import { updateClassificationStatistics } from "./classificationStatistics.js";
 
 export async function updateStatisticsPages (_: unknown, context: JobContext) {
     const allData = await getFullDataStore(context);
@@ -14,6 +15,7 @@ export async function updateStatisticsPages (_: unknown, context: JobContext) {
         updateSubmitterStatistics(allData, context),
         updateEvaluatorHitsWikiPage(context),
         createTimeOfSubmissionStatistics(allData, context),
+        updateClassificationStatistics(context),
         context.scheduler.runJob({
             name: ControlSubredditJob.EvaluatorAccuracyStatistics,
             runAt: new Date(),
