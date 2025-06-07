@@ -14,7 +14,6 @@ export async function markAppealAsHandled (conversationId: string, currentMessag
 
     const activeAppeal = await isActiveAppeal(conversationId, context);
     if (!activeAppeal) {
-        console.log(`No active appeal found for ${conversationId}, may have been handled already.`);
         return;
     }
 
