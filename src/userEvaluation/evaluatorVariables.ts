@@ -206,6 +206,7 @@ export function invalidEvaluatorVariableCondition (variables: Record<string, JSO
         "posttitle:reporttext",
         "zombiensfw:regexes",
         "commentphrase:phrases",
+        "tg-group:bodyregex",
     ];
 
     const invalidRegexes: InvalidRegex[] = [];
