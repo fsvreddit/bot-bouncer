@@ -98,6 +98,8 @@ async function handleModmailFromUser (username: string, conversationId: string, 
         return;
     }
 
+    await storeKeyForAppeal(conversationId, context);
+
     const post = await context.reddit.getPostById(currentStatus.trackingPostId);
 
     const message: json2md.DataObject[] = [
@@ -148,4 +150,24 @@ async function handleModmailFromUser (username: string, conversationId: string, 
     });
 
     await context.redis.set(recentAppealKey, new Date().getTime().toString(), { expiration: addDays(new Date(), 1) });
+}
+
+function getKeyForAppeal (conversationId: string): string {
+    return `appeal~${conversationId}`;
+}
+
+async function storeKeyForAppeal (conversationId: string, context: TriggerContext) {
+    const key = getKeyForAppeal(conversationId);
+    await context.redis.set(key, new Date().getTime().toString(), { expiration: addDays(new Date(), 28) });
+}
+
+export async function isActiveAppeal (conversationId: string, context: TriggerContext): Promise<boolean> {
+    const key = getKeyForAppeal(conversationId);
+    const value = await context.redis.get(key);
+    return value !== undefined;
+}
+
+export async function deleteKeyForAppeal (conversationId: string, context: TriggerContext) {
+    const key = getKeyForAppeal(conversationId);
+    await context.redis.del(key);
 }

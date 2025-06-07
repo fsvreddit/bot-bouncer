@@ -11,6 +11,7 @@ import { UserStatus } from "../dataStore.js";
 import json2md from "json2md";
 import { getControlSubSettings } from "../settings.js";
 import { handleBulkSubmission } from "./bulkSubmission.js";
+import { markAppealAsHandled } from "../statistics/appealStatistics.js";
 
 function conversationHandledRedisKey (conversationId: string) {
     return `conversationHandled~${conversationId}`;
@@ -73,6 +74,10 @@ export async function handleModmail (event: ModMail, context: TriggerContext) {
     if (isSummaryCommand) {
         await addSummaryForUser(event.conversationId, username, context);
         return;
+    }
+
+    if (currentMessage?.author) {
+        await markAppealAsHandled(event.conversationId, currentMessage, context);
     }
 
     const conversationHandled = await getConversationHandled(event.conversationId, context);
