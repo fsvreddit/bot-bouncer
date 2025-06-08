@@ -60,7 +60,7 @@ async function getDistinctAccounts (context: JobContext): Promise<string[]> {
             subsToCheck[sub] = lastCheckDate;
             subCount++;
         }
-        if (subCount >= 50) {
+        if (subCount >= 75) {
             break;
         }
     }
