@@ -25,6 +25,7 @@ import { processQueuedSubmission } from "./postCreation.js";
 import { checkForBanNotes } from "./handleClientSubBanReasonCheck.js";
 import { cleanupPostStore } from "./cleanupPostStore.js";
 import { buildEvaluatorAccuracyStatistics } from "./statistics/evaluatorAccuracyStatistics.js";
+import { processExternalSubmissionsFromObserverSubreddits } from "./externalSubmissions.js";
 
 Devvit.addSettings(appSettings);
 
@@ -204,6 +205,11 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: ControlSubredditJob.EvaluatorAccuracyStatistics,
     onRun: buildEvaluatorAccuracyStatistics,
+});
+
+Devvit.addSchedulerJob({
+    name: ControlSubredditJob.HandleObserverSubredditSubmissions,
+    onRun: processExternalSubmissionsFromObserverSubreddits,
 });
 
 /**

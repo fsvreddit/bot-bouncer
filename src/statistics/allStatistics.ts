@@ -7,6 +7,7 @@ import { getFullDataStore } from "../dataStore.js";
 import { ControlSubredditJob } from "../constants.js";
 import { updateClassificationStatistics } from "./classificationStatistics.js";
 import { updateAppealStatistics } from "./appealStatistics.js";
+import { addMinutes } from "date-fns";
 
 export async function updateStatisticsPages (_: unknown, context: JobContext) {
     const allData = await getFullDataStore(context);
@@ -21,6 +22,11 @@ export async function updateStatisticsPages (_: unknown, context: JobContext) {
         context.scheduler.runJob({
             name: ControlSubredditJob.EvaluatorAccuracyStatistics,
             runAt: new Date(),
+            data: { firstRun: true },
+        }),
+        context.scheduler.runJob({
+            name: ControlSubredditJob.CleanupPostStore,
+            runAt: addMinutes(new Date(), 1),
             data: { firstRun: true },
         }),
     ]);

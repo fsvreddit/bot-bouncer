@@ -1,4 +1,4 @@
-import { TriggerContext, WikiPage } from "@devvit/public-api";
+import { JobContext, TriggerContext, WikiPage } from "@devvit/public-api";
 import { CONTROL_SUBREDDIT } from "./constants.js";
 import { addUserToTempDeclineStore, getUserStatus, setUserStatus, UserStatus } from "./dataStore.js";
 import { ControlSubSettings, getControlSubSettings } from "./settings.js";
@@ -234,4 +234,42 @@ export async function handleExternalSubmissionsPageUpdate (context: TriggerConte
     });
 
     console.log(`External Submissions: Added ${added} external ${pluralize("submission", added)} to the queue.`);
+}
+
+export async function processExternalSubmissionsFromObserverSubreddits (_: unknown, context: JobContext) {
+    const controlSubSettings = await getControlSubSettings(context);
+    if (!controlSubSettings.observerSubreddits || controlSubSettings.observerSubreddits.length === 0) {
+        console.log("External Submissions: No observer subreddits configured, skipping external submissions processing.");
+        return;
+    }
+
+    let processed = 0;
+    for (const subreddit of controlSubSettings.observerSubreddits) {
+        let wikiPage: WikiPage | undefined;
+        try {
+            wikiPage = await context.reddit.getWikiPage(subreddit, WIKI_PAGE);
+        } catch {
+            console.log(`External Submissions: No external submissions page found in /r/${subreddit}, skipping.`);
+            continue;
+        }
+
+        const currentSubmissionList = JSON.parse(wikiPage.content) as ExternalSubmission[];
+
+        for (const submission of currentSubmissionList) {
+            const postSubmitted = await addExternalSubmissionToPostCreationQueue(submission, false, controlSubSettings, context);
+            if (postSubmitted) {
+                console.log(`External Submissions: Processed external submission for ${submission.username} from /r/${subreddit}.`);
+                processed++;
+            }
+        }
+
+        await context.reddit.updateWikiPage({
+            subredditName: subreddit,
+            page: WIKI_PAGE,
+            content: "[]",
+            reason: "Cleared the external submission list after processing.",
+        });
+    }
+
+    console.log(`External Submissions: Processed ${processed} external ${pluralize("submission", processed)} from observer subreddits.`);
 }
