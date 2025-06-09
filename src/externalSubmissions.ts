@@ -24,11 +24,12 @@ export interface ExternalSubmission {
     initialStatus?: UserStatus;
     evaluatorName?: string;
     hitReason?: string;
+    evaluationResults?: EvaluationResult[];
     sendFeedback?: boolean;
     proactive?: boolean;
 };
 
-const schema: JSONSchemaType<ExternalSubmission[]> = {
+const externalSubmissionSchema: JSONSchemaType<ExternalSubmission[]> = {
     type: "array",
     items: {
         type: "object",
@@ -41,6 +42,20 @@ const schema: JSONSchemaType<ExternalSubmission[]> = {
             initialStatus: { type: "string", nullable: true, enum: Object.values(UserStatus) },
             evaluatorName: { type: "string", nullable: true },
             hitReason: { type: "string", nullable: true },
+            evaluationResults: {
+                type: "array",
+                items: {
+                    type: "object",
+                    properties: {
+                        botName: { type: "string" },
+                        hitReason: { type: "string", nullable: true },
+                        canAutoBan: { type: "boolean" },
+                        metThreshold: { type: "boolean" },
+                    },
+                    required: ["botName", "canAutoBan", "metThreshold"],
+                },
+                nullable: true,
+            },
             sendFeedback: { type: "boolean", nullable: true },
             proactive: { type: "boolean", nullable: true },
         },
@@ -80,7 +95,7 @@ export async function addExternalSubmissionFromClientSub (data: ExternalSubmissi
     const currentUserList = JSON.parse(wikiPage?.content ?? "[]") as ExternalSubmission[];
 
     const ajv = new Ajv.default();
-    const validate = ajv.compile(schema);
+    const validate = ajv.compile(externalSubmissionSchema);
     if (!validate(currentUserList)) {
         console.error("External submission list is invalid.", ajv.errorsText(validate.errors));
         return;
@@ -181,7 +196,10 @@ export async function addExternalSubmissionToPostCreationQueue (item: ExternalSu
             metThreshold: true,
         } as EvaluationResult;
         await storeAccountInitialEvaluationResults(item.username, [evaluationResult], context);
+    } else if (item.evaluationResults) {
+        await storeAccountInitialEvaluationResults(item.username, item.evaluationResults, context);
     }
+
     return true;
 }
 
@@ -200,7 +218,7 @@ export async function handleExternalSubmissionsPageUpdate (context: TriggerConte
     const currentSubmissionList = JSON.parse(wikiPage?.content ?? "[]") as ExternalSubmission[];
 
     const ajv = new Ajv.default();
-    const validate = ajv.compile(schema);
+    const validate = ajv.compile(externalSubmissionSchema);
     if (!validate(currentSubmissionList)) {
         console.error("External submission list is invalid.", ajv.errorsText(validate.errors));
         return;
