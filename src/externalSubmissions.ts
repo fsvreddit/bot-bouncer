@@ -289,5 +289,7 @@ export async function processExternalSubmissionsFromObserverSubreddits (_: unkno
         });
     }
 
-    console.log(`External Submissions: Processed ${processed} external ${pluralize("submission", processed)} from observer subreddits.`);
+    if (processed > 0) {
+        console.log(`External Submissions: Processed ${processed} external ${pluralize("submission", processed)} from observer subreddits.`);
+    }
 }
