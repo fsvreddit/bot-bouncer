@@ -272,6 +272,10 @@ export async function processExternalSubmissionsFromObserverSubreddits (_: unkno
         }
 
         const currentSubmissionList = JSON.parse(wikiPage.content) as ExternalSubmission[];
+        if (currentSubmissionList.length === 0) {
+            console.log(`External Submissions: No external submissions found in /r/${subreddit}.`);
+            continue;
+        }
 
         for (const submission of currentSubmissionList) {
             const postSubmitted = await addExternalSubmissionToPostCreationQueue(submission, false, controlSubSettings, context);
