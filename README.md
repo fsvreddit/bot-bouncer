@@ -47,7 +47,7 @@ Write in to [/r/BotBouncer's modmail](https://www.reddit.com/message/compose/?to
 
 # Change History
 
-## Next
+## v1.12.0
 
 * Make daily digest fully configurable
 * Remove NSFW check on Social Links evaluator

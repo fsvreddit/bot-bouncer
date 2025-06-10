@@ -3,7 +3,7 @@ import { compact, max, toPairs, uniq } from "lodash";
 import pako from "pako";
 import { setCleanupForSubmittersAndMods, setCleanupForUser } from "./cleanup.js";
 import { ClientSubredditJob, CONTROL_SUBREDDIT } from "./constants.js";
-import { addHours, addSeconds, addWeeks, startOfSecond, subDays, subHours, subWeeks } from "date-fns";
+import { addHours, addMinutes, addSeconds, addWeeks, startOfSecond, subDays, subHours, subWeeks } from "date-fns";
 import pluralize from "pluralize";
 import { getControlSubSettings } from "./settings.js";
 import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
@@ -149,7 +149,9 @@ export async function setUserStatus (username: string, details: UserDetails, con
     }
 
     if (context.subredditName === CONTROL_SUBREDDIT) {
-        if (details.userStatus === UserStatus.Pending || details.userStatus === UserStatus.Purged || details.userStatus === UserStatus.Retired) {
+        if (details.userStatus === UserStatus.Pending && !currentStatus) {
+            await setCleanupForUser(username, txn, addMinutes(new Date(), 2));
+        } else if (details.userStatus === UserStatus.Pending || details.userStatus === UserStatus.Purged || details.userStatus === UserStatus.Retired) {
             await setCleanupForUser(username, txn, addHours(new Date(), 1));
         } else {
             await setCleanupForUser(username, txn);
