@@ -1,27 +1,28 @@
-import { JobContext, TriggerContext, WikiPagePermissionLevel, WikiPage, CreateModNoteOptions, UserSocialLink } from "@devvit/public-api";
+import { JobContext, TriggerContext, WikiPagePermissionLevel, WikiPage, CreateModNoteOptions, UserSocialLink, TxClientLike } from "@devvit/public-api";
 import { compact, max, toPairs, uniq } from "lodash";
 import pako from "pako";
 import { setCleanupForSubmittersAndMods, setCleanupForUser } from "./cleanup.js";
 import { ClientSubredditJob, CONTROL_SUBREDDIT } from "./constants.js";
-import { addHours, addSeconds, addWeeks, startOfSecond, subDays, subHours, subWeeks } from "date-fns";
+import { addHours, addMinutes, addSeconds, addWeeks, startOfSecond, subDays, subHours, subWeeks } from "date-fns";
 import pluralize from "pluralize";
 import { getControlSubSettings } from "./settings.js";
 import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
-import { USER_EVALUATION_RESULTS_KEY } from "./handleControlSubAccountEvaluation.js";
+import { deleteAccountInitialEvaluationResults } from "./handleControlSubAccountEvaluation.js";
 import json2md from "json2md";
 import { sendMessageToWebhook } from "./utility.js";
 import { getUserExtended } from "./extendedDevvit.js";
+import { storeClassificationEvent } from "./statistics/classificationStatistics.js";
 
 const USER_STORE = "UserStore";
 const TEMP_DECLINE_STORE = "TempDeclineStore";
 
-const BIO_TEXT_STORE = "BioTextStore";
+export const BIO_TEXT_STORE = "BioTextStore";
 const DISPLAY_NAME_STORE = "DisplayNameStore";
 const SOCIAL_LINKS_STORE = "SocialLinksStore";
 
 export const AGGREGATE_STORE = "AggregateStore";
 
-const POST_STORE = "PostStore";
+export const POST_STORE = "PostStore";
 const WIKI_UPDATE_DUE = "WikiUpdateDue";
 const WIKI_PAGE = "botbouncer";
 const MAX_WIKI_PAGE_SIZE = 512 * 1024;
@@ -46,17 +47,9 @@ export interface UserDetails {
     operator: string;
     reportedAt?: number;
     /**
-    * @deprecated recentPostSubs should not be used.
+    * @deprecated bioText should not be used.
     */
     bioText?: string;
-    /**
-    * @deprecated recentPostSubs should not be used.
-    */
-    recentPostSubs?: string[];
-    /**
-    * @deprecated recentCommentSubs should not be used.
-    */
-    recentCommentSubs?: string[];
     mostRecentActivity?: number;
 }
 
@@ -98,11 +91,11 @@ async function addModNote (options: CreateModNoteOptions, context: TriggerContex
     try {
         await context.reddit.addModNote(options);
     } catch {
-        console.error(`Failed to add mod note for ${options.user}`);
+        console.warn(`Failed to add mod note for ${options.user}, likely deleted account.`);
     }
 }
 
-export async function writeUserStatus (username: string, details: UserDetails, context: TriggerContext) {
+export async function writeUserStatus (username: string, details: UserDetails, txn: TxClientLike) {
     let isStale = false;
     if (details.mostRecentActivity && new Date(details.mostRecentActivity) < subWeeks(new Date(), 3)) {
         isStale = true;
@@ -112,19 +105,15 @@ export async function writeUserStatus (username: string, details: UserDetails, c
         isStale = true;
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-deprecated
-    delete details.bioText;
-    // eslint-disable-next-line @typescript-eslint/no-deprecated
-    delete details.recentPostSubs;
-    // eslint-disable-next-line @typescript-eslint/no-deprecated
-    delete details.recentCommentSubs;
+    const keyToSet = isStale ? getStaleStoreKey(username) : USER_STORE;
+    const keyToDelete = isStale ? USER_STORE : getStaleStoreKey(username);
 
-    if (isStale) {
-        await context.redis.hSet(getStaleStoreKey(username), { [username]: JSON.stringify(details) });
-        await context.redis.hDel(USER_STORE, [username]);
-    } else {
-        await context.redis.hSet(USER_STORE, { [username]: JSON.stringify(details) });
-        await context.redis.hDel(getStaleStoreKey(username), [username]);
+    try {
+        await txn.hSet(keyToSet, { [username]: JSON.stringify(details) });
+        await txn.hDel(keyToDelete, [username]);
+    } catch (error) {
+        console.error(`Failed to write user status for ${username}:`, error);
+        throw new Error(`Failed to write user status for ${username}`);
     }
 }
 
@@ -150,59 +139,61 @@ export async function setUserStatus (username: string, details: UserDetails, con
         details.lastUpdate = currentStatus.lastUpdate;
     }
 
-    const promises: Promise<unknown>[] = [
-        writeUserStatus(username, details, context),
-        context.redis.hSet(POST_STORE, { [details.trackingPostId]: username }),
-    ];
+    const txn = await context.redis.watch();
+    await txn.multi();
+    await writeUserStatus(username, details, txn);
+    await txn.hSet(POST_STORE, { [details.trackingPostId]: username });
 
-    if (details.userStatus !== UserStatus.Purged && details.userStatus !== UserStatus.Retired) {
-        promises.push(queueWikiUpdate(context));
+    if (details.userStatus !== UserStatus.Purged && details.userStatus !== UserStatus.Retired && context.subredditName === CONTROL_SUBREDDIT) {
+        await txn.set(WIKI_UPDATE_DUE, "true");
     }
 
-    if (details.userStatus === UserStatus.Pending || details.userStatus === UserStatus.Purged || details.userStatus === UserStatus.Retired) {
-        promises.push(setCleanupForUser(username, context, true, addHours(new Date(), 1)));
-    } else {
-        promises.push(setCleanupForUser(username, context, true));
-    }
+    if (context.subredditName === CONTROL_SUBREDDIT) {
+        if (details.userStatus === UserStatus.Pending && !currentStatus) {
+            await setCleanupForUser(username, txn, addMinutes(new Date(), 2));
+        } else if (details.userStatus === UserStatus.Pending || details.userStatus === UserStatus.Purged || details.userStatus === UserStatus.Retired) {
+            await setCleanupForUser(username, txn, addHours(new Date(), 1));
+        } else {
+            await setCleanupForUser(username, txn);
+        }
 
-    const submittersAndMods = uniq(compact([details.submitter, details.operator]));
-    promises.push(setCleanupForSubmittersAndMods(submittersAndMods, context));
+        const submittersAndMods = uniq(compact([details.submitter, details.operator]));
+        await setCleanupForSubmittersAndMods(submittersAndMods, txn);
 
-    if (details.userStatus !== currentStatus?.userStatus) {
-        promises.push(updateAggregate(details.userStatus, 1, context));
-        if (currentStatus) {
-            promises.push(updateAggregate(currentStatus.userStatus, -1, context));
+        if (details.userStatus !== currentStatus?.userStatus) {
+            await updateAggregate(details.userStatus, 1, txn);
+            if (currentStatus) {
+                await updateAggregate(currentStatus.userStatus, -1, txn);
+            }
         }
     }
 
+    await txn.exec();
+
     if (context.subredditName === CONTROL_SUBREDDIT && currentStatus?.userStatus !== details.userStatus && details.userStatus !== UserStatus.Pending) {
-        promises.push(addModNote({
+        await addModNote({
             subreddit: context.subredditName,
             user: username,
             note: `Status changed to ${details.userStatus} by ${details.operator}.`,
-        }, context));
+        }, context);
     }
 
-    await Promise.all(promises);
+    if (currentStatus?.userStatus === UserStatus.Pending && details.userStatus !== UserStatus.Pending && details.operator !== context.appName) {
+        await storeClassificationEvent(details.operator, context);
+    }
 }
 
-export async function deleteUserStatus (username: string, context: TriggerContext) {
-    const currentStatus = await getUserStatus(username, context);
+export async function deleteUserStatus (username: string, trackingPostId: string | undefined, txn: TxClientLike) {
+    await txn.hDel(USER_STORE, [username]);
+    await txn.hDel(getStaleStoreKey(username), [username]);
+    await deleteAccountInitialEvaluationResults(username, txn);
+    await txn.hDel(BIO_TEXT_STORE, [username]);
+    await txn.hDel(DISPLAY_NAME_STORE, [username]);
+    await txn.hDel(SOCIAL_LINKS_STORE, [username]);
 
-    const promises: Promise<number>[] = [
-        context.redis.hDel(USER_STORE, [username]),
-        context.redis.hDel(getStaleStoreKey(username), [username]),
-        context.redis.hDel(USER_EVALUATION_RESULTS_KEY, [username]),
-        context.redis.hDel(BIO_TEXT_STORE, [username]),
-        context.redis.hDel(DISPLAY_NAME_STORE, [username]),
-        context.redis.hDel(SOCIAL_LINKS_STORE, [username]),
-    ];
-
-    if (currentStatus?.trackingPostId) {
-        promises.push(context.redis.hDel(POST_STORE, [currentStatus.trackingPostId]));
+    if (trackingPostId) {
+        await txn.hDel(POST_STORE, [trackingPostId]);
     }
-
-    await Promise.all(promises);
 }
 
 export async function getUsernameFromPostId (postId: string, context: TriggerContext): Promise<string | undefined> {
@@ -210,19 +201,8 @@ export async function getUsernameFromPostId (postId: string, context: TriggerCon
     return username;
 }
 
-export async function updateAggregate (type: UserStatus, incrBy: number, context: TriggerContext) {
-    if (context.subredditName === CONTROL_SUBREDDIT) {
-        const newScore = await context.redis.zIncrBy(AGGREGATE_STORE, type, incrBy);
-        console.log(`Aggregate for ${type} ${incrBy > 0 ? "increased" : "decreased"} to ${newScore}`);
-    }
-}
-
-async function queueWikiUpdate (context: TriggerContext) {
-    if (context.subredditName !== CONTROL_SUBREDDIT) {
-        return;
-    }
-
-    await context.redis.set(WIKI_UPDATE_DUE, "true");
+export async function updateAggregate (type: UserStatus, incrBy: number, txn: TxClientLike) {
+    await txn.zIncrBy(AGGREGATE_STORE, type, incrBy);
 }
 
 function compressData (value: Record<string, string>): string {
@@ -263,10 +243,6 @@ function compactDataForWiki (input: string): string | undefined {
     delete status.reportedAt;
     // eslint-disable-next-line @typescript-eslint/no-deprecated
     delete status.bioText;
-    // eslint-disable-next-line @typescript-eslint/no-deprecated
-    delete status.recentPostSubs;
-    // eslint-disable-next-line @typescript-eslint/no-deprecated
-    delete status.recentCommentSubs;
     delete status.mostRecentActivity;
 
     if (status.userStatus !== UserStatus.Banned) {
@@ -464,7 +440,8 @@ export async function updateLocalStoreFromWiki (_: unknown, context: JobContext)
 }
 
 export async function removeRecordOfSubmitterOrMod (username: string, context: TriggerContext) {
-    const data = await context.redis.hGetAll(USER_STORE);
+    console.log(`Cleanup: Removing records of ${username} as submitter or operator`);
+    const data = await getFullDataStore(context);
     const entries = Object.entries(data).map(([key, value]) => ({ username: key, details: JSON.parse(value) as UserDetails }));
 
     for (const entry of entries.filter(item => item.details.operator === username || item.details.submitter === username)) {

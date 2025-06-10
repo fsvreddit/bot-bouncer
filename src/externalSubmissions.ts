@@ -1,4 +1,4 @@
-import { TriggerContext, WikiPage } from "@devvit/public-api";
+import { JobContext, TriggerContext, WikiPage } from "@devvit/public-api";
 import { CONTROL_SUBREDDIT } from "./constants.js";
 import { addUserToTempDeclineStore, getUserStatus, setUserStatus, UserStatus } from "./dataStore.js";
 import { ControlSubSettings, getControlSubSettings } from "./settings.js";
@@ -9,7 +9,7 @@ import { isLinkId } from "@devvit/shared-types/tid.js";
 import { AsyncSubmission, queuePostCreation } from "./postCreation.js";
 import pluralize from "pluralize";
 import { getUserExtended } from "./extendedDevvit.js";
-import { evaluateUserAccount, EvaluationResult, USER_EVALUATION_RESULTS_KEY } from "./handleControlSubAccountEvaluation.js";
+import { evaluateUserAccount, EvaluationResult, storeAccountInitialEvaluationResults } from "./handleControlSubAccountEvaluation.js";
 import json2md from "json2md";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 
@@ -24,11 +24,12 @@ export interface ExternalSubmission {
     initialStatus?: UserStatus;
     evaluatorName?: string;
     hitReason?: string;
+    evaluationResults?: EvaluationResult[];
     sendFeedback?: boolean;
     proactive?: boolean;
 };
 
-const schema: JSONSchemaType<ExternalSubmission[]> = {
+const externalSubmissionSchema: JSONSchemaType<ExternalSubmission[]> = {
     type: "array",
     items: {
         type: "object",
@@ -41,6 +42,20 @@ const schema: JSONSchemaType<ExternalSubmission[]> = {
             initialStatus: { type: "string", nullable: true, enum: Object.values(UserStatus) },
             evaluatorName: { type: "string", nullable: true },
             hitReason: { type: "string", nullable: true },
+            evaluationResults: {
+                type: "array",
+                items: {
+                    type: "object",
+                    properties: {
+                        botName: { type: "string" },
+                        hitReason: { type: "string", nullable: true },
+                        canAutoBan: { type: "boolean" },
+                        metThreshold: { type: "boolean" },
+                    },
+                    required: ["botName", "canAutoBan", "metThreshold"],
+                },
+                nullable: true,
+            },
             sendFeedback: { type: "boolean", nullable: true },
             proactive: { type: "boolean", nullable: true },
         },
@@ -80,7 +95,7 @@ export async function addExternalSubmissionFromClientSub (data: ExternalSubmissi
     const currentUserList = JSON.parse(wikiPage?.content ?? "[]") as ExternalSubmission[];
 
     const ajv = new Ajv.default();
-    const validate = ajv.compile(schema);
+    const validate = ajv.compile(externalSubmissionSchema);
     if (!validate(currentUserList)) {
         console.error("External submission list is invalid.", ajv.errorsText(validate.errors));
         return;
@@ -100,7 +115,7 @@ export async function addExternalSubmissionFromClientSub (data: ExternalSubmissi
     });
 }
 
-async function addExternalSubmissionToPostCreationQueue (item: ExternalSubmission, immediate: boolean, controlSubSettings: ControlSubSettings, context: TriggerContext): Promise<boolean> {
+export async function addExternalSubmissionToPostCreationQueue (item: ExternalSubmission, immediate: boolean, controlSubSettings: ControlSubSettings, context: TriggerContext): Promise<boolean> {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
         throw new Error("This function can only be called from the control subreddit.");
     }
@@ -180,8 +195,11 @@ async function addExternalSubmissionToPostCreationQueue (item: ExternalSubmissio
             canAutoBan: true,
             metThreshold: true,
         } as EvaluationResult;
-        await context.redis.hSet(USER_EVALUATION_RESULTS_KEY, { [item.username]: JSON.stringify([evaluationResult]) });
+        await storeAccountInitialEvaluationResults(item.username, [evaluationResult], context);
+    } else if (item.evaluationResults) {
+        await storeAccountInitialEvaluationResults(item.username, item.evaluationResults, context);
     }
+
     return true;
 }
 
@@ -200,7 +218,7 @@ export async function handleExternalSubmissionsPageUpdate (context: TriggerConte
     const currentSubmissionList = JSON.parse(wikiPage?.content ?? "[]") as ExternalSubmission[];
 
     const ajv = new Ajv.default();
-    const validate = ajv.compile(schema);
+    const validate = ajv.compile(externalSubmissionSchema);
     if (!validate(currentSubmissionList)) {
         console.error("External submission list is invalid.", ajv.errorsText(validate.errors));
         return;
@@ -234,4 +252,48 @@ export async function handleExternalSubmissionsPageUpdate (context: TriggerConte
     });
 
     console.log(`External Submissions: Added ${added} external ${pluralize("submission", added)} to the queue.`);
+}
+
+export async function processExternalSubmissionsFromObserverSubreddits (_: unknown, context: JobContext) {
+    const controlSubSettings = await getControlSubSettings(context);
+    if (!controlSubSettings.observerSubreddits || controlSubSettings.observerSubreddits.length === 0) {
+        console.log("External Submissions: No observer subreddits configured, skipping external submissions processing.");
+        return;
+    }
+
+    let processed = 0;
+    for (const subreddit of controlSubSettings.observerSubreddits) {
+        let wikiPage: WikiPage | undefined;
+        try {
+            wikiPage = await context.reddit.getWikiPage(subreddit, WIKI_PAGE);
+        } catch {
+            console.log(`External Submissions: No external submissions page found in /r/${subreddit}, skipping.`);
+            continue;
+        }
+
+        const currentSubmissionList = JSON.parse(wikiPage.content) as ExternalSubmission[];
+        if (currentSubmissionList.length === 0) {
+            console.log(`External Submissions: No external submissions found in /r/${subreddit}.`);
+            continue;
+        }
+
+        for (const submission of currentSubmissionList) {
+            const postSubmitted = await addExternalSubmissionToPostCreationQueue(submission, false, controlSubSettings, context);
+            if (postSubmitted) {
+                console.log(`External Submissions: Processed external submission for ${submission.username} from /r/${subreddit}.`);
+                processed++;
+            }
+        }
+
+        await context.reddit.updateWikiPage({
+            subredditName: subreddit,
+            page: WIKI_PAGE,
+            content: "[]",
+            reason: "Cleared the external submission list after processing.",
+        });
+    }
+
+    if (processed > 0) {
+        console.log(`External Submissions: Processed ${processed} external ${pluralize("submission", processed)} from observer subreddits.`);
+    }
 }

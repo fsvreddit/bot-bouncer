@@ -1,12 +1,12 @@
 import { Post, Comment, TriggerContext, SettingsValues, JSONValue } from "@devvit/public-api";
 import { CommentCreate, CommentUpdate, PostCreate } from "@devvit/protos";
+import { ALL_EVALUATORS } from "@fsvreddit/bot-bouncer-evaluation";
 import { addDays, addWeeks, formatDate, subMinutes } from "date-fns";
 import { getUserStatus, UserDetails, UserStatus } from "./dataStore.js";
 import { isUserWhitelisted, recordBan } from "./handleClientSubredditWikiUpdate.js";
 import { CONTROL_SUBREDDIT } from "./constants.js";
 import { getPostOrCommentById, getUserOrUndefined, isApproved, isBanned, isModerator, replaceAll } from "./utility.js";
 import { AppSetting, CONFIGURATION_DEFAULTS, getControlSubSettings } from "./settings.js";
-import { ALL_EVALUATORS } from "./userEvaluation/allEvaluators.js";
 import { addExternalSubmissionFromClientSub } from "./externalSubmissions.js";
 import { isLinkId } from "@devvit/shared-types/tid.js";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
@@ -252,8 +252,8 @@ async function handleContentCreation (username: string, currentStatus: UserDetai
             note: banNote,
         }));
 
-        promises.push(recordBan(username, context));
-        promises.push(recordBanForDigest(username, context));
+        promises.push(recordBan(username, context.redis));
+        promises.push(recordBanForDigest(username, context.redis));
         console.log(`Content Create: ${user.username} banned from ${subredditName}`);
     }
 
@@ -356,7 +356,7 @@ async function checkAndReportPotentialBot (username: string, target: Post | Comm
             submitter: currentUser?.username,
             reportContext,
         }, "automatic", context),
-        recordReportForDigest(user.username, "automatically", context),
+        recordReportForDigest(user.username, "automatically", context.redis),
     );
 
     console.log(`Created external submission via automated evaluation for ${user.username} for bot style ${botName}`);

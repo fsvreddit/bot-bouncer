@@ -1,24 +1,30 @@
 import { TriggerContext, WikiPage, WikiPagePermissionLevel } from "@devvit/public-api";
-import { UserDetails, UserStatus } from "../dataStore.js";
+import { BIO_TEXT_STORE, getFullDataStore, UserDetails, UserStatus } from "../dataStore.js";
 import Ajv, { JSONSchemaType } from "ajv";
 import { fromPairs } from "lodash";
 import pluralize from "pluralize";
-import { getYear } from "date-fns";
 import json2md from "json2md";
+import { format } from "date-fns";
 
 interface ModmailDataExtract {
-    status?: UserStatus;
+    status?: UserStatus[];
     submitter?: string;
     operator?: string;
     usernameRegex?: string;
-    since?: number;
+    bioRegex?: string;
+    since?: string;
+    format?: "json" | "table";
 }
 
 const schema: JSONSchemaType<ModmailDataExtract> = {
     type: "object",
     properties: {
         status: {
-            type: "string",
+            type: "array",
+            items: {
+                type: "string",
+                enum: Object.values(UserStatus),
+            },
             nullable: true,
         },
         submitter: {
@@ -33,13 +39,46 @@ const schema: JSONSchemaType<ModmailDataExtract> = {
             type: "string",
             nullable: true,
         },
+        bioRegex: {
+            type: "string",
+            nullable: true,
+        },
         since: {
-            type: "number",
+            type: "string",
+            nullable: true,
+            pattern: "^\\d{4}-\\d{2}-\\d{2}$", // YYYY-MM-DD format
+        },
+        format: {
+            type: "string",
+            enum: ["json", "table"],
             nullable: true,
         },
     },
     additionalProperties: false,
 };
+
+interface FriendlyUserDetails {
+    postId: string;
+    userStatus: UserStatus;
+    reportedAt?: string;
+    lastUpdate: string;
+    submitter?: string;
+    operator: string;
+    bioText?: string;
+}
+
+function userDetailsToFriendly (details: UserDetails): FriendlyUserDetails {
+    return {
+        postId: details.trackingPostId,
+        userStatus: details.userStatus,
+        reportedAt: details.reportedAt ? format(new Date(details.reportedAt), "yyyy-MM-dd") : undefined,
+        lastUpdate: format(new Date(details.lastUpdate), "yyyy-MM-dd"),
+        submitter: details.submitter,
+        operator: details.operator,
+        // eslint-disable-next-line @typescript-eslint/no-deprecated
+        bioText: details.bioText,
+    };
+}
 
 export async function dataExtract (message: string | undefined, conversationId: string, context: TriggerContext) {
     if (!message?.startsWith("!extract {")) {
@@ -80,30 +119,33 @@ export async function dataExtract (message: string | undefined, conversationId: 
         return;
     }
 
-    if (!request.status && !request.submitter && !request.usernameRegex) {
+    if (!request.status && !request.submitter && !request.usernameRegex && !request.since) {
         await context.reddit.modMail.reply({
             conversationId,
-            body: "Request is empty. Please provide at least one of the following fields: `status`, `submitter`, `usernameRegex`, `bioTextRegex`, `recentPostSubs`, `recentCommentSubs`.",
+            body: "Request is empty. Please provide at least one of the following fields: `status`, `submitter`, `usernameRegex`, `since`. `bioRegex` cannot be used on its own.",
             isAuthorHidden: false,
         });
         return;
     }
 
     // Get all data from database.
-    const allData = await context.redis.hGetAll("UserStore");
+    const allData = await getFullDataStore(context);
     let data = Object.entries(allData).map(([username, data]) => ({ username, data: JSON.parse(data) as UserDetails }));
 
     // Filter data by request fields.
     if (request.status) {
-        data = data.filter(entry => entry.data.userStatus === request.status);
+        data = data.filter(entry => request.status?.includes(entry.data.userStatus));
+        console.log(`Filtered data by status: ${request.status}, remaining entries: ${data.length}`);
     }
 
     if (request.submitter) {
         data = data.filter(entry => entry.data.submitter === request.submitter);
+        console.log(`Filtered data by submitter: ${request.submitter}, remaining entries: ${data.length}`);
     }
 
     if (request.operator) {
         data = data.filter(entry => entry.data.operator === request.operator);
+        console.log(`Filtered data by operator: ${request.operator}, remaining entries: ${data.length}`);
     }
 
     if (request.usernameRegex) {
@@ -119,14 +161,39 @@ export async function dataExtract (message: string | undefined, conversationId: 
             return;
         }
         data = data.filter(entry => regex.test(entry.username));
+        console.log(`Filtered data by usernameRegex: ${request.usernameRegex}, remaining entries: ${data.length}`);
     }
 
     if (request.since) {
-        if (getYear(new Date(request.since)) < 2024) {
-            // Probably a timestamp with seconds instead of milliseconds.
-            request.since *= 1000;
+        const sinceDate = new Date(request.since);
+        data = data.filter(entry => entry.data.reportedAt && new Date(entry.data.reportedAt) > sinceDate);
+        console.log(`Filtered data by since date: ${request.since}, remaining entries: ${data.length}`);
+    }
+
+    if (request.bioRegex) {
+        let regex: RegExp;
+        try {
+            regex = new RegExp(request.bioRegex);
+        } catch {
+            await context.reddit.modMail.reply({
+                conversationId,
+                body: "Invalid regex provided for `bioRegex`.",
+                isAuthorHidden: false,
+            });
+            return;
         }
-        data = data.filter(entry => entry.data.lastUpdate && request.since !== undefined && entry.data.lastUpdate > request.since);
+        const bioTexts = await context.redis.hMGet(BIO_TEXT_STORE, data.map(entry => entry.username));
+        for (let i = 0; i < data.length; i++) {
+            const userBioText = bioTexts[i];
+            if (userBioText && regex.test(userBioText)) {
+                // eslint-disable-next-line @typescript-eslint/no-deprecated
+                data[i].data.bioText = userBioText; // Store the bio text for the user
+            }
+        }
+
+        // eslint-disable-next-line @typescript-eslint/no-deprecated
+        data = data.filter(entry => entry.data.bioText);
+        console.log(`Filtered data by bioRegex: ${request.bioRegex}, remaining entries: ${data.length}`);
     }
 
     if (data.length === 0) {
@@ -140,7 +207,6 @@ export async function dataExtract (message: string | undefined, conversationId: 
 
     const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
     const wikiPageName = "data-extract";
-    const dataToExport = fromPairs(data.map(entry => [entry.username, entry.data]));
 
     let wikiPage: WikiPage | undefined;
     try {
@@ -149,10 +215,58 @@ export async function dataExtract (message: string | undefined, conversationId: 
         //
     }
 
+    let content: string;
+    if (request.format === "json") {
+        const dataToExport = fromPairs(data.map(entry => [entry.username, userDetailsToFriendly(entry.data)]));
+        content = JSON.stringify(dataToExport);
+    } else {
+        const markdown: json2md.DataObject[] = [
+            { p: `Data export for ${data.length} ${pluralize("user", data.length)}.` },
+        ];
+
+        const headers = ["User", "Tracking Post", "Status", "Reported At", "Last Update", "Submitter", "Operator"];
+        if (request.bioRegex) {
+            headers.push("Bio Text");
+        }
+
+        const rows: string[][] = [];
+
+        for (const entry of data) {
+            const userDetails = userDetailsToFriendly(entry.data);
+            const row: string[] = [
+                `[${entry.username}](https://www.reddit.com/user/${entry.username})`,
+                `https://redd.it/${userDetails.postId.substring(3)}`,
+                userDetails.userStatus,
+                userDetails.reportedAt ?? "",
+                userDetails.lastUpdate,
+                userDetails.submitter ?? "",
+                userDetails.operator,
+            ];
+
+            if (request.bioRegex) {
+                row.push(userDetails.bioText ?? "");
+            }
+
+            rows.push(row);
+        }
+
+        markdown.push({ table: { headers, rows } });
+        content = json2md(markdown);
+    }
+
+    if (content.length > 512 * 1024) {
+        await context.reddit.modMail.reply({
+            conversationId,
+            body: `The data to export includes ${data.length} records and exceeds the maximum size of 512KB. Please refine your request.`,
+            isAuthorHidden: false,
+        });
+        return;
+    }
+
     const result = await context.reddit.updateWikiPage({
         subredditName,
         page: wikiPageName,
-        content: JSON.stringify(dataToExport),
+        content,
     });
 
     if (!wikiPage) {

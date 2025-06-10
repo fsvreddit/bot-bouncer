@@ -23,7 +23,7 @@ async function handleModActionClientSub (event: ModAction, context: TriggerConte
      * If a user is unbanned on a client subreddit, remove the record of their ban.
      */
     if (event.action === "unbanuser" && event.moderator?.name !== context.appName && event.targetUser) {
-        await removeRecordOfBan(event.targetUser.name, context);
+        await removeRecordOfBan(event.targetUser.name, context.redis);
         await recordWhitelistUnban(event.targetUser.name, context);
     }
 
@@ -32,9 +32,10 @@ async function handleModActionClientSub (event: ModAction, context: TriggerConte
      * If so, report to Bot Bouncer.
      */
     if (event.action === "banuser" && event.moderator?.name !== context.appName && event.targetUser) {
+        const randomSeconds = 5 + Math.floor(Math.random() * 30);
         await context.scheduler.runJob({
             name: ClientSubredditJob.CheckForBanNotes,
-            runAt: addSeconds(new Date(), 5),
+            runAt: addSeconds(new Date(), randomSeconds),
             data: { username: event.targetUser.name },
         });
     }

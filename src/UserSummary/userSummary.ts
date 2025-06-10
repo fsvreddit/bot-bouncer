@@ -8,11 +8,12 @@ import { isUserPotentiallyBlockingBot } from "./blockChecker.js";
 import pluralize from "pluralize";
 import { isLinkId } from "@devvit/shared-types/tid.js";
 import { getUserExtended, UserExtended } from "../extendedDevvit.js";
-import { ALL_EVALUATORS } from "../userEvaluation/allEvaluators.js";
 import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
 import { getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
 import json2md from "json2md";
 import markdownEscape from "markdown-escape";
+import { ALL_EVALUATORS } from "@fsvreddit/bot-bouncer-evaluation";
+import { BIO_TEXT_STORE } from "../dataStore.js";
 
 function formatDifferenceInDates (start: Date, end: Date) {
     const units: (keyof Duration)[] = ["years", "months", "days"];
@@ -226,6 +227,18 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
         summary.push({ ul: accountPropsBullets });
     }
 
+    if (source === "modmail") {
+        const originalBio = await context.redis.hGet(BIO_TEXT_STORE, username);
+        if (originalBio && originalBio.trim() !== userBio?.trim()) {
+            if (userBio?.includes("\n")) {
+                summary.push({ p: "Original bio:" });
+                summary.push({ blockquote: originalBio });
+            } else {
+                summary.push({ p: `Original bio: ${originalBio}` });
+            }
+        }
+    }
+
     let userComments: Comment[];
     let userPosts: Post[];
 
@@ -283,7 +296,7 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
             const hitsRows = initialEvaluatorsMatched.map((evaluator) => {
                 let row = `${evaluator.botName} matched`;
                 if (evaluator.hitReason) {
-                    row += `: ${evaluator.hitReason}`;
+                    row += `: ${evaluator.hitReason.slice(0, 1000)}`;
                 }
                 return row;
             });
@@ -297,7 +310,7 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
             const hitsRows = matchedEvaluators.map((evaluator) => {
                 let row = `${evaluator.name} matched`;
                 if (evaluator.hitReason) {
-                    row += `: ${evaluator.hitReason}`;
+                    row += `: ${evaluator.hitReason.slice(0, 1000)}`;
                 }
                 return row;
             });

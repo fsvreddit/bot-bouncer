@@ -3,7 +3,7 @@ import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { compact, fromPairs, uniq } from "lodash";
 import { CONTROL_SUBREDDIT, ControlSubredditJob, EVALUATE_KARMA_FARMING_SUBS_CRON } from "./constants.js";
 import { getAllKnownUsers, getUserStatus, UserDetails, UserStatus } from "./dataStore.js";
-import { evaluateUserAccount, USER_EVALUATION_RESULTS_KEY, userHasContinuousNSFWHistory } from "./handleControlSubAccountEvaluation.js";
+import { evaluateUserAccount, storeAccountInitialEvaluationResults, userHasContinuousNSFWHistory } from "./handleControlSubAccountEvaluation.js";
 import { getControlSubSettings } from "./settings.js";
 import { addSeconds, subMinutes, subWeeks } from "date-fns";
 import { getUserExtended } from "./extendedDevvit.js";
@@ -42,6 +42,11 @@ function lastCheckDateForSub (subredditName: string, lastCheckDates: ZMember[]):
     return new Date(lastCheckDate?.score ?? 0);
 }
 
+interface SubWithDate {
+    subredditName: string;
+    lastCheckDate: Date;
+}
+
 async function getDistinctAccounts (context: JobContext): Promise<string[]> {
     const variables = await getEvaluatorVariables(context);
     const karmaFarmingSubs = variables["generic:karmafarminglinksubs"] as string[] | undefined ?? [];
@@ -52,17 +57,21 @@ async function getDistinctAccounts (context: JobContext): Promise<string[]> {
 
     const lastDates = await context.redis.zRange(CHECK_DATE_KEY, 0, -1);
 
-    const subsToCheck: Record<string, Date> = {};
-    let subCount = 0;
+    const subsWithDates: SubWithDate[] = [];
     for (const sub of [...karmaFarmingSubs, ...karmaFarmingSubsNSFW]) {
         const lastCheckDate = lastCheckDateForSub(sub, lastDates);
         if (lastCheckDate < subMinutes(new Date(), 25)) {
-            subsToCheck[sub] = lastCheckDate;
-            subCount++;
+            subsWithDates.push({ subredditName: sub, lastCheckDate });
         }
-        if (subCount >= 50) {
-            break;
-        }
+    }
+
+    // Order subs by oldest first.
+    subsWithDates.sort((a, b) => a.lastCheckDate.getTime() - b.lastCheckDate.getTime());
+
+    // Take top 75 subreddits.
+    const subsToCheck: Record<string, Date> = {};
+    for (const sub of subsWithDates.slice(0, 75)) {
+        subsToCheck[sub.subredditName] = sub.lastCheckDate;
     }
 
     console.log(`Karma Farming Subs: Checking ${Object.keys(subsToCheck).length} distinct subs`);
@@ -83,7 +92,7 @@ async function evaluateAndHandleUser (username: string, variables: Record<string
         return false;
     }
 
-    const evaluationResults = await evaluateUserAccount(username, variables, context, false);
+    const evaluationResults = await evaluateUserAccount(username, variables, context, true);
 
     if (evaluationResults.length === 0) {
         return;
@@ -127,9 +136,7 @@ async function evaluateAndHandleUser (username: string, variables: Record<string
     console.log(`Karma Farming Subs: Queued post creation for ${username}`);
 
     const evaluationResultsToStore = evaluationResults.filter(result => result.canAutoBan);
-    if (evaluationResultsToStore.length > 0) {
-        await context.redis.hSet(USER_EVALUATION_RESULTS_KEY, { [username]: JSON.stringify(evaluationResultsToStore) });
-    }
+    await storeAccountInitialEvaluationResults(username, evaluationResultsToStore, context);
 }
 
 const ACCOUNTS_QUEUED_KEY = "KarmaFarmingSubsAccountsQueued";

@@ -37,6 +37,9 @@ export enum ControlSubredditJob {
     UptimeAndMessageCheck = "uptimeAndMessageCheck",
     BioTextAnalyser = "bioTextAnalyser",
     AsyncPostCreation = "asyncPostCreation",
+    CleanupPostStore = "cleanupPostStore",
+    EvaluatorAccuracyStatistics = "evaluatorAccuracyStatistics",
+    HandleObserverSubredditSubmissions = "handleObserverSubredditSubmissions",
 }
 
 /**

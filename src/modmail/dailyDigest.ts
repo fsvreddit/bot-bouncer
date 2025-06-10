@@ -1,4 +1,4 @@
-import { JobContext, TriggerContext } from "@devvit/public-api";
+import { JobContext, RedisClient, TxClientLike } from "@devvit/public-api";
 import { format, subDays } from "date-fns";
 import { getUserStatus } from "../dataStore.js";
 import { AppSetting } from "../settings.js";
@@ -27,47 +27,64 @@ export async function sendDailyDigest (_: unknown, context: JobContext) {
     const bans = await context.redis.zRange(bansKey, 0, -1);
     const unbans = await context.redis.zRange(unbansKey, 0, -1);
 
-    const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
-    const featureEnabled = await context.settings.get<boolean>(AppSetting.DailyDigest);
+    const settings = await context.settings.getAll();
+    const featureEnabled = settings[AppSetting.DailyDigest] as boolean;
+    const reportedEnabled = settings[AppSetting.DailyDigestIncludeReported] as boolean;
+    const bannedEnabled = settings[AppSetting.DailyDigestIncludeBanned] as boolean;
+    const unbannedEnabled = settings[AppSetting.DailyDigestIncludeUnbanned] as boolean;
+
+    const createSummary = featureEnabled && (
+        (reportedEnabled && reports.length > 0)
+        || (bannedEnabled && bans.length > 0)
+        || (unbannedEnabled && unbans.length > 0)
+    );
 
     const promises: Promise<unknown>[] = [];
 
-    if (featureEnabled && (reports.length > 0 || bans.length > 0)) {
+    if (createSummary) {
+        const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
+
         const subject = `Bot Bouncer Daily Digest for ${format(yesterday, `yyyy-MM-dd`)}, covering midnight to midnight UTC`;
         const message: json2md.DataObject[] = [];
 
-        if (reports.length === 0) {
-            message.push({ p: `No new potential bots were detected or reported on /r/${subredditName} yesterday.` });
-        } else {
-            message.push({ p: `The following potential bots were detected or reported on /r/${subredditName} yesterday:` });
+        if (reportedEnabled) {
+            if (reports.length === 0) {
+                message.push({ p: `No new potential bots were detected or reported on /r/${subredditName} yesterday.` });
+            } else {
+                message.push({ p: `The following potential bots were detected or reported on /r/${subredditName} yesterday:` });
 
-            const bullets: string[] = [];
-            for (const entry of reports) {
-                const currentStatus = await getUserStatus(entry.username, context);
-                if (currentStatus) {
-                    bullets.push(`/u/${entry.username} reported ${entry.type}: now listed as ${currentStatus.userStatus}`);
-                } else {
-                    bullets.push(`/u/${entry.username} reported ${entry.type}`);
+                const bullets: string[] = [];
+                for (const entry of reports) {
+                    const currentStatus = await getUserStatus(entry.username, context);
+                    if (currentStatus) {
+                        bullets.push(`/u/${entry.username} reported ${entry.type}: now listed as ${currentStatus.userStatus}`);
+                    } else {
+                        bullets.push(`/u/${entry.username} reported ${entry.type}`);
+                    }
                 }
+                message.push({ ul: bullets });
             }
-            message.push({ ul: bullets });
         }
 
-        if (bans.length === 0) {
-            message.push({ p: `No new bans were issued by Bot Bouncer on /r/${subredditName} yesterday.` });
-        } else {
-            message.push({ p: `The following users were banned on /r/${subredditName} yesterday:` });
-            message.push({ ul: bans.map(ban => `/u/${ban.member}`) });
+        if (bannedEnabled) {
+            if (bans.length === 0) {
+                message.push({ p: `No new bans were issued by Bot Bouncer on /r/${subredditName} yesterday.` });
+            } else {
+                message.push({ p: `The following users were banned on /r/${subredditName} yesterday:` });
+                message.push({ ul: bans.map(ban => `/u/${ban.member}`) });
+            }
         }
 
-        if (unbans.length === 0) {
-            message.push({ p: `No new unbans were processed by Bot Bouncer on /r/${subredditName} yesterday.` });
-        } else {
-            message.push({ p: `The following users were unbanned on /r/${subredditName} yesterday:` });
-            message.push({ ul: unbans.map(unban => `/u/${unban.member}`) });
+        if (unbannedEnabled) {
+            if (unbans.length === 0) {
+                message.push({ p: `No new unbans were processed by Bot Bouncer on /r/${subredditName} yesterday.` });
+            } else {
+                message.push({ p: `The following users were unbanned on /r/${subredditName} yesterday:` });
+                message.push({ ul: unbans.map(unban => `/u/${unban.member}`) });
+            }
         }
 
-        message.push({ p: `If you no longer want to receive these notifications, you can turn them off on the [app configuration page](https://developers.reddit.com/r/${subredditName}/apps/${context.appName}).` });
+        message.push({ p: `These notifications can be customised or turned off on the [app configuration page](https://developers.reddit.com/r/${subredditName}/apps/${context.appName}).` });
 
         promises.push(context.reddit.modMail.createModInboxConversation({
             subredditId: context.subredditId,
@@ -85,25 +102,25 @@ export async function sendDailyDigest (_: unknown, context: JobContext) {
     await Promise.all(promises);
 }
 
-export async function recordReportForDigest (username: string, type: "automatically" | "manually", context: TriggerContext | JobContext) {
+export async function recordReportForDigest (username: string, type: "automatically" | "manually", redis: RedisClient | TxClientLike) {
     const key = getReportsKey(new Date());
-    await context.redis.hSet(key, { [username]: type });
-    await context.redis.expire(key, 60 * 60 * 24 * 2);
+    await redis.hSet(key, { [username]: type });
+    await redis.expire(key, 60 * 60 * 24 * 2);
 }
 
-export async function recordBanForDigest (username: string, context: TriggerContext | JobContext) {
+export async function recordBanForDigest (username: string, redis: RedisClient | TxClientLike) {
     const key = getBansKey(new Date());
-    await context.redis.zAdd(key, { member: username, score: new Date().getTime() });
-    await context.redis.expire(key, 60 * 60 * 24 * 2);
+    await redis.zAdd(key, { member: username, score: new Date().getTime() });
+    await redis.expire(key, 60 * 60 * 24 * 2);
 }
 
-export async function recordUnbanForDigest (username: string, context: TriggerContext | JobContext) {
+export async function recordUnbanForDigest (username: string, redis: RedisClient | TxClientLike) {
     const key = getUnbansKey(new Date());
-    await context.redis.zAdd(key, { member: username, score: new Date().getTime() });
-    await context.redis.expire(key, 60 * 60 * 24 * 2);
+    await redis.zAdd(key, { member: username, score: new Date().getTime() });
+    await redis.expire(key, 60 * 60 * 24 * 2);
 }
 
-export async function removeRecordOfBanForDigest (username: string, context: TriggerContext | JobContext) {
+export async function removeRecordOfBanForDigest (username: string, redis: RedisClient | TxClientLike) {
     const key = getBansKey(new Date());
-    await context.redis.zRem(key, [username]);
+    await redis.zRem(key, [username]);
 }

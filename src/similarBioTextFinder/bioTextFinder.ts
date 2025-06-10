@@ -221,6 +221,7 @@ export async function addAllUsersFromModmail (conversationId: string, submitter:
         };
 
         await queuePostCreation(submission, context);
+        console.log(`Added user ${username} to queue following !addall command in modmail.`);
     }
 
     await context.reddit.modMail.reply({

@@ -47,6 +47,14 @@ Write in to [/r/BotBouncer's modmail](https://www.reddit.com/message/compose/?to
 
 # Change History
 
+## v1.12.0
+
+* Make daily digest fully configurable
+* Remove NSFW check on Social Links evaluator
+* Add new evaluator for Telegram group spam
+* Add new evaluator for spam comments used by future adult content creation accounts being farmed
+* Internal changes to support operations on /r/BotBouncer
+
 ## v1.11.0
 
 * Add new evaluator for Amazon affiliate spam

@@ -6,7 +6,6 @@ import { addHours, addSeconds } from "date-fns";
 import { getControlSubSettings } from "./settings.js";
 import pluralize from "pluralize";
 
-// This is only exported for unit testing purposes.
 export const statusToFlair: Record<UserStatus, PostFlairTemplate> = {
     [UserStatus.Pending]: PostFlairTemplate.Pending,
     [UserStatus.Banned]: PostFlairTemplate.Banned,
@@ -84,12 +83,12 @@ async function createNewSubmission (submission: AsyncSubmission, context: Trigge
     }
 
     if (submission.callback) {
-        const commentText = submission.callback.comment.replace("{{permalink}}", newPost.permalink);
-        const newComment = await context.reddit.submitComment({
-            id: submission.callback.postId,
-            text: commentText,
-        });
-        await newComment.distinguish(true);
+        const callbackPost = await context.reddit.getPostById(submission.callback.postId);
+        if (callbackPost.authorName !== "[deleted]") {
+            const commentText = submission.callback.comment.replace("{{permalink}}", newPost.permalink);
+            const newComment = await callbackPost.addComment({ text: commentText });
+            await newComment.distinguish(true);
+        }
     }
 
     await storeInitialAccountProperties(submission.user.username, context);
@@ -104,16 +103,26 @@ export async function queuePostCreation (submission: AsyncSubmission, context: T
         return;
     }
 
-    const alreadyInQueue = await context.redis.zScore(SUBMISSION_QUEUE, submission.user.username);
-    if (alreadyInQueue) {
-        console.log(`Post Creation: User ${submission.user.username} is already in the queue.`);
-        return;
-    }
-
     const score = submission.immediate ? new Date().getTime() / 1000 : new Date().getTime();
 
-    await context.redis.hSetNX(SUBMISSION_DETAILS, submission.user.username, JSON.stringify(submission));
-    await context.redis.zAdd(SUBMISSION_QUEUE, { member: submission.user.username, score });
+    const txn = await context.redis.watch();
+    await txn.multi();
+
+    try {
+        const alreadyInQueue = await context.redis.zScore(SUBMISSION_QUEUE, submission.user.username);
+        if (alreadyInQueue) {
+            console.log(`Post Creation: User ${submission.user.username} is already in the queue.`);
+            await txn.discard();
+            return;
+        }
+
+        await txn.hSet(SUBMISSION_DETAILS, { [submission.user.username]: JSON.stringify(submission) });
+        await txn.zAdd(SUBMISSION_QUEUE, { member: submission.user.username, score });
+        await txn.exec();
+    } catch (error) {
+        console.error(`Post Creation: Error queueing post for user ${submission.user.username}.`, error);
+        await txn.discard();
+    }
 }
 
 export async function processQueuedSubmission (_: unknown, context: JobContext) {
@@ -129,9 +138,13 @@ export async function processQueuedSubmission (_: unknown, context: JobContext) 
         return;
     }
 
+    const txn = await context.redis.watch();
+    await txn.multi();
+    await txn.zRem(SUBMISSION_QUEUE, [firstSubmission.member]);
+    await txn.hDel(SUBMISSION_DETAILS, [firstSubmission.member]);
+    await txn.exec();
+
     await createNewSubmission(JSON.parse(submissionDetails) as AsyncSubmission, context);
-    await context.redis.zRem(SUBMISSION_QUEUE, [firstSubmission.member]);
-    await context.redis.hDel(SUBMISSION_DETAILS, [firstSubmission.member]);
 
     if (queuedSubmissions.length > 1) {
         console.log(`Post Creation: ${queuedSubmissions.length - 1} ${pluralize("submission", queuedSubmissions.length - 1)} still in the queue.`);

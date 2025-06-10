@@ -1,10 +1,10 @@
 import { JobContext, JSONObject, JSONValue, ScheduledJobEvent, TriggerContext, WikiPage } from "@devvit/public-api";
+import { ALL_EVALUATORS } from "@fsvreddit/bot-bouncer-evaluation";
 import { CONTROL_SUBREDDIT } from "../constants.js";
 import { parseAllDocuments } from "yaml";
 import { uniq } from "lodash";
 import { replaceAll, sendMessageToWebhook } from "../utility.js";
 import json2md from "json2md";
-import { ALL_EVALUATORS } from "./allEvaluators.js";
 import { getControlSubSettings } from "../settings.js";
 
 const EVALUATOR_VARIABLES_KEY = "evaluatorVariables";
@@ -154,10 +154,24 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
     await context.reddit.updateWikiPage({
         subredditName: CONTROL_SUBREDDIT,
         page: EVALUATOR_VARIABLES_WIKI_PAGE,
-        content: JSON.stringify(variables, null, 4),
+        content: JSON.stringify(variables),
     });
 
     console.log("Evaluator Variables: Updated from wiki");
+
+    if (context.subredditName === CONTROL_SUBREDDIT) {
+        const controlSubSettings = await getControlSubSettings(context);
+        if (controlSubSettings.observerSubreddits?.length) {
+            for (const subreddit of controlSubSettings.observerSubreddits) {
+                await context.reddit.updateWikiPage({
+                    subredditName: subreddit,
+                    page: EVALUATOR_VARIABLES_WIKI_PAGE,
+                    content: JSON.stringify(variables),
+                });
+                console.log(`Evaluator Variables: Updated wiki page on /r/${subreddit}`);
+            }
+        }
+    }
 }
 
 interface InvalidRegex {
@@ -192,6 +206,7 @@ export function invalidEvaluatorVariableCondition (variables: Record<string, JSO
         "posttitle:reporttext",
         "zombiensfw:regexes",
         "commentphrase:phrases",
+        "tg-group:bodyregex",
     ];
 
     const invalidRegexes: InvalidRegex[] = [];

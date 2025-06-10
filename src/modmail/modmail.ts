@@ -9,6 +9,9 @@ import { dataExtract } from "./dataExtract.js";
 import { addAllUsersFromModmail } from "../similarBioTextFinder/bioTextFinder.js";
 import { UserStatus } from "../dataStore.js";
 import json2md from "json2md";
+import { getControlSubSettings } from "../settings.js";
+import { handleBulkSubmission } from "./bulkSubmission.js";
+import { markAppealAsHandled } from "../statistics/appealStatistics.js";
 
 function conversationHandledRedisKey (conversationId: string) {
     return `conversationHandled~${conversationId}`;
@@ -45,8 +48,8 @@ export async function handleModmail (event: ModMail, context: TriggerContext) {
 
     const currentMessage = messagesInConversation.find(message => message.id && event.messageId.includes(message.id));
 
-    const isExtracttCommand = context.subredditName === CONTROL_SUBREDDIT && currentMessage?.bodyMarkdown?.startsWith("!extract");
-    if (isExtracttCommand) {
+    const isExtractCommand = context.subredditName === CONTROL_SUBREDDIT && currentMessage?.bodyMarkdown?.startsWith("!extract");
+    if (isExtractCommand) {
         await dataExtract(currentMessage?.bodyMarkdown, event.conversationId, context);
         return;
     }
@@ -73,6 +76,10 @@ export async function handleModmail (event: ModMail, context: TriggerContext) {
         return;
     }
 
+    if (currentMessage?.author) {
+        await markAppealAsHandled(event.conversationId, currentMessage, context);
+    }
+
     const conversationHandled = await getConversationHandled(event.conversationId, context);
     if (conversationHandled) {
         return;
@@ -81,6 +88,13 @@ export async function handleModmail (event: ModMail, context: TriggerContext) {
     await setConversationHandled(event.conversationId, context);
 
     if (context.subredditName === CONTROL_SUBREDDIT) {
+        const controlSubSettings = await getControlSubSettings(context);
+
+        if (controlSubSettings.bulkSubmitters?.includes(username) && currentMessage?.bodyMarkdown?.startsWith("{")) {
+            const isTrusted = controlSubSettings.trustedSubmitters.includes(username);
+            await handleBulkSubmission(username, isTrusted, event.conversationId, currentMessage.bodyMarkdown, context);
+            return;
+        }
         if (isFirstMessage && firstMessage.author?.name === username) {
             await handleControlSubredditModmail(username, event.conversationId, isFirstMessage, conversationResponse.conversation.subject, currentMessage?.bodyMarkdown, context);
         }

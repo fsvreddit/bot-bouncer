@@ -2,18 +2,12 @@ import { TriggerContext } from "@devvit/public-api";
 import { getUserStatus, UserStatus } from "../dataStore.js";
 import { getSummaryForUser } from "../UserSummary/userSummary.js";
 import { getUserOrUndefined } from "../utility.js";
-import { CONFIGURATION_DEFAULTS, getControlSubSettings } from "../settings.js";
-import { handleBulkSubmission } from "./bulkSubmission.js";
+import { CONFIGURATION_DEFAULTS } from "../settings.js";
 import { addDays, subMinutes } from "date-fns";
 import json2md from "json2md";
 
 export async function handleControlSubredditModmail (username: string, conversationId: string, isFirstMessage: boolean, subject: string | undefined, message: string | undefined, context: TriggerContext) {
-    const controlSubSettings = await getControlSubSettings(context);
-
-    if (controlSubSettings.bulkSubmitters?.includes(username) && message?.startsWith("{")) {
-        const isTrusted = controlSubSettings.trustedSubmitters.includes(username);
-        return handleBulkSubmission(username, isTrusted, conversationId, message, context);
-    } else if (isFirstMessage) {
+    if (isFirstMessage) {
         return handleModmailFromUser(username, conversationId, subject, context);
     } else {
         return;
@@ -104,6 +98,8 @@ async function handleModmailFromUser (username: string, conversationId: string, 
         return;
     }
 
+    await storeKeyForAppeal(conversationId, context);
+
     const post = await context.reddit.getPostById(currentStatus.trackingPostId);
 
     const message: json2md.DataObject[] = [
@@ -154,4 +150,24 @@ async function handleModmailFromUser (username: string, conversationId: string, 
     });
 
     await context.redis.set(recentAppealKey, new Date().getTime().toString(), { expiration: addDays(new Date(), 1) });
+}
+
+function getKeyForAppeal (conversationId: string): string {
+    return `appeal~${conversationId}`;
+}
+
+async function storeKeyForAppeal (conversationId: string, context: TriggerContext) {
+    const key = getKeyForAppeal(conversationId);
+    await context.redis.set(key, new Date().getTime().toString(), { expiration: addDays(new Date(), 28) });
+}
+
+export async function isActiveAppeal (conversationId: string, context: TriggerContext): Promise<boolean> {
+    const key = getKeyForAppeal(conversationId);
+    const value = await context.redis.get(key);
+    return value !== undefined;
+}
+
+export async function deleteKeyForAppeal (conversationId: string, context: TriggerContext) {
+    const key = getKeyForAppeal(conversationId);
+    await context.redis.del(key);
 }

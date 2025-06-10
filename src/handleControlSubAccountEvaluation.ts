@@ -1,11 +1,10 @@
-import { Comment, JobContext, JSONObject, JSONValue, Post, ScheduledJobEvent, SubredditInfo, TriggerContext } from "@devvit/public-api";
+import { Comment, JobContext, JSONObject, JSONValue, Post, ScheduledJobEvent, SubredditInfo, TriggerContext, TxClientLike } from "@devvit/public-api";
+import { ALL_EVALUATORS, UserEvaluatorBase } from "@fsvreddit/bot-bouncer-evaluation";
 import { getUserStatus, UserStatus } from "./dataStore.js";
 import { CONTROL_SUBREDDIT, PostFlairTemplate } from "./constants.js";
-import { ALL_EVALUATORS } from "./userEvaluation/allEvaluators.js";
-import { UserEvaluatorBase } from "./userEvaluation/UserEvaluatorBase.js";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { createUserSummary } from "./UserSummary/userSummary.js";
-import { addWeeks, subMonths } from "date-fns";
+import { addMonths, addWeeks, subMonths } from "date-fns";
 import { getUserExtended } from "./extendedDevvit.js";
 import { uniq } from "lodash";
 
@@ -21,12 +20,9 @@ export interface EvaluationResult {
     metThreshold: boolean;
 }
 
-export async function evaluateUserAccount (username: string, variables: Record<string, JSONValue>, context: JobContext, verbose: boolean): Promise<EvaluationResult[]> {
+export async function evaluateUserAccount (username: string, variables: Record<string, JSONValue>, context: JobContext, storeStats: boolean): Promise<EvaluationResult[]> {
     const user = await getUserExtended(username, context);
     if (!user) {
-        if (verbose) {
-            console.log(`Evaluation: ${username} has already been shadowbanned`);
-        }
         return [];
     }
 
@@ -53,9 +49,6 @@ export async function evaluateUserAccount (username: string, variables: Record<s
                 }).all();
             } catch {
                 // Error retrieving user history, likely shadowbanned.
-                if (verbose) {
-                    console.log(`Evaluator: ${username} appears to be shadowbanned.`);
-                }
                 return [];
             }
         }
@@ -81,19 +74,21 @@ export async function evaluateUserAccount (username: string, variables: Record<s
         return [];
     }
 
-    const redisKey = "EvaluatorStats";
-    const existingStatsVal = await context.redis.get(redisKey);
+    if (storeStats) {
+        const redisKey = "EvaluatorStats";
+        const existingStatsVal = await context.redis.get(redisKey);
 
-    const allStats: Record<string, EvaluatorStats> = existingStatsVal ? JSON.parse(existingStatsVal) as Record<string, EvaluatorStats> : {};
+        const allStats: Record<string, EvaluatorStats> = existingStatsVal ? JSON.parse(existingStatsVal) as Record<string, EvaluatorStats> : {};
 
-    for (const bot of detectedBots.filter(bot => bot.name !== "CQS Tester")) {
-        const botStats = allStats[bot.name] ?? { hitCount: 0, lastHit: 0 };
-        botStats.hitCount++;
-        botStats.lastHit = new Date().getTime();
-        allStats[bot.name] = botStats;
+        for (const bot of detectedBots.filter(bot => bot.name !== "CQS Tester")) {
+            const botStats = allStats[bot.name] ?? { hitCount: 0, lastHit: 0 };
+            botStats.hitCount++;
+            botStats.lastHit = new Date().getTime();
+            allStats[bot.name] = botStats;
+        }
+
+        await context.redis.set(redisKey, JSON.stringify(allStats));
     }
-
-    await context.redis.set(redisKey, JSON.stringify(allStats));
 
     const itemCount = userItems?.length ?? 0;
     return detectedBots.map(bot => ({ botName: bot.name, hitReason: bot.hitReason, canAutoBan: bot.canAutoBan, metThreshold: itemCount >= bot.banContentThreshold }));
@@ -151,22 +146,43 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
     });
 
     const evaluationResultsToStore = evaluationResults.filter(result => result.canAutoBan);
-    if (evaluationResultsToStore.length > 0) {
-        await context.redis.hSet(USER_EVALUATION_RESULTS_KEY, { [username]: JSON.stringify(evaluationResultsToStore) });
-    }
+    await storeAccountInitialEvaluationResults(username, evaluationResultsToStore, context);
 
     console.log(`Evaluator: Post flair changed for ${username}`);
 }
 
-export const USER_EVALUATION_RESULTS_KEY = "UserEvaluationResults";
+function getEvaluationResultsKey (username: string): string {
+    return `evaluationResults:${username}`;
+}
+
+export async function storeAccountInitialEvaluationResults (username: string, results: EvaluationResult[], context: TriggerContext) {
+    if (results.length === 0) {
+        return;
+    }
+
+    const resultsToStore: EvaluationResult[] = results.map(result => ({
+        botName: result.botName,
+        hitReason: result.hitReason && result.hitReason.length > 1000 ? `${result.hitReason.substring(0, 1000)}...` : result.hitReason,
+        canAutoBan: result.canAutoBan,
+        metThreshold: result.metThreshold,
+    }));
+
+    const resultsKey = getEvaluationResultsKey(username);
+    await context.redis.set(resultsKey, JSON.stringify(resultsToStore), { expiration: addMonths(new Date(), 6) });
+}
 
 export async function getAccountInitialEvaluationResults (username: string, context: TriggerContext): Promise<EvaluationResult[]> {
-    const results = await context.redis.hGet(USER_EVALUATION_RESULTS_KEY, username);
+    const results = await context.redis.get(getEvaluationResultsKey(username));
+
     if (!results) {
         return [];
     }
 
     return JSON.parse(results) as EvaluationResult[];
+}
+
+export async function deleteAccountInitialEvaluationResults (username: string, txn: TxClientLike) {
+    await txn.del(getEvaluationResultsKey(username));
 }
 
 async function subIsNSFW (subredditName: string, context: TriggerContext): Promise<boolean> {

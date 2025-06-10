@@ -3,9 +3,13 @@ import { TriggerContext } from "@devvit/public-api";
 import { ClientSubredditJob, CONTROL_SUB_CLEANUP_CRON, CONTROL_SUBREDDIT, ControlSubredditJob, EVALUATE_KARMA_FARMING_SUBS_CRON, UniversalJob } from "./constants.js";
 import { handleExternalSubmissionsPageUpdate } from "./externalSubmissions.js";
 import { removeRetiredEvaluatorsFromStats } from "./userEvaluation/evaluatorHelpers.js";
+import { getControlSubSettings } from "./settings.js";
 
 export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, context: TriggerContext) {
     console.log("App Install: Detected an app install or update event");
+
+    // Delete cached control sub settings
+    await context.redis.del("controlSubSettings");
 
     const currentJobs = await context.scheduler.listJobs();
     await Promise.all(currentJobs.map(job => context.scheduler.cancelJob(job.id)));
@@ -17,9 +21,6 @@ export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, contex
     }
 
     await checkJobsAreApplicable(context);
-
-    // Delete cached control sub settings
-    await context.redis.del("controlSubSettings");
 
     // Delete obsolete key
     await context.redis.del("activityCheckStore");
@@ -74,6 +75,11 @@ async function addControlSubredditJobs (context: TriggerContext) {
         }),
 
         context.scheduler.runJob({
+            name: ControlSubredditJob.HandleObserverSubredditSubmissions,
+            cron: "1/5 * * * *", // Every 5 minutes
+        }),
+
+        context.scheduler.runJob({
             name: UniversalJob.Cleanup,
             cron: CONTROL_SUB_CLEANUP_CRON, // every 5 minutes
         }),
@@ -88,6 +94,13 @@ async function addControlSubredditJobs (context: TriggerContext) {
 }
 
 async function addClientSubredditJobs (context: TriggerContext) {
+    const controlSubSettings = await getControlSubSettings(context);
+    const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
+    if (controlSubSettings.observerSubreddits?.includes(subredditName)) {
+        console.log(`App Install: ${subredditName} is an observer subreddit, skipping job creation.`);
+        return;
+    }
+
     let randomMinute = Math.floor(Math.random() * 5);
     await context.scheduler.runJob({
         name: ClientSubredditJob.UpdateDatastoreFromWiki,

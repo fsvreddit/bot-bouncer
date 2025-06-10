@@ -9,9 +9,10 @@
     "test:unit": "vitest --run"
   },
   "dependencies": {
-    "@devvit/protos": "0.11.15",
-    "@devvit/public-api": "0.11.15",
-    "@devvit/shared-types": "0.11.15",
+    "@devvit/protos": "0.11.16",
+    "@devvit/public-api": "0.11.16",
+    "@devvit/shared-types": "0.11.16",
+    "@fsvreddit/bot-bouncer-evaluation": "github:fsvreddit/bot-bouncer-evaluation",
     "@types/json2md": "^1.5.4",
     "@types/lodash": "^4.17.13",
     "@types/markdown-escape": "^1.1.3",

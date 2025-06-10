@@ -10,7 +10,7 @@ import { CONTROL_SUBREDDIT } from "../constants.js";
 import pluralize from "pluralize";
 
 interface BulkSubmission {
-    usernames: string[];
+    usernames?: string[];
     reason?: string;
 }
 
@@ -22,13 +22,13 @@ const schema: JSONSchemaType<BulkSubmission> = {
             items: {
                 type: "string",
             },
+            nullable: true,
         },
         reason: {
             type: "string",
             nullable: true,
         },
     },
-    required: ["usernames"],
     additionalProperties: false,
 };
 
@@ -112,9 +112,13 @@ export async function handleBulkSubmission (submitter: string, trusted: boolean,
         return false;
     }
 
-    const initialStatus = trusted ? UserStatus.Banned : UserStatus.Pending;
-    const results = await Promise.all(uniq(data.usernames).map(username => handleBulkItem(username, initialStatus, submitter, data.reason, context)));
-    const queued = compact(results).length;
+    let queued = 0;
+
+    if (data.usernames) {
+        const initialStatus = trusted ? UserStatus.Banned : UserStatus.Pending;
+        const results = await Promise.all(uniq(data.usernames).map(username => handleBulkItem(username, initialStatus, submitter, data.reason, context)));
+        queued += compact(results).length;
+    }
 
     await context.reddit.modMail.archiveConversation(conversationId);
 

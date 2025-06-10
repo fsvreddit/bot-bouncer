@@ -10,6 +10,7 @@ import { CLEANUP_LOG_KEY } from "./cleanup.js";
 // eslint-disable-next-line camelcase
 import { FieldConfig_Selection_Item } from "@devvit/protos";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
+import { isUserPotentiallyBlockingBot } from "./UserSummary/blockChecker.js";
 
 enum ControlSubAction {
     RegenerateSummary = "generateSummary",
@@ -91,6 +92,33 @@ export async function handleControlSubReportUser (target: Post | Comment, contex
             type: "paragraph",
             lineHeight: 4,
             defaultValue: hit.hitReason,
+        });
+    }
+
+    const history = await context.reddit.getCommentsAndPostsByUser({
+        username,
+        limit: 100,
+        sort: "new",
+    }).all();
+
+    console.log(`History length: ${history.length}`);
+    if (history.length === 0) {
+        fields.push({
+            name: "noHistory",
+            label: "No history found for this user - user may be blocking.",
+            type: "string",
+        });
+    } else if (await isUserPotentiallyBlockingBot(history, context)) {
+        fields.push({
+            name: "potentiallyBlocking",
+            label: "User may be blocking Bot Bouncer.",
+            type: "string",
+        });
+    } else {
+        fields.push({
+            name: "histLength",
+            label: `User has ${history.length} posts/comments visible to Bot Bouncer.`,
+            type: "string",
         });
     }
 
@@ -198,20 +226,23 @@ export async function sendQueryToSubmitter (event: FormOnSubmitEvent<JSONObject>
 
 async function handleRemoveRecordForUser (username: string, post: Post, context: Context) {
     const currentStatus = await getUserStatus(username, context);
-    const promises: Promise<unknown>[] = [deleteUserStatus(username, context)];
-    if (post.authorName === context.appName) {
-        promises.push(post.delete());
-    } else {
-        promises.push(post.remove());
-    }
 
+    const txn = await context.redis.watch();
+    await txn.multi();
+
+    await deleteUserStatus(username, currentStatus?.trackingPostId, txn);
     if (currentStatus && currentStatus.userStatus !== UserStatus.Purged && currentStatus.userStatus !== UserStatus.Retired) {
-        promises.push(updateAggregate(currentStatus.userStatus, -1, context));
+        await updateAggregate(currentStatus.userStatus, -1, txn);
     }
 
-    promises.push(context.redis.zRem(CLEANUP_LOG_KEY, [username]));
+    await txn.zRem(CLEANUP_LOG_KEY, [username]);
+    await txn.exec();
 
-    await Promise.all(promises);
+    if (post.authorName === context.appName) {
+        await post.delete();
+    } else {
+        await post.remove();
+    }
 
     context.ui.showToast(`Removed all data and deleted post for u/${username}.`);
 }
