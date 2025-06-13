@@ -129,6 +129,11 @@ export async function addExternalSubmissionToPostCreationQueue (item: ExternalSu
     const currentStatus = await getUserStatus(item.username, context);
     if (currentStatus) {
         console.log(`External Submissions: User ${item.username} already has a status of ${currentStatus.userStatus}.`);
+        if (!item.submitter) {
+            // Submitted automatically, but in the database already.
+            // Need to send back initial status.
+            await addUserToTempDeclineStore(item.username, context);
+        }
         return false;
     }
 
