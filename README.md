@@ -47,6 +47,10 @@ Write in to [/r/BotBouncer's modmail](https://www.reddit.com/message/compose/?to
 
 # Change History
 
+## Next
+
+* Internal changes to support operations on /r/BotBouncer
+
 ## v1.12.0
 
 * Make daily digest fully configurable
