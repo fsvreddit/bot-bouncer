@@ -30,7 +30,7 @@ export enum UniversalJob {
 export enum ControlSubredditJob {
     UpdateWikiPage = "updateWikiPage",
     EvaluateUser = "evaluateUser",
-    UpdateStatisticsPage = "updateStatisticsPage",
+    PerformDailyJobs = "performDailyJobs",
     EvaluateKarmaFarmingSubs = "evaluateKarmaFarmingSubs",
     QueueKarmaFarmingSubs = "queueKarmaFarmingSubs",
     CopyControlSubSettings = "copyControlSubSettings",
@@ -40,6 +40,7 @@ export enum ControlSubredditJob {
     CleanupPostStore = "cleanupPostStore",
     EvaluatorAccuracyStatistics = "evaluatorAccuracyStatistics",
     HandleObserverSubredditSubmissions = "handleObserverSubredditSubmissions",
+    PerformCleanupMaintenance = "performCleanupMaintenance",
 }
 
 /**

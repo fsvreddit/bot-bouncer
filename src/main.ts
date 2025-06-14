@@ -18,7 +18,7 @@ import { evaluateKarmaFarmingSubs, queueKarmaFarmingSubs } from "./karmaFarmingS
 import { handleControlSubForm, sendQueryToSubmitter } from "./handleControlSubMenu.js";
 import { checkForUpdates } from "./upgradeNotifier.js";
 import { sendDailyDigest } from "./modmail/dailyDigest.js";
-import { updateStatisticsPages } from "./statistics/allStatistics.js";
+import { performDailyJobs } from "./dailyJobs.js";
 import { checkUptimeAndMessages } from "./uptimeMonitor.js";
 import { analyseBioText } from "./similarBioTextFinder/bioTextFinder.js";
 import { processQueuedSubmission } from "./postCreation.js";
@@ -26,6 +26,7 @@ import { checkForBanNotes } from "./handleClientSubBanReasonCheck.js";
 import { cleanupPostStore } from "./cleanupPostStore.js";
 import { buildEvaluatorAccuracyStatistics } from "./statistics/evaluatorAccuracyStatistics.js";
 import { processExternalSubmissionsFromObserverSubreddits } from "./externalSubmissions.js";
+import { performCleanupMaintenance } from "./cleanupMaintenance.js";
 
 Devvit.addSettings(appSettings);
 
@@ -163,8 +164,8 @@ Devvit.addSchedulerJob({
 });
 
 Devvit.addSchedulerJob({
-    name: ControlSubredditJob.UpdateStatisticsPage,
-    onRun: updateStatisticsPages,
+    name: ControlSubredditJob.PerformDailyJobs,
+    onRun: performDailyJobs,
 });
 
 Devvit.addSchedulerJob({
@@ -210,6 +211,11 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: ControlSubredditJob.HandleObserverSubredditSubmissions,
     onRun: processExternalSubmissionsFromObserverSubreddits,
+});
+
+Devvit.addSchedulerJob({
+    name: ControlSubredditJob.PerformCleanupMaintenance,
+    onRun: performCleanupMaintenance,
 });
 
 /**
