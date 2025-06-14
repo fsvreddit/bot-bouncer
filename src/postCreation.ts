@@ -33,6 +33,11 @@ export interface AsyncSubmission {
 }
 
 async function createNewSubmission (submission: AsyncSubmission, context: TriggerContext) {
+    if (submission.user.username.endsWith("-ModTeam")) {
+        console.log(`Post Creation: Skipping post creation for ${submission.user.username} as it is a ModTeam account.`);
+        return;
+    }
+
     const currentStatus = await getUserStatus(submission.user.username, context);
     if (currentStatus) {
         console.log(`Post Creation: User ${submission.user.username} already has a status of ${currentStatus.userStatus}.`);

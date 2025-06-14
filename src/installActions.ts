@@ -35,12 +35,12 @@ async function addControlSubredditJobs (context: TriggerContext) {
         }),
 
         context.scheduler.runJob({
-            name: ControlSubredditJob.UpdateStatisticsPage,
+            name: ControlSubredditJob.PerformDailyJobs,
             cron: "0 0 * * *",
         }),
 
         context.scheduler.runJob({
-            name: ControlSubredditJob.UpdateStatisticsPage,
+            name: ControlSubredditJob.PerformDailyJobs,
             runAt: new Date(),
         }),
 

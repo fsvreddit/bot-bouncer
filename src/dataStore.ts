@@ -227,6 +227,11 @@ function compactDataForWiki (input: string): string | undefined {
         return;
     }
 
+    // Exclude entries for organic/declined users older than 2 weeks
+    if ((status.userStatus === UserStatus.Organic || status.userStatus === UserStatus.Declined) && status.lastUpdate < subWeeks(new Date(), 2).getTime()) {
+        return;
+    }
+
     status.operator = "";
     delete status.submitter;
     if (status.userStatus === UserStatus.Purged && status.lastStatus) {
@@ -290,8 +295,20 @@ export async function updateWikiPage (_: unknown, context: JobContext) {
             continue;
         }
 
-        const declineEntry: UserDetails = {
-            userStatus: UserStatus.Declined,
+        let declineStatus: UserStatus;
+        const userStatus = await getUserStatus(entry.member, context);
+        if (userStatus) {
+            if (userStatus.userStatus === UserStatus.Purged || userStatus.userStatus === UserStatus.Retired) {
+                declineStatus = userStatus.lastStatus ?? userStatus.userStatus;
+            } else {
+                declineStatus = userStatus.userStatus;
+            }
+        } else {
+            declineStatus = UserStatus.Declined;
+        }
+
+        const declineEntry = {
+            userStatus: declineStatus,
             trackingPostId: "",
             lastUpdate: entry.score,
             operator: "",
