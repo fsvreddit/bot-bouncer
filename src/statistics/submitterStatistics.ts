@@ -10,9 +10,7 @@ interface SubmitterStatistic {
     ratio: number;
 }
 
-export async function updateSubmitterStatistics (allData: Record<string, string>, context: JobContext) {
-    const allStatuses = Object.values(allData).map(item => JSON.parse(item) as UserDetails);
-
+export async function updateSubmitterStatistics (allStatuses: UserDetails[], context: JobContext) {
     const organicStatuses: Record<string, number> = {};
     const bannedStatuses: Record<string, number> = {};
 

@@ -128,30 +128,10 @@ export async function dataExtract (message: string | undefined, conversationId: 
         return;
     }
 
-    // Get all data from database.
-    const allData = await getFullDataStore(context);
-    let data = Object.entries(allData).map(([username, data]) => ({ username, data: JSON.parse(data) as UserDetails }));
-
-    // Filter data by request fields.
-    if (request.status) {
-        data = data.filter(entry => request.status?.includes(entry.data.userStatus));
-        console.log(`Filtered data by status: ${request.status}, remaining entries: ${data.length}`);
-    }
-
-    if (request.submitter) {
-        data = data.filter(entry => entry.data.submitter === request.submitter);
-        console.log(`Filtered data by submitter: ${request.submitter}, remaining entries: ${data.length}`);
-    }
-
-    if (request.operator) {
-        data = data.filter(entry => entry.data.operator === request.operator);
-        console.log(`Filtered data by operator: ${request.operator}, remaining entries: ${data.length}`);
-    }
-
+    let usernameRegex: RegExp | undefined;
     if (request.usernameRegex) {
-        let regex: RegExp;
         try {
-            regex = new RegExp(request.usernameRegex);
+            usernameRegex = new RegExp(request.usernameRegex);
         } catch {
             await context.reddit.modMail.reply({
                 conversationId,
@@ -160,15 +140,42 @@ export async function dataExtract (message: string | undefined, conversationId: 
             });
             return;
         }
-        data = data.filter(entry => regex.test(entry.username));
-        console.log(`Filtered data by usernameRegex: ${request.usernameRegex}, remaining entries: ${data.length}`);
     }
 
-    if (request.since) {
-        const sinceDate = new Date(request.since);
-        data = data.filter(entry => entry.data.reportedAt && new Date(entry.data.reportedAt) > sinceDate);
-        console.log(`Filtered data by since date: ${request.since}, remaining entries: ${data.length}`);
-    }
+    // Get all data from database.
+    const allData = await getFullDataStore(context);
+    let data = Object.entries(allData)
+        .map(([username, data]) => ({ username, data: JSON.parse(data) as UserDetails }))
+        .filter((entry) => {
+            if (request.status && !request.status.includes(entry.data.userStatus)) {
+                return false;
+            }
+
+            if (request.submitter && entry.data.submitter !== request.submitter) {
+                return false;
+            }
+
+            if (request.operator && entry.data.operator !== request.operator) {
+                return false;
+            }
+
+            if (usernameRegex) {
+                if (!usernameRegex.test(entry.username)) {
+                    return false;
+                }
+            }
+
+            if (request.since && entry.data.reportedAt) {
+                const sinceDate = new Date(request.since);
+                if (new Date(entry.data.reportedAt) <= sinceDate) {
+                    return false;
+                }
+            }
+
+            return true; // Keep the entry if it passes all filters
+        });
+
+    console.log(`Filtered data: ${data.length} entries match the criteria.`);
 
     if (request.bioRegex) {
         let regex: RegExp;

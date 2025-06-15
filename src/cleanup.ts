@@ -12,6 +12,11 @@ export const CLEANUP_LOG_KEY = "CleanupLog";
 const SUB_OR_MOD_LOG_KEY = "SubOrModLog";
 const DAYS_BETWEEN_CHECKS = 7;
 
+export async function userHasCleanupEntry (username: string, context: JobContext | TriggerContext): Promise<boolean> {
+    const score = await context.redis.zScore(CLEANUP_LOG_KEY, username);
+    return !!score;
+}
+
 export async function setCleanupForUser (username: string, redis: RedisClient | TxClientLike, overrideDate?: Date) {
     let cleanupTime = overrideDate ?? addDays(new Date(), DAYS_BETWEEN_CHECKS);
 
@@ -278,21 +283,21 @@ async function handleDeletedAccountControlSub (username: string, context: Trigge
 
         try {
             const post = await context.reddit.getPostById(status.trackingPostId);
-            await post.delete();
+            if (post.authorName === context.appName) {
+                await post.delete();
+                const deletedPosts = await context.redis.incrBy("deletedPosts", 1);
+                console.log(`Cleanup: Post deleted for ${username}. Now deleted ${deletedPosts} posts.`);
 
-            const deletedPosts = await context.redis.incrBy("deletedPosts", 1);
-            console.log(`Cleanup: Post deleted for ${username}. Now deleted ${deletedPosts} posts.`);
-            if (status.userStatus === newStatus) {
-                return;
+                if (status.userStatus !== newStatus) {
+                    await txn.set(`ignoreflairchange:${post.id}`, "true", { expiration: addHours(new Date(), 1) });
+
+                    await context.reddit.setPostFlair({
+                        postId: post.id,
+                        subredditName: CONTROL_SUBREDDIT,
+                        flairTemplateId: status.userStatus === UserStatus.Pending ? PostFlairTemplate.Retired : PostFlairTemplate.Purged,
+                    });
+                }
             }
-
-            await txn.set(`ignoreflairchange:${post.id}`, "true", { expiration: addHours(new Date(), 1) });
-
-            await context.reddit.setPostFlair({
-                postId: post.id,
-                subredditName: CONTROL_SUBREDDIT,
-                flairTemplateId: status.userStatus === UserStatus.Pending ? PostFlairTemplate.Retired : PostFlairTemplate.Purged,
-            });
         } catch (error) {
             console.log(`Cleanup: Unable to set flair for ${username} on post ${status.trackingPostId}`);
             console.error(error);

@@ -1,5 +1,5 @@
 import { JobContext, TriggerContext, WikiPagePermissionLevel, WikiPage, CreateModNoteOptions, UserSocialLink, TxClientLike } from "@devvit/public-api";
-import { compact, max, toPairs, uniq } from "lodash";
+import { compact, fromPairs, max, toPairs, uniq } from "lodash";
 import pako from "pako";
 import { setCleanupForSubmittersAndMods, setCleanupForUser } from "./cleanup.js";
 import { ClientSubredditJob, CONTROL_SUBREDDIT } from "./constants.js";
@@ -17,7 +17,7 @@ const USER_STORE = "UserStore";
 const TEMP_DECLINE_STORE = "TempDeclineStore";
 
 export const BIO_TEXT_STORE = "BioTextStore";
-const DISPLAY_NAME_STORE = "DisplayNameStore";
+export const DISPLAY_NAME_STORE = "DisplayNameStore";
 const SOCIAL_LINKS_STORE = "SocialLinksStore";
 
 export const AGGREGATE_STORE = "AggregateStore";
@@ -227,6 +227,11 @@ function compactDataForWiki (input: string): string | undefined {
         return;
     }
 
+    // Exclude entries for organic/declined users older than 2 weeks
+    if ((status.userStatus === UserStatus.Organic || status.userStatus === UserStatus.Declined) && status.lastUpdate < subWeeks(new Date(), 2).getTime()) {
+        return;
+    }
+
     status.operator = "";
     delete status.submitter;
     if (status.userStatus === UserStatus.Purged && status.lastStatus) {
@@ -290,8 +295,20 @@ export async function updateWikiPage (_: unknown, context: JobContext) {
             continue;
         }
 
-        const declineEntry: UserDetails = {
-            userStatus: UserStatus.Declined,
+        let declineStatus: UserStatus;
+        const userStatus = await getUserStatus(entry.member, context);
+        if (userStatus) {
+            if (userStatus.userStatus === UserStatus.Purged || userStatus.userStatus === UserStatus.Retired) {
+                declineStatus = userStatus.lastStatus ?? userStatus.userStatus;
+            } else {
+                declineStatus = userStatus.userStatus;
+            }
+        } else {
+            declineStatus = UserStatus.Declined;
+        }
+
+        const declineEntry = {
+            userStatus: declineStatus,
             trackingPostId: "",
             lastUpdate: entry.score,
             operator: "",
@@ -344,6 +361,10 @@ export async function updateWikiPage (_: unknown, context: JobContext) {
             await context.redis.set(spaceAlertKey, new Date().getTime().toString(), { expiration: addWeeks(new Date(), 1) });
         }
     }
+
+    const aggregateStore = await context.redis.zRange(AGGREGATE_STORE, 0, -1);
+    const aggregateData = fromPairs(aggregateStore.map(item => ([item.member, item.score])));
+    console.log(`Status: Banned ${aggregateData[UserStatus.Banned] ?? 0}, Organic ${aggregateData[UserStatus.Organic] ?? 0}, Pending ${aggregateData[UserStatus.Pending] ?? 0}`);
 }
 
 function decompressData (blob: string): Record<string, string> {
