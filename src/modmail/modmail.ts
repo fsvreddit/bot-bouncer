@@ -1,6 +1,6 @@
 import { GetConversationResponse, ModMailConversationState, TriggerContext } from "@devvit/public-api";
 import { ModMail } from "@devvit/protos";
-import { addMonths } from "date-fns";
+import { addMinutes, addMonths } from "date-fns";
 import { CONTROL_SUBREDDIT } from "../constants.js";
 import { getSummaryForUser } from "../UserSummary/userSummary.js";
 import { handleClientSubredditModmail } from "./clientSubModmail.js";
@@ -100,6 +100,10 @@ export async function handleModmail (event: ModMail, context: TriggerContext) {
             }
             const currentStatus = await getUserStatus(username, context);
             if (currentStatus && newStatus && isLinkId(currentStatus.trackingPostId) && currentStatus.userStatus !== newStatus) {
+                if (currentMessage.author?.name) {
+                    await context.redis.set(`userStatusOverride~${username}`, currentMessage.author.name, { expiration: addMinutes(new Date(), 5) });
+                }
+
                 const newFlair = statusToFlair[newStatus];
                 await context.reddit.setPostFlair({
                     postId: currentStatus.trackingPostId,
