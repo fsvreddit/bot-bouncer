@@ -4,13 +4,19 @@ import { updateSubmitterStatistics } from "./statistics/submitterStatistics.js";
 import { updateEvaluatorHitsWikiPage } from "./statistics/evaluatorHitsStatistics.js";
 import { createTimeOfSubmissionStatistics } from "./statistics/timeOfSubmissionStatistics.js";
 import { getFullDataStore, UserDetails } from "./dataStore.js";
-import { ControlSubredditJob } from "./constants.js";
+import { CONTROL_SUBREDDIT, ControlSubredditJob } from "./constants.js";
 import { updateClassificationStatistics } from "./statistics/classificationStatistics.js";
 import { updateAppealStatistics } from "./statistics/appealStatistics.js";
 import { addMinutes } from "date-fns";
 import { updateUsernameStatistics } from "./statistics/usernameStatistics.js";
+import { updateDisplayNameStatistics } from "./statistics/displayNameStats.js";
 
 export async function performDailyJobs (_: unknown, context: JobContext) {
+    if (context.subredditName !== CONTROL_SUBREDDIT) {
+        console.log("Daily jobs are only run in the control subreddit.");
+        return;
+    }
+
     const allDataRaw = await getFullDataStore(context);
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
     const allEntries = Object.entries(allDataRaw)
@@ -47,5 +53,6 @@ export async function performDailyJobs (_: unknown, context: JobContext) {
         updateClassificationStatistics(context),
         updateAppealStatistics(context),
         updateUsernameStatistics(allEntries, context),
+        updateDisplayNameStatistics(allEntries, context),
     ]);
 }

@@ -17,7 +17,7 @@ const USER_STORE = "UserStore";
 const TEMP_DECLINE_STORE = "TempDeclineStore";
 
 export const BIO_TEXT_STORE = "BioTextStore";
-const DISPLAY_NAME_STORE = "DisplayNameStore";
+export const DISPLAY_NAME_STORE = "DisplayNameStore";
 const SOCIAL_LINKS_STORE = "SocialLinksStore";
 
 export const AGGREGATE_STORE = "AggregateStore";
