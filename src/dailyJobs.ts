@@ -3,14 +3,21 @@ import { updateMainStatisticsPage } from "./statistics/mainStatistics.js";
 import { updateSubmitterStatistics } from "./statistics/submitterStatistics.js";
 import { updateEvaluatorHitsWikiPage } from "./statistics/evaluatorHitsStatistics.js";
 import { createTimeOfSubmissionStatistics } from "./statistics/timeOfSubmissionStatistics.js";
-import { getFullDataStore } from "./dataStore.js";
+import { getFullDataStore, UserDetails } from "./dataStore.js";
 import { ControlSubredditJob } from "./constants.js";
 import { updateClassificationStatistics } from "./statistics/classificationStatistics.js";
 import { updateAppealStatistics } from "./statistics/appealStatistics.js";
 import { addMinutes } from "date-fns";
+import { updateUsernameStatistics } from "./statistics/usernameStatistics.js";
 
 export async function performDailyJobs (_: unknown, context: JobContext) {
-    const allData = await getFullDataStore(context);
+    const allDataRaw = await getFullDataStore(context);
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+    const allEntries = Object.entries(allDataRaw)
+        .map(([key, value]) => [key, JSON.parse(value) as UserDetails]) as [string, UserDetails][];
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const allValues = allEntries.map(([_, value]) => value);
 
     await Promise.all([
         context.scheduler.runJob({
@@ -33,11 +40,12 @@ export async function performDailyJobs (_: unknown, context: JobContext) {
     ]);
 
     await Promise.all([
-        updateMainStatisticsPage(allData, context),
-        updateSubmitterStatistics(allData, context),
+        updateMainStatisticsPage(allValues, context),
+        updateSubmitterStatistics(allValues, context),
         updateEvaluatorHitsWikiPage(context),
-        createTimeOfSubmissionStatistics(allData, context),
+        createTimeOfSubmissionStatistics(allValues, context),
         updateClassificationStatistics(context),
         updateAppealStatistics(context),
+        updateUsernameStatistics(allEntries, context),
     ]);
 }
