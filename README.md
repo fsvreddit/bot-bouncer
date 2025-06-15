@@ -49,6 +49,7 @@ Write in to [/r/BotBouncer's modmail](https://www.reddit.com/message/compose/?to
 
 ## Next
 
+* Improve user interface for reporting bots
 * Internal changes to support operations on /r/BotBouncer
 
 ## v1.12.0
