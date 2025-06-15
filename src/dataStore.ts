@@ -1,5 +1,5 @@
 import { JobContext, TriggerContext, WikiPagePermissionLevel, WikiPage, CreateModNoteOptions, UserSocialLink, TxClientLike } from "@devvit/public-api";
-import { compact, max, toPairs, uniq } from "lodash";
+import { compact, fromPairs, max, toPairs, uniq } from "lodash";
 import pako from "pako";
 import { setCleanupForSubmittersAndMods, setCleanupForUser } from "./cleanup.js";
 import { ClientSubredditJob, CONTROL_SUBREDDIT } from "./constants.js";
@@ -361,6 +361,10 @@ export async function updateWikiPage (_: unknown, context: JobContext) {
             await context.redis.set(spaceAlertKey, new Date().getTime().toString(), { expiration: addWeeks(new Date(), 1) });
         }
     }
+
+    const aggregateStore = await context.redis.zRange(AGGREGATE_STORE, 0, -1);
+    const aggregateData = fromPairs(aggregateStore.map(item => ([item.member, item.score])));
+    console.log(`Status: Banned ${aggregateData[UserStatus.Banned] ?? 0}, Organic ${aggregateData[UserStatus.Organic] ?? 0}, Pending ${aggregateData[UserStatus.Pending] ?? 0}`);
 }
 
 function decompressData (blob: string): Record<string, string> {
