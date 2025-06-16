@@ -10,6 +10,8 @@ import { updateAppealStatistics } from "./statistics/appealStatistics.js";
 import { addMinutes } from "date-fns";
 import { updateUsernameStatistics } from "./statistics/usernameStatistics.js";
 import { updateDisplayNameStatistics } from "./statistics/displayNameStats.js";
+import { updateSocialLinksStatistics } from "./statistics/socialLinksStatistics.js";
+import { updateBioStatistics } from "./statistics/userBioStatistics.js";
 
 export async function performDailyJobs (_: unknown, context: JobContext) {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
@@ -54,5 +56,7 @@ export async function performDailyJobs (_: unknown, context: JobContext) {
         updateAppealStatistics(context),
         updateUsernameStatistics(allEntries, context),
         updateDisplayNameStatistics(allEntries, context),
+        updateSocialLinksStatistics(allEntries, context),
+        updateBioStatistics(allEntries, context),
     ]);
 }
