@@ -70,8 +70,6 @@ export async function updateBioStatistics (allEntries: [string, UserDetails][], 
         return;
     }
 
-    console.log(`Writing bio text wiki page with ${reusedRecords.length} records. Total unique bio texts: ${Object.keys(bioRecords).length}`);
-
     reusedRecords.sort((a, b) => b.record.hits - a.record.hits);
 
     const content: json2md.DataObject[] = [];

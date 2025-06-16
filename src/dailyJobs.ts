@@ -59,4 +59,6 @@ export async function performDailyJobs (_: unknown, context: JobContext) {
         updateSocialLinksStatistics(allEntries, context),
         updateBioStatistics(allEntries, context),
     ]);
+
+    console.log("Statistics updated successfully.");
 }

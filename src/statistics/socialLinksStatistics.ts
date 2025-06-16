@@ -94,9 +94,11 @@ export async function updateSocialLinksStatistics (allEntries: [string, UserDeta
         }
     }
 
+    const bareDomainRegex = /^https:\/\/\w+\.\w+\\?$/;
+
     const records = Object.entries(socialLinksCounts)
         .map(([link, value]) => ({ link, value }))
-        .filter(item => item.value.hits > 1)
+        .filter(item => item.value.hits > 1 && !bareDomainRegex.test(item.link))
         .sort((a, b) => a.link > b.link ? 1 : -1)
         .sort((a, b) => b.value.hits - a.value.hits);
 
@@ -118,7 +120,7 @@ export async function updateSocialLinksStatistics (allEntries: [string, UserDeta
                 record.value.hits.toLocaleString(),
                 record.value.firstSeen ? format(record.value.firstSeen, "MMM dd") : "",
                 record.value.lastSeen ? format(record.value.lastSeen, "MMM dd") : "",
-                "/u/" + uniq(record.value.usernames).slice(-5).join(", /u/"),
+                uniq(record.value.usernames).map(username => `/u/${username}`).slice(-5).join(", "),
             ]);
         }
         wikiContent.push({ table: { headers, rows } });
