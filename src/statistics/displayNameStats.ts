@@ -18,12 +18,44 @@ export async function updateDisplayNameStatistics (allEntries: [string, UserDeta
     }
 
     recentData = recentData.filter(item => item.data.displayName);
+    const recentBanned = recentData.filter(item => item.data.userStatus === UserStatus.Banned);
 
     const evaluatorVariables = await getEvaluatorVariables(context);
     const displayNameRegexes = evaluatorVariables["baddisplayname:regexes"] as string[] | undefined ?? [];
 
-    const headers = ["Regex", "Count", "False Positive %", "Example Organics"];
-    const rows: string[][] = [];
+    const displayNameCounts: Record<string, number> = {};
+    for (const item of recentBanned) {
+        if (item.data.displayName) {
+            displayNameCounts[item.data.displayName] = (displayNameCounts[item.data.displayName] ?? 0) + 1;
+        }
+    }
+
+    const wikiContent: json2md.DataObject[] = [];
+    wikiContent.push({ h1: "Bad Display Name Statistics" });
+
+    const displayNameHeaders = ["Display Name", "Count", "Covered by Evaluator"];
+    const displayNameRows: string[][] = [];
+    for (const [displayName, count] of Object.entries(displayNameCounts).sort((a, b) => b[1] - a[1])) {
+        if (count < 5) {
+            continue;
+        }
+
+        const isCovered = displayNameRegexes.some(regex => new RegExp(regex, "u").test(displayName));
+        displayNameRows.push([
+            `\`${displayName}\``,
+            count.toLocaleString(),
+            isCovered ? "Yes" : "**No**",
+        ]);
+    }
+
+    if (displayNameRows.length > 0) {
+        wikiContent.push({ p: "This table lists all display names used at least five times on banned users in the last two weeks." });
+        wikiContent.push({ table: { headers: displayNameHeaders, rows: displayNameRows } });
+        wikiContent.push({ hr: {} });
+    }
+
+    const regexHeaders = ["Regex", "Count", "False Positive %", "Example Organics"];
+    const regexRows: string[][] = [];
 
     for (const regex of displayNameRegexes) {
         const entriesMatchingRegex = recentData.filter(item => item.data.displayName && new RegExp(regex, "u").test(item.data.displayName));
@@ -34,14 +66,14 @@ export async function updateDisplayNameStatistics (allEntries: [string, UserDeta
         }
 
         if (entriesMatchingRegex.length === 0) {
-            rows.push([
+            regexRows.push([
                 `\`${regexForRow}\``,
                 "0",
                 "",
                 "",
             ]);
         } else {
-            rows.push([
+            regexRows.push([
                 `\`${regexForRow}\``,
                 entriesMatchingRegex.length.toLocaleString(),
                 `${Math.round(100 * entriesMatchingRegex.filter(item => item.data.userStatus === UserStatus.Organic || item.data.userStatus === UserStatus.Declined).length / entriesMatchingRegex.length)}%`,
@@ -51,18 +83,16 @@ export async function updateDisplayNameStatistics (allEntries: [string, UserDeta
                     .join(", "),
             ]);
         }
-
-        const wikiContent: json2md.DataObject[] = [];
-        wikiContent.push({ h1: "Bad Display Name Statistics" });
-        wikiContent.push({ p: "This page lists all the 'Bad Display Name' regexes and their statistics from accounts submitted in the last two weeks." });
-        wikiContent.push({ table: { headers, rows } });
-        wikiContent.push({ p: "Note: | characters in regexes have been replaced with ¦ characters, because Reddit's markdown table support is broken" });
-        wikiContent.push({ p: "This page updates once a day at midnight UTC, and may update more frequently." });
-
-        await context.reddit.updateWikiPage({
-            subredditName: context.subredditName ?? await context.reddit.getCurrentSubredditName(),
-            page: "statistics/displaynames",
-            content: json2md(wikiContent),
-        });
     }
+
+    wikiContent.push({ p: "This table lists all the 'Bad Display Name' regexes and their statistics from accounts submitted in the last two weeks." });
+    wikiContent.push({ table: { headers: regexHeaders, rows: regexRows } });
+    wikiContent.push({ p: "Note: | characters in regexes have been replaced with ¦ characters, because Reddit's markdown table support is broken" });
+    wikiContent.push({ p: "This page updates once a day at midnight UTC, and may update more frequently." });
+
+    await context.reddit.updateWikiPage({
+        subredditName: context.subredditName ?? await context.reddit.getCurrentSubredditName(),
+        page: "statistics/displaynames",
+        content: json2md(wikiContent),
+    });
 }
