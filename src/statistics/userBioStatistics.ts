@@ -3,10 +3,9 @@ import { format, subWeeks } from "date-fns";
 import json2md from "json2md";
 import { BIO_TEXT_STORE, UserDetails, UserStatus } from "../dataStore.js";
 import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
-import { max, min } from "lodash";
+import { max } from "lodash";
 
 interface BioRecord {
-    firstSeen?: Date;
     lastSeen?: Date;
     hits: number;
     users?: string[];
@@ -50,14 +49,12 @@ export async function updateBioStatistics (allEntries: [string, UserDetails][], 
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
         if (existingRecord) {
             bioRecords[item.data.bio] = {
-                firstSeen: item.data.reportedAt ? min([existingRecord.firstSeen, new Date(item.data.reportedAt)]) : existingRecord.firstSeen,
                 lastSeen: item.data.reportedAt ? max([existingRecord.lastSeen, new Date(item.data.reportedAt)]) : existingRecord.lastSeen,
                 hits: existingRecord.hits + 1,
                 users: appendedArray(existingRecord.users ?? [], [item.username]),
             };
         } else {
             bioRecords[item.data.bio] = {
-                firstSeen: item.data.reportedAt ? new Date(item.data.reportedAt) : undefined,
                 lastSeen: item.data.reportedAt ? new Date(item.data.reportedAt) : undefined,
                 hits: 1,
                 users: [item.username],
@@ -84,7 +81,7 @@ export async function updateBioStatistics (allEntries: [string, UserDetails][], 
     for (const record of reusedRecords) {
         content.push({ blockquote: record.bioText });
         const listRows: string[] = [];
-        if (!configuredBioRegexes.some(regex => new RegExp(regex).exec(record.bioText))) {
+        if (!configuredBioRegexes.some(regex => new RegExp(regex, "u").exec(record.bioText))) {
             listRows.push("**Not in Evaluators**");
         }
         listRows.push(

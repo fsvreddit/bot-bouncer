@@ -118,7 +118,7 @@ export async function updateSocialLinksStatistics (allEntries: [string, UserDeta
                 record.value.hits.toLocaleString(),
                 record.value.firstSeen ? format(record.value.firstSeen, "MMM dd") : "",
                 record.value.lastSeen ? format(record.value.lastSeen, "MMM dd") : "",
-                uniq(record.value.usernames).slice(-5).join(", /u/"),
+                "/u/" + uniq(record.value.usernames).slice(-5).join(", /u/"),
             ]);
         }
         wikiContent.push({ table: { headers, rows } });
