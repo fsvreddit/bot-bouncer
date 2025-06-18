@@ -284,6 +284,10 @@ export async function processExternalSubmissionsFromObserverSubreddits (_: unkno
         }
 
         for (const submission of currentSubmissionList) {
+            if (submission.evaluationResults && submission.evaluationResults.length > 0) {
+                await storeAccountInitialEvaluationResults(submission.username, submission.evaluationResults, context);
+            }
+
             const postSubmitted = await addExternalSubmissionToPostCreationQueue(submission, false, controlSubSettings, context);
             if (postSubmitted) {
                 console.log(`External Submissions: Processed external submission for ${submission.username} from /r/${subreddit}.`);
