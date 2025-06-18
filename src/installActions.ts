@@ -13,6 +13,7 @@ export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, contex
 
     const currentJobs = await context.scheduler.listJobs();
     await Promise.all(currentJobs.map(job => context.scheduler.cancelJob(job.id)));
+    console.log(`App Install: Cancelled ${currentJobs.length} existing jobs.`);
 
     if (context.subredditName === CONTROL_SUBREDDIT) {
         await addControlSubredditJobs(context);
