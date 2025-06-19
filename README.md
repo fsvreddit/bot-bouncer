@@ -47,7 +47,7 @@ Write in to [/r/BotBouncer's modmail](https://www.reddit.com/message/compose/?to
 
 # Change History
 
-## v1.13.0 (Next release)
+## v1.13.0
 
 * Improve user interface for reporting bots
 * Improve reliability of unbanning users following a reclassification
