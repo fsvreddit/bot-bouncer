@@ -3,8 +3,8 @@ import { AGGREGATE_STORE, UserDetails, UserStatus } from "../dataStore.js";
 import { countBy, sum } from "lodash";
 import json2md from "json2md";
 
-export async function updateMainStatisticsPage (allData: Record<string, string>, context: JobContext) {
-    await correctAggregateData(allData, context);
+export async function updateMainStatisticsPage (entries: UserDetails[], context: JobContext) {
+    await correctAggregateData(entries, context);
 
     let results = await context.redis.zRange(AGGREGATE_STORE, 0, -1);
     results = results.filter(item => item.member !== "pending");
@@ -48,9 +48,7 @@ export async function updateMainStatisticsPage (allData: Record<string, string>,
     }
 }
 
-async function correctAggregateData (data: Record<string, string>, context: JobContext) {
-    const entries = Object.entries(data).map(([, value]) => JSON.parse(value) as UserDetails);
-
+async function correctAggregateData (entries: UserDetails[], context: JobContext) {
     const statusesToUpdate = [UserStatus.Banned, UserStatus.Pending, UserStatus.Organic, UserStatus.Service, UserStatus.Declined];
     const statuses = Object.entries(countBy(entries.map(item => item.userStatus)))
         .map(([key, value]) => ({ member: key, score: value }))

@@ -162,7 +162,6 @@ export async function analyseBioText (_: unknown, context: JobContext) {
         output.push({ p: `If you want to submit all users with similar bio text to Bot Bouncer, please reply to this modmail with \`!addall\` or \`!addall banned\`` });
 
         await context.redis.zAdd(BIO_TEXT_STORAGE_KEY, ...Object.values(results).flat().map(item => ({ member: item.bioText, score: new Date().getTime() })));
-        await context.redis.set(BIO_TEXT_MODMAIL_SENT, "true", { expiration: addDays(new Date(), 1) });
     }
 
     const conversationId = await context.reddit.modMail.createModInboxConversation({
@@ -170,6 +169,8 @@ export async function analyseBioText (_: unknown, context: JobContext) {
         subject: "Similar Bio Text Patterns spotted in swept subreddits",
         bodyMarkdown: json2md(output),
     });
+
+    await context.redis.set(BIO_TEXT_MODMAIL_SENT, "true", { expiration: addDays(new Date(), 1) });
 
     const bioTextUserKey = `biotextusers~${conversationId}`;
     if (addableUsers.length > 0) {

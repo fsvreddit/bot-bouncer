@@ -47,6 +47,13 @@ Write in to [/r/BotBouncer's modmail](https://www.reddit.com/message/compose/?to
 
 # Change History
 
+## v1.13.0
+
+* Improve user interface for reporting bots
+* Improve reliability of unbanning users following a reclassification
+* Add new evaluator for a specific NSFW bot behaviour
+* Internal changes to support operations on /r/BotBouncer
+
 ## v1.12.0
 
 * Make daily digest fully configurable

@@ -3,12 +3,11 @@ import { UserDetails } from "../dataStore.js";
 import { eachDayOfInterval, endOfDay, format, isSameDay, startOfDay, subDays } from "date-fns";
 import json2md from "json2md";
 
-export async function createTimeOfSubmissionStatistics (allData: Record<string, string>, context: JobContext) {
+export async function createTimeOfSubmissionStatistics (allEntries: UserDetails[], context: JobContext) {
     const endRange = startOfDay(new Date());
     const startRange = subDays(endRange, 28);
 
-    const allDates = Object.values(allData)
-        .map(item => JSON.parse(item) as UserDetails)
+    const allDates = allEntries
         .map(item => item.reportedAt)
         .filter(date => date && new Date(date) >= startRange && new Date(date) < endRange)
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion

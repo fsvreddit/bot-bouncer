@@ -41,15 +41,22 @@ export async function handleControlSubFlairUpdate (event: PostFlairUpdate, conte
 
     const currentStatus = await getUserStatus(username, context);
 
+    let operator = event.author.name;
+    const overrideOperator = await context.redis.get(`userStatusOverride~${username}`);
+    if (overrideOperator) {
+        operator = overrideOperator;
+        await context.redis.del(`userStatusOverride~${username}`);
+    }
+
     await setUserStatus(username, {
         trackingPostId: event.post.id,
         userStatus: postFlair,
         submitter: currentStatus?.submitter,
         lastUpdate: new Date().getTime(),
-        operator: event.author.name,
+        operator,
     }, context);
 
-    console.log(`Flair Update: Status for ${username} set to ${postFlair} by ${event.author.name}`);
+    console.log(`Flair Update: Status for ${username} set to ${postFlair} by ${operator}`);
 
     const post = await context.reddit.getPostById(event.post.id);
 
@@ -113,12 +120,11 @@ async function sendFeedback (username: string, submitter: string, operator: stri
             subject: `Bot Bouncer classification for /u/${username}`,
             text: json2md(message),
         });
+
+        console.log(`Feedback sent to ${submitter} about ${username} being classified as ${userStatus} by ${operator}`);
     } catch (error) {
         console.error(`Failed to send feedback to ${submitter}: ${error}`);
-        return;
     }
 
     await context.redis.del(`sendFeedback:${username}`);
-
-    console.log(`Feedback sent to ${submitter} about ${username} being classified as ${userStatus} by ${operator}`);
 }

@@ -1,4 +1,4 @@
-import { JobContext, JSONValue, Post, ZMember } from "@devvit/public-api";
+import { JobContext, JSONValue, Post, TriggerContext, ZMember } from "@devvit/public-api";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { compact, fromPairs, uniq } from "lodash";
 import { CONTROL_SUBREDDIT, ControlSubredditJob, EVALUATE_KARMA_FARMING_SUBS_CRON } from "./constants.js";
@@ -146,6 +146,11 @@ async function isEvaluationDisabled (context: JobContext): Promise<boolean> {
     return !controlSubSettings.proactiveEvaluationEnabled || controlSubSettings.evaluationDisabled;
 }
 
+export async function queueKarmaFarmingAccounts (accounts: string[], context: TriggerContext | JobContext) {
+    const accountsData = fromPairs(accounts.map(account => [account, account]));
+    await context.redis.hSet(ACCOUNTS_QUEUED_KEY, accountsData);
+}
+
 export async function queueKarmaFarmingSubs (_: unknown, context: JobContext) {
     if (await isEvaluationDisabled(context)) {
         console.log("Karma Farming Subs: Proactive evaluation is disabled.");
@@ -160,24 +165,18 @@ export async function queueKarmaFarmingSubs (_: unknown, context: JobContext) {
     accounts = accounts.filter(account => !knownAccounts.includes(account));
     const filteredCount = initialCount - accounts.length;
 
-    const accountsData = fromPairs(accounts.map(account => [account, account]));
-    await context.redis.hSet(ACCOUNTS_QUEUED_KEY, accountsData);
+    await queueKarmaFarmingAccounts(accounts, context);
     console.log(`Karma Farming Subs: Queued ${accounts.length} ${pluralize("account", accounts.length)} to evaluate, filtered ${filteredCount} ${pluralize("account", filteredCount)} already known to Bot Bouncer`);
 }
 
 export async function evaluateKarmaFarmingSubs (_: unknown, context: JobContext) {
-    if (await isEvaluationDisabled(context)) {
-        console.log("Karma Farming Subs: Proactive evaluation is disabled.");
-        return;
-    }
-
     const nextScheduledRun = CronExpressionParser.parse(EVALUATE_KARMA_FARMING_SUBS_CRON).next().toDate();
     if (nextScheduledRun < addSeconds(new Date(), 45)) {
         console.log(`Karma Farming Subs: Next scheduled run is too soon, skipping this run.`);
         return;
     }
 
-    const runLimit = addSeconds(new Date(), 25);
+    const runLimit = addSeconds(new Date(), 20);
 
     const accounts = await context.redis.hKeys(ACCOUNTS_QUEUED_KEY);
     if (accounts.length === 0) {

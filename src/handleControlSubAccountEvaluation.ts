@@ -20,6 +20,26 @@ export interface EvaluationResult {
     metThreshold: boolean;
 }
 
+export async function storeEvaluationStatistics (results: EvaluationResult[], context: JobContext) {
+    if (results.length === 0) {
+        return;
+    }
+
+    const redisKey = "EvaluatorStats";
+    const existingStatsVal = await context.redis.get(redisKey);
+
+    const allStats: Record<string, EvaluatorStats> = existingStatsVal ? JSON.parse(existingStatsVal) as Record<string, EvaluatorStats> : {};
+
+    for (const result of results.filter(result => result.botName !== "CQS Tester")) {
+        const botStats = allStats[result.botName] ?? { hitCount: 0, lastHit: 0 };
+        botStats.hitCount++;
+        botStats.lastHit = new Date().getTime();
+        allStats[result.botName] = botStats;
+    }
+
+    await context.redis.set(redisKey, JSON.stringify(allStats));
+}
+
 export async function evaluateUserAccount (username: string, variables: Record<string, JSONValue>, context: JobContext, storeStats: boolean): Promise<EvaluationResult[]> {
     const user = await getUserExtended(username, context);
     if (!user) {
@@ -74,24 +94,19 @@ export async function evaluateUserAccount (username: string, variables: Record<s
         return [];
     }
 
+    const itemCount = userItems?.length ?? 0;
+    const results: EvaluationResult[] = detectedBots.map(bot => ({
+        botName: bot.name,
+        hitReason: bot.hitReason,
+        canAutoBan: bot.canAutoBan,
+        metThreshold: itemCount >= bot.banContentThreshold,
+    }));
+
     if (storeStats) {
-        const redisKey = "EvaluatorStats";
-        const existingStatsVal = await context.redis.get(redisKey);
-
-        const allStats: Record<string, EvaluatorStats> = existingStatsVal ? JSON.parse(existingStatsVal) as Record<string, EvaluatorStats> : {};
-
-        for (const bot of detectedBots.filter(bot => bot.name !== "CQS Tester")) {
-            const botStats = allStats[bot.name] ?? { hitCount: 0, lastHit: 0 };
-            botStats.hitCount++;
-            botStats.lastHit = new Date().getTime();
-            allStats[bot.name] = botStats;
-        }
-
-        await context.redis.set(redisKey, JSON.stringify(allStats));
+        await storeEvaluationStatistics(results, context);
     }
 
-    const itemCount = userItems?.length ?? 0;
-    return detectedBots.map(bot => ({ botName: bot.name, hitReason: bot.hitReason, canAutoBan: bot.canAutoBan, metThreshold: itemCount >= bot.banContentThreshold }));
+    return results;
 }
 
 export async function handleControlSubAccountEvaluation (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {

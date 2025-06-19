@@ -9,9 +9,10 @@ import { isLinkId } from "@devvit/shared-types/tid.js";
 import { AsyncSubmission, queuePostCreation } from "./postCreation.js";
 import pluralize from "pluralize";
 import { getUserExtended } from "./extendedDevvit.js";
-import { evaluateUserAccount, EvaluationResult, storeAccountInitialEvaluationResults } from "./handleControlSubAccountEvaluation.js";
+import { evaluateUserAccount, EvaluationResult, storeAccountInitialEvaluationResults, storeEvaluationStatistics } from "./handleControlSubAccountEvaluation.js";
 import json2md from "json2md";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
+import { queueKarmaFarmingAccounts } from "./karmaFarmingSubsCheck.js";
 
 const WIKI_PAGE = "externalsubmissions";
 
@@ -129,6 +130,11 @@ export async function addExternalSubmissionToPostCreationQueue (item: ExternalSu
     const currentStatus = await getUserStatus(item.username, context);
     if (currentStatus) {
         console.log(`External Submissions: User ${item.username} already has a status of ${currentStatus.userStatus}.`);
+        if (!item.submitter) {
+            // Submitted automatically, but in the database already.
+            // Need to send back initial status.
+            await addUserToTempDeclineStore(item.username, context);
+        }
         return false;
     }
 
@@ -263,15 +269,15 @@ export async function processExternalSubmissionsFromObserverSubreddits (_: unkno
 
     let processed = 0;
     for (const subreddit of controlSubSettings.observerSubreddits) {
-        let wikiPage: WikiPage | undefined;
+        let submissionsWikiPage: WikiPage | undefined;
         try {
-            wikiPage = await context.reddit.getWikiPage(subreddit, WIKI_PAGE);
+            submissionsWikiPage = await context.reddit.getWikiPage(subreddit, WIKI_PAGE);
         } catch {
             console.log(`External Submissions: No external submissions page found in /r/${subreddit}, skipping.`);
             continue;
         }
 
-        const currentSubmissionList = JSON.parse(wikiPage.content) as ExternalSubmission[];
+        const currentSubmissionList = JSON.parse(submissionsWikiPage.content) as ExternalSubmission[];
         if (currentSubmissionList.length === 0) {
             console.log(`External Submissions: No external submissions found in /r/${subreddit}.`);
             continue;
@@ -282,6 +288,11 @@ export async function processExternalSubmissionsFromObserverSubreddits (_: unkno
             if (postSubmitted) {
                 console.log(`External Submissions: Processed external submission for ${submission.username} from /r/${subreddit}.`);
                 processed++;
+            }
+
+            if (submission.evaluationResults && submission.evaluationResults.length > 0) {
+                await storeAccountInitialEvaluationResults(submission.username, submission.evaluationResults, context);
+                await storeEvaluationStatistics(submission.evaluationResults, context);
             }
         }
 
@@ -295,5 +306,31 @@ export async function processExternalSubmissionsFromObserverSubreddits (_: unkno
 
     if (processed > 0) {
         console.log(`External Submissions: Processed ${processed} external ${pluralize("submission", processed)} from observer subreddits.`);
+    }
+
+    for (const subreddit of controlSubSettings.observerSubreddits) {
+        const accountsToCheckPageName = "accountstocheck";
+        let accountsToCheckWikiPage: WikiPage | undefined;
+        try {
+            accountsToCheckWikiPage = await context.reddit.getWikiPage(subreddit, accountsToCheckPageName);
+        } catch {
+            console.log(`External Submissions: No accounts to check page found in /r/${subreddit}, skipping.`);
+            continue;
+        }
+
+        const accountsToCheck = JSON.parse(accountsToCheckWikiPage.content) as string[];
+        if (accountsToCheck.length === 0) {
+            continue;
+        }
+
+        await queueKarmaFarmingAccounts(accountsToCheck, context);
+        await context.reddit.updateWikiPage({
+            subredditName: subreddit,
+            page: accountsToCheckPageName,
+            content: "[]",
+            reason: "Cleared the accounts to check list after processing.",
+        });
+
+        console.log(`External Submissions: Queued ${accountsToCheck.length} ${pluralize("account", accountsToCheck.length)} from /r/${subreddit} for evaluation.`);
     }
 }

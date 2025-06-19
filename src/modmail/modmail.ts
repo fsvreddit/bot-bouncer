@@ -1,17 +1,19 @@
 import { GetConversationResponse, ModMailConversationState, TriggerContext } from "@devvit/public-api";
 import { ModMail } from "@devvit/protos";
-import { addMonths } from "date-fns";
+import { addMinutes, addMonths } from "date-fns";
 import { CONTROL_SUBREDDIT } from "../constants.js";
 import { getSummaryForUser } from "../UserSummary/userSummary.js";
 import { handleClientSubredditModmail } from "./clientSubModmail.js";
 import { handleControlSubredditModmail, markdownToText } from "./controlSubModmail.js";
 import { dataExtract } from "./dataExtract.js";
 import { addAllUsersFromModmail } from "../similarBioTextFinder/bioTextFinder.js";
-import { UserStatus } from "../dataStore.js";
+import { getUserStatus, UserStatus } from "../dataStore.js";
 import json2md from "json2md";
 import { getControlSubSettings } from "../settings.js";
 import { handleBulkSubmission } from "./bulkSubmission.js";
 import { markAppealAsHandled } from "../statistics/appealStatistics.js";
+import { isLinkId } from "@devvit/shared-types/tid.js";
+import { statusToFlair } from "../postCreation.js";
 
 function conversationHandledRedisKey (conversationId: string) {
     return `conversationHandled~${conversationId}`;
@@ -78,6 +80,44 @@ export async function handleModmail (event: ModMail, context: TriggerContext) {
 
     if (currentMessage?.author) {
         await markAppealAsHandled(event.conversationId, currentMessage, context);
+    }
+
+    if (currentMessage?.bodyMarkdown && context.subredditName === CONTROL_SUBREDDIT) {
+        const statusChangeRegex = /!setstatus (banned|organic|declined)/;
+        const statusChangeMatch = statusChangeRegex.exec(currentMessage.bodyMarkdown);
+        if (statusChangeMatch && statusChangeMatch.length === 2) {
+            let newStatus: UserStatus | undefined;
+            switch (statusChangeMatch[1]) {
+                case "banned":
+                    newStatus = UserStatus.Banned;
+                    break;
+                case "organic":
+                    newStatus = UserStatus.Organic;
+                    break;
+                case "declined":
+                    newStatus = UserStatus.Declined;
+                    break;
+            }
+            const currentStatus = await getUserStatus(username, context);
+            if (currentStatus && newStatus && isLinkId(currentStatus.trackingPostId) && currentStatus.userStatus !== newStatus) {
+                if (currentMessage.author?.name) {
+                    await context.redis.set(`userStatusOverride~${username}`, currentMessage.author.name, { expiration: addMinutes(new Date(), 5) });
+                }
+
+                const newFlair = statusToFlair[newStatus];
+                await context.reddit.setPostFlair({
+                    postId: currentStatus.trackingPostId,
+                    flairTemplateId: newFlair,
+                    subredditName: CONTROL_SUBREDDIT,
+                });
+
+                await context.reddit.modMail.reply({
+                    conversationId: event.conversationId,
+                    body: `User status changed to ${newStatus}.`,
+                    isInternal: true,
+                });
+            }
+        }
     }
 
     const conversationHandled = await getConversationHandled(event.conversationId, context);

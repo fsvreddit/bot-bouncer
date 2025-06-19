@@ -30,7 +30,7 @@ export enum UniversalJob {
 export enum ControlSubredditJob {
     UpdateWikiPage = "updateWikiPage",
     EvaluateUser = "evaluateUser",
-    UpdateStatisticsPage = "updateStatisticsPage",
+    PerformDailyJobs = "performDailyJobs",
     EvaluateKarmaFarmingSubs = "evaluateKarmaFarmingSubs",
     QueueKarmaFarmingSubs = "queueKarmaFarmingSubs",
     CopyControlSubSettings = "copyControlSubSettings",
@@ -40,6 +40,7 @@ export enum ControlSubredditJob {
     CleanupPostStore = "cleanupPostStore",
     EvaluatorAccuracyStatistics = "evaluatorAccuracyStatistics",
     HandleObserverSubredditSubmissions = "handleObserverSubredditSubmissions",
+    PerformCleanupMaintenance = "performCleanupMaintenance",
 }
 
 /**
@@ -60,3 +61,5 @@ export enum ClientSubredditJob {
 
 export const EVALUATE_KARMA_FARMING_SUBS_CRON = "6/10 * * * *"; // Every ten minutes
 export const CONTROL_SUB_CLEANUP_CRON = "1/5 * * * *"; // Every 5 minutes
+
+export const CLIENT_SUB_WIKI_UPDATE_CRON_KEY = "clientSubWikiUpdateCron";

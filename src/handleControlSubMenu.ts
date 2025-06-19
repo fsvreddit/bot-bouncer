@@ -95,31 +95,38 @@ export async function handleControlSubReportUser (target: Post | Comment, contex
         });
     }
 
-    const history = await context.reddit.getCommentsAndPostsByUser({
-        username,
-        limit: 100,
-        sort: "new",
-    }).all();
+    let history: (Comment | Post)[] | undefined;
+    try {
+        history = await context.reddit.getCommentsAndPostsByUser({
+            username,
+            limit: 100,
+            sort: "new",
+        }).all();
+        console.log(`History length: ${history.length}`);
+    } catch {
+        //
+    }
 
-    console.log(`History length: ${history.length}`);
-    if (history.length === 0) {
-        fields.push({
-            name: "noHistory",
-            label: "No history found for this user - user may be blocking.",
-            type: "string",
-        });
-    } else if (await isUserPotentiallyBlockingBot(history, context)) {
-        fields.push({
-            name: "potentiallyBlocking",
-            label: "User may be blocking Bot Bouncer.",
-            type: "string",
-        });
-    } else {
-        fields.push({
-            name: "histLength",
-            label: `User has ${history.length} posts/comments visible to Bot Bouncer.`,
-            type: "string",
-        });
+    if (history) {
+        if (history.length === 0) {
+            fields.push({
+                name: "noHistory",
+                label: "No history found for this user - user may be blocking or suspended.",
+                type: "string",
+            });
+        } else if (await isUserPotentiallyBlockingBot(history, context)) {
+            fields.push({
+                name: "potentiallyBlocking",
+                label: "User may be blocking Bot Bouncer.",
+                type: "string",
+            });
+        } else {
+            fields.push({
+                name: "histLength",
+                label: `User has ${history.length} posts/comments visible to Bot Bouncer.`,
+                type: "string",
+            });
+        }
     }
 
     context.ui.showForm(controlSubForm, { title, description, fields: fields as unknown as JSONObject });

@@ -1,5 +1,5 @@
 import { JobContext, TriggerContext, WikiPagePermissionLevel, WikiPage, CreateModNoteOptions, UserSocialLink, TxClientLike } from "@devvit/public-api";
-import { compact, max, toPairs, uniq } from "lodash";
+import { compact, fromPairs, max, toPairs, uniq } from "lodash";
 import pako from "pako";
 import { setCleanupForSubmittersAndMods, setCleanupForUser } from "./cleanup.js";
 import { ClientSubredditJob, CONTROL_SUBREDDIT } from "./constants.js";
@@ -12,13 +12,14 @@ import json2md from "json2md";
 import { sendMessageToWebhook } from "./utility.js";
 import { getUserExtended } from "./extendedDevvit.js";
 import { storeClassificationEvent } from "./statistics/classificationStatistics.js";
+import { queueReclassifications } from "./handleClientSubredditWikiUpdate.js";
 
 const USER_STORE = "UserStore";
 const TEMP_DECLINE_STORE = "TempDeclineStore";
 
 export const BIO_TEXT_STORE = "BioTextStore";
-const DISPLAY_NAME_STORE = "DisplayNameStore";
-const SOCIAL_LINKS_STORE = "SocialLinksStore";
+export const DISPLAY_NAME_STORE = "DisplayNameStore";
+export const SOCIAL_LINKS_STORE = "SocialLinksStore";
 
 export const AGGREGATE_STORE = "AggregateStore";
 
@@ -227,6 +228,11 @@ function compactDataForWiki (input: string): string | undefined {
         return;
     }
 
+    // Exclude entries for organic/declined users older than 2 weeks
+    if ((status.userStatus === UserStatus.Organic || status.userStatus === UserStatus.Declined) && status.lastUpdate < subWeeks(new Date(), 2).getTime()) {
+        return;
+    }
+
     status.operator = "";
     delete status.submitter;
     if (status.userStatus === UserStatus.Purged && status.lastStatus) {
@@ -290,8 +296,20 @@ export async function updateWikiPage (_: unknown, context: JobContext) {
             continue;
         }
 
-        const declineEntry: UserDetails = {
-            userStatus: UserStatus.Declined,
+        let declineStatus: UserStatus;
+        const userStatus = await getUserStatus(entry.member, context);
+        if (userStatus) {
+            if (userStatus.userStatus === UserStatus.Purged || userStatus.userStatus === UserStatus.Retired) {
+                declineStatus = userStatus.lastStatus ?? userStatus.userStatus;
+            } else {
+                declineStatus = userStatus.userStatus;
+            }
+        } else {
+            declineStatus = UserStatus.Declined;
+        }
+
+        const declineEntry = {
+            userStatus: declineStatus,
             trackingPostId: "",
             lastUpdate: entry.score,
             operator: "",
@@ -344,6 +362,10 @@ export async function updateWikiPage (_: unknown, context: JobContext) {
             await context.redis.set(spaceAlertKey, new Date().getTime().toString(), { expiration: addWeeks(new Date(), 1) });
         }
     }
+
+    const aggregateStore = await context.redis.zRange(AGGREGATE_STORE, 0, -1);
+    const aggregateData = fromPairs(aggregateStore.map(item => ([item.member, item.score])));
+    console.log(`Status: Banned ${aggregateData[UserStatus.Banned] ?? 0}, Organic ${aggregateData[UserStatus.Organic] ?? 0}, Pending ${aggregateData[UserStatus.Pending] ?? 0}`);
 }
 
 function decompressData (blob: string): Record<string, string> {
@@ -405,30 +427,32 @@ export async function updateLocalStoreFromWiki (_: unknown, context: JobContext)
     console.log(`Wiki Update: Records for ${usersAdded} ${pluralize("user", usersAdded)} have been added`);
 
     const usersWithStatus = toPairs(incomingData)
-        .map(([username, userdata]) => ({ username, data: JSON.parse(userdata) as UserDetails }))
-        .filter(item => new Date(item.data.lastUpdate) > lastUpdateDate);
+        .map(([username, userdata]) => ({ username, data: JSON.parse(userdata) as UserDetails }));
 
-    if (usersWithStatus.length > 0) {
-        const newUpdateDate = max(usersWithStatus.map(item => item.data.lastUpdate)) ?? new Date().getTime();
+    const oneOffReaffirmationKey = "oneOffReaffirmation";
+    const reaffirmationDone = await context.redis.exists(oneOffReaffirmationKey);
+    if (!reaffirmationDone) {
+        const usersToReaffirm = usersWithStatus.filter(item => item.data.userStatus === UserStatus.Organic || item.data.userStatus === UserStatus.Declined || item.data.userStatus === UserStatus.Service);
+        await queueReclassifications(usersToReaffirm.map(item => ({ member: item.username, score: item.data.lastUpdate })), context);
+        await context.redis.set(oneOffReaffirmationKey, "true");
+        console.log(`Wiki Update: One-off reaffirmation for ${usersToReaffirm.length} ${pluralize("user", usersToReaffirm.length)} has been queued.`);
+    }
 
-        const recentItems = usersWithStatus.filter(item => new Date(item.data.lastUpdate) > lastUpdateDate);
+    const recentUsersWithStatus = usersWithStatus.filter(item => new Date(item.data.lastUpdate) > lastUpdateDate);
 
-        const unbannedUsers = recentItems
-            .filter(item => item.data.userStatus === UserStatus.Organic || item.data.userStatus === UserStatus.Service || item.data.userStatus === UserStatus.Declined)
-            .map(item => item.username);
+    if (recentUsersWithStatus.length > 0) {
+        const newUpdateDate = max(recentUsersWithStatus.map(item => item.data.lastUpdate)) ?? new Date().getTime();
 
-        const bannedUsers = recentItems
-            .filter(item => item.data.userStatus === UserStatus.Banned)
-            .map(item => item.username);
+        const recentItems = recentUsersWithStatus.filter(item => new Date(item.data.lastUpdate) > lastUpdateDate);
 
-        if (bannedUsers.length > 0 || unbannedUsers.length > 0) {
+        if (recentItems.length > 0) {
+            await queueReclassifications(recentItems.map(item => ({ member: item.username, score: item.data.lastUpdate })), context);
             await context.scheduler.runJob({
                 name: ClientSubredditJob.HandleClassificationChanges,
                 runAt: new Date(),
-                data: { bannedUsers, unbannedUsers },
             });
-            const count = bannedUsers.length + unbannedUsers.length;
-            console.log(`Wiki Update: ${count} ${pluralize("user", count)} ${pluralize("has", count)} been reclassified. Job scheduled to update local store.`);
+
+            console.log(`Wiki Update: ${recentItems.length} ${pluralize("user", recentItems.length)} ${pluralize("has", recentItems.length)} been reclassified. Job scheduled to update local store.`);
         }
 
         await context.redis.set(lastUpdateDateKey, newUpdateDate.toString());
