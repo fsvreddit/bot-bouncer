@@ -1,6 +1,6 @@
 import { JobContext, JSONObject, ScheduledJobEvent } from "@devvit/public-api";
 import { CONTROL_SUBREDDIT } from "./constants.js";
-import { AppSetting } from "./settings.js";
+import { AppSetting, getControlSubSettings } from "./settings.js";
 import { addExternalSubmissionFromClientSub, ExternalSubmission } from "./externalSubmissions.js";
 import { getUserStatus } from "./dataStore.js";
 
@@ -46,6 +46,12 @@ export async function checkForBanNotes (event: ScheduledJobEvent<JSONObject | un
     const userStatus = await getUserStatus(username, context);
     if (userStatus) {
         console.log(`Ban note check: User ${username} already has a status of ${userStatus.userStatus}`);
+        return;
+    }
+
+    const controlSubSettings = await getControlSubSettings(context);
+    if (!controlSubSettings.banNoteCheckingEnabled) {
+        console.log(`Ban note check: Ban note checking is disabled in the control subreddit settings`);
         return;
     }
 
