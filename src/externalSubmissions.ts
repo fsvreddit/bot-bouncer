@@ -9,7 +9,7 @@ import { isLinkId } from "@devvit/shared-types/tid.js";
 import { AsyncSubmission, queuePostCreation } from "./postCreation.js";
 import pluralize from "pluralize";
 import { getUserExtended } from "./extendedDevvit.js";
-import { evaluateUserAccount, EvaluationResult, storeAccountInitialEvaluationResults } from "./handleControlSubAccountEvaluation.js";
+import { evaluateUserAccount, EvaluationResult, storeAccountInitialEvaluationResults, storeEvaluationStatistics } from "./handleControlSubAccountEvaluation.js";
 import json2md from "json2md";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { queueKarmaFarmingAccounts } from "./karmaFarmingSubsCheck.js";
@@ -284,14 +284,15 @@ export async function processExternalSubmissionsFromObserverSubreddits (_: unkno
         }
 
         for (const submission of currentSubmissionList) {
-            if (submission.evaluationResults && submission.evaluationResults.length > 0) {
-                await storeAccountInitialEvaluationResults(submission.username, submission.evaluationResults, context);
-            }
-
             const postSubmitted = await addExternalSubmissionToPostCreationQueue(submission, false, controlSubSettings, context);
             if (postSubmitted) {
                 console.log(`External Submissions: Processed external submission for ${submission.username} from /r/${subreddit}.`);
                 processed++;
+            }
+
+            if (submission.evaluationResults && submission.evaluationResults.length > 0) {
+                await storeAccountInitialEvaluationResults(submission.username, submission.evaluationResults, context);
+                await storeEvaluationStatistics(submission.evaluationResults, context);
             }
         }
 
