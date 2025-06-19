@@ -190,7 +190,7 @@ export async function handleClassificationChanges (_: unknown, context: JobConte
         console.error("Wiki Update: Client subreddit reclassification cron not found. This job should not be run directly.");
     }
 
-    const runLimit = addSeconds(new Date(), 20);
+    const runLimit = addSeconds(new Date(), 15);
     const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
 
     const items = await context.redis.zRange(RECLASSIFICATION_QUEUE, 0, -1);
@@ -215,10 +215,7 @@ export async function handleClassificationChanges (_: unknown, context: JobConte
         const currentStatus = await getUserStatus(username, context);
         if (!currentStatus) {
             console.log(`Wiki Update: No user status found for ${username}. Skipping.`);
-            continue;
-        }
-
-        if (currentStatus.userStatus === UserStatus.Organic || currentStatus.userStatus === UserStatus.Declined || currentStatus.userStatus === UserStatus.Service) {
+        } else if (currentStatus.userStatus === UserStatus.Organic || currentStatus.userStatus === UserStatus.Declined || currentStatus.userStatus === UserStatus.Service) {
             await handleSetOrganic(username, subredditName, context);
         } else if (currentStatus.userStatus === UserStatus.Banned) {
             await handleSetBanned(username, subredditName, settings, context);
