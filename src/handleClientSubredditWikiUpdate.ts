@@ -1,16 +1,19 @@
-import { Comment, JobContext, JSONObject, Post, RedisClient, ScheduledJobEvent, SettingsValues, TriggerContext, TxClientLike } from "@devvit/public-api";
-import { addSeconds, formatDate, subWeeks } from "date-fns";
+import { Comment, JobContext, Post, RedisClient, SettingsValues, TriggerContext, TxClientLike } from "@devvit/public-api";
+import { addMinutes, addSeconds, formatDate, subWeeks } from "date-fns";
 import pluralize from "pluralize";
 import { getUserStatus, UserStatus } from "./dataStore.js";
 import { setCleanupForUser } from "./cleanup.js";
 import { AppSetting, CONFIGURATION_DEFAULTS } from "./settings.js";
 import { isBanned, replaceAll } from "./utility.js";
-import { ClientSubredditJob } from "./constants.js";
+import { CLIENT_SUB_WIKI_UPDATE_CRON_KEY, ClientSubredditJob } from "./constants.js";
 import { fromPairs } from "lodash";
 import { recordBanForDigest, recordUnbanForDigest, removeRecordOfBanForDigest } from "./modmail/dailyDigest.js";
+import { ZMember } from "@devvit/protos";
+import { CronExpressionParser } from "cron-parser";
 
 const UNBAN_WHITELIST = "UnbanWhitelist";
 const BAN_STORE = "BanStore";
+const RECLASSIFICATION_QUEUE = "ReclassificationQueue";
 
 export async function recordBan (username: string, redis: RedisClient | TxClientLike) {
     await redis.zAdd(BAN_STORE, { member: username, score: new Date().getTime() });
@@ -167,40 +170,70 @@ async function handleSetBanned (username: string, subredditName: string, setting
     }
 }
 
-export async function handleClassificationChanges (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
-    const unbannedUsers = event.data?.unbannedUsers as string[] | undefined ?? [];
-    const bannedUsers = event.data?.bannedUsers as string[] | undefined ?? [];
-
-    if (unbannedUsers.length === 0 && bannedUsers.length === 0) {
-        console.log("Wiki Update: No classification changes to process");
+export async function queueReclassifications (items: ZMember[], context: TriggerContext) {
+    if (items.length === 0) {
         return;
     }
 
+    await context.redis.zAdd(RECLASSIFICATION_QUEUE, ...items);
+}
+
+export async function handleClassificationChanges (_: unknown, context: JobContext) {
+    const clientSubReclassificationCron = await context.redis.get(CLIENT_SUB_WIKI_UPDATE_CRON_KEY);
+    if (clientSubReclassificationCron) {
+        const nextScheduledRun = CronExpressionParser.parse(clientSubReclassificationCron).next().toDate();
+        if (nextScheduledRun < addMinutes(new Date(), 1)) {
+            console.log("Wiki Update: Client subreddit reclassification job is already scheduled to run soon. Skipping.");
+            return;
+        }
+    } else {
+        console.error("Wiki Update: Client subreddit reclassification cron not found. This job should not be run directly.");
+    }
+
+    const runLimit = addSeconds(new Date(), 20);
     const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
 
-    const promises: Promise<unknown>[] = [];
-
-    if (unbannedUsers.length > 0) {
-        promises.push(...unbannedUsers.map(username => handleSetOrganic(username, subredditName, context)));
+    const items = await context.redis.zRange(RECLASSIFICATION_QUEUE, 0, -1);
+    if (items.length === 0) {
+        console.log("Wiki Update: No users to process in reclassification queue.");
+        return;
+    } else {
+        console.log(`Wiki Update: Processing ${items.length} ${pluralize("user", items.length)} in reclassification queue for ${subredditName}.`);
     }
 
     const settings = await context.settings.getAll();
 
-    if (bannedUsers.length > 0 && settings[AppSetting.RemoveRecentContent]) {
-        // Take 5 users to process immediately, and schedule the rest
-        const userCount = 5;
-        const usersToProcess = bannedUsers.slice(0, userCount);
-        promises.push(...usersToProcess.map(username => handleSetBanned(username, subredditName, settings, context)));
+    let processed = 0;
 
-        const remainingUsers = bannedUsers.slice(userCount);
-        if (remainingUsers.length > 0) {
-            await context.scheduler.runJob({
-                name: ClientSubredditJob.HandleClassificationChanges,
-                runAt: addSeconds(new Date(), 5),
-                data: { bannedUsers: remainingUsers, unbannedUsers: [] },
-            });
+    while (items.length > 0 && new Date() < runLimit && processed < 50) {
+        const item = items.shift();
+        if (!item) {
+            break;
         }
+
+        const username = item.member;
+        const currentStatus = await getUserStatus(username, context);
+        if (!currentStatus) {
+            console.log(`Wiki Update: No user status found for ${username}. Skipping.`);
+            continue;
+        }
+
+        if (currentStatus.userStatus === UserStatus.Organic || currentStatus.userStatus === UserStatus.Declined || currentStatus.userStatus === UserStatus.Service) {
+            await handleSetOrganic(username, subredditName, context);
+        } else if (currentStatus.userStatus === UserStatus.Banned) {
+            await handleSetBanned(username, subredditName, settings, context);
+        }
+
+        await context.redis.zRem(RECLASSIFICATION_QUEUE, [username]);
+        processed++;
     }
 
-    await Promise.all(promises);
+    if (items.length > 0) {
+        await context.scheduler.runJob({
+            name: ClientSubredditJob.HandleClassificationChanges,
+            runAt: addSeconds(new Date(), 5),
+        });
+    } else {
+        console.log("Wiki Update: All users in reclassification queue processed.");
+    }
 }

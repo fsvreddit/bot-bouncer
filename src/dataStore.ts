@@ -12,6 +12,7 @@ import json2md from "json2md";
 import { sendMessageToWebhook } from "./utility.js";
 import { getUserExtended } from "./extendedDevvit.js";
 import { storeClassificationEvent } from "./statistics/classificationStatistics.js";
+import { queueReclassifications } from "./handleClientSubredditWikiUpdate.js";
 
 const USER_STORE = "UserStore";
 const TEMP_DECLINE_STORE = "TempDeclineStore";
@@ -426,30 +427,32 @@ export async function updateLocalStoreFromWiki (_: unknown, context: JobContext)
     console.log(`Wiki Update: Records for ${usersAdded} ${pluralize("user", usersAdded)} have been added`);
 
     const usersWithStatus = toPairs(incomingData)
-        .map(([username, userdata]) => ({ username, data: JSON.parse(userdata) as UserDetails }))
-        .filter(item => new Date(item.data.lastUpdate) > lastUpdateDate);
+        .map(([username, userdata]) => ({ username, data: JSON.parse(userdata) as UserDetails }));
 
-    if (usersWithStatus.length > 0) {
-        const newUpdateDate = max(usersWithStatus.map(item => item.data.lastUpdate)) ?? new Date().getTime();
+    const oneOffReaffirmationKey = "oneOffReaffirmation";
+    const reaffirmationDone = await context.redis.exists(oneOffReaffirmationKey);
+    if (!reaffirmationDone) {
+        const usersToReaffirm = usersWithStatus.filter(item => item.data.userStatus === UserStatus.Organic || item.data.userStatus === UserStatus.Declined || item.data.userStatus === UserStatus.Service);
+        await queueReclassifications(usersToReaffirm.map(item => ({ member: item.username, score: item.data.lastUpdate })), context);
+        await context.redis.set(oneOffReaffirmationKey, "true");
+        console.log(`Wiki Update: One-off reaffirmation for ${usersToReaffirm.length} ${pluralize("user", usersToReaffirm.length)} has been queued.`);
+    }
 
-        const recentItems = usersWithStatus.filter(item => new Date(item.data.lastUpdate) > lastUpdateDate);
+    const recentUsersWithStatus = usersWithStatus.filter(item => new Date(item.data.lastUpdate) > lastUpdateDate);
 
-        const unbannedUsers = recentItems
-            .filter(item => item.data.userStatus === UserStatus.Organic || item.data.userStatus === UserStatus.Service || item.data.userStatus === UserStatus.Declined)
-            .map(item => item.username);
+    if (recentUsersWithStatus.length > 0) {
+        const newUpdateDate = max(recentUsersWithStatus.map(item => item.data.lastUpdate)) ?? new Date().getTime();
 
-        const bannedUsers = recentItems
-            .filter(item => item.data.userStatus === UserStatus.Banned)
-            .map(item => item.username);
+        const recentItems = recentUsersWithStatus.filter(item => new Date(item.data.lastUpdate) > lastUpdateDate);
 
-        if (bannedUsers.length > 0 || unbannedUsers.length > 0) {
+        if (recentItems.length > 0) {
+            await queueReclassifications(recentItems.map(item => ({ member: item.username, score: item.data.lastUpdate })), context);
             await context.scheduler.runJob({
                 name: ClientSubredditJob.HandleClassificationChanges,
                 runAt: new Date(),
-                data: { bannedUsers, unbannedUsers },
             });
-            const count = bannedUsers.length + unbannedUsers.length;
-            console.log(`Wiki Update: ${count} ${pluralize("user", count)} ${pluralize("has", count)} been reclassified. Job scheduled to update local store.`);
+
+            console.log(`Wiki Update: ${recentItems.length} ${pluralize("user", recentItems.length)} ${pluralize("has", recentItems.length)} been reclassified. Job scheduled to update local store.`);
         }
 
         await context.redis.set(lastUpdateDateKey, newUpdateDate.toString());
