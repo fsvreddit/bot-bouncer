@@ -192,7 +192,7 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
     const socialLinks = await user.getSocialLinks();
     const uniqueSocialDomains = compact(uniq(socialLinks.map(link => domainFromUrl(link.outboundUrl))));
     if (uniqueSocialDomains.length > 0) {
-        accountPropsBullets.push(`Social links: ${uniqueSocialDomains.join(", ")}`);
+        accountPropsBullets.push(`Social links: ${uniqueSocialDomains.length}`);
     }
 
     if (autogenRegex.test(user.username)) {
