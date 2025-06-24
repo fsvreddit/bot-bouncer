@@ -4,7 +4,8 @@ import Ajv, { JSONSchemaType } from "ajv";
 import { fromPairs } from "lodash";
 import pluralize from "pluralize";
 import json2md from "json2md";
-import { format } from "date-fns";
+import { addSeconds, format } from "date-fns";
+import { setCleanupForUser } from "../cleanup.js";
 
 interface ModmailDataExtract {
     status?: UserStatus[];
@@ -14,6 +15,7 @@ interface ModmailDataExtract {
     bioRegex?: string;
     since?: string;
     format?: "json" | "table";
+    recheck?: boolean;
 }
 
 const schema: JSONSchemaType<ModmailDataExtract> = {
@@ -51,6 +53,10 @@ const schema: JSONSchemaType<ModmailDataExtract> = {
         format: {
             type: "string",
             enum: ["json", "table"],
+            nullable: true,
+        },
+        recheck: {
+            type: "boolean",
             nullable: true,
         },
     },
@@ -285,9 +291,22 @@ export async function dataExtract (message: string | undefined, conversationId: 
         });
     }
 
+    const body: json2md.DataObject[] = [
+        { p: `Data for ${data.length} ${pluralize("user", data.length)} exported to [wiki page](https://www.reddit.com/r/BotBouncer/wiki/${wikiPageName}?v=${result.revisionId}).` },
+    ];
+
+    if (request.recheck) {
+        if (data.length > 200) {
+            body.push({ p: "Recheck is enabled, but the number of users is too high. Please recheck manually or rerun with a smaller dataset." });
+        } else {
+            await Promise.all(data.map(entry => setCleanupForUser(entry.username, context.redis, addSeconds(new Date(), 1))));
+            body.push({ p: "Users have been queued for recheck, please run the extract again in around 20-30 minutes." });
+        }
+    }
+
     await context.reddit.modMail.reply({
         conversationId,
-        body: `Data for ${data.length} ${pluralize("user", data.length)} exported to [wiki page](https://www.reddit.com/r/BotBouncer/wiki/${wikiPageName}?v=${result.revisionId}).`,
+        body: json2md(body),
         isAuthorHidden: false,
     });
 }
