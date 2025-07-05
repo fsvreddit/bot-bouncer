@@ -50,13 +50,15 @@ export async function handleModmail (event: ModMail, context: TriggerContext) {
 
     const currentMessage = messagesInConversation.find(message => message.id && event.messageId.includes(message.id));
 
-    const isExtractCommand = context.subredditName === CONTROL_SUBREDDIT && currentMessage?.bodyMarkdown?.startsWith("!extract");
-    if (isExtractCommand) {
-        await dataExtract(currentMessage?.bodyMarkdown, event.conversationId, context);
+    const isModOnControlSub = context.subredditName === CONTROL_SUBREDDIT && currentMessage?.author?.isMod;
+
+    const isExtractCommand = currentMessage?.bodyMarkdown?.startsWith("!extract");
+    if (isExtractCommand && isModOnControlSub) {
+        await dataExtract(currentMessage.bodyMarkdown, event.conversationId, context);
         return;
     }
 
-    if (currentMessage?.bodyMarkdown) {
+    if (currentMessage?.bodyMarkdown && isModOnControlSub) {
         const addAllRegex = /^!addall(?: (banned))?/;
         const addAllMatches = addAllRegex.exec(currentMessage.bodyMarkdown);
         if (context.subredditName === CONTROL_SUBREDDIT && addAllMatches && addAllMatches.length === 2) {
@@ -71,9 +73,9 @@ export async function handleModmail (event: ModMail, context: TriggerContext) {
         return;
     }
 
-    const isSummaryCommand = context.subredditName === CONTROL_SUBREDDIT && currentMessage?.bodyMarkdown?.startsWith("!summary");
+    const isSummaryCommand = currentMessage?.bodyMarkdown?.startsWith("!summary");
 
-    if (isSummaryCommand) {
+    if (isSummaryCommand && isModOnControlSub) {
         await addSummaryForUser(event.conversationId, username, context);
         return;
     }
@@ -82,7 +84,7 @@ export async function handleModmail (event: ModMail, context: TriggerContext) {
         await markAppealAsHandled(event.conversationId, currentMessage, context);
     }
 
-    if (currentMessage?.bodyMarkdown && context.subredditName === CONTROL_SUBREDDIT) {
+    if (currentMessage?.bodyMarkdown && isModOnControlSub) {
         const statusChangeRegex = /!setstatus (banned|organic|declined)/;
         const statusChangeMatch = statusChangeRegex.exec(currentMessage.bodyMarkdown);
         if (statusChangeMatch && statusChangeMatch.length === 2) {
@@ -125,7 +127,9 @@ export async function handleModmail (event: ModMail, context: TriggerContext) {
         return;
     }
 
-    await setConversationHandled(event.conversationId, context);
+    if (isModOnControlSub) {
+        await setConversationHandled(event.conversationId, context);
+    }
 
     if (context.subredditName === CONTROL_SUBREDDIT) {
         const controlSubSettings = await getControlSubSettings(context);
