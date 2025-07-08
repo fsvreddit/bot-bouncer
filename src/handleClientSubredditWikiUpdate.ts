@@ -111,6 +111,7 @@ async function handleSetBanned (username: string, subredditName: string, setting
             username,
             sort: "new",
             timeframe: "week",
+            limit: 1000,
         }).all();
     } catch {
         return;
@@ -213,6 +214,7 @@ export async function handleClassificationChanges (_: unknown, context: JobConte
 
         const username = item.member;
         const currentStatus = await getUserStatus(username, context);
+
         if (!currentStatus) {
             console.log(`Wiki Update: No user status found for ${username}. Skipping.`);
         } else if (currentStatus.userStatus === UserStatus.Organic || currentStatus.userStatus === UserStatus.Declined || currentStatus.userStatus === UserStatus.Service) {

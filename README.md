@@ -47,6 +47,11 @@ Write in to [/r/BotBouncer's modmail](https://www.reddit.com/message/compose/?to
 
 # Change History
 
+## v1.13.11
+
+* Improve reliability of processing unbans after successful appeals
+* Internal changes to support operations on /r/BotBouncer
+
 ## v1.13.0
 
 * Improve user interface for reporting bots
