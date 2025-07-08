@@ -45,7 +45,7 @@ interface EvaluationAccuracyResult {
 }
 
 function getEvaluationResultsKey (evaluationResult: EvaluationResult): string {
-    if (evaluationResult.hitReason && evaluationResult.botName === "Bot Group") {
+    if (evaluationResult.hitReason && evaluationResult.botName.includes("Bot Group")) {
         return `${evaluationResult.botName}~${evaluationResult.hitReason}`;
     } else {
         return evaluationResult.botName;
