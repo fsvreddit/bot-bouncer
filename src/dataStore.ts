@@ -529,6 +529,7 @@ export async function getInitialAccountProperties (username: string, context: Tr
 
 export async function addUserToTempDeclineStore (username: string, context: TriggerContext) {
     await context.redis.zAdd(TEMP_DECLINE_STORE, { member: username, score: new Date().getTime() });
+    await context.redis.set(WIKI_UPDATE_DUE, "true");
 
     // Remove stale entries.
     await context.redis.zRemRangeByScore(TEMP_DECLINE_STORE, 0, subHours(new Date(), 1).getTime());
