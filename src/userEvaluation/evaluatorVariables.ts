@@ -150,16 +150,16 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
     await context.redis.set(EVALUATOR_VARIABLES_KEY, JSON.stringify(variables));
     await context.redis.set(EVALUATOR_VARIABLES_LAST_REVISION_KEY, wikiPage.revisionId);
 
-    // Write back to older wiki page for backwards compatibility
-    await context.reddit.updateWikiPage({
-        subredditName: CONTROL_SUBREDDIT,
-        page: EVALUATOR_VARIABLES_WIKI_PAGE,
-        content: JSON.stringify(variables),
-    });
-
     console.log("Evaluator Variables: Updated from wiki");
 
     if (context.subredditName === CONTROL_SUBREDDIT) {
+        // Write back to older wiki page for backwards compatibility
+        await context.reddit.updateWikiPage({
+            subredditName: CONTROL_SUBREDDIT,
+            page: EVALUATOR_VARIABLES_WIKI_PAGE,
+            content: JSON.stringify(variables),
+        });
+
         const controlSubSettings = await getControlSubSettings(context);
         if (controlSubSettings.observerSubreddits?.length) {
             for (const subreddit of controlSubSettings.observerSubreddits) {
