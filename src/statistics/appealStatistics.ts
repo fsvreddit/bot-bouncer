@@ -55,7 +55,7 @@ export async function updateAppealStatistics (context: JobContext) {
     const rows = Object.entries(appealData).map(([username, count]) => [`/u/${username}`, count.toLocaleString()]);
 
     wikiContent.push({ table: { headers, rows } });
-    wikiContent.push({ p: "This page updates once a day at midnight UTC, and may update more frequently." });
+    wikiContent.push({ p: "This page updates every 6 hours, and may update more frequently." });
 
     const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
     await context.reddit.updateWikiPage({

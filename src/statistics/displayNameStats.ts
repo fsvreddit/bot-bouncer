@@ -88,7 +88,8 @@ export async function updateDisplayNameStatistics (allEntries: [string, UserDeta
     wikiContent.push({ p: "This table lists all the 'Bad Display Name' regexes and their statistics from accounts submitted in the last two weeks." });
     wikiContent.push({ table: { headers: regexHeaders, rows: regexRows } });
     wikiContent.push({ p: "Note: | characters in regexes have been replaced with ¦ characters, because Reddit's markdown table support is broken" });
-    wikiContent.push({ p: "This page updates once a day at midnight UTC, and may update more frequently." });
+
+    wikiContent.push({ p: "This page updates every 6 hours, and may update more frequently." });
 
     await context.reddit.updateWikiPage({
         subredditName: context.subredditName ?? await context.reddit.getCurrentSubredditName(),
