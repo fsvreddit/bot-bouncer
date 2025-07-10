@@ -29,6 +29,10 @@ export async function setConversationHandled (conversationId: string, context: T
 }
 
 export async function handleModmail (event: ModMail, context: TriggerContext) {
+    if (event.messageAuthor?.name === context.appName) {
+        return;
+    }
+
     let conversationResponse: GetConversationResponse;
     try {
         conversationResponse = await context.reddit.modMail.getConversation({
