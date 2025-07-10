@@ -47,6 +47,11 @@ Write in to [/r/BotBouncer's modmail](https://www.reddit.com/message/compose/?to
 
 # Change History
 
+## Next
+
+* Add option to report posts/comments rather than ban users detected as bots, which could be useful for subreddits wary of the accuracy of Bot Bouncer listings
+* Prevent duplicate private mod notes from being created in Modmail when a user who is marked as banned writes in
+
 ## v1.13.11
 
 * Improve reliability of processing unbans after successful appeals
