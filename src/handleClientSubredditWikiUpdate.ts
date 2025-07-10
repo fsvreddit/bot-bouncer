@@ -173,7 +173,12 @@ async function handleSetBanned (username: string, subredditName: string, setting
         }
     } else {
         // Report content instead of banning.
-        await Promise.all(removableContent.map(item => context.reddit.report(item, { reason: "User is listed as a bot on r/BotBouncer" })));
+        await Promise.all(removableContent.map(async (item) => {
+            const itemReported = await context.redis.get(`reported:${item.id}`);
+            if (!itemReported) {
+                await context.reddit.report(item, { reason: "User is listed as a bot on r/BotBouncer" });
+            }
+        }));
     }
 }
 

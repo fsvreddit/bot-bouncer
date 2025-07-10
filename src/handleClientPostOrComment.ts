@@ -378,6 +378,8 @@ async function checkAndReportPotentialBot (username: string, target: Post | Comm
                 targetItem.remove(),
             );
         }
+    } else if (actionToTake === ActionType.Report) {
+        promises.push(context.redis.set(`reported:${targetItem.id}`, "true", { expiration: addWeeks(new Date(), 2) }));
     }
 
     await Promise.all(promises);
