@@ -146,6 +146,11 @@ export async function handleModmail (event: ModMail, context: TriggerContext) {
         if (conversationResponse.conversation.state === ModMailConversationState.Archived) {
             return;
         }
+
+        if (!isFirstMessage) {
+            return;
+        }
+
         await handleClientSubredditModmail(username, event.conversationId, context);
     }
 }
