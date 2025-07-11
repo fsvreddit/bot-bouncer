@@ -146,6 +146,9 @@ export async function addExternalSubmissionToPostCreationQueue (item: ExternalSu
             console.log(`External Submissions: No evaluators matched for ${item.username}.`);
             await addUserToTempDeclineStore(item.username, context);
             return false;
+        } else if (evaluationResults.some(result => result.canAutoBan && result.metThreshold)) {
+            console.log(`External Submissions: User ${item.username} met the auto-ban criteria.`);
+            item.initialStatus = UserStatus.Banned;
         }
     }
 
