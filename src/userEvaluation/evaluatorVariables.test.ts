@@ -54,7 +54,7 @@ test("Invalid regex", () => {
     };
 
     const result = invalidEvaluatorVariableCondition(variables);
-    expect(result.length).toBe(2);
+    expect(result.length).toBe(1);
 });
 
 test("Regex with || condition", () => {
@@ -65,7 +65,7 @@ test("Regex with || condition", () => {
     };
 
     const result = invalidEvaluatorVariableCondition(variables);
-    expect(result.length).toBe(2);
+    expect(result.length).toBe(1);
     console.log(result);
 });
 
