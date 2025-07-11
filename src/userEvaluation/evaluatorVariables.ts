@@ -158,6 +158,7 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
             subredditName: CONTROL_SUBREDDIT,
             page: EVALUATOR_VARIABLES_WIKI_PAGE,
             content: JSON.stringify(variables),
+            reason: `Updating evaluator variables from wiki on /r/${context.subredditName}`,
         });
 
         const controlSubSettings = await getControlSubSettings(context);
