@@ -174,72 +174,8 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
     }
 }
 
-interface InvalidRegex {
-    key: string;
-    regex: string;
-    warning?: string;
-}
-
-function isValidRegex (regex: string): boolean {
-    try {
-        new RegExp(regex, "u");
-        return true;
-    } catch (error) {
-        console.error(`Evaluator Variables: Invalid regex ${regex}`);
-        console.error(error);
-        return false;
-    }
-}
-
 export function invalidEvaluatorVariableCondition (variables: Record<string, JSONValue>): string[] {
-    const stringVariablesWithRegexes: string[] = [
-
-    ];
-
-    const arrayVariablesWithRegexes = [
-        "badusername:regexes",
-        "badusernameyoung:regexes",
-        "biotext:bantext",
-        "pinnedpost:bantext",
-        "pinnedpost:reporttext",
-        "posttitle:bantext",
-        "posttitle:reporttext",
-        "zombiensfw:regexes",
-        "commentphrase:phrases",
-        "tg-group:bodyregex",
-    ];
-
-    const invalidRegexes: InvalidRegex[] = [];
-    for (const key of stringVariablesWithRegexes) {
-        if (!variables[key]) {
-            console.warn(`Evaluator Variables: Missing variable ${key}.`);
-            continue;
-        }
-        const value = variables[key] as string;
-        if (!isValidRegex(value)) {
-            invalidRegexes.push({ key, regex: value });
-        }
-        if (value.includes("||")) {
-            invalidRegexes.push({ key, regex: value, warning: "This regex contains '||' which is dangerous." });
-        }
-    }
-
-    for (const key of arrayVariablesWithRegexes) {
-        if (!variables[key]) {
-            console.warn(`Evaluator Variables: Missing variable ${key}.`);
-            continue;
-        }
-        const value = variables[key] as string[];
-        for (const regex of value) {
-            if (!isValidRegex(regex)) {
-                invalidRegexes.push({ key, regex });
-            }
-            if (regex.includes("||")) {
-                invalidRegexes.push({ key, regex, warning: "This regex contains '||' which is dangerous." });
-            }
-        }
-    }
-    const results = invalidRegexes.map(({ key, regex }) => `Invalid regex on ${key}: \`${regex}\``);
+    const results: string[] = [];
 
     // Now check for inconsistent types.
     for (const key of Object.keys(variables)) {
