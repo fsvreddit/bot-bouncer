@@ -59,6 +59,7 @@ While you can unban the user yourself, this only affects the user on your subred
 
 * Add option to report posts/comments rather than ban users detected as bots, which could be useful for subreddits wary of the accuracy of Bot Bouncer listings
 * Prevent duplicate private mod notes from being created in Modmail when a user who is marked as banned writes in
+* Improve accuracy of Soccer/Movie streams evaluator
 
 ## v1.13.11
 
