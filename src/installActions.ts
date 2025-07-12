@@ -22,10 +22,6 @@ export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, contex
     }
 
     await checkJobsAreApplicable(context);
-
-    // Delete obsolete key
-    await context.redis.del("activityCheckStore");
-    await context.redis.del("activityCheckQueue");
 }
 
 async function addControlSubredditJobs (context: TriggerContext) {
