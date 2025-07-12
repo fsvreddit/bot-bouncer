@@ -148,6 +148,7 @@ export async function addExternalSubmissionToPostCreationQueue (item: ExternalSu
             return false;
         } else if (evaluationResults.some(result => result.canAutoBan && result.metThreshold)) {
             console.log(`External Submissions: User ${item.username} met the auto-ban criteria.`);
+            await storeAccountInitialEvaluationResults(item.username, evaluationResults, context);
             item.initialStatus = UserStatus.Banned;
         }
     }
