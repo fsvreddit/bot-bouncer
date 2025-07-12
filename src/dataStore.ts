@@ -239,7 +239,7 @@ function compactDataForWiki (input: string): string | undefined {
         status.userStatus = status.lastStatus;
     }
     delete status.lastStatus;
-    if (status.lastUpdate < subDays(new Date(), 2).getTime()) {
+    if (status.lastUpdate < subDays(new Date(), 1).getTime()) {
         status.lastUpdate = 0;
     } else {
         // Truncate the last update date/time to the end of the second.
