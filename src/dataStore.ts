@@ -45,7 +45,7 @@ export interface UserDetails {
     lastStatus?: UserStatus;
     lastUpdate: number;
     submitter?: string;
-    operator: string;
+    operator?: string;
     reportedAt?: number;
     /**
     * @deprecated bioText should not be used.
@@ -179,7 +179,7 @@ export async function setUserStatus (username: string, details: UserDetails, con
         }, context);
     }
 
-    if (currentStatus?.userStatus === UserStatus.Pending && details.userStatus !== UserStatus.Pending && details.operator !== context.appName) {
+    if (currentStatus?.userStatus === UserStatus.Pending && details.userStatus !== UserStatus.Pending && details.operator && details.operator !== context.appName) {
         await storeClassificationEvent(details.operator, context);
     }
 }
@@ -233,7 +233,7 @@ function compactDataForWiki (input: string): string | undefined {
         return;
     }
 
-    status.operator = "";
+    delete status.operator;
     delete status.submitter;
     if (status.userStatus === UserStatus.Purged && status.lastStatus) {
         status.userStatus = status.lastStatus;
