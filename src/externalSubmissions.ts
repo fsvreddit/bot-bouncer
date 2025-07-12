@@ -217,6 +217,15 @@ export async function handleExternalSubmissionsPageUpdate (context: TriggerConte
         return;
     }
 
+    const externalSubmissionLock = "externalSubmissionLock";
+    const isLocked = await context.redis.exists(externalSubmissionLock);
+    if (isLocked) {
+        console.log("External Submissions: Already processing, skipping this run.");
+        return;
+    }
+
+    await context.redis.set(externalSubmissionLock, "true", { expiration: addMinutes(new Date(), 1) });
+
     let wikiPage: WikiPage | undefined;
     try {
         wikiPage = await context.reddit.getWikiPage(CONTROL_SUBREDDIT, WIKI_PAGE);
@@ -234,10 +243,11 @@ export async function handleExternalSubmissionsPageUpdate (context: TriggerConte
     }
 
     if (currentSubmissionList.length === 0) {
+        await context.redis.del(externalSubmissionLock);
         return;
     }
 
-    const executionLimit = addSeconds(new Date(), 25);
+    const executionLimit = addSeconds(new Date(), 15);
     const controlSubSettings = await getControlSubSettings(context);
     const immediate = currentSubmissionList.length === 1;
     let added = 0;
@@ -261,6 +271,7 @@ export async function handleExternalSubmissionsPageUpdate (context: TriggerConte
     });
 
     console.log(`External Submissions: Added ${added} external ${pluralize("submission", added)} to the queue.`);
+    await context.redis.del(externalSubmissionLock);
 }
 
 export async function processExternalSubmissionsFromObserverSubreddits (_: unknown, context: JobContext) {
