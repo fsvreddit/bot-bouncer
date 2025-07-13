@@ -54,6 +54,18 @@ export interface UserDetails {
     mostRecentActivity?: number;
 }
 
+interface UserDetailsForWiki {
+    trackingPostId?: string;
+    userStatus: UserStatus;
+    lastStatus?: UserStatus;
+    lastUpdate: number;
+    submitter?: string;
+    operator?: string;
+    reportedAt?: number;
+    bioText?: string;
+    mostRecentActivity?: number;
+}
+
 const ALL_POTENTIAL_USER_PREFIXES = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_".split("");
 
 function getStaleStoreKey (username: string): string {
@@ -211,7 +223,7 @@ function compressData (value: Record<string, string>): string {
 }
 
 function compactDataForWiki (input: string): string | undefined {
-    const status = JSON.parse(input) as UserDetails;
+    const status = JSON.parse(input) as UserDetailsForWiki;
 
     // Exclude entries for users marked as "purged" or "retired" after an hour
     if ((status.userStatus === UserStatus.Purged || status.userStatus === UserStatus.Retired) && status.lastUpdate < subHours(new Date(), 1).getTime()) {
@@ -234,6 +246,7 @@ function compactDataForWiki (input: string): string | undefined {
         status.userStatus = status.lastStatus;
     }
     delete status.lastStatus;
+
     if (status.lastUpdate < subDays(new Date(), 1).getTime()) {
         status.lastUpdate = 0;
     } else {
@@ -242,12 +255,11 @@ function compactDataForWiki (input: string): string | undefined {
     }
 
     delete status.reportedAt;
-    // eslint-disable-next-line @typescript-eslint/no-deprecated
     delete status.bioText;
     delete status.mostRecentActivity;
 
     if (status.userStatus !== UserStatus.Banned) {
-        status.trackingPostId = "";
+        delete status.trackingPostId;
     }
 
     return JSON.stringify(status);
@@ -338,7 +350,7 @@ export async function updateWikiPage (_: unknown, context: JobContext) {
 
     await context.redis.del(WIKI_UPDATE_DUE);
 
-    console.log(`Wiki page has been updated with ${Object.keys(dataToWrite).length} entries`);
+    console.log(`Wiki page has been updated with ${Object.keys(dataToWrite).length} entries, size: ${content.length.toLocaleString()} bytes`);
 
     if (content.length > MAX_WIKI_PAGE_SIZE * 0.75) {
         const spaceAlertKey = "wikiSpaceAlert";
