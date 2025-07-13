@@ -125,7 +125,7 @@ export async function writeUserStatus (username: string, details: UserDetails, t
         await txn.hSet(keyToSet, { [username]: JSON.stringify(details) });
         await txn.hDel(keyToDelete, [username]);
     } catch (error) {
-        console.error(`Failed to write user status for ${username}:`, error);
+        console.error(`Failed to write user status of ${details.userStatus} for ${username}:`, error);
         throw new Error(`Failed to write user status for ${username}`);
     }
 }
