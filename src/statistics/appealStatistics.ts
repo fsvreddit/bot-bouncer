@@ -1,26 +1,27 @@
-import { JobContext, MessageData, TriggerContext } from "@devvit/public-api";
+import { JobContext, TriggerContext } from "@devvit/public-api";
 import { eachDayOfInterval, format, startOfDay, subDays } from "date-fns";
 import { deleteKeyForAppeal, isActiveAppeal } from "../modmail/controlSubModmail.js";
 import json2md from "json2md";
+import { ModmailMessage } from "../modmail/modmail.js";
 
 function getKeyForDate (date = new Date()): string {
     return `appealStatistics~${format(date, "yyyy-MM-dd")}`;
 }
 
-export async function markAppealAsHandled (conversationId: string, currentMessage: MessageData, context: TriggerContext) {
-    if (!currentMessage.author?.name || currentMessage.isInternal || !currentMessage.author.isMod || currentMessage.author.name === context.appName) {
+export async function markAppealAsHandled (modmail: ModmailMessage, context: TriggerContext) {
+    if (modmail.isInternal || !modmail.messageAuthorIsMod || modmail.messageAuthor === context.appName) {
         return;
     }
 
-    const activeAppeal = await isActiveAppeal(conversationId, context);
+    const activeAppeal = await isActiveAppeal(modmail.conversationId, context);
     if (!activeAppeal) {
         return;
     }
 
-    const handled = await context.redis.zIncrBy(getKeyForDate(), currentMessage.author.name, 1);
-    await deleteKeyForAppeal(conversationId, context);
+    const handled = await context.redis.zIncrBy(getKeyForDate(), modmail.messageAuthor, 1);
+    await deleteKeyForAppeal(modmail.conversationId, context);
 
-    console.log(`User ${currentMessage.author.name} handled an appeal. Total handled today: ${handled}`);
+    console.log(`User ${modmail.messageAuthor} handled an appeal. Total handled today: ${handled}`);
 }
 
 export async function updateAppealStatistics (context: JobContext) {
