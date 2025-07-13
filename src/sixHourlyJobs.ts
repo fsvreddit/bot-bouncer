@@ -13,7 +13,7 @@ import { updateDisplayNameStatistics } from "./statistics/displayNameStats.js";
 import { updateSocialLinksStatistics } from "./statistics/socialLinksStatistics.js";
 import { updateBioStatistics } from "./statistics/userBioStatistics.js";
 
-export async function performDailyJobs (_: unknown, context: JobContext) {
+export async function perform6HourlyJobs (_: unknown, context: JobContext) {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
         console.log("Daily jobs are only run in the control subreddit.");
         return;
