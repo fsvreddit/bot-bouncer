@@ -18,7 +18,7 @@ export async function updateDisplayNameStatistics (allEntries: [string, UserDeta
     }
 
     recentData = recentData.filter(item => item.data.displayName);
-    const recentBanned = recentData.filter(item => item.data.userStatus === UserStatus.Banned);
+    const recentBanned = recentData.filter(item => item.data.userStatus === UserStatus.Banned || item.data.lastStatus === UserStatus.Banned);
 
     const evaluatorVariables = await getEvaluatorVariables(context);
     const displayNameRegexes = evaluatorVariables["baddisplayname:regexes"] as string[] | undefined ?? [];
