@@ -1,5 +1,5 @@
 import { JobContext, TriggerContext, WikiPage } from "@devvit/public-api";
-import { CONTROL_SUBREDDIT } from "./constants.js";
+import { CONTROL_SUBREDDIT, INTERNAL_BOT } from "./constants.js";
 import { addUserToTempDeclineStore, getUserStatus, setUserStatus, UserStatus } from "./dataStore.js";
 import { ControlSubSettings, getControlSubSettings } from "./settings.js";
 import Ajv, { JSONSchemaType } from "ajv";
@@ -138,14 +138,25 @@ export async function addExternalSubmissionToPostCreationQueue (item: ExternalSu
         return false;
     }
 
-    if (!item.submitter) {
+    if (!item.submitter || item.submitter === INTERNAL_BOT) {
         // Automatic submission. Check if any evaluators match.
         const variables = await getEvaluatorVariables(context);
-        const evaluationResults = await evaluateUserAccount(item.username, variables, context, false);
-        if (evaluationResults.length === 0) {
+        const evaluationResults = await evaluateUserAccount(item.username, variables, context, item.submitter === INTERNAL_BOT);
+
+        if (item.submitter === INTERNAL_BOT) {
+            if (item.evaluationResults) {
+                item.evaluationResults.push(...evaluationResults);
+            } else {
+                item.evaluationResults = evaluationResults;
+            }
+        } else if (evaluationResults.length === 0) {
             console.log(`External Submissions: No evaluators matched for ${item.username}.`);
             await addUserToTempDeclineStore(item.username, context);
             return false;
+        } else if (evaluationResults.some(result => result.canAutoBan && result.metThreshold)) {
+            console.log(`External Submissions: User ${item.username} met the auto-ban criteria.`);
+            item.evaluationResults = evaluationResults;
+            item.initialStatus = UserStatus.Banned;
         }
     }
 
@@ -214,6 +225,15 @@ export async function handleExternalSubmissionsPageUpdate (context: TriggerConte
         return;
     }
 
+    const externalSubmissionLock = "externalSubmissionLock";
+    const isLocked = await context.redis.exists(externalSubmissionLock);
+    if (isLocked) {
+        console.log("External Submissions: Already processing, skipping this run.");
+        return;
+    }
+
+    await context.redis.set(externalSubmissionLock, "true", { expiration: addMinutes(new Date(), 1) });
+
     let wikiPage: WikiPage | undefined;
     try {
         wikiPage = await context.reddit.getWikiPage(CONTROL_SUBREDDIT, WIKI_PAGE);
@@ -231,10 +251,11 @@ export async function handleExternalSubmissionsPageUpdate (context: TriggerConte
     }
 
     if (currentSubmissionList.length === 0) {
+        await context.redis.del(externalSubmissionLock);
         return;
     }
 
-    const executionLimit = addSeconds(new Date(), 25);
+    const executionLimit = addSeconds(new Date(), 15);
     const controlSubSettings = await getControlSubSettings(context);
     const immediate = currentSubmissionList.length === 1;
     let added = 0;
@@ -258,6 +279,7 @@ export async function handleExternalSubmissionsPageUpdate (context: TriggerConte
     });
 
     console.log(`External Submissions: Added ${added} external ${pluralize("submission", added)} to the queue.`);
+    await context.redis.del(externalSubmissionLock);
 }
 
 export async function processExternalSubmissionsFromObserverSubreddits (_: unknown, context: JobContext) {

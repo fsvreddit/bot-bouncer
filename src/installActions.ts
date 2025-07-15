@@ -22,10 +22,6 @@ export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, contex
     }
 
     await checkJobsAreApplicable(context);
-
-    // Delete obsolete key
-    await context.redis.del("activityCheckStore");
-    await context.redis.del("activityCheckQueue");
 }
 
 async function addControlSubredditJobs (context: TriggerContext) {
@@ -36,12 +32,12 @@ async function addControlSubredditJobs (context: TriggerContext) {
         }),
 
         context.scheduler.runJob({
-            name: ControlSubredditJob.PerformDailyJobs,
+            name: ControlSubredditJob.Perform6HourlyJobs,
             cron: "0 0/6 * * *",
         }),
 
         context.scheduler.runJob({
-            name: ControlSubredditJob.PerformDailyJobs,
+            name: ControlSubredditJob.Perform6HourlyJobs,
             runAt: new Date(),
         }),
 
@@ -115,7 +111,7 @@ async function addClientSubredditJobs (context: TriggerContext) {
     let randomHour = Math.floor(Math.random() * 3);
     await context.scheduler.runJob({
         name: UniversalJob.UpdateEvaluatorVariables,
-        cron: `${randomMinute} ${randomHour}/3 * * *`,
+        cron: `${randomMinute} ${randomHour}/1 * * *`,
     });
 
     await context.scheduler.runJob({

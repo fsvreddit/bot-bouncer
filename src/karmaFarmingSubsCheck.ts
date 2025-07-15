@@ -51,6 +51,7 @@ async function getDistinctAccounts (context: JobContext): Promise<string[]> {
     const variables = await getEvaluatorVariables(context);
     const karmaFarmingSubs = variables["generic:karmafarminglinksubs"] as string[] | undefined ?? [];
     const karmaFarmingSubsNSFW = variables["generic:karmafarminglinksubsnsfw"] as string[] | undefined ?? [];
+    const uniqueSubs = uniq([...karmaFarmingSubs, ...karmaFarmingSubsNSFW]);
 
     // Remove check dates older than a week.
     await context.redis.zRemRangeByScore(CHECK_DATE_KEY, 0, subWeeks(new Date(), 1).getTime());
@@ -58,7 +59,7 @@ async function getDistinctAccounts (context: JobContext): Promise<string[]> {
     const lastDates = await context.redis.zRange(CHECK_DATE_KEY, 0, -1);
 
     const subsWithDates: SubWithDate[] = [];
-    for (const sub of [...karmaFarmingSubs, ...karmaFarmingSubsNSFW]) {
+    for (const sub of uniqueSubs) {
         const lastCheckDate = lastCheckDateForSub(sub, lastDates);
         if (lastCheckDate < subMinutes(new Date(), 25)) {
             subsWithDates.push({ subredditName: sub, lastCheckDate });
@@ -68,13 +69,19 @@ async function getDistinctAccounts (context: JobContext): Promise<string[]> {
     // Order subs by oldest first.
     subsWithDates.sort((a, b) => a.lastCheckDate.getTime() - b.lastCheckDate.getTime());
 
-    // Take top 75 subreddits.
+    // Take top 150 subreddits.
     const subsToCheck: Record<string, Date> = {};
-    for (const sub of subsWithDates.slice(0, 75)) {
+    for (const sub of subsWithDates.slice(0, 150)) {
         subsToCheck[sub.subredditName] = sub.lastCheckDate;
     }
 
-    console.log(`Karma Farming Subs: Checking ${Object.keys(subsToCheck).length} distinct subs`);
+    console.log(`Karma Farming Subs: Checking ${Object.keys(subsToCheck).length} distinct subs out of ${Object.keys(subsWithDates).length} subs not checked recently.`);
+    const firstDate = subsWithDates.find(entry => entry.lastCheckDate > new Date(0))?.lastCheckDate;
+    if (firstDate) {
+        console.log(`Karma Farming Subs: First check date is ${firstDate.toISOString()}`);
+    }
+
+    console.log(`Karma Farming Subs: Total subs in KF list: ${uniqueSubs.length}`);
 
     const promises = Object.entries(subsToCheck).map(([sub, date]) => getAccountsFromSub(sub, date, context));
     const accountsToCheck = compact(await Promise.all(promises));

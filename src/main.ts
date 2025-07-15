@@ -18,7 +18,7 @@ import { evaluateKarmaFarmingSubs, queueKarmaFarmingSubs } from "./karmaFarmingS
 import { handleControlSubForm, sendQueryToSubmitter } from "./handleControlSubMenu.js";
 import { checkForUpdates } from "./upgradeNotifier.js";
 import { sendDailyDigest } from "./modmail/dailyDigest.js";
-import { performDailyJobs } from "./dailyJobs.js";
+import { perform6HourlyJobs } from "./sixHourlyJobs.js";
 import { checkUptimeAndMessages } from "./uptimeMonitor.js";
 import { analyseBioText } from "./similarBioTextFinder/bioTextFinder.js";
 import { processQueuedSubmission } from "./postCreation.js";
@@ -165,8 +165,8 @@ Devvit.addSchedulerJob({
 });
 
 Devvit.addSchedulerJob({
-    name: ControlSubredditJob.PerformDailyJobs,
-    onRun: performDailyJobs,
+    name: ControlSubredditJob.Perform6HourlyJobs,
+    onRun: perform6HourlyJobs,
 });
 
 Devvit.addSchedulerJob({

@@ -61,7 +61,7 @@ export async function checkForUpdates (_: unknown, context: JobContext) {
         message.push({ ul: update.whatsNewBullets });
     }
 
-    message.push({ p: `To install this update, or to disable these notifications, visit the [Bot Bouncer Configuration Page](https://developers.reddit.com/r/${subredditName}/apps/${context.appName}) for /r/${subredditName}.` });
+    message.push({ p: `To install this update, or to disable these notifications, visit the [**Bot Bouncer Configuration Page**](https://developers.reddit.com/r/${subredditName}/apps/${context.appName}) for /r/${subredditName}.` });
 
     await context.reddit.modMail.createModNotification({
         subredditId: context.subredditId,

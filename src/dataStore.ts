@@ -45,11 +45,23 @@ export interface UserDetails {
     lastStatus?: UserStatus;
     lastUpdate: number;
     submitter?: string;
-    operator: string;
+    operator?: string;
     reportedAt?: number;
     /**
     * @deprecated bioText should not be used.
     */
+    bioText?: string;
+    mostRecentActivity?: number;
+}
+
+interface UserDetailsForWiki {
+    trackingPostId?: string;
+    userStatus: UserStatus;
+    lastStatus?: UserStatus;
+    lastUpdate: number;
+    submitter?: string;
+    operator?: string;
+    reportedAt?: number;
     bioText?: string;
     mostRecentActivity?: number;
 }
@@ -113,7 +125,7 @@ export async function writeUserStatus (username: string, details: UserDetails, t
         await txn.hSet(keyToSet, { [username]: JSON.stringify(details) });
         await txn.hDel(keyToDelete, [username]);
     } catch (error) {
-        console.error(`Failed to write user status for ${username}:`, error);
+        console.error(`Failed to write user status of ${details.userStatus} for ${username}:`, error);
         throw new Error(`Failed to write user status for ${username}`);
     }
 }
@@ -179,7 +191,7 @@ export async function setUserStatus (username: string, details: UserDetails, con
         }, context);
     }
 
-    if (currentStatus?.userStatus === UserStatus.Pending && details.userStatus !== UserStatus.Pending && details.operator !== context.appName) {
+    if (currentStatus?.userStatus === UserStatus.Pending && details.userStatus !== UserStatus.Pending && details.operator && details.operator !== context.appName) {
         await storeClassificationEvent(details.operator, context);
     }
 }
@@ -211,12 +223,7 @@ function compressData (value: Record<string, string>): string {
 }
 
 function compactDataForWiki (input: string): string | undefined {
-    const status = JSON.parse(input) as UserDetails;
-
-    // Exclude entries for users marked as "retired" after a day
-    if (status.userStatus === UserStatus.Retired && status.lastUpdate < subDays(new Date(), 1).getTime()) {
-        return;
-    }
+    const status = JSON.parse(input) as UserDetailsForWiki;
 
     // Exclude entries for users marked as "purged" or "retired" after an hour
     if ((status.userStatus === UserStatus.Purged || status.userStatus === UserStatus.Retired) && status.lastUpdate < subHours(new Date(), 1).getTime()) {
@@ -233,13 +240,14 @@ function compactDataForWiki (input: string): string | undefined {
         return;
     }
 
-    status.operator = "";
+    delete status.operator;
     delete status.submitter;
     if (status.userStatus === UserStatus.Purged && status.lastStatus) {
         status.userStatus = status.lastStatus;
     }
     delete status.lastStatus;
-    if (status.lastUpdate < subDays(new Date(), 2).getTime()) {
+
+    if (status.lastUpdate < subDays(new Date(), 1).getTime()) {
         status.lastUpdate = 0;
     } else {
         // Truncate the last update date/time to the end of the second.
@@ -247,12 +255,11 @@ function compactDataForWiki (input: string): string | undefined {
     }
 
     delete status.reportedAt;
-    // eslint-disable-next-line @typescript-eslint/no-deprecated
     delete status.bioText;
     delete status.mostRecentActivity;
 
     if (status.userStatus !== UserStatus.Banned) {
-        status.trackingPostId = "";
+        delete status.trackingPostId;
     }
 
     return JSON.stringify(status);
@@ -343,7 +350,7 @@ export async function updateWikiPage (_: unknown, context: JobContext) {
 
     await context.redis.del(WIKI_UPDATE_DUE);
 
-    console.log(`Wiki page has been updated with ${Object.keys(dataToWrite).length} entries`);
+    console.log(`Wiki page has been updated with ${Object.keys(dataToWrite).length} entries, size: ${content.length.toLocaleString()} bytes`);
 
     if (content.length > MAX_WIKI_PAGE_SIZE * 0.75) {
         const spaceAlertKey = "wikiSpaceAlert";
@@ -529,6 +536,7 @@ export async function getInitialAccountProperties (username: string, context: Tr
 
 export async function addUserToTempDeclineStore (username: string, context: TriggerContext) {
     await context.redis.zAdd(TEMP_DECLINE_STORE, { member: username, score: new Date().getTime() });
+    await context.redis.set(WIKI_UPDATE_DUE, "true");
 
     // Remove stale entries.
     await context.redis.zRemRangeByScore(TEMP_DECLINE_STORE, 0, subHours(new Date(), 1).getTime());

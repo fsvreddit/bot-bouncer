@@ -69,7 +69,7 @@ interface FriendlyUserDetails {
     reportedAt?: string;
     lastUpdate: string;
     submitter?: string;
-    operator: string;
+    operator?: string;
     bioText?: string;
 }
 
@@ -253,7 +253,7 @@ export async function dataExtract (message: string | undefined, conversationId: 
                 userDetails.reportedAt ?? "",
                 userDetails.lastUpdate,
                 userDetails.submitter ?? "",
-                userDetails.operator,
+                userDetails.operator ?? "unknown",
             ];
 
             if (request.bioRegex) {

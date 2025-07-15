@@ -6,7 +6,7 @@ import { getUserStatus, UserDetails, UserStatus } from "./dataStore.js";
 import { isUserWhitelisted, recordBan } from "./handleClientSubredditWikiUpdate.js";
 import { CONTROL_SUBREDDIT } from "./constants.js";
 import { getPostOrCommentById, getUserOrUndefined, isApproved, isBanned, isModerator, replaceAll } from "./utility.js";
-import { AppSetting, CONFIGURATION_DEFAULTS, getControlSubSettings } from "./settings.js";
+import { ActionType, AppSetting, CONFIGURATION_DEFAULTS, getControlSubSettings } from "./settings.js";
 import { addExternalSubmissionFromClientSub } from "./externalSubmissions.js";
 import { isLinkId } from "@devvit/shared-types/tid.js";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
@@ -212,49 +212,57 @@ async function handleContentCreation (username: string, currentStatus: UserDetai
         return;
     }
 
+    const settings = await context.settings.getAll();
+    const [actionToTake] = settings[AppSetting.Action] as ActionType[] | undefined ?? [ActionType.Ban];
+
     const promises: Promise<unknown>[] = [];
-
-    const removedByMod = await context.redis.exists(`removedbymod:${targetId}`);
     const target = await getPostOrCommentById(targetId, context);
-    if (!removedByMod && !target.spam && !target.removed) {
-        promises.push(context.reddit.remove(targetId, true));
-        console.log(`Content Create: ${targetId} removed for ${user.username}`);
-        promises.push(context.redis.set(`removed:${username}`, targetId, { expiration: addWeeks(new Date(), 2) }));
-    } else {
-        // Might be in the modqueue.
-        const modQueue = await context.reddit.getModQueue({
-            subreddit: subredditName,
-            type: "all",
-        }).all();
-        const foundInModQueue = modQueue.find(item => item.id === targetId);
-        if (foundInModQueue) {
-            promises.push(context.reddit.remove(foundInModQueue.id, true));
-            console.log(`Content Create: ${foundInModQueue.id} removed via mod queue for ${user.username}`);
+
+    if (actionToTake === ActionType.Ban) {
+        const removedByMod = await context.redis.exists(`removedbymod:${targetId}`);
+        if (!removedByMod && !target.spam && !target.removed) {
+            promises.push(context.reddit.remove(targetId, true));
+            console.log(`Content Create: ${targetId} removed for ${user.username}`);
+            promises.push(context.redis.set(`removed:${username}`, targetId, { expiration: addWeeks(new Date(), 2) }));
+        } else {
+            // Might be in the modqueue.
+            const modQueue = await context.reddit.getModQueue({
+                subreddit: subredditName,
+                type: "all",
+            }).all();
+            const foundInModQueue = modQueue.find(item => item.id === targetId);
+            if (foundInModQueue) {
+                promises.push(context.reddit.remove(foundInModQueue.id, true));
+                console.log(`Content Create: ${foundInModQueue.id} removed via mod queue for ${user.username}`);
+            }
         }
-    }
 
-    const isCurrentlyBanned = await isBanned(user.username, context);
+        const isCurrentlyBanned = await isBanned(user.username, context);
 
-    if (!isCurrentlyBanned) {
-        let message = await context.settings.get<string>(AppSetting.BanMessage) ?? CONFIGURATION_DEFAULTS.banMessage;
-        message = replaceAll(message, "{subreddit}", subredditName);
-        message = replaceAll(message, "{account}", user.username);
-        message = replaceAll(message, "{link}", user.username);
+        if (!isCurrentlyBanned) {
+            let message = await context.settings.get<string>(AppSetting.BanMessage) ?? CONFIGURATION_DEFAULTS.banMessage;
+            message = replaceAll(message, "{subreddit}", subredditName);
+            message = replaceAll(message, "{account}", user.username);
+            message = replaceAll(message, "{link}", user.username);
 
-        let banNote = CONFIGURATION_DEFAULTS.banNote;
-        banNote = replaceAll(banNote, "{me}", context.appName);
-        banNote = replaceAll(banNote, "{date}", formatDate(new Date(), "yyyy-MM-dd"));
+            let banNote = CONFIGURATION_DEFAULTS.banNote;
+            banNote = replaceAll(banNote, "{me}", context.appName);
+            banNote = replaceAll(banNote, "{date}", formatDate(new Date(), "yyyy-MM-dd"));
 
-        promises.push(context.reddit.banUser({
-            subredditName,
-            username: user.username,
-            message,
-            note: banNote,
-        }));
+            promises.push(context.reddit.banUser({
+                subredditName,
+                username: user.username,
+                message,
+                note: banNote,
+            }));
 
-        promises.push(recordBan(username, context.redis));
-        promises.push(recordBanForDigest(username, context.redis));
-        console.log(`Content Create: ${user.username} banned from ${subredditName}`);
+            promises.push(recordBan(username, context.redis));
+            promises.push(recordBanForDigest(username, context.redis));
+            console.log(`Content Create: ${user.username} banned from ${subredditName}`);
+        }
+    } else {
+        // Report, not ban.
+        promises.push(context.reddit.report(target, { reason: "User is listed as a bot on /r/BotBouncer" }));
     }
 
     await Promise.all(promises);
@@ -361,7 +369,8 @@ async function checkAndReportPotentialBot (username: string, target: Post | Comm
 
     console.log(`Created external submission via automated evaluation for ${user.username} for bot style ${botName}`);
 
-    if (settings[AppSetting.RemoveContentWhenReporting]) {
+    const [actionToTake] = settings[AppSetting.Action] as ActionType[] | undefined ?? [ActionType.Ban];
+    if (actionToTake === ActionType.Ban && settings[AppSetting.RemoveContentWhenReporting]) {
         const removedByMod = await context.redis.exists(`removedbymod:${targetItem.id}`);
         if (!removedByMod && !targetItem.spam) {
             promises.push(
@@ -369,6 +378,8 @@ async function checkAndReportPotentialBot (username: string, target: Post | Comm
                 targetItem.remove(),
             );
         }
+    } else if (actionToTake === ActionType.Report) {
+        promises.push(context.redis.set(`reported:${targetItem.id}`, "true", { expiration: addWeeks(new Date(), 2) }));
     }
 
     await Promise.all(promises);

@@ -16,7 +16,7 @@ export async function updateMainStatisticsPage (entries: UserDetails[], context:
     wikiContent.push({ ul: results.map(item => `**${item.member}**: ${item.score.toLocaleString()}`) });
 
     wikiContent.push({ p: `**Total accounts processed**: ${sum(results.map(item => item.score)).toLocaleString()}` });
-    wikiContent.push({ p: "These statistics update once a day at midnight UTC, and may update more frequently." });
+    wikiContent.push({ p: "These statistics update every 6 hours, and may update more frequently." });
 
     const wikiPageName = "statistics";
     const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();

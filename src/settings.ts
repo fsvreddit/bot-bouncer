@@ -43,6 +43,7 @@ Your initial appeal will be reviewed shortly by a moderator. If accepted, the re
 };
 
 export enum AppSetting {
+    Action = "action",
     BanMessage = "banMessage",
     AutoWhitelist = "autoWhitelist",
     ModmailNote = "clientModmailNote",
@@ -56,11 +57,33 @@ export enum AppSetting {
     UpgradeNotifier = "upgradeNotifier",
 }
 
+export enum ActionType {
+    Ban = "ban",
+    Report = "report",
+}
+
 export const appSettings: SettingsFormField[] = [
     {
         type: "group",
-        label: "Ban and unban settings",
+        label: "Ban/Report and unban settings",
         fields: [
+            {
+                type: "select",
+                name: AppSetting.Action,
+                label: "Action to take when a banned account posts or comments",
+                helpText: "This action applies to accounts that are listed on /r/BotBouncer as a bot",
+                options: [
+                    { label: "Ban", value: ActionType.Ban },
+                    { label: "Report content", value: ActionType.Report },
+                ],
+                multiSelect: false,
+                defaultValue: [ActionType.Ban],
+                onValidate: ({ value }) => {
+                    if (!value || value.length === 0) {
+                        return "You must select an action.";
+                    }
+                },
+            },
             {
                 type: "paragraph",
                 name: AppSetting.BanMessage,

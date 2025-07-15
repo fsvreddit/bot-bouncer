@@ -1,24 +1,38 @@
-import { ModMailConversationState, TriggerContext } from "@devvit/public-api";
+import { TriggerContext } from "@devvit/public-api";
 import { getUserStatus, UserStatus } from "../dataStore.js";
 import { wasUserBannedByApp } from "../handleClientSubredditWikiUpdate.js";
 import { isBanned, replaceAll } from "../utility.js";
 import { CONFIGURATION_DEFAULTS } from "../settings.js";
+import { ModmailMessage } from "./modmail.js";
 
-export async function handleClientSubredditModmail (username: string, conversationId: string, context: TriggerContext): Promise<boolean> {
+export async function handleClientSubredditModmail (modmail: ModmailMessage, context: TriggerContext) {
+    if (!modmail.isFirstMessage) {
+        return;
+    }
+
+    const username = modmail.participant;
+    if (!username) {
+        return;
+    }
+
+    if (username !== modmail.participant) {
+        return;
+    }
+
     const currentStatus = await getUserStatus(username, context);
 
     if (!currentStatus || currentStatus.userStatus !== UserStatus.Banned) {
-        return false;
+        return;
     }
 
     const bannedByApp = await wasUserBannedByApp(username, context);
     if (!bannedByApp) {
-        return false;
+        return;
     }
 
     const userIsBanned = await isBanned(username, context);
     if (!userIsBanned) {
-        return false;
+        return;
     }
 
     const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
@@ -31,15 +45,7 @@ export async function handleClientSubredditModmail (username: string, conversati
 
     await context.reddit.modMail.reply({
         body: message,
-        conversationId,
+        conversationId: modmail.conversationId,
         isInternal: true,
     });
-
-    const conversation = await context.reddit.modMail.getConversation({ conversationId });
-    const currentState = conversation.conversation?.state;
-    if (currentState === ModMailConversationState.Archived) {
-        await context.reddit.modMail.archiveConversation(conversationId);
-    }
-
-    return true;
 }
