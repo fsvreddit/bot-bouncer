@@ -1,4 +1,4 @@
-import { JobContext, JSONObject, JSONValue, Post, TriggerContext } from "@devvit/public-api";
+import { JobContext, JSONValue, Post, TriggerContext } from "@devvit/public-api";
 import { getUserExtended } from "../extendedDevvit.js";
 import { addDays } from "date-fns";
 import { compact, uniq } from "lodash";
@@ -9,6 +9,7 @@ import { getUserStatus, UserStatus } from "../dataStore.js";
 import { evaluateUserAccount } from "../handleControlSubAccountEvaluation.js";
 import json2md from "json2md";
 import { AsyncSubmission, queuePostCreation } from "../postCreation.js";
+import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
 
 interface UserBioText {
     username: string;
@@ -56,11 +57,6 @@ async function getDistinctUsersFromSubreddits (subredditNames: string[], context
     return uniq(userSets.flat());
 }
 
-async function getEvaluatorVariables (context: TriggerContext): Promise<Record<string, JSONValue>> {
-    const wikiPage = await context.reddit.getWikiPage("BotBouncer", "evaluatorvariables");
-    return JSON.parse(wikiPage.content) as Record<string, JSONObject>;
-}
-
 function bioTextAlreadyBanned (bioText: string, variables: Record<string, JSONValue>): boolean {
     const regexes = variables["biotext:bantext"] as string[] | undefined ?? [];
     return regexes.some(regex => new RegExp(regex).test(bioText));
@@ -80,6 +76,7 @@ export async function analyseBioText (_: unknown, context: JobContext) {
 
     const subreddits = [
         "WhatIsMyCQS",
+        "cqs",
     ];
 
     const users = await getDistinctUsersFromSubreddits(subreddits, context);
