@@ -242,7 +242,10 @@ function getKeyForAppeal (conversationId: string): string {
 
 async function storeKeyForAppeal (conversationId: string, context: TriggerContext) {
     const key = getKeyForAppeal(conversationId);
-    await context.redis.set(key, new Date().getTime().toString(), { expiration: addDays(new Date(), 28) });
+    const existingValue = await context.redis.exists(key);
+    if (!existingValue) {
+        await context.redis.set(key, new Date().getTime().toString(), { expiration: addDays(new Date(), 28) });
+    }
 }
 
 export async function isActiveAppeal (conversationId: string, context: TriggerContext): Promise<boolean> {
