@@ -6,7 +6,7 @@ import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
 import { SOCIAL_LINKS_STORE, UserDetails, UserStatus } from "../dataStore.js";
 
 export function cleanLink (input: string): string {
-    if (!input.includes("onlyfans.com")) {
+    if (!input.includes("onlyfans.com") && !input.includes("fans.ly") && !input.includes("fans.ly")) {
         return input;
     }
 
@@ -19,7 +19,7 @@ export function cleanLink (input: string): string {
         return newString;
     }
 
-    const linkRegex = /(https:\/\/onlyfans\.com\/[\w\d]+\/)(?:c\d+|trial)/;
+    const linkRegex = /(https:\/\/(?:onlyfans\.com|fansly\.com|fans\.ly)\/[\w\d]+\/)(?:[ct]\d+|trial)/;
     const matches = linkRegex.exec(newString);
     if (matches?.[1]) {
         newString = matches[1];

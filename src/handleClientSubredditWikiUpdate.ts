@@ -3,7 +3,7 @@ import { addMinutes, addSeconds, formatDate, subWeeks } from "date-fns";
 import pluralize from "pluralize";
 import { getUserStatus, UserStatus } from "./dataStore.js";
 import { setCleanupForUser } from "./cleanup.js";
-import { AppSetting, CONFIGURATION_DEFAULTS } from "./settings.js";
+import { ActionType, AppSetting, CONFIGURATION_DEFAULTS } from "./settings.js";
 import { isBanned, replaceAll } from "./utility.js";
 import { CLIENT_SUB_WIKI_UPDATE_CRON_KEY, ClientSubredditJob } from "./constants.js";
 import { fromPairs } from "lodash";
@@ -130,44 +130,55 @@ async function handleSetBanned (username: string, subredditName: string, setting
 
     const removableContent = recentLocalContent.filter(item => !item.spam && !item.removed);
 
-    let message = settings[AppSetting.BanMessage] as string | undefined ?? CONFIGURATION_DEFAULTS.banMessage;
-    message = replaceAll(message, "{subreddit}", subredditName);
-    message = replaceAll(message, "{account}", username);
-    message = replaceAll(message, "{link}", username);
+    const [actionToTake] = settings[AppSetting.Action] as ActionType[] | undefined ?? [ActionType.Ban];
+    if (actionToTake === ActionType.Ban) {
+        let message = settings[AppSetting.BanMessage] as string | undefined ?? CONFIGURATION_DEFAULTS.banMessage;
+        message = replaceAll(message, "{subreddit}", subredditName);
+        message = replaceAll(message, "{account}", username);
+        message = replaceAll(message, "{link}", username);
 
-    let banNote = CONFIGURATION_DEFAULTS.banNote;
-    banNote = replaceAll(banNote, "{me}", context.appName);
-    banNote = replaceAll(banNote, "{date}", formatDate(new Date(), "yyyy-MM-dd"));
+        let banNote = CONFIGURATION_DEFAULTS.banNote;
+        banNote = replaceAll(banNote, "{me}", context.appName);
+        banNote = replaceAll(banNote, "{date}", formatDate(new Date(), "yyyy-MM-dd"));
 
-    const results = await Promise.allSettled([
-        context.reddit.banUser({
-            subredditName,
-            username,
-            message,
-            note: banNote,
-        }),
-        ...removableContent.map(item => item.remove()),
-    ]);
+        const results = await Promise.allSettled([
+            context.reddit.banUser({
+                subredditName,
+                username,
+                message,
+                note: banNote,
+            }),
+            ...removableContent.map(item => item.remove()),
+        ]);
 
-    const txn = await context.redis.watch();
-    await txn.multi();
-    await recordBan(username, txn);
-    await recordBanForDigest(username, txn);
+        const txn = await context.redis.watch();
+        await txn.multi();
+        await recordBan(username, txn);
+        await recordBanForDigest(username, txn);
 
-    if (removableContent.length > 0) {
-        await txn.hSet(`removedItems:${username}`, fromPairs(removableContent.map(item => ([item.id, item.id]))));
-        // Expire key after 14 days
-        await txn.expire(`removedItems:${username}`, 60 * 60 * 24 * 14);
-    }
+        if (removableContent.length > 0) {
+            await txn.hSet(`removedItems:${username}`, fromPairs(removableContent.map(item => ([item.id, item.id]))));
+            // Expire key after 14 days
+            await txn.expire(`removedItems:${username}`, 60 * 60 * 24 * 14);
+        }
 
-    await txn.exec();
+        await txn.exec();
 
-    const failedPromises = results.filter(result => result.status === "rejected");
-    if (failedPromises.length > 0) {
-        console.error(`Wiki Update: Some errors occurred banning ${username} on ${subredditName}.`);
-        console.log(failedPromises);
+        const failedPromises = results.filter(result => result.status === "rejected");
+        if (failedPromises.length > 0) {
+            console.error(`Wiki Update: Some errors occurred banning ${username} on ${subredditName}.`);
+            console.log(failedPromises);
+        } else {
+            console.log(`Wiki Update: ${username} has been banned following wiki update. ${removableContent.length} ${pluralize("item", removableContent.length)} removed.`);
+        }
     } else {
-        console.log(`Wiki Update: ${username} has been banned following wiki update. ${removableContent.length} ${pluralize("item", removableContent.length)} removed.`);
+        // Report content instead of banning.
+        await Promise.all(removableContent.map(async (item) => {
+            const itemReported = await context.redis.get(`reported:${item.id}`);
+            if (!itemReported) {
+                await context.reddit.report(item, { reason: "User is listed as a bot on r/BotBouncer" });
+            }
+        }));
     }
 }
 

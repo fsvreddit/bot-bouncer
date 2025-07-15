@@ -3,6 +3,8 @@
  */
 export const CONTROL_SUBREDDIT = "BotBouncer";
 
+export const INTERNAL_BOT = "bot-bouncer-int";
+
 export enum PostFlairTemplate {
     Pending = "fb53b906-a19f-11ef-bc80-ca18933c38fe",
     Banned = "0ab378aa-a1a0-11ef-bd1f-fe6cc3602208",
@@ -30,7 +32,7 @@ export enum UniversalJob {
 export enum ControlSubredditJob {
     UpdateWikiPage = "updateWikiPage",
     EvaluateUser = "evaluateUser",
-    PerformDailyJobs = "performDailyJobs",
+    Perform6HourlyJobs = "performDailyJobs",
     EvaluateKarmaFarmingSubs = "evaluateKarmaFarmingSubs",
     QueueKarmaFarmingSubs = "queueKarmaFarmingSubs",
     CopyControlSubSettings = "copyControlSubSettings",

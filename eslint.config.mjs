@@ -64,7 +64,7 @@ export default tseslint.config(
             // Extra code styling rules
             "@stylistic/array-bracket-newline": ["error", "consistent"],
             "@stylistic/array-element-newline": ["error", "consistent"],
-            "@stylistic/func-call-spacing": ["error", "never"],
+            "@/func-call-spacing": ["error", "never"],
             "@stylistic/function-paren-newline": ["error", "multiline"],
             "@stylistic/implicit-arrow-linebreak": ["error", "beside"],
 

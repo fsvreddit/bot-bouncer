@@ -41,6 +41,7 @@ async function gatherUsernames (context: JobContext) {
 interface EvaluationAccuracyResult {
     totalCount: number;
     bannedCount: number;
+    bannedAccounts: string[];
     unbannedAccounts: string[];
 }
 
@@ -86,7 +87,8 @@ export async function buildEvaluatorAccuracyStatistics (event: ScheduledJobEvent
             if (existingRecord) {
                 const existingData = JSON.parse(existingRecord) as EvaluationAccuracyResult;
                 existingData.totalCount++;
-                if (status === UserStatus.Banned as string) {
+                if (isBanned) {
+                    existingData.bannedAccounts.push(username);
                     existingData.bannedCount++;
                 } else if (status === UserStatus.Organic as string) {
                     existingData.unbannedAccounts.push(username);
@@ -96,6 +98,7 @@ export async function buildEvaluatorAccuracyStatistics (event: ScheduledJobEvent
                 const newData: EvaluationAccuracyResult = {
                     totalCount: 1,
                     bannedCount: isBanned ? 1 : 0,
+                    bannedAccounts: isBanned ? [username] : [],
                     unbannedAccounts: status === UserStatus.Organic as string ? [username] : [],
                 };
                 existingResults[getEvaluationResultsKey(evaluationResult)] = JSON.stringify(newData);
@@ -120,7 +123,7 @@ export async function buildEvaluatorAccuracyStatistics (event: ScheduledJobEvent
     output.push({ p: "This page shows the accuracy of the Bot Bouncer evaluation system based on initial evaluations in the last week, taking into account appeals." });
 
     const tableRows: string[][] = [];
-    const headers: string[] = ["Bot Name", "Hit Reason", "Total Count", "Banned Count", "Accuracy (%)", "Unbanned Accounts"];
+    const headers: string[] = ["Bot Name", "Hit Reason", "Total Count", "Banned Count", "Accuracy (%)", "Example Banned Accounts", "Unbanned Accounts"];
 
     for (const [key, value] of toPairs(existingResults).sort((a, b) => a > b ? 1 : -1)) {
         const [botName, hitReason] = key.split("~");
@@ -131,6 +134,7 @@ export async function buildEvaluatorAccuracyStatistics (event: ScheduledJobEvent
             data.totalCount.toLocaleString(),
             data.bannedCount.toLocaleString(),
             `${Math.floor((data.bannedCount / data.totalCount) * 100)}%`,
+            data.bannedAccounts.slice(-5).map(account => `/u/${account}`).join(", "),
             data.unbannedAccounts.map(account => `/u/${account}`).join(", "),
         ]);
     };

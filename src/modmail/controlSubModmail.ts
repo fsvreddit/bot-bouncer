@@ -1,16 +1,94 @@
 import { TriggerContext } from "@devvit/public-api";
+import { isLinkId } from "@devvit/shared-types/tid.js";
 import { getUserStatus, UserStatus } from "../dataStore.js";
 import { getSummaryForUser } from "../UserSummary/userSummary.js";
 import { getUserOrUndefined } from "../utility.js";
-import { CONFIGURATION_DEFAULTS } from "../settings.js";
-import { addDays, subMinutes } from "date-fns";
+import { CONFIGURATION_DEFAULTS, getControlSubSettings } from "../settings.js";
+import { addDays, addMinutes, subMinutes } from "date-fns";
 import json2md from "json2md";
+import { ModmailMessage } from "./modmail.js";
+import { dataExtract } from "./dataExtract.js";
+import { addAllUsersFromModmail } from "../similarBioTextFinder/bioTextFinder.js";
+import { markAppealAsHandled } from "../statistics/appealStatistics.js";
+import { statusToFlair } from "../postCreation.js";
+import { CONTROL_SUBREDDIT, INTERNAL_BOT } from "../constants.js";
+import { handleBulkSubmission } from "./bulkSubmission.js";
 
-export async function handleControlSubredditModmail (username: string, conversationId: string, isFirstMessage: boolean, subject: string | undefined, message: string | undefined, context: TriggerContext) {
-    if (isFirstMessage) {
-        return handleModmailFromUser(username, conversationId, subject, context);
-    } else {
+export async function handleControlSubredditModmail (modmail: ModmailMessage, context: TriggerContext) {
+    const controlSubSettings = await getControlSubSettings(context);
+
+    if (controlSubSettings.bulkSubmitters?.includes(modmail.messageAuthor) && modmail.bodyMarkdown.startsWith("{")) {
+        const isTrusted = controlSubSettings.trustedSubmitters.includes(modmail.messageAuthor);
+        await handleBulkSubmission(modmail.messageAuthor, isTrusted, modmail.conversationId, modmail.bodyMarkdown, context);
         return;
+    }
+
+    if (modmail.isFirstMessage && modmail.messageAuthor === modmail.participant) {
+        await handleModmailFromUser(modmail, context);
+        return;
+    }
+
+    // Everything from here on is for modmail sent by moderators.
+    if (!modmail.messageAuthorIsMod) {
+        return;
+    }
+
+    if (modmail.bodyMarkdown.startsWith("!extract")) {
+        await dataExtract(modmail.bodyMarkdown, modmail.conversationId, context);
+        return;
+    }
+
+    const addAllRegex = /^!addall(?: (banned))?/;
+    const addAllMatches = addAllRegex.exec(modmail.bodyMarkdown);
+    if (addAllMatches && addAllMatches.length === 2) {
+        const status = addAllMatches[1] === "banned" ? UserStatus.Banned : UserStatus.Pending;
+        await addAllUsersFromModmail(modmail.conversationId, modmail.messageAuthor, status, context);
+        return;
+    }
+
+    if (modmail.bodyMarkdown.startsWith("!summary")) {
+        await addSummaryForUser(modmail.conversationId, modmail.messageAuthor, context);
+        return;
+    }
+
+    if (!modmail.isInternal && modmail.messageAuthor !== context.appName) {
+        await markAppealAsHandled(modmail, context);
+    }
+
+    if (modmail.participant) {
+        const statusChangeRegex = /!setstatus (banned|organic|declined)/;
+        const statusChangeMatch = statusChangeRegex.exec(modmail.bodyMarkdown);
+        if (statusChangeMatch && statusChangeMatch.length === 2) {
+            let newStatus: UserStatus | undefined;
+            switch (statusChangeMatch[1]) {
+                case "banned":
+                    newStatus = UserStatus.Banned;
+                    break;
+                case "organic":
+                    newStatus = UserStatus.Organic;
+                    break;
+                case "declined":
+                    newStatus = UserStatus.Declined;
+                    break;
+            }
+            const currentStatus = await getUserStatus(modmail.participant, context);
+            if (currentStatus && newStatus && isLinkId(currentStatus.trackingPostId) && currentStatus.userStatus !== newStatus) {
+                await context.redis.set(`userStatusOverride~${modmail.participant}`, modmail.messageAuthor, { expiration: addMinutes(new Date(), 5) });
+
+                const newFlair = statusToFlair[newStatus];
+                await context.reddit.setPostFlair({
+                    postId: currentStatus.trackingPostId,
+                    flairTemplateId: newFlair,
+                    subredditName: CONTROL_SUBREDDIT,
+                });
+
+                await context.reddit.modMail.reply({
+                    conversationId: modmail.conversationId,
+                    body: `User status changed to ${newStatus}.`,
+                    isInternal: true,
+                });
+            }
+        }
     }
 }
 
@@ -50,14 +128,20 @@ export function markdownToText (markdown: json2md.DataObject[], limit = 9500): s
     return chunks;
 }
 
-async function handleModmailFromUser (username: string, conversationId: string, subject: string | undefined, context: TriggerContext) {
+async function handleModmailFromUser (modmail: ModmailMessage, context: TriggerContext) {
+    const username = modmail.messageAuthor;
+
+    if (username === INTERNAL_BOT) {
+        return;
+    }
+
     const currentStatus = await getUserStatus(username, context);
 
     if (!currentStatus || currentStatus.userStatus === UserStatus.Pending) {
         return;
     }
 
-    if (subject?.startsWith(`Ban dispute for /u/${username}`) && (currentStatus.userStatus === UserStatus.Organic || currentStatus.userStatus === UserStatus.Declined)) {
+    if (modmail.subject.startsWith(`Ban dispute for /u/${username}`) && (currentStatus.userStatus === UserStatus.Organic || currentStatus.userStatus === UserStatus.Declined)) {
         console.log(`Modmail: /u/${username} is appealing a ban, but is currently marked as human. Sending reply.`);
         const message: json2md.DataObject[] = [
             { p: `Hi /u/${username},` },
@@ -75,11 +159,11 @@ async function handleModmailFromUser (username: string, conversationId: string, 
 
         await context.reddit.modMail.reply({
             body: json2md(message),
-            conversationId,
+            conversationId: modmail.conversationId,
             isInternal: false,
             isAuthorHidden: true,
         });
-        await context.reddit.modMail.archiveConversation(conversationId);
+        await context.reddit.modMail.archiveConversation(modmail.conversationId);
         return;
     }
 
@@ -90,15 +174,15 @@ async function handleModmailFromUser (username: string, conversationId: string, 
         // User has already made an appeal recently, so we should tell the user it's already being handled.
         await context.reddit.modMail.reply({
             body: CONFIGURATION_DEFAULTS.recentAppealMade,
-            conversationId,
+            conversationId: modmail.conversationId,
             isInternal: false,
             isAuthorHidden: false,
         });
-        await context.reddit.modMail.archiveConversation(conversationId);
+        await context.reddit.modMail.archiveConversation(modmail.conversationId);
         return;
     }
 
-    await storeKeyForAppeal(conversationId, context);
+    await storeKeyForAppeal(modmail.conversationId, context);
 
     const post = await context.reddit.getPostById(currentStatus.trackingPostId);
 
@@ -119,7 +203,7 @@ async function handleModmailFromUser (username: string, conversationId: string, 
     for (const string of modmailStrings) {
         await context.reddit.modMail.reply({
             body: string,
-            conversationId,
+            conversationId: modmail.conversationId,
             isInternal: true,
         });
     }
@@ -134,17 +218,17 @@ async function handleModmailFromUser (username: string, conversationId: string, 
         // User is not found, so we should not send the "Appeal Received" message.
         await context.reddit.modMail.reply({
             body: CONFIGURATION_DEFAULTS.appealShadowbannedMessage,
-            conversationId,
+            conversationId: modmail.conversationId,
             isInternal: false,
             isAuthorHidden: false,
         });
-        await context.reddit.modMail.archiveConversation(conversationId);
+        await context.reddit.modMail.archiveConversation(modmail.conversationId);
         return;
     }
 
     await context.reddit.modMail.reply({
         body: CONFIGURATION_DEFAULTS.appealMessage,
-        conversationId,
+        conversationId: modmail.conversationId,
         isInternal: false,
         isAuthorHidden: false,
     });
@@ -158,7 +242,10 @@ function getKeyForAppeal (conversationId: string): string {
 
 async function storeKeyForAppeal (conversationId: string, context: TriggerContext) {
     const key = getKeyForAppeal(conversationId);
-    await context.redis.set(key, new Date().getTime().toString(), { expiration: addDays(new Date(), 28) });
+    const existingValue = await context.redis.exists(key);
+    if (!existingValue) {
+        await context.redis.set(key, new Date().getTime().toString(), { expiration: addDays(new Date(), 28) });
+    }
 }
 
 export async function isActiveAppeal (conversationId: string, context: TriggerContext): Promise<boolean> {
@@ -170,4 +257,22 @@ export async function isActiveAppeal (conversationId: string, context: TriggerCo
 export async function deleteKeyForAppeal (conversationId: string, context: TriggerContext) {
     const key = getKeyForAppeal(conversationId);
     await context.redis.del(key);
+}
+
+async function addSummaryForUser (conversationId: string, username: string, context: TriggerContext) {
+    const userSummary = await getSummaryForUser(username, "modmail", context);
+    const shadowbannedSummary: json2md.DataObject[] = [
+        { p: "No summary available, user may be shadowbanned." },
+    ];
+    const messageText = userSummary ?? shadowbannedSummary;
+
+    const modmailStrings = markdownToText(messageText);
+
+    for (const string of modmailStrings) {
+        await context.reddit.modMail.reply({
+            body: string,
+            conversationId,
+            isInternal: true,
+        });
+    }
 }
