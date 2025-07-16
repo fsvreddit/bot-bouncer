@@ -136,6 +136,12 @@ export async function processQueuedSubmission (_: unknown, context: JobContext) 
         return;
     }
 
+    const controlSubSettings = await getControlSubSettings(context);
+    if (!controlSubSettings.postCreationQueueProcessingEnabled) {
+        console.log("Post Creation: Post creation queue processing is disabled in control sub settings.");
+        return;
+    }
+
     const [firstSubmission] = queuedSubmissions;
     const submissionDetails = await context.redis.hGet(SUBMISSION_DETAILS, firstSubmission.member);
     if (!submissionDetails) {
