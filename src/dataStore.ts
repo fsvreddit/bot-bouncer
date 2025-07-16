@@ -1,4 +1,4 @@
-import { JobContext, TriggerContext, WikiPagePermissionLevel, WikiPage, CreateModNoteOptions, UserSocialLink, TxClientLike } from "@devvit/public-api";
+import { JobContext, TriggerContext, WikiPagePermissionLevel, WikiPage, CreateModNoteOptions, UserSocialLink, TxClientLike, RedisClient } from "@devvit/public-api";
 import { compact, fromPairs, max, toPairs, uniq } from "lodash";
 import pako from "pako";
 import { setCleanupForSubmittersAndMods, setCleanupForUser } from "./cleanup.js";
@@ -214,8 +214,8 @@ export async function getUsernameFromPostId (postId: string, context: TriggerCon
     return username;
 }
 
-export async function updateAggregate (type: UserStatus, incrBy: number, txn: TxClientLike) {
-    await txn.zIncrBy(AGGREGATE_STORE, type, incrBy);
+export async function updateAggregate (type: UserStatus, incrBy: number, redis: TxClientLike | RedisClient) {
+    await redis.zIncrBy(AGGREGATE_STORE, type, incrBy);
 }
 
 function compressData (value: Record<string, string>): string {
