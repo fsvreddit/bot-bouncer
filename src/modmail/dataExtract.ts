@@ -6,6 +6,7 @@ import pluralize from "pluralize";
 import json2md from "json2md";
 import { addSeconds, format } from "date-fns";
 import { setCleanupForUser } from "../cleanup.js";
+import { EvaluationResult, getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
 
 interface ModmailDataExtract {
     status?: UserStatus[];
@@ -13,6 +14,8 @@ interface ModmailDataExtract {
     operator?: string;
     usernameRegex?: string;
     bioRegex?: string;
+    evaluator?: string;
+    hitReason?: string;
     since?: string;
     format?: "json" | "table";
     recheck?: boolean;
@@ -42,6 +45,14 @@ const schema: JSONSchemaType<ModmailDataExtract> = {
             nullable: true,
         },
         bioRegex: {
+            type: "string",
+            nullable: true,
+        },
+        evaluator: {
+            type: "string",
+            nullable: true,
+        },
+        hitReason: {
             type: "string",
             nullable: true,
         },
@@ -207,6 +218,31 @@ export async function dataExtract (message: string | undefined, conversationId: 
         // eslint-disable-next-line @typescript-eslint/no-deprecated
         data = data.filter(entry => entry.data.bioText);
         console.log(`Filtered data by bioRegex: ${request.bioRegex}, remaining entries: ${data.length}`);
+    }
+
+    if (request.evaluator || request.hitReason) {
+        console.log(`Filtering data for ${data.length} entries by evaluator: ${request.evaluator}`);
+        const evaluationResults: Record<string, EvaluationResult[]> = {};
+        await Promise.all(data.map(async (entry) => {
+            const results = await getAccountInitialEvaluationResults(entry.username, context);
+            if (results.length > 0) {
+                evaluationResults[entry.username] = await getAccountInitialEvaluationResults(entry.username, context);
+            } else {
+                evaluationResults[entry.username] = [];
+            }
+        }));
+
+        data = data.filter(entry => evaluationResults[entry.username].some((result) => {
+            if (request.evaluator && !result.botName.toLowerCase().includes(request.evaluator)) {
+                return false;
+            }
+
+            if (request.hitReason && !result.hitReason?.toLowerCase().includes(request.hitReason.toLowerCase())) {
+                return false;
+            }
+
+            return true;
+        }));
     }
 
     if (data.length === 0) {
