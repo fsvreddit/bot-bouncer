@@ -233,7 +233,7 @@ export async function dataExtract (message: string | undefined, conversationId: 
         }));
 
         data = data.filter(entry => evaluationResults[entry.username].some((result) => {
-            if (request.evaluator && !result.botName.toLowerCase().includes(request.evaluator)) {
+            if (request.evaluator && !result.botName.toLowerCase().includes(request.evaluator.toLowerCase())) {
                 return false;
             }
 
