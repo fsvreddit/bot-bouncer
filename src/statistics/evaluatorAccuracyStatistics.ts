@@ -5,12 +5,14 @@ import { addSeconds, subDays } from "date-fns";
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "../constants.js";
 import { EvaluationResult, getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
 import json2md from "json2md";
+import { ALL_EVALUATORS } from "@fsvreddit/bot-bouncer-evaluation";
+import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
 
 const ACCURACY_QUEUE = "evaluatorAccuracyQueue";
 const ACCURACY_STORE = "evaluatorAccuracyStore";
 
 function dateInRange (date: Date): boolean {
-    return date < subDays(new Date(), 2) && date > subDays(new Date(), 9);
+    return date > subDays(new Date(), 14);
 }
 
 async function gatherUsernames (context: JobContext) {
@@ -120,20 +122,59 @@ export async function buildEvaluatorAccuracyStatistics (event: ScheduledJobEvent
     // Nothing left in queue. Generate the statistics page.
     const output: json2md.DataObject[] = [];
     output.push({ h1: "Evaluator Accuracy Statistics" });
-    output.push({ p: "This page shows the accuracy of the Bot Bouncer evaluation system based on initial evaluations in the last week, taking into account appeals." });
+    output.push({ p: "This page shows the accuracy of the Bot Bouncer evaluation system based on initial evaluations in the last two weeks, taking into account appeals." });
+
+    // eslint-disable-next-line @stylistic/function-paren-newline
+    const evaluatorAccuracyStats: Record<string, EvaluationAccuracyResult> = fromPairs(
+        Object.entries(existingResults).map(([key, value]) => {
+            const data = JSON.parse(value) as EvaluationAccuracyResult;
+            return [key, {
+                totalCount: data.totalCount,
+                bannedCount: data.bannedCount,
+                bannedAccounts: data.bannedAccounts.slice(-5), // Show only the last 5 banned accounts
+                unbannedAccounts: data.unbannedAccounts,
+            }];
+        }));
+
+    const variables = await getEvaluatorVariables(context);
+    const nonHitKeys: string[] = [];
+    for (const Evaluator of ALL_EVALUATORS) {
+        const evaluator = new Evaluator(context, variables);
+        if (evaluator.evaluatorDisabled()) {
+            continue;
+        }
+        const subGroups = evaluator.getSubGroups();
+        if (subGroups && subGroups.length > 0) {
+            for (const subGroup of subGroups) {
+                if (!Object.keys(evaluatorAccuracyStats).includes(`${evaluator.name}~${subGroup}`)) {
+                    nonHitKeys.push(`${evaluator.name}~${subGroup}`);
+                }
+            }
+        } else if (!Object.keys(evaluatorAccuracyStats).includes(evaluator.name)) {
+            nonHitKeys.push(evaluator.name);
+        }
+    }
+
+    for (const key of nonHitKeys) {
+        evaluatorAccuracyStats[key] = {
+            totalCount: 0,
+            bannedCount: 0,
+            bannedAccounts: [],
+            unbannedAccounts: [],
+        };
+    }
 
     const tableRows: string[][] = [];
     const headers: string[] = ["Bot Name", "Hit Reason", "Total Count", "Banned Count", "Accuracy (%)", "Example Banned Accounts", "Unbanned Accounts"];
 
-    for (const [key, value] of toPairs(existingResults).sort((a, b) => a > b ? 1 : -1)) {
+    for (const [key, data] of toPairs(evaluatorAccuracyStats).sort((a, b) => a > b ? 1 : -1)) {
         const [botName, hitReason] = key.split("~");
-        const data = JSON.parse(value) as EvaluationAccuracyResult;
         tableRows.push([
             botName,
             hitReason || "",
             data.totalCount.toLocaleString(),
             data.bannedCount.toLocaleString(),
-            `${Math.floor((data.bannedCount / data.totalCount) * 100)}%`,
+            data.totalCount ? `${Math.floor((data.bannedCount / data.totalCount) * 100)}%` : "",
             data.bannedAccounts.slice(-5).map(account => `/u/${account}`).join(", "),
             data.unbannedAccounts.map(account => `/u/${account}`).join(", "),
         ]);
