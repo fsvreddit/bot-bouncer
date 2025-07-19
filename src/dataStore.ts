@@ -347,7 +347,8 @@ export async function updateWikiPage (_: unknown, context: JobContext) {
 
     console.log(`Wiki page has been updated with ${Object.keys(dataToWrite).length} entries, size: ${content.length.toLocaleString()} bytes`);
 
-    if (content.length > MAX_WIKI_PAGE_SIZE * 0.75) {
+    const maxSupportedSize = MAX_WIKI_PAGE_SIZE * numberOfPages;
+    if (content.length > maxSupportedSize * 0.9) {
         const spaceAlertKey = "wikiSpaceAlert";
         const alertDone = await context.redis.exists(spaceAlertKey);
         if (!alertDone) {
@@ -355,7 +356,7 @@ export async function updateWikiPage (_: unknown, context: JobContext) {
             const webhook = controlSubSettings.monitoringWebhook;
             if (webhook) {
                 const message: json2md.DataObject[] = [
-                    { p: `The botbouncer wiki page is now at ${Math.round(content.length / MAX_WIKI_PAGE_SIZE * 100)}% of its maximum size. It's time to rethink how data is stored.` },
+                    { p: `The botbouncer wiki page is now at ${Math.round(content.length / maxSupportedSize * 100)}% of its maximum size. It's time to rethink how data is stored.` },
                     { p: `I will notify you again in a week if the page is still over this threshold` },
                 ];
 
