@@ -201,7 +201,7 @@ export async function addExternalSubmissionToPostCreationQueue (item: ExternalSu
 
     await queuePostCreation(submission, context);
     if (item.sendFeedback) {
-        await context.redis.set(`sendFeedback:${item.username}`, "true", { expiration: addDays(new Date(), 1) });
+        await context.redis.set(`sendFeedback:${item.username}`, "true", { expiration: addDays(new Date(), 2) });
     }
     console.log(`External Submissions: Queued post creation for ${item.username}`);
 
@@ -308,7 +308,6 @@ export async function processExternalSubmissionsFromObserverSubreddits (_: unkno
         for (const submission of currentSubmissionList) {
             const postSubmitted = await addExternalSubmissionToPostCreationQueue(submission, false, controlSubSettings, context);
             if (postSubmitted) {
-                console.log(`External Submissions: Processed external submission for ${submission.username} from /r/${subreddit}.`);
                 processed++;
             }
 
@@ -321,13 +320,13 @@ export async function processExternalSubmissionsFromObserverSubreddits (_: unkno
         await context.reddit.updateWikiPage({
             subredditName: subreddit,
             page: WIKI_PAGE,
-            content: "[]",
+            content: JSON.stringify([]),
             reason: "Cleared the external submission list after processing.",
         });
     }
 
     if (processed > 0) {
-        console.log(`External Submissions: Processed ${processed} external ${pluralize("submission", processed)} from observer subreddits.`);
+        console.log(`External Submissions: Added ${processed} external ${pluralize("submission", processed)} from observer subreddits.`);
     }
 
     for (const subreddit of controlSubSettings.observerSubreddits) {

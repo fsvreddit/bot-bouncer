@@ -1,15 +1,14 @@
 import { JobContext, JSONObject, JSONValue, ScheduledJobEvent, TriggerContext, WikiPage } from "@devvit/public-api";
-import { ALL_EVALUATORS } from "@fsvreddit/bot-bouncer-evaluation";
+import { ALL_EVALUATORS, yamlToVariables } from "@fsvreddit/bot-bouncer-evaluation";
 import { CONTROL_SUBREDDIT } from "../constants.js";
-import { parseAllDocuments } from "yaml";
 import { uniq } from "lodash";
-import { replaceAll, sendMessageToWebhook } from "../utility.js";
+import { sendMessageToWebhook } from "../utility.js";
 import json2md from "json2md";
 import { getControlSubSettings } from "../settings.js";
 
 const EVALUATOR_VARIABLES_KEY = "evaluatorVariables";
 const EVALUATOR_VARIABLES_YAML_PAGE = "evaluator-config";
-const EVALUATOR_VARIABLES_WIKI_PAGE = "evaluatorvariables";
+const EVALUATOR_VARIABLES_WIKI_PAGE = "evaluatorvars";
 const EVALUATOR_VARIABLES_LAST_REVISION_KEY = "evaluatorVariablesLastRevision";
 
 export async function getEvaluatorVariables (context: TriggerContext | JobContext): Promise<Record<string, JSONValue>> {
@@ -22,72 +21,25 @@ export async function getEvaluatorVariables (context: TriggerContext | JobContex
     return variables;
 }
 
-export function yamlToVariables (input: string): Record<string, JSONValue> {
-    const yamlDocuments = parseAllDocuments(input);
-    const variables: Record<string, JSONValue> = {};
-
-    const modulesSeen = new Set<string>();
-
-    const substitutions: Record<string, string> = {};
-
-    let index = 0;
-    for (const doc of yamlDocuments) {
-        const json = doc.toJSON() as Record<string, JSONValue> | null;
-        if (!json) {
-            // Empty document
-            continue;
-        }
-
-        const root = json.name as string | undefined;
-        if (!root) {
-            console.error(`Evaluator Variables: Error parsing evaluator variables from wiki. Missing root name on document ${index}.`);
-            continue;
-        }
-
-        // Special case: if in "substitutions" module, add to substitutions map
-        if (root === "substitutions") {
-            for (const key in json) {
-                if (key === "name") {
-                    continue;
-                }
-                substitutions[key] = json[key] as string;
-            }
-        }
-
-        if (modulesSeen.has(root)) {
-            console.warn(`Evaluator Variables: Module name ${root} is present more than once. This is not permitted.`);
-            modulesSeen.add(root);
-        }
-
-        for (const key in json) {
-            if (key !== "name") {
-                let value = json[key];
-                if (typeof value === "string") {
-                    for (const subKey in substitutions) {
-                        value = replaceAll(value, `{{${subKey}}}`, substitutions[subKey]);
-                    }
-                } else if (Array.isArray(value)) {
-                    value = value.map((item) => {
-                        if (typeof item === "string") {
-                            for (const subKey in substitutions) {
-                                item = replaceAll(item, `{{${subKey}}}`, substitutions[subKey]);
-                            }
-                        }
-                        return item;
-                    });
-                }
-
-                variables[`${root}:${key}`] = value;
-            }
-        }
-
-        index++;
+async function updateEvaluatorVariablesClientSub (context: JobContext) {
+    let wikiPage: WikiPage;
+    try {
+        wikiPage = await context.reddit.getWikiPage(CONTROL_SUBREDDIT, EVALUATOR_VARIABLES_WIKI_PAGE);
+    } catch (error) {
+        console.error("Error fetching wiki page:", error);
+        return;
     }
 
-    return variables;
+    await context.redis.set(EVALUATOR_VARIABLES_KEY, wikiPage.content);
+    console.log("Evaluator Variables: Updated from wiki for client subreddit");
 }
 
 export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
+    if (context.subredditName !== CONTROL_SUBREDDIT) {
+        await updateEvaluatorVariablesClientSub(context);
+        return;
+    }
+
     let wikiPage: WikiPage | undefined;
     try {
         wikiPage = await context.reddit.getWikiPage(CONTROL_SUBREDDIT, EVALUATOR_VARIABLES_YAML_PAGE);
@@ -105,7 +57,7 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
 
     const invalidEntries = invalidEvaluatorVariableCondition(variables);
     if (invalidEntries.length > 0) {
-        if (context.subredditName !== CONTROL_SUBREDDIT || !event.data?.username) {
+        if (!event.data?.username) {
             console.error("Evaluator Variables: Evaluator variables contains issues. Will fall back to cached values.");
             return;
         } else {
@@ -152,25 +104,23 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
 
     console.log("Evaluator Variables: Updated from wiki");
 
-    if (context.subredditName === CONTROL_SUBREDDIT) {
-        // Write back to older wiki page for backwards compatibility
-        await context.reddit.updateWikiPage({
-            subredditName: CONTROL_SUBREDDIT,
-            page: EVALUATOR_VARIABLES_WIKI_PAGE,
-            content: JSON.stringify(variables),
-            reason: `Updating evaluator variables from wiki on /r/${context.subredditName}`,
-        });
+    // Write back to parsed wiki page for client subreddits and observer subreddits
+    await context.reddit.updateWikiPage({
+        subredditName: CONTROL_SUBREDDIT,
+        page: EVALUATOR_VARIABLES_WIKI_PAGE,
+        content: JSON.stringify(variables),
+        reason: `Updating evaluator variables from wiki on /r/${context.subredditName}`,
+    });
 
-        const controlSubSettings = await getControlSubSettings(context);
-        if (controlSubSettings.observerSubreddits?.length) {
-            for (const subreddit of controlSubSettings.observerSubreddits) {
-                await context.reddit.updateWikiPage({
-                    subredditName: subreddit,
-                    page: EVALUATOR_VARIABLES_WIKI_PAGE,
-                    content: JSON.stringify(variables),
-                });
-                console.log(`Evaluator Variables: Updated wiki page on /r/${subreddit}`);
-            }
+    const controlSubSettings = await getControlSubSettings(context);
+    if (controlSubSettings.observerSubreddits?.length) {
+        for (const subreddit of controlSubSettings.observerSubreddits) {
+            await context.reddit.updateWikiPage({
+                subredditName: subreddit,
+                page: EVALUATOR_VARIABLES_WIKI_PAGE,
+                content: JSON.stringify(variables),
+            });
+            console.log(`Evaluator Variables: Updated wiki page on /r/${subreddit}`);
         }
     }
 }

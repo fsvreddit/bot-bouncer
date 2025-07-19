@@ -70,17 +70,11 @@ async function approveIfNotRemovedByMod (targetId: string, context: TriggerConte
 async function handleSetOrganic (username: string, subredditName: string, context: TriggerContext) {
     const contentToReinstate: string[] = [];
 
-    const contentRemovedId = await context.redis.get(`removed:${username}`);
-    if (contentRemovedId) {
-        contentToReinstate.push(contentRemovedId);
-    }
-
     const removedItems = await context.redis.hGetAll(`removedItems:${username}`);
     contentToReinstate.push(...Object.keys(removedItems));
 
     if (contentToReinstate.length > 0) {
         await Promise.all(contentToReinstate.map(id => approveIfNotRemovedByMod(id, context)));
-        await context.redis.del(`removed:${username}`);
         await context.redis.del(`removedItems:${username}`);
         console.log(`Wiki Update: Reinstated ${contentToReinstate.length} ${pluralize("item", contentToReinstate.length)} for ${username}`);
     }
@@ -157,7 +151,7 @@ async function handleSetBanned (username: string, subredditName: string, setting
         await recordBanForDigest(username, txn);
 
         if (removableContent.length > 0) {
-            await txn.hSet(`removedItems:${username}`, fromPairs(removableContent.map(item => ([item.id, item.id]))));
+            await txn.hSet(`removedItems:${username}`, fromPairs(removableContent.filter(item => item.userReportReasons.length === 0).map(item => ([item.id, item.id]))));
             // Expire key after 14 days
             await txn.expire(`removedItems:${username}`, 60 * 60 * 24 * 14);
         }

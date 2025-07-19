@@ -46,8 +46,8 @@ export async function handleControlSubredditModmail (modmail: ModmailMessage, co
         return;
     }
 
-    if (modmail.bodyMarkdown.startsWith("!summary")) {
-        await addSummaryForUser(modmail.conversationId, modmail.messageAuthor, context);
+    if (modmail.bodyMarkdown.startsWith("!summary") && modmail.participant) {
+        await addSummaryForUser(modmail.conversationId, modmail.participant, context);
         return;
     }
 
