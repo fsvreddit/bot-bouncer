@@ -1,4 +1,5 @@
-import { invalidEvaluatorVariableCondition, yamlToVariables } from "./evaluatorVariables.js";
+import { yamlToVariables } from "@fsvreddit/bot-bouncer-evaluation";
+import { invalidEvaluatorVariableCondition } from "./evaluatorVariables.js";
 
 test("Parsing YAML", () => {
     const yamlString = `
