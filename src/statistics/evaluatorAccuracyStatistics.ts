@@ -149,7 +149,7 @@ export async function buildEvaluatorAccuracyStatistics (event: ScheduledJobEvent
             for (const subGroup of subGroups) {
                 const key = `${evaluator.name}~${subGroup}`;
                 existingEvaluators.push(key);
-                if (!Object.keys(evaluatorAccuracyStats).includes(key)) {
+                if (!Object.keys(evaluatorAccuracyStats).some(item => item.startsWith(evaluator.name) && item.endsWith(subGroup))) {
                     nonHitKeys.push(key);
                 }
             }
@@ -171,14 +171,13 @@ export async function buildEvaluatorAccuracyStatistics (event: ScheduledJobEvent
     }
 
     const tableRows: string[][] = [];
-    const headers: string[] = ["Bot Name", "Hit Reason", "Exists?", "Total Count", "Banned Count", "Accuracy (%)", "Example Banned Accounts", "Unbanned Accounts"];
+    const headers: string[] = ["Bot Name", "Hit Reason", "Total Count", "Banned Count", "Accuracy (%)", "Example Banned Accounts", "Unbanned Accounts"];
 
     for (const [key, data] of toPairs(evaluatorAccuracyStats).sort((a, b) => a > b ? 1 : -1)) {
         const [botName, hitReason] = key.split("~");
         tableRows.push([
             botName,
             hitReason || "",
-            existingEvaluators.includes(key) ? "Yes" : "No",
             data.totalCount.toLocaleString(),
             data.bannedCount.toLocaleString(),
             data.totalCount ? `${Math.floor((data.bannedCount / data.totalCount) * 100)}%` : "",
