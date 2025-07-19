@@ -137,6 +137,7 @@ export async function buildEvaluatorAccuracyStatistics (event: ScheduledJobEvent
         }));
 
     const variables = await getEvaluatorVariables(context);
+    const existingEvaluators: string[] = [];
     const nonHitKeys: string[] = [];
     for (const Evaluator of ALL_EVALUATORS) {
         const evaluator = new Evaluator(context, variables);
@@ -146,12 +147,17 @@ export async function buildEvaluatorAccuracyStatistics (event: ScheduledJobEvent
         const subGroups = evaluator.getSubGroups();
         if (subGroups && subGroups.length > 0) {
             for (const subGroup of subGroups) {
-                if (!Object.keys(evaluatorAccuracyStats).includes(`${evaluator.name}~${subGroup}`)) {
-                    nonHitKeys.push(`${evaluator.name}~${subGroup}`);
+                const key = `${evaluator.name}~${subGroup}`;
+                existingEvaluators.push(key);
+                if (!Object.keys(evaluatorAccuracyStats).includes(key)) {
+                    nonHitKeys.push(key);
                 }
             }
-        } else if (!Object.keys(evaluatorAccuracyStats).includes(evaluator.name)) {
-            nonHitKeys.push(evaluator.name);
+        } else {
+            existingEvaluators.push(evaluator.name);
+            if (!Object.keys(evaluatorAccuracyStats).includes(evaluator.name)) {
+                nonHitKeys.push(evaluator.name);
+            }
         }
     }
 
@@ -165,13 +171,14 @@ export async function buildEvaluatorAccuracyStatistics (event: ScheduledJobEvent
     }
 
     const tableRows: string[][] = [];
-    const headers: string[] = ["Bot Name", "Hit Reason", "Total Count", "Banned Count", "Accuracy (%)", "Example Banned Accounts", "Unbanned Accounts"];
+    const headers: string[] = ["Bot Name", "Hit Reason", "Exists?", "Total Count", "Banned Count", "Accuracy (%)", "Example Banned Accounts", "Unbanned Accounts"];
 
     for (const [key, data] of toPairs(evaluatorAccuracyStats).sort((a, b) => a > b ? 1 : -1)) {
         const [botName, hitReason] = key.split("~");
         tableRows.push([
             botName,
             hitReason || "",
+            existingEvaluators.includes(key) ? "Yes" : "No",
             data.totalCount.toLocaleString(),
             data.bannedCount.toLocaleString(),
             data.totalCount ? `${Math.floor((data.bannedCount / data.totalCount) * 100)}%` : "",
