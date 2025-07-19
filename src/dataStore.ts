@@ -1,4 +1,4 @@
-import { JobContext, TriggerContext, WikiPagePermissionLevel, WikiPage, CreateModNoteOptions, UserSocialLink, TxClientLike, RedisClient } from "@devvit/public-api";
+import { JobContext, TriggerContext, WikiPage, CreateModNoteOptions, UserSocialLink, TxClientLike, RedisClient } from "@devvit/public-api";
 import { compact, fromPairs, max, toPairs, uniq } from "lodash";
 import pako from "pako";
 import { setCleanupForSubmittersAndMods, setCleanupForUser } from "./cleanup.js";
@@ -273,13 +273,6 @@ export async function updateWikiPage (_: unknown, context: JobContext) {
 
     const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
 
-    let wikiPage: WikiPage | undefined;
-    try {
-        wikiPage = await context.reddit.getWikiPage(subredditName, WIKI_PAGE);
-    } catch {
-        //
-    }
-
     const data = await context.redis.hGetAll(USER_STORE);
     const dataToWrite: Record<string, string> = {};
     const entries = Object.entries(data);
@@ -326,27 +319,29 @@ export async function updateWikiPage (_: unknown, context: JobContext) {
     }
 
     const content = compressData(dataToWrite);
-    if (content === wikiPage?.content) {
-        return;
+    const chunk: string[] = [];
+    for (let i = 0; i < content.length; i += MAX_WIKI_PAGE_SIZE) {
+        chunk.push(content.slice(i, i + MAX_WIKI_PAGE_SIZE));
     }
 
-    const wikiUpdateOptions = {
+    const controlSubSettings = await getControlSubSettings(context);
+    const numberOfPages = controlSubSettings.numberOfWikiPages ?? 1;
+    if (numberOfPages > 1) {
+        for (let i = 2; i <= numberOfPages; i++) {
+            await context.reddit.updateWikiPage({
+                subredditName,
+                content: chunk[i - 1] ?? "",
+                page: `botbouncer/${i}`,
+            });
+            console.log(`Wiki page ${i} has been updated.`);
+        }
+    }
+
+    await context.reddit.updateWikiPage({
         subredditName,
-        content,
+        content: chunk[0],
         page: WIKI_PAGE,
-    };
-
-    if (wikiPage) {
-        await context.reddit.updateWikiPage(wikiUpdateOptions);
-    } else {
-        await context.reddit.createWikiPage(wikiUpdateOptions);
-        await context.reddit.updateWikiPageSettings({
-            subredditName,
-            listed: true,
-            page: WIKI_PAGE,
-            permLevel: WikiPagePermissionLevel.MODS_ONLY,
-        });
-    }
+    });
 
     await context.redis.del(WIKI_UPDATE_DUE);
 
@@ -412,6 +407,7 @@ export async function updateLocalStoreFromWiki (_: unknown, context: JobContext)
     if (numberOfPages > 1) {
         for (let i = 2; i <= numberOfPages; i++) {
             try {
+                console.log(`Wiki Update: Reading wiki page ${i} from control subreddit`);
                 const page = await context.reddit.getWikiPage(CONTROL_SUBREDDIT, `${WIKI_PAGE}/${i}`);
                 wikiContent += page.content;
             } catch {
