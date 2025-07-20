@@ -72,8 +72,13 @@ function getStaleStoreKey (username: string): string {
     return `StaleUserStore~${username[0]}`;
 }
 
-export async function getFullDataStore (context: TriggerContext): Promise<Record<string, string>> {
+export async function getActiveDataStore (context: TriggerContext): Promise<Record<string, string>> {
     const activeData = await context.redis.hGetAll(USER_STORE);
+    return activeData;
+}
+
+export async function getFullDataStore (context: TriggerContext): Promise<Record<string, string>> {
+    const activeData = await getActiveDataStore(context);
     const staleDataArray = await Promise.all(ALL_POTENTIAL_USER_PREFIXES.map(prefix => context.redis.hGetAll(getStaleStoreKey(prefix))));
     const staleData = Object.assign({}, ...staleDataArray) as Record<string, string>;
 
@@ -273,7 +278,7 @@ export async function updateWikiPage (_: unknown, context: JobContext) {
 
     const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
 
-    const data = await context.redis.hGetAll(USER_STORE);
+    const data = await getActiveDataStore(context);
     const dataToWrite: Record<string, string> = {};
     const entries = Object.entries(data);
     if (entries.length === 0) {
