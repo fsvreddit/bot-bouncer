@@ -73,10 +73,10 @@ function getStaleStoreKey (username: string): string {
 }
 
 export async function getActiveDataStore (context: TriggerContext): Promise<Record<string, string>> {
-    throw new Error("getActiveDataStore is deprecated, use getFullDataStore instead. This function will be removed in a future version.");
     const results: Record<string, string> = {};
     const activeKeys = await context.redis.hKeys(USER_STORE);
     const chunkedKeys = chunk(activeKeys, 10000);
+    console.log(`Data Store: Fetching ${activeKeys.length} active user records in ${chunkedKeys.length} chunks.`);
     await Promise.all(chunkedKeys.map(async (keys) => {
         const data = await context.redis.hMGet(USER_STORE, keys);
         for (let i = 0; i < keys.length; i++) {
@@ -87,7 +87,6 @@ export async function getActiveDataStore (context: TriggerContext): Promise<Reco
             }
         }
     }));
-    console.log(`Record is ${results["CrimsonNCupcake"]}`);
     return results;
 }
 
