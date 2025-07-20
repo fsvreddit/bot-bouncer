@@ -1,5 +1,5 @@
 import { JobContext, TriggerContext, WikiPage, CreateModNoteOptions, UserSocialLink, TxClientLike, RedisClient } from "@devvit/public-api";
-import { compact, fromPairs, max, toPairs, uniq } from "lodash";
+import { chunk, compact, fromPairs, max, toPairs, uniq } from "lodash";
 import pako from "pako";
 import { setCleanupForSubmittersAndMods, setCleanupForUser } from "./cleanup.js";
 import { ClientSubredditJob, CONTROL_SUBREDDIT } from "./constants.js";
@@ -73,8 +73,22 @@ function getStaleStoreKey (username: string): string {
 }
 
 export async function getActiveDataStore (context: TriggerContext): Promise<Record<string, string>> {
-    const activeData = await context.redis.hGetAll(USER_STORE);
-    return activeData;
+    throw new Error("getActiveDataStore is deprecated, use getFullDataStore instead. This function will be removed in a future version.");
+    const results: Record<string, string> = {};
+    const activeKeys = await context.redis.hKeys(USER_STORE);
+    const chunkedKeys = chunk(activeKeys, 10000);
+    await Promise.all(chunkedKeys.map(async (keys) => {
+        const data = await context.redis.hMGet(USER_STORE, keys);
+        for (let i = 0; i < keys.length; i++) {
+            const key = keys[i];
+            const record = data[i];
+            if (record) {
+                results[key] = record;
+            }
+        }
+    }));
+    console.log(`Record is ${results["CrimsonNCupcake"]}`);
+    return results;
 }
 
 export async function getFullDataStore (context: TriggerContext): Promise<Record<string, string>> {
