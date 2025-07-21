@@ -322,6 +322,7 @@ export async function validateControlSubConfigChange (username: string, context:
     }
 
     await context.redis.set(redisKey, wikiPage.revisionId);
+    console.log("Control sub settings validated successfully");
 
     await context.scheduler.runJob({
         name: ControlSubredditJob.CopyControlSubSettings,
