@@ -7,7 +7,6 @@ import { removeRecordOfBan, removeWhitelistUnban } from "./handleClientSubreddit
 import { max } from "lodash";
 import { CronExpressionParser } from "cron-parser";
 import { getControlSubSettings } from "./settings.js";
-import { statusToFlair } from "./postCreation.js";
 
 export const CLEANUP_LOG_KEY = "CleanupLog";
 const SUB_OR_MOD_LOG_KEY = "SubOrModLog";
@@ -145,7 +144,20 @@ export async function cleanupDeletedAccounts (_: unknown, context: JobContext) {
                 overrideCleanupDate = addDays(new Date(), 1);
             } else if (currentStatus.userStatus === UserStatus.Purged || currentStatus.userStatus === UserStatus.Retired) {
                 // User's last status was purged or retired, but user is now active again. Restore last status or Pending.
-                newFlair = statusToFlair[currentStatus.lastStatus ?? UserStatus.Pending];
+                switch (currentStatus.lastStatus) {
+                    case UserStatus.Banned:
+                        newFlair = PostFlairTemplate.Banned;
+                        break;
+                    case UserStatus.Organic:
+                        newFlair = PostFlairTemplate.Organic;
+                        break;
+                    case UserStatus.Service:
+                        newFlair = PostFlairTemplate.Service;
+                        break;
+                    default:
+                        newFlair = PostFlairTemplate.Pending;
+                        break;
+                }
             }
 
             const latestContent = await getLatestContentDate(username, context);
