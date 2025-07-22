@@ -55,6 +55,14 @@ While you can unban the user yourself, this only affects the user on your subred
 
 # Change History
 
+## v1.15.1
+
+* Don't reinstate content that had reports at the point of ban if a user is marked as human on appeal
+* Reduce false positives on Inconsistent Age evaluator
+* Introduces new flexible evaluator type to catch more styles of bots without redeploying app
+* Retire two evaluator types for bot types not seen in a long while
+* Internal changes to support operations on /r/BotBouncer
+
 ## v1.14.0
 
 * Prevent duplicate private mod notes from being created in Modmail when a user who is marked as banned writes in
