@@ -302,9 +302,6 @@ async function checkAndReportPotentialBot (username: string, target: Post | Comm
 
         const userEvalateResult = await Promise.resolve(evaluator.preEvaluateUser(user));
         if (!userEvalateResult) {
-            if (context.subredditName === "Frieren" && evaluator.name === "Short TLC New Bot") {
-                console.log(`Evaluator: ${username} not detected. ${evaluator.getReasons().join(", ")}`);
-            }
             continue;
         }
 

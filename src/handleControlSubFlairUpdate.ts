@@ -82,7 +82,7 @@ export async function handleControlSubFlairUpdate (event: PostFlairUpdate, conte
     }
 }
 
-async function sendFeedback (username: string, submitter: string, operator: string, userStatus: UserStatus, context: TriggerContext) {
+export async function sendFeedback (username: string, submitter: string, operator: string, userStatus: UserStatus, context: TriggerContext) {
     const statusToExplanation: Record<UserStatus, string> = {
         [UserStatus.Organic]: "seems likely to be a human run account rather than a bot.",
         [UserStatus.Banned]: "has been classified as a bot and will be banned from any subreddit using Bot Bouncer if they post or comment there.",

@@ -132,6 +132,8 @@ export async function cleanupDeletedAccounts (_: unknown, context: JobContext) {
         const txn = await context.redis.watch();
         await txn.multi();
 
+        let newFlair: PostFlairTemplate | undefined;
+
         if (currentUserStatus === UserActiveStatus.Active) {
             activeCount++;
             if (currentStatus.userStatus === UserStatus.Pending) {
@@ -142,27 +144,20 @@ export async function cleanupDeletedAccounts (_: unknown, context: JobContext) {
                 overrideCleanupDate = addDays(new Date(), 1);
             } else if (currentStatus.userStatus === UserStatus.Purged || currentStatus.userStatus === UserStatus.Retired) {
                 // User's last status was purged or retired, but user is now active again. Restore last status or Pending.
-                let newTemplate: PostFlairTemplate;
                 switch (currentStatus.lastStatus) {
                     case UserStatus.Banned:
-                        newTemplate = PostFlairTemplate.Banned;
+                        newFlair = PostFlairTemplate.Banned;
                         break;
                     case UserStatus.Organic:
-                        newTemplate = PostFlairTemplate.Organic;
+                        newFlair = PostFlairTemplate.Organic;
                         break;
                     case UserStatus.Service:
-                        newTemplate = PostFlairTemplate.Service;
+                        newFlair = PostFlairTemplate.Service;
                         break;
                     default:
-                        newTemplate = PostFlairTemplate.Pending;
+                        newFlair = PostFlairTemplate.Pending;
                         break;
                 }
-
-                await context.reddit.setPostFlair({
-                    postId: currentStatus.trackingPostId,
-                    subredditName: CONTROL_SUBREDDIT,
-                    flairTemplateId: newTemplate,
-                });
             }
 
             const latestContent = await getLatestContentDate(username, context);
@@ -170,16 +165,12 @@ export async function cleanupDeletedAccounts (_: unknown, context: JobContext) {
             if (latestActivity) {
                 // Store the latest activity date.
                 currentStatus.mostRecentActivity = latestActivity;
-                await writeUserStatus(username, currentStatus, txn);
                 console.log(`Cleanup: ${username} last activity: ${format(latestActivity, "yyyy-MM-dd")}`);
+                await writeUserStatus(username, currentStatus, txn);
 
                 if (latestContent && new Date(latestContent) > subDays(new Date(), 14) && currentStatus.userStatus === UserStatus.Inactive) {
                     // User flagged as "Inactive", but with recent activity. Set to "Pending".
-                    await context.reddit.setPostFlair({
-                        postId: currentStatus.trackingPostId,
-                        subredditName: CONTROL_SUBREDDIT,
-                        flairTemplateId: PostFlairTemplate.Pending,
-                    });
+                    newFlair = PostFlairTemplate.Pending;
                 }
             } else {
                 console.log(`Cleanup: Unable to get latest activity for ${username}`);
@@ -189,19 +180,11 @@ export async function cleanupDeletedAccounts (_: unknown, context: JobContext) {
             // User's current status is Suspended or Shadowbanned.
             if (currentStatus.userStatus === UserStatus.Pending) {
                 // Users who are currently pending but where the user is suspended or shadowbanned should be set to Retired.
-                await context.reddit.setPostFlair({
-                    postId: currentStatus.trackingPostId,
-                    subredditName: CONTROL_SUBREDDIT,
-                    flairTemplateId: PostFlairTemplate.Retired,
-                });
+                newFlair = PostFlairTemplate.Retired;
             } else if (currentStatus.userStatus !== UserStatus.Purged && currentStatus.userStatus !== UserStatus.Retired) {
                 // User is active in the DB, but currently suspended or shadowbanned.
                 // Change the post flair to Purged.
-                await context.reddit.setPostFlair({
-                    postId: currentStatus.trackingPostId,
-                    subredditName: CONTROL_SUBREDDIT,
-                    flairTemplateId: PostFlairTemplate.Purged,
-                });
+                newFlair = PostFlairTemplate.Purged;
             } else {
                 await writeUserStatus(username, currentStatus, txn);
             }
@@ -217,6 +200,14 @@ export async function cleanupDeletedAccounts (_: unknown, context: JobContext) {
 
         await setCleanupForUser(username, txn, overrideCleanupDate);
         await txn.exec();
+
+        if (newFlair) {
+            await context.reddit.setPostFlair({
+                postId: currentStatus.trackingPostId,
+                subredditName: CONTROL_SUBREDDIT,
+                flairTemplateId: newFlair,
+            });
+        }
     }
 
     console.log(`Cleanup: Active ${activeCount}, Deleted ${deletedCount}, Suspended ${suspendedCount}`);

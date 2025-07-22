@@ -1,5 +1,5 @@
-import { JobContext, TriggerContext, WikiPagePermissionLevel, WikiPage, CreateModNoteOptions, UserSocialLink, TxClientLike } from "@devvit/public-api";
-import { compact, fromPairs, max, toPairs, uniq } from "lodash";
+import { JobContext, TriggerContext, WikiPage, CreateModNoteOptions, UserSocialLink, TxClientLike, RedisClient } from "@devvit/public-api";
+import { chunk, compact, fromPairs, max, toPairs, uniq } from "lodash";
 import pako from "pako";
 import { setCleanupForSubmittersAndMods, setCleanupForUser } from "./cleanup.js";
 import { ClientSubredditJob, CONTROL_SUBREDDIT } from "./constants.js";
@@ -72,8 +72,26 @@ function getStaleStoreKey (username: string): string {
     return `StaleUserStore~${username[0]}`;
 }
 
+export async function getActiveDataStore (context: TriggerContext): Promise<Record<string, string>> {
+    const results: Record<string, string> = {};
+    const activeKeys = await context.redis.hKeys(USER_STORE);
+    const chunkedKeys = chunk(activeKeys, 10000);
+    console.log(`Data Store: Fetching ${activeKeys.length} active user records in ${chunkedKeys.length} chunks.`);
+    await Promise.all(chunkedKeys.map(async (keys) => {
+        const data = await context.redis.hMGet(USER_STORE, keys);
+        for (let i = 0; i < keys.length; i++) {
+            const key = keys[i];
+            const record = data[i];
+            if (record) {
+                results[key] = record;
+            }
+        }
+    }));
+    return results;
+}
+
 export async function getFullDataStore (context: TriggerContext): Promise<Record<string, string>> {
-    const activeData = await context.redis.hGetAll(USER_STORE);
+    const activeData = await getActiveDataStore(context);
     const staleDataArray = await Promise.all(ALL_POTENTIAL_USER_PREFIXES.map(prefix => context.redis.hGetAll(getStaleStoreKey(prefix))));
     const staleData = Object.assign({}, ...staleDataArray) as Record<string, string>;
 
@@ -214,8 +232,8 @@ export async function getUsernameFromPostId (postId: string, context: TriggerCon
     return username;
 }
 
-export async function updateAggregate (type: UserStatus, incrBy: number, txn: TxClientLike) {
-    await txn.zIncrBy(AGGREGATE_STORE, type, incrBy);
+export async function updateAggregate (type: UserStatus, incrBy: number, redis: TxClientLike | RedisClient) {
+    await redis.zIncrBy(AGGREGATE_STORE, type, incrBy);
 }
 
 function compressData (value: Record<string, string>): string {
@@ -273,14 +291,7 @@ export async function updateWikiPage (_: unknown, context: JobContext) {
 
     const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
 
-    let wikiPage: WikiPage | undefined;
-    try {
-        wikiPage = await context.reddit.getWikiPage(subredditName, WIKI_PAGE);
-    } catch {
-        //
-    }
-
-    const data = await context.redis.hGetAll(USER_STORE);
+    const data = await getActiveDataStore(context);
     const dataToWrite: Record<string, string> = {};
     const entries = Object.entries(data);
     if (entries.length === 0) {
@@ -326,33 +337,36 @@ export async function updateWikiPage (_: unknown, context: JobContext) {
     }
 
     const content = compressData(dataToWrite);
-    if (content === wikiPage?.content) {
-        return;
+    const chunk: string[] = [];
+    for (let i = 0; i < content.length; i += MAX_WIKI_PAGE_SIZE) {
+        chunk.push(content.slice(i, i + MAX_WIKI_PAGE_SIZE));
     }
 
-    const wikiUpdateOptions = {
+    const controlSubSettings = await getControlSubSettings(context);
+    const numberOfPages = controlSubSettings.numberOfWikiPages ?? 1;
+    if (numberOfPages > 1) {
+        for (let i = 2; i <= numberOfPages; i++) {
+            await context.reddit.updateWikiPage({
+                subredditName,
+                content: chunk[i - 1] ?? "",
+                page: `botbouncer/${i}`,
+            });
+            console.log(`Wiki page ${i} has been updated.`);
+        }
+    }
+
+    await context.reddit.updateWikiPage({
         subredditName,
-        content,
+        content: chunk[0],
         page: WIKI_PAGE,
-    };
-
-    if (wikiPage) {
-        await context.reddit.updateWikiPage(wikiUpdateOptions);
-    } else {
-        await context.reddit.createWikiPage(wikiUpdateOptions);
-        await context.reddit.updateWikiPageSettings({
-            subredditName,
-            listed: true,
-            page: WIKI_PAGE,
-            permLevel: WikiPagePermissionLevel.MODS_ONLY,
-        });
-    }
+    });
 
     await context.redis.del(WIKI_UPDATE_DUE);
 
     console.log(`Wiki page has been updated with ${Object.keys(dataToWrite).length} entries, size: ${content.length.toLocaleString()} bytes`);
 
-    if (content.length > MAX_WIKI_PAGE_SIZE * 0.75) {
+    const maxSupportedSize = MAX_WIKI_PAGE_SIZE * numberOfPages;
+    if (content.length > maxSupportedSize * 0.9) {
         const spaceAlertKey = "wikiSpaceAlert";
         const alertDone = await context.redis.exists(spaceAlertKey);
         if (!alertDone) {
@@ -360,7 +374,7 @@ export async function updateWikiPage (_: unknown, context: JobContext) {
             const webhook = controlSubSettings.monitoringWebhook;
             if (webhook) {
                 const message: json2md.DataObject[] = [
-                    { p: `The botbouncer wiki page is now at ${Math.round(content.length / MAX_WIKI_PAGE_SIZE * 100)}% of its maximum size. It's time to rethink how data is stored.` },
+                    { p: `The botbouncer wiki page is now at ${Math.round(content.length / maxSupportedSize * 100)}% of its maximum size. It's time to rethink how data is stored.` },
                     { p: `I will notify you again in a week if the page is still over this threshold` },
                 ];
 
@@ -412,6 +426,7 @@ export async function updateLocalStoreFromWiki (_: unknown, context: JobContext)
     if (numberOfPages > 1) {
         for (let i = 2; i <= numberOfPages; i++) {
             try {
+                console.log(`Wiki Update: Reading wiki page ${i} from control subreddit`);
                 const page = await context.reddit.getWikiPage(CONTROL_SUBREDDIT, `${WIKI_PAGE}/${i}`);
                 wikiContent += page.content;
             } catch {

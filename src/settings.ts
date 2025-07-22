@@ -198,6 +198,7 @@ export interface ControlSubSettings {
     monitoringWebhook?: string;
     banNoteCheckingEnabled?: boolean;
     observerSubreddits?: string[];
+    postCreationQueueProcessingEnabled?: boolean;
 }
 
 const CONTROL_SUB_SETTINGS_WIKI_PAGE = "control-sub-settings";
@@ -219,6 +220,7 @@ const schema: JSONSchemaType<ControlSubSettings> = {
         monitoringWebhook: { type: "string", nullable: true },
         banNoteCheckingEnabled: { type: "boolean", nullable: true },
         observerSubreddits: { type: "array", items: { type: "string" }, nullable: true },
+        postCreationQueueProcessingEnabled: { type: "boolean", nullable: true },
     },
     required: ["evaluationDisabled", "trustedSubmitters", "reporterBlacklist"],
 };
@@ -320,6 +322,7 @@ export async function validateControlSubConfigChange (username: string, context:
     }
 
     await context.redis.set(redisKey, wikiPage.revisionId);
+    console.log("Control sub settings validated successfully");
 
     await context.scheduler.runJob({
         name: ControlSubredditJob.CopyControlSubSettings,

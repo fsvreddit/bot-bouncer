@@ -139,11 +139,8 @@ export async function analyseBioText (_: unknown, context: JobContext) {
             const rows: string[][] = [];
             for (const bioTextEntry of similarTexts) {
                 const currentStatus = await getUserStatus(bioTextEntry.username, context);
-                let evaluators = "";
-                if (!currentStatus) {
-                    const evaluatorsMatched = await evaluateUserAccount(bioTextEntry.username, variables, context, false);
-                    evaluators = evaluatorsMatched.map(evaluator => evaluator.botName).join(", ");
-                }
+                const evaluatorsMatched = await evaluateUserAccount(bioTextEntry.username, variables, context, false);
+                const evaluators = evaluatorsMatched.map(evaluator => evaluator.botName).join(", ");
                 rows.push([`/u/${bioTextEntry.username}`, currentStatus?.userStatus ?? "", evaluators, bioTextEntry.bioText]);
                 if (!currentStatus && evaluators === "") {
                     addableUsers.push(bioTextEntry.username);
