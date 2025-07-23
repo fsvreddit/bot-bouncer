@@ -28,14 +28,17 @@ async function gatherUsernames (context: JobContext) {
             return false;
         }
 
-        if (item.data.userStatus === UserStatus.Purged || item.data.userStatus === UserStatus.Retired) {
-            return false;
-        }
-
         return true;
     });
 
-    const recordsToQueue = fromPairs(relevantData.map(({ username, data }) => ([username, data.userStatus])));
+    const recordsToQueue = fromPairs(relevantData.map((item) => {
+        if (item.data.userStatus === UserStatus.Purged || item.data.userStatus === UserStatus.Retired) {
+            return [item.username, item.data.lastStatus ?? item.data.userStatus];
+        } else {
+            return [item.username, item.data.userStatus];
+        }
+    }));
+
     await context.redis.hSet(ACCURACY_QUEUE, recordsToQueue);
     console.log(`Evaluator Accuracy Statistics: Queued ${relevantData.length} usernames for accuracy evaluation.`);
 }
