@@ -126,7 +126,7 @@ async function addModNote (options: CreateModNoteOptions, context: TriggerContex
     }
 }
 
-export async function writeUserStatus (username: string, details: UserDetails, txn: TxClientLike) {
+export async function writeUserStatus (username: string, details: UserDetails, redis: TxClientLike | RedisClient) {
     let isStale = false;
     if (details.mostRecentActivity && new Date(details.mostRecentActivity) < subWeeks(new Date(), 3)) {
         isStale = true;
@@ -140,8 +140,8 @@ export async function writeUserStatus (username: string, details: UserDetails, t
     const keyToDelete = isStale ? USER_STORE : getStaleStoreKey(username);
 
     try {
-        await txn.hSet(keyToSet, { [username]: JSON.stringify(details) });
-        await txn.hDel(keyToDelete, [username]);
+        await redis.hSet(keyToSet, { [username]: JSON.stringify(details) });
+        await redis.hDel(keyToDelete, [username]);
     } catch (error) {
         console.error(`Failed to write user status of ${details.userStatus} for ${username}:`, error);
         throw new Error(`Failed to write user status for ${username}`);
