@@ -72,7 +72,7 @@ export async function buildEvaluatorAccuracyStatistics (event: ScheduledJobEvent
         return;
     }
 
-    const runLimit = addSeconds(new Date(), 25);
+    const runLimit = addSeconds(new Date(), 15);
     let processed = 0;
 
     const existingResults = await context.redis.hGetAll(ACCURACY_STORE);
