@@ -55,6 +55,11 @@ While you can unban the user yourself, this only affects the user on your subred
 
 # Change History
 
+## Next
+
+* Fix typo on settings screen
+* Internal changes to support operations on /r/BotBouncer
+
 ## v1.15.3
 
 * Don't reinstate content that had reports at the point of ban if a user is marked as human on appeal
