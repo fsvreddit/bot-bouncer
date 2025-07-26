@@ -72,8 +72,9 @@ export async function buildEvaluatorAccuracyStatistics (event: ScheduledJobEvent
         return;
     }
 
-    const runLimit = addSeconds(new Date(), 15);
+    const runLimit = addSeconds(new Date(), 10);
     let processed = 0;
+    const processedItems: string[] = [];
 
     const existingResults = await context.redis.hGetAll(ACCURACY_STORE);
 
@@ -110,16 +111,19 @@ export async function buildEvaluatorAccuracyStatistics (event: ScheduledJobEvent
             }
         }
         processed++;
+        processedItems.push(username);
     }
 
     if (data.length > 0) {
         console.log(`Evaluator Accuracy Statistics: Processed ${processed} records, ${data.length} remaining.`);
         await context.redis.hSet(ACCURACY_STORE, existingResults);
+        await context.redis.hDel(ACCURACY_QUEUE, processedItems);
         await context.scheduler.runJob({
             name: ControlSubredditJob.EvaluatorAccuracyStatistics,
             runAt: addSeconds(new Date(), 2),
             data: { firstRun: false },
         });
+        return;
     }
 
     // Nothing left in queue. Generate the statistics page.
