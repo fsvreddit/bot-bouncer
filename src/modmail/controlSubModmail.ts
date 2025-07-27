@@ -2,7 +2,7 @@ import { TriggerContext } from "@devvit/public-api";
 import { isLinkId } from "@devvit/shared-types/tid.js";
 import { getUserStatus, UserStatus } from "../dataStore.js";
 import { getSummaryForUser } from "../UserSummary/userSummary.js";
-import { getUserOrUndefined } from "../utility.js";
+import { getUserOrUndefined, isBanned, isModerator } from "../utility.js";
 import { CONFIGURATION_DEFAULTS, getControlSubSettings } from "../settings.js";
 import { addDays, addMinutes, subMinutes } from "date-fns";
 import json2md from "json2md";
@@ -48,6 +48,11 @@ export async function handleControlSubredditModmail (modmail: ModmailMessage, co
 
     if (modmail.bodyMarkdown.startsWith("!summary") && modmail.participant) {
         await addSummaryForUser(modmail.conversationId, modmail.participant, context);
+        return;
+    }
+
+    if (modmail.bodyMarkdown.startsWith("!checkban") && modmail.participant) {
+        await checkBanOnSub(modmail, context);
         return;
     }
 
@@ -275,4 +280,32 @@ async function addSummaryForUser (conversationId: string, username: string, cont
             isInternal: true,
         });
     }
+}
+
+async function checkBanOnSub (modmail: ModmailMessage, context: TriggerContext) {
+    const checkBanRegex = /^!checkban ([A-Za-z0-9_]+)/;
+    const checkBanMatch = checkBanRegex.exec(modmail.bodyMarkdown);
+    if (!modmail.participant || !checkBanMatch || checkBanMatch.length !== 2) {
+        return;
+    }
+
+    const subredditName = checkBanMatch[1];
+    const message: json2md.DataObject[] = [];
+    try {
+        const isBannedOnSub = await isBanned(modmail.participant, context, subredditName);
+        message.push({ p: `User /u/${modmail.participant} is currently ${isBannedOnSub ? "banned" : "not banned"} on /r/${subredditName}.` });
+    } catch (error) {
+        const isMod = await isModerator(context.appName, context, subredditName);
+        if (!isMod) {
+            message.push({ p: `Bot Bouncer is not a moderator of /r/${subredditName}, so it cannot check the ban status of /u/${modmail.participant}.` });
+        } else {
+            message.push({ p: `An error occurred while checking the ban status of /u/${modmail.participant} on /r/${subredditName}.` });
+            message.push({ blockquote: error instanceof Error ? error.message : String(error) });
+        }
+    }
+    await context.reddit.modMail.reply({
+        body: json2md(message),
+        conversationId: modmail.conversationId,
+        isInternal: true,
+    });
 }
