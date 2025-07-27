@@ -286,6 +286,11 @@ async function checkBanOnSub (modmail: ModmailMessage, context: TriggerContext) 
     const checkBanRegex = /^!checkban ([A-Za-z0-9_]+)/;
     const checkBanMatch = checkBanRegex.exec(modmail.bodyMarkdown);
     if (!modmail.participant || !checkBanMatch || checkBanMatch.length !== 2) {
+        await context.reddit.modMail.reply({
+            body: "Invalid command format. Use `!checkban <subreddit>`.",
+            conversationId: modmail.conversationId,
+            isInternal: true,
+        });
         return;
     }
 
