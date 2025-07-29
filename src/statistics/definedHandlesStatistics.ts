@@ -6,7 +6,6 @@ import { fromPairs } from "lodash";
 import { ControlSubredditJob } from "../constants.js";
 import json2md from "json2md";
 import { replaceAll } from "../utility.js";
-import pluralize from "pluralize";
 
 const DEFINED_HANDLES_QUEUE = "definedHandlesQueue";
 const DEFINED_HANDLES_DATA = "definedHandlesData";
@@ -178,6 +177,7 @@ async function buildDefinedHandlesWikiPage (context: JobContext) {
     }
 
     const suggestedHandles = existingDefinedHandles
+        .filter(entry => entry.data.count > 0)
         .map(entry => entry.handle)
         .join("|");
 
@@ -227,6 +227,7 @@ export function getHandlesFromRegex (input: string): string[] {
 export async function storeDefinedHandlesData (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
     const username = event.data?.username as string | undefined;
     if (!username) {
+        console.error("No username provided in event data for storing defined handles data.");
         return;
     }
 
@@ -253,6 +254,6 @@ export async function storeDefinedHandlesData (event: ScheduledJobEvent<JSONObje
 
     if (foundHandles.length > 0) {
         await context.redis.hSet(USER_DEFINED_HANDLES_POSTS, { [username]: JSON.stringify(foundHandles) });
-        console.log(`Stored defined handles posts for user ${username}: ${foundHandles.length} distinct ${pluralize("handle", foundHandles.length)} found.`);
+        console.log(`Defined Handles: Stored defined handles posts for user ${username}: Found ${foundHandles.map(post => post.handle).join(", ")}`);
     }
 }
