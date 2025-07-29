@@ -27,7 +27,7 @@ import { cleanupPostStore } from "./cleanupPostStore.js";
 import { buildEvaluatorAccuracyStatistics } from "./statistics/evaluatorAccuracyStatistics.js";
 import { processExternalSubmissionsFromObserverSubreddits } from "./externalSubmissions.js";
 import { performCleanupMaintenance } from "./cleanupMaintenance.js";
-import { gatherDefinedHandlesStats } from "./statistics/definedHandlesStatistics.js";
+import { gatherDefinedHandlesStats, storeDefinedHandlesData } from "./statistics/definedHandlesStatistics.js";
 
 Devvit.addSettings(appSettings);
 
@@ -223,6 +223,11 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: ControlSubredditJob.DefinedHandlesStatistics,
     onRun: gatherDefinedHandlesStats,
+});
+
+Devvit.addSchedulerJob({
+    name: ControlSubredditJob.DefinedHandlesPostStore,
+    onRun: storeDefinedHandlesData,
 });
 
 /**

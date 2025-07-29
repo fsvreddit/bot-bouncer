@@ -6,14 +6,21 @@ import { fromPairs } from "lodash";
 import { ControlSubredditJob } from "../constants.js";
 import json2md from "json2md";
 import { replaceAll } from "../utility.js";
+import pluralize from "pluralize";
 
 const DEFINED_HANDLES_QUEUE = "definedHandlesQueue";
 const DEFINED_HANDLES_DATA = "definedHandlesData";
+const USER_DEFINED_HANDLES_POSTS = "userDefinedHandlesPosts";
 
 interface DefinedHandleData {
     count: number;
     lastSeen: number;
     exampleUsers: string[];
+}
+
+interface UserDefinedHandlePost {
+    handle: string;
+    title: string;
 }
 
 export async function updateDefinedHandlesStats (allEntries: [string, UserDetails][], context: JobContext) {
@@ -48,10 +55,7 @@ export async function gatherDefinedHandlesStats (event: ScheduledJobEvent<JSONOb
     let processedCount = 0;
     const processedUsers: string[] = [];
 
-    const evaluatorVariables = await getEvaluatorVariables(context);
-    const definedHandles = evaluatorVariables["substitutions:definedhandles"] as string | undefined ?? "";
-
-    const handles = getHandlesFromRegex(definedHandles);
+    const handles = await getDefinedHandles(context);
 
     if (handles.length === 0) {
         console.error("No defined handles found in evaluator variables.");
@@ -178,6 +182,12 @@ async function buildDefinedHandlesWikiPage (context: JobContext) {
     });
 }
 
+async function getDefinedHandles (context: JobContext): Promise<string[]> {
+    const evaluatorVariables = await getEvaluatorVariables(context);
+    const definedHandles = evaluatorVariables["substitutions:definedhandles"] as string | undefined ?? "";
+    return getHandlesFromRegex(definedHandles);
+}
+
 export function getHandlesFromRegex (input: string): string[] {
     // Split only on top-level pipes, not inside parentheses
     const result: string[] = [];
@@ -203,4 +213,36 @@ export function getHandlesFromRegex (input: string): string[] {
         result.push(current.trim());
     }
     return result;
+}
+
+export async function storeDefinedHandlesData (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
+    const username = event.data?.username as string | undefined;
+    if (!username) {
+        return;
+    }
+
+    const postHistory = await context.reddit.getPostsByUser({
+        username,
+        sort: "new",
+        limit: 100,
+    }).all();
+
+    const handles = await getDefinedHandles(context);
+    const foundHandles: UserDefinedHandlePost[] = [];
+
+    for (const handle of handles) {
+        const regex = new RegExp(`\\b${handle}\\b`);
+        const foundPost = postHistory.find(post => regex.test(post.title));
+        if (foundPost) {
+            foundHandles.push({
+                handle,
+                title: foundPost.title,
+            });
+        }
+    }
+
+    if (foundHandles.length > 0) {
+        await context.redis.hSet(USER_DEFINED_HANDLES_POSTS, { [username]: JSON.stringify(foundHandles) });
+        console.log(`Stored defined handles posts for user ${username}: ${foundHandles.length} distinct ${pluralize("handle", foundHandles.length)} found.`);
+    }
 }

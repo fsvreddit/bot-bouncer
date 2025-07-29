@@ -103,6 +103,14 @@ async function createNewSubmission (submission: AsyncSubmission, context: Trigge
         await queueSendFeedback(submission.user.username, context);
     }
 
+    if (submission.details.userStatus === UserStatus.Banned) {
+        await context.scheduler.runJob({
+            name: ControlSubredditJob.DefinedHandlesPostStore,
+            runAt: addSeconds(new Date(), 1),
+            data: { username: submission.user.username },
+        });
+    }
+
     console.log(`Post Creation: Created new post for ${submission.user.username} with status ${submission.details.userStatus}.`);
 }
 
