@@ -10,7 +10,7 @@ import pluralize from "pluralize";
 
 const DEFINED_HANDLES_QUEUE = "definedHandlesQueue";
 const DEFINED_HANDLES_DATA = "definedHandlesData";
-const USER_DEFINED_HANDLES_POSTS = "userDefinedHandlesPosts";
+export const USER_DEFINED_HANDLES_POSTS = "userDefinedHandlesPosts";
 
 interface DefinedHandleData {
     count: number;
@@ -21,6 +21,7 @@ interface DefinedHandleData {
 interface UserDefinedHandlePost {
     handle: string;
     title: string;
+    seen?: number;
 }
 
 export async function updateDefinedHandlesStats (allEntries: [string, UserDetails][], context: JobContext) {
@@ -75,14 +76,21 @@ export async function gatherDefinedHandlesStats (event: ScheduledJobEvent<JSONOb
 
     const userBioTextData = await context.redis.hMGet(BIO_TEXT_STORE, queuedHandles.map(handle => handle.member));
     const userDisplayNameData = await context.redis.hMGet(DISPLAY_NAME_STORE, queuedHandles.map(handle => handle.member));
+    const userDefinedHandlesPosts = await context.redis.hMGet(USER_DEFINED_HANDLES_POSTS, queuedHandles.map(handle => handle.member));
 
     const bioTexts: Record<string, string> = {};
     const displayNames: Record<string, string> = {};
+    const userDefinedHandlesPostsData: Record<string, UserDefinedHandlePost[]> = {};
 
     for (let i = 0; i < queuedHandles.length; i++) {
         const username = queuedHandles[i].member;
         const bioText = userBioTextData[i];
         const displayName = userDisplayNameData[i];
+        const definedHandlesPosts = userDefinedHandlesPosts[i];
+
+        if (definedHandlesPosts) {
+            userDefinedHandlesPostsData[username] = JSON.parse(definedHandlesPosts) as UserDefinedHandlePost[];
+        }
 
         if (bioText) {
             bioTexts[username] = bioText;
@@ -103,10 +111,11 @@ export async function gatherDefinedHandlesStats (event: ScheduledJobEvent<JSONOb
         const username = firstItem.member;
         const userBioText = bioTexts[username] ?? "";
         const userDisplayName = displayNames[username] ?? "";
+        const userDefinedHandles = userDefinedHandlesPostsData[username] ?? [];
 
         const handlesFound = handles.filter((handle) => {
             const regex = new RegExp(`\\b${handle}\\b`);
-            return regex.test(userBioText) || regex.test(userDisplayName);
+            return regex.test(userBioText) || regex.test(userDisplayName) || userDefinedHandles.some(post => regex.test(post.title));
         });
 
         for (const handle of handlesFound) {
@@ -237,6 +246,7 @@ export async function storeDefinedHandlesData (event: ScheduledJobEvent<JSONObje
             foundHandles.push({
                 handle,
                 title: foundPost.title,
+                seen: foundPost.createdAt.getTime(),
             });
         }
     }

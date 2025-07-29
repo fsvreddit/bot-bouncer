@@ -13,6 +13,7 @@ import { sendMessageToWebhook } from "./utility.js";
 import { getUserExtended } from "./extendedDevvit.js";
 import { storeClassificationEvent } from "./statistics/classificationStatistics.js";
 import { queueReclassifications } from "./handleClientSubredditWikiUpdate.js";
+import { USER_DEFINED_HANDLES_POSTS } from "./statistics/definedHandlesStatistics.js";
 
 const USER_STORE = "UserStore";
 const TEMP_DECLINE_STORE = "TempDeclineStore";
@@ -221,6 +222,7 @@ export async function deleteUserStatus (username: string, trackingPostId: string
     await txn.hDel(BIO_TEXT_STORE, [username]);
     await txn.hDel(DISPLAY_NAME_STORE, [username]);
     await txn.hDel(SOCIAL_LINKS_STORE, [username]);
+    await txn.hDel(USER_DEFINED_HANDLES_POSTS, [username]);
 
     if (trackingPostId) {
         await txn.hDel(POST_STORE, [trackingPostId]);
