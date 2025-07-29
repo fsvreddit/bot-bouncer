@@ -41,6 +41,7 @@ export enum ControlSubredditJob {
     AsyncPostCreation = "asyncPostCreation",
     CleanupPostStore = "cleanupPostStore",
     EvaluatorAccuracyStatistics = "evaluatorAccuracyStatistics",
+    DefinedHandlesStatistics = "definedHandlesStatistics",
     HandleObserverSubredditSubmissions = "handleObserverSubredditSubmissions",
     PerformCleanupMaintenance = "performCleanupMaintenance",
 }
