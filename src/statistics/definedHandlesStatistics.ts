@@ -1,4 +1,4 @@
-import { JobContext, JSONObject, ScheduledJobEvent } from "@devvit/public-api";
+import { JobContext, JSONObject, Post, ScheduledJobEvent } from "@devvit/public-api";
 import { BIO_TEXT_STORE, DISPLAY_NAME_STORE, UserDetails, UserStatus } from "../dataStore.js";
 import { addSeconds, format, subMonths } from "date-fns";
 import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
@@ -14,6 +14,9 @@ export const USER_DEFINED_HANDLES_POSTS = "userDefinedHandlesPosts";
 interface DefinedHandleData {
     count: number;
     lastSeen: number;
+    foundInBio: boolean;
+    foundInDisplayName: boolean;
+    foundInPosts: boolean;
     exampleUsers: string[];
 }
 
@@ -66,7 +69,7 @@ export async function gatherDefinedHandlesStats (event: ScheduledJobEvent<JSONOb
     if (event.data?.firstRun) {
         existingDefinedHandles = {};
         for (const handle of handles) {
-            existingDefinedHandles[handle] = { count: 0, lastSeen: 0, exampleUsers: [] };
+            existingDefinedHandles[handle] = { count: 0, lastSeen: 0, exampleUsers: [], foundInBio: false, foundInDisplayName: false, foundInPosts: false };
         }
     } else {
         const existingDefinedHandlesData = await context.redis.hGetAll(DEFINED_HANDLES_DATA);
@@ -112,17 +115,25 @@ export async function gatherDefinedHandlesStats (event: ScheduledJobEvent<JSONOb
         const userDisplayName = displayNames[username] ?? "";
         const userDefinedHandles = userDefinedHandlesPostsData[username] ?? [];
 
-        const handlesFound = handles.filter((handle) => {
+        const handlesFound = handles.map((handle) => {
             const regex = new RegExp(`\\b${handle}\\b`);
-            return regex.test(userBioText) || regex.test(userDisplayName) || userDefinedHandles.some(post => regex.test(post.title));
-        });
+            return {
+                handle,
+                foundInBio: regex.test(userBioText),
+                foundInDisplayName: regex.test(userDisplayName),
+                foundInPosts: userDefinedHandles.some(post => regex.test(post.title)),
+            };
+        }).filter(handle => handle.foundInBio || handle.foundInDisplayName || handle.foundInPosts);
 
-        for (const handle of handlesFound) {
-            const existingData = existingDefinedHandles[handle] ?? { count: 0, lastSeen: 0, exampleUsers: [] };
+        for (const handleEntry of handlesFound) {
+            const existingData = existingDefinedHandles[handleEntry.handle] ?? { count: 0, lastSeen: 0, exampleUsers: [], foundInBio: false, foundInDisplayName: false, foundInPosts: false };
             existingData.count++;
             existingData.lastSeen = Math.max(existingData.lastSeen, firstItem.score);
             existingData.exampleUsers.push(username);
-            existingDefinedHandles[handle] = existingData;
+            existingData.foundInBio ||= handleEntry.foundInBio;
+            existingData.foundInDisplayName ||= handleEntry.foundInDisplayName;
+            existingData.foundInPosts ||= handleEntry.foundInPosts;
+            existingDefinedHandles[handleEntry.handle] = existingData;
         }
 
         processedCount++;
@@ -157,15 +168,27 @@ async function buildDefinedHandlesWikiPage (context: JobContext) {
     ];
 
     const tableRows: string[][] = [];
-    const tableHeaders = ["Handle", "Count", "Last Seen", "Example Users"];
+    const tableHeaders = ["Handle", "Count", "Last Seen", "Found In", "Example Users"];
 
     for (const entry of existingDefinedHandles) {
         const { handle, data } = entry;
+
+        const foundInText: string[] = [];
+        if (data.foundInBio) {
+            foundInText.push("Bio");
+        }
+        if (data.foundInDisplayName) {
+            foundInText.push("Display Name");
+        }
+        if (data.foundInPosts) {
+            foundInText.push("Posts");
+        }
 
         tableRows.push([
             `\`${replaceAll(handle, "|", "¦")}\``,
             data.count.toLocaleString(),
             data.lastSeen > 0 ? format(new Date(data.lastSeen), "yyyy-MM-dd") : "",
+            foundInText.join(", "),
             data.exampleUsers.slice(-5).map(user => `/u/${user}`).join(", "),
         ]);
     }
@@ -224,18 +247,22 @@ export function getHandlesFromRegex (input: string): string[] {
     return result;
 }
 
-export async function storeDefinedHandlesData (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
-    const username = event.data?.username as string | undefined;
-    if (!username) {
-        console.error("No username provided in event data for storing defined handles data.");
+async function storeDefinedHandlesData (username: string, context: JobContext) {
+    let postHistory: Post[];
+    try {
+        postHistory = await context.reddit.getPostsByUser({
+            username,
+            sort: "new",
+            limit: 100,
+        }).all();
+    } catch {
+        // Likely shadowbanned or suspended already.
         return;
     }
 
-    const postHistory = await context.reddit.getPostsByUser({
-        username,
-        sort: "new",
-        limit: 100,
-    }).all();
+    if (postHistory.length === 0) {
+        return;
+    }
 
     const handles = await getDefinedHandles(context);
     const foundHandles: UserDefinedHandlePost[] = [];
@@ -256,4 +283,14 @@ export async function storeDefinedHandlesData (event: ScheduledJobEvent<JSONObje
         await context.redis.hSet(USER_DEFINED_HANDLES_POSTS, { [username]: JSON.stringify(foundHandles) });
         console.log(`Defined Handles: Stored defined handles posts for user ${username}: Found ${foundHandles.map(post => post.handle).join(", ")}`);
     }
+}
+
+export async function storeDefinedHandlesDataJob (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
+    const username = event.data?.username as string | undefined;
+    if (!username) {
+        console.error("No username provided in event data for storing defined handles data.");
+        return;
+    }
+
+    await storeDefinedHandlesData(username, context);
 }

@@ -55,7 +55,7 @@ While you can unban the user yourself, this only affects the user on your subred
 
 # Change History
 
-## Next release
+## v1.15.50
 
 * Fix typo on settings screen
 * Bug fixes to new flexible evaluator to improve accuracy
