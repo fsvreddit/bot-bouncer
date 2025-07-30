@@ -108,10 +108,9 @@ async function addClientSubredditJobs (context: TriggerContext) {
     await context.redis.set(CLIENT_SUB_WIKI_UPDATE_CRON_KEY, clientSubReclassificationCron);
 
     randomMinute = Math.floor(Math.random() * 60);
-    let randomHour = Math.floor(Math.random() * 3);
     await context.scheduler.runJob({
         name: UniversalJob.UpdateEvaluatorVariables,
-        cron: `${randomMinute} ${randomHour}/1 * * *`,
+        cron: `${randomMinute} * * * *`,
     });
 
     await context.scheduler.runJob({
@@ -120,7 +119,7 @@ async function addClientSubredditJobs (context: TriggerContext) {
     });
 
     randomMinute = Math.floor(Math.random() * 60);
-    randomHour = Math.floor(Math.random() * 24);
+    const randomHour = Math.floor(Math.random() * 24);
     await context.scheduler.runJob({
         name: ClientSubredditJob.UpgradeNotifier,
         cron: `${randomMinute} ${randomHour} * * *`,
