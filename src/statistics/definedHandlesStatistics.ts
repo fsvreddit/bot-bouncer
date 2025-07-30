@@ -152,7 +152,7 @@ export async function gatherDefinedHandlesStats (event: ScheduledJobEvent<JSONOb
 }
 
 function cleanHandleForSort (input: string): string {
-    return replaceAll(replaceAll(replaceAll(input, "[", ""), "(?:)", ""), "(", "").toLowerCase();
+    return replaceAll(replaceAll(replaceAll(replaceAll(input, "\\b", ""), "[", ""), "(?:)", ""), "(", "").toLowerCase();
 }
 
 async function buildDefinedHandlesWikiPage (context: JobContext) {
