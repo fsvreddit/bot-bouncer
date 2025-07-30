@@ -151,15 +151,15 @@ export async function gatherDefinedHandlesStats (event: ScheduledJobEvent<JSONOb
     });
 }
 
-function cleanHandle (input: string): string {
-    return replaceAll(replaceAll(replaceAll(input, "[", ""), "(?:)", ""), "(", "");
+function cleanHandleForSort (input: string): string {
+    return replaceAll(replaceAll(replaceAll(input, "[", ""), "(?:)", ""), "(", "").toLowerCase();
 }
 
 async function buildDefinedHandlesWikiPage (context: JobContext) {
     const existingDefinedHandlesData = await context.redis.hGetAll(DEFINED_HANDLES_DATA);
     const existingDefinedHandles = Object.entries(existingDefinedHandlesData).map(([handle, data]) => ({ handle, data: JSON.parse(data) as DefinedHandleData }));
 
-    existingDefinedHandles.sort((a, b) => (cleanHandle(a.handle) < cleanHandle(b.handle) ? -1 : 1));
+    existingDefinedHandles.sort((a, b) => (cleanHandleForSort(a.handle) < cleanHandleForSort(b.handle) ? -1 : 1));
 
     const wikiContent: json2md.DataObject[] = [
         { h1: "Defined Handles Statistics" },
