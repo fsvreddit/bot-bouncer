@@ -129,9 +129,6 @@ export async function cleanupDeletedAccounts (_: unknown, context: JobContext) {
             continue;
         }
 
-        const txn = await context.redis.watch();
-        await txn.multi();
-
         let newFlair: PostFlairTemplate | undefined;
 
         if (currentUserStatus === UserActiveStatus.Active) {
@@ -166,7 +163,7 @@ export async function cleanupDeletedAccounts (_: unknown, context: JobContext) {
                 // Store the latest activity date.
                 currentStatus.mostRecentActivity = latestActivity;
                 console.log(`Cleanup: ${username} last activity: ${format(latestActivity, "yyyy-MM-dd")}`);
-                await writeUserStatus(username, currentStatus, txn);
+                await writeUserStatus(username, currentStatus, context.redis);
 
                 if (latestContent && new Date(latestContent) > subDays(new Date(), 14) && currentStatus.userStatus === UserStatus.Inactive) {
                     // User flagged as "Inactive", but with recent activity. Set to "Pending".
@@ -186,7 +183,7 @@ export async function cleanupDeletedAccounts (_: unknown, context: JobContext) {
                 // Change the post flair to Purged.
                 newFlair = PostFlairTemplate.Purged;
             } else {
-                await writeUserStatus(username, currentStatus, txn);
+                await writeUserStatus(username, currentStatus, context.redis);
             }
 
             // Recheck suspended users every day for the first week
@@ -198,8 +195,7 @@ export async function cleanupDeletedAccounts (_: unknown, context: JobContext) {
             }
         }
 
-        await setCleanupForUser(username, txn, overrideCleanupDate);
-        await txn.exec();
+        await setCleanupForUser(username, context.redis, overrideCleanupDate);
 
         if (newFlair) {
             await context.reddit.setPostFlair({

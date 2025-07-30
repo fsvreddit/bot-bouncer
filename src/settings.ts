@@ -162,7 +162,7 @@ export const appSettings: SettingsFormField[] = [
             },
             {
                 type: "boolean",
-                label: "Include defails of accounts unbanned by Bot Bouncer",
+                label: "Include details of accounts unbanned by Bot Bouncer",
                 name: AppSetting.DailyDigestIncludeUnbanned,
                 defaultValue: true,
             },

@@ -13,6 +13,7 @@ import { sendMessageToWebhook } from "./utility.js";
 import { getUserExtended } from "./extendedDevvit.js";
 import { storeClassificationEvent } from "./statistics/classificationStatistics.js";
 import { queueReclassifications } from "./handleClientSubredditWikiUpdate.js";
+import { USER_DEFINED_HANDLES_POSTS } from "./statistics/definedHandlesStatistics.js";
 
 const USER_STORE = "UserStore";
 const TEMP_DECLINE_STORE = "TempDeclineStore";
@@ -126,7 +127,7 @@ async function addModNote (options: CreateModNoteOptions, context: TriggerContex
     }
 }
 
-export async function writeUserStatus (username: string, details: UserDetails, txn: TxClientLike) {
+export async function writeUserStatus (username: string, details: UserDetails, redis: TxClientLike | RedisClient) {
     let isStale = false;
     if (details.mostRecentActivity && new Date(details.mostRecentActivity) < subWeeks(new Date(), 3)) {
         isStale = true;
@@ -140,8 +141,8 @@ export async function writeUserStatus (username: string, details: UserDetails, t
     const keyToDelete = isStale ? USER_STORE : getStaleStoreKey(username);
 
     try {
-        await txn.hSet(keyToSet, { [username]: JSON.stringify(details) });
-        await txn.hDel(keyToDelete, [username]);
+        await redis.hSet(keyToSet, { [username]: JSON.stringify(details) });
+        await redis.hDel(keyToDelete, [username]);
     } catch (error) {
         console.error(`Failed to write user status of ${details.userStatus} for ${username}:`, error);
         throw new Error(`Failed to write user status for ${username}`);
@@ -221,6 +222,7 @@ export async function deleteUserStatus (username: string, trackingPostId: string
     await txn.hDel(BIO_TEXT_STORE, [username]);
     await txn.hDel(DISPLAY_NAME_STORE, [username]);
     await txn.hDel(SOCIAL_LINKS_STORE, [username]);
+    await txn.hDel(USER_DEFINED_HANDLES_POSTS, [username]);
 
     if (trackingPostId) {
         await txn.hDel(POST_STORE, [trackingPostId]);

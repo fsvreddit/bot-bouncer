@@ -5,6 +5,7 @@ import { UserExtended } from "./extendedDevvit.js";
 import { addHours, addSeconds } from "date-fns";
 import { getControlSubSettings } from "./settings.js";
 import pluralize from "pluralize";
+import { processFeedbackQueue, queueSendFeedback } from "./submissionFeedback.js";
 
 export const statusToFlair: Record<UserStatus, PostFlairTemplate> = {
     [UserStatus.Pending]: PostFlairTemplate.Pending,
@@ -98,6 +99,18 @@ async function createNewSubmission (submission: AsyncSubmission, context: Trigge
 
     await storeInitialAccountProperties(submission.user.username, context);
 
+    if (submission.details.userStatus !== UserStatus.Pending) {
+        await queueSendFeedback(submission.user.username, context);
+    }
+
+    if (submission.details.userStatus === UserStatus.Banned) {
+        await context.scheduler.runJob({
+            name: ControlSubredditJob.DefinedHandlesPostStore,
+            runAt: addSeconds(new Date(), 1),
+            data: { username: submission.user.username },
+        });
+    }
+
     console.log(`Post Creation: Created new post for ${submission.user.username} with status ${submission.details.userStatus}.`);
 }
 
@@ -133,6 +146,8 @@ export async function queuePostCreation (submission: AsyncSubmission, context: T
 export async function processQueuedSubmission (_: unknown, context: JobContext) {
     const queuedSubmissions = await context.redis.zRange(SUBMISSION_QUEUE, 0, -1);
     if (queuedSubmissions.length === 0) {
+        // No submissions to process, so process feedback queue instead.
+        await processFeedbackQueue(context);
         return;
     }
 
