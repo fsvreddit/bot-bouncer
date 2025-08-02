@@ -5,6 +5,8 @@ import { uniq } from "lodash";
 import { replaceAll, sendMessageToWebhook } from "../utility.js";
 import json2md from "json2md";
 import { getControlSubSettings } from "../settings.js";
+import { EvaluateBotGroupAdvanced } from "@fsvreddit/bot-bouncer-evaluation/dist/userEvaluation/EvaluateBotGroupAdvanced.js";
+import { getUserExtended } from "../extendedDevvit.js";
 
 const EVALUATOR_VARIABLES_KEY = "evaluatorVariables";
 const EVALUATOR_VARIABLES_YAML_PAGE = "evaluator-config";
@@ -56,6 +58,34 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
     const variables = yamlToVariables(wikiPage.content);
 
     const invalidEntries = invalidEvaluatorVariableCondition(variables);
+
+    if (invalidEntries.length === 0) {
+        // Do a sanity check to ensure that nobody's done anything silly with Bot Group Advanced.
+        const moderators = await context.reddit.getModerators({
+            subredditName: CONTROL_SUBREDDIT,
+        }).all();
+        const matchedMods: Record<string, string> = {};
+        for (const moderator of moderators.slice(0, 3)) {
+            const evaluator = new EvaluateBotGroupAdvanced(context, variables);
+            const user = await getUserExtended(moderator.username, context);
+            if (!user) {
+                console.warn(`Evaluator Variables: User ${moderator.username} not found, skipping.`);
+                continue;
+            }
+            const userHistory = await context.reddit.getCommentsAndPostsByUser({
+                username: moderator.username,
+                sort: "new",
+                limit: 100,
+            }).all();
+            if (await evaluator.evaluate(user, userHistory)) {
+                matchedMods[moderator.username] = evaluator.hitReason ?? "No reason provided";
+            }
+        }
+        for (const [username, reason] of Object.entries(matchedMods)) {
+            invalidEntries.push(`Bot Group Advanced matched moderator ${username} with reason: ${reason}`);
+        }
+    }
+
     if (invalidEntries.length > 0) {
         if (!event.data?.username) {
             console.error("Evaluator Variables: Evaluator variables contains issues. Will fall back to cached values.");
