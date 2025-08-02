@@ -2,7 +2,7 @@ import { JobContext, JSONObject, JSONValue, ScheduledJobEvent, TriggerContext, W
 import { ALL_EVALUATORS, yamlToVariables } from "@fsvreddit/bot-bouncer-evaluation";
 import { CONTROL_SUBREDDIT } from "../constants.js";
 import { uniq } from "lodash";
-import { sendMessageToWebhook } from "../utility.js";
+import { replaceAll, sendMessageToWebhook } from "../utility.js";
 import json2md from "json2md";
 import { getControlSubSettings } from "../settings.js";
 
@@ -76,7 +76,12 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
             const username = event.data.username as string;
             const controlSubSettings = await getControlSubSettings(context);
             if (controlSubSettings.monitoringWebhook) {
-                await sendMessageToWebhook(controlSubSettings.monitoringWebhook, `${username} has updated the evaluator config, but there's an error! Please check and correct as soon as possible. Falling back on known good values.`);
+                const discordMessage: json2md.DataObject[] = [{ p: `${username} has updated the evaluator config, but there's an error! Please check and correct as soon as possible.` }];
+                discordMessage.push({ ul: invalidEntries });
+                discordMessage.push({ p: "Last known good values will be used until the issue is resolved." });
+                const messageToSend = replaceAll(replaceAll(json2md(discordMessage), "\n\n\n", "\n\n"), "\n\n", "\n");
+                console.log(JSON.stringify(messageToSend));
+                await sendMessageToWebhook(controlSubSettings.monitoringWebhook, messageToSend);
             }
 
             await context.reddit.sendPrivateMessage({
@@ -144,7 +149,7 @@ export function invalidEvaluatorVariableCondition (variables: Record<string, JSO
         const evaluator = new Evaluator({} as unknown as TriggerContext, variables);
         const errors = evaluator.validateVariables();
         if (errors.length > 0) {
-            results.push(`Evaluator ${evaluator.shortname} has the following errors: ${errors.join(", ")}`);
+            results.push(...errors.map(r => `${evaluator.name}: ${r.length < 200 ? r : r.substring(0, 197) + "..."}`));
         }
     }
 
