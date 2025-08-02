@@ -16,6 +16,7 @@ const EVALUATOR_VARIABLES_LAST_REVISION_KEY = "evaluatorVariablesLastRevision";
 export async function getEvaluatorVariables (context: TriggerContext | JobContext): Promise<Record<string, JSONValue>> {
     const allVariables = await context.redis.get(EVALUATOR_VARIABLES_KEY);
     if (!allVariables) {
+        console.warn("Evaluator Variables: No variables found in Redis, returning empty object.");
         return {};
     }
 
