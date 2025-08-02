@@ -59,6 +59,10 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
     const variables = yamlToVariables(wikiPage.content);
 
     const invalidEntries = invalidEvaluatorVariableCondition(variables);
+    const errors = variables.errors as string[] | undefined;
+    if (errors && errors.length > 0) {
+        invalidEntries.push(...errors);
+    }
 
     if (invalidEntries.length === 0) {
         // Do a sanity check to ensure that nobody's done anything silly with Bot Group Advanced.
