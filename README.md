@@ -55,6 +55,11 @@ While you can unban the user yourself, this only affects the user on your subred
 
 # Change History
 
+## Next
+
+* Improve code efficiency
+* Internal changes to support operations on /r/BotBouncer
+
 ## v1.15.50
 
 * Fix typo on settings screen

@@ -22,7 +22,6 @@ import { perform6HourlyJobs } from "./sixHourlyJobs.js";
 import { checkUptimeAndMessages } from "./uptimeMonitor.js";
 import { analyseBioText } from "./similarBioTextFinder/bioTextFinder.js";
 import { processQueuedSubmission } from "./postCreation.js";
-import { checkForBanNotes } from "./handleClientSubBanReasonCheck.js";
 import { cleanupPostStore } from "./cleanupPostStore.js";
 import { buildEvaluatorAccuracyStatistics } from "./statistics/evaluatorAccuracyStatistics.js";
 import { processExternalSubmissionsFromObserverSubreddits } from "./externalSubmissions.js";
@@ -252,11 +251,6 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: ClientSubredditJob.SendDailyDigest,
     onRun: sendDailyDigest,
-});
-
-Devvit.addSchedulerJob({
-    name: ClientSubredditJob.CheckForBanNotes,
-    onRun: checkForBanNotes,
 });
 
 Devvit.configure({

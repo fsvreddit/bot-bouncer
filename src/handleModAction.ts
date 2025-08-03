@@ -1,10 +1,10 @@
 import { TriggerContext } from "@devvit/public-api";
 import { ModAction } from "@devvit/protos";
-import { ClientSubredditJob, CONTROL_SUBREDDIT, INTERNAL_BOT, UniversalJob } from "./constants.js";
+import { CONTROL_SUBREDDIT, INTERNAL_BOT, UniversalJob } from "./constants.js";
 import { recordWhitelistUnban, removeRecordOfBan } from "./handleClientSubredditWikiUpdate.js";
 import { handleExternalSubmissionsPageUpdate } from "./externalSubmissions.js";
 import { validateControlSubConfigChange } from "./settings.js";
-import { addDays, addSeconds } from "date-fns";
+import { addDays } from "date-fns";
 
 export async function handleModAction (event: ModAction, context: TriggerContext) {
     if (context.subredditName === CONTROL_SUBREDDIT) {
@@ -25,19 +25,6 @@ async function handleModActionClientSub (event: ModAction, context: TriggerConte
     if (event.action === "unbanuser" && event.moderator?.name !== context.appName && event.targetUser) {
         await removeRecordOfBan(event.targetUser.name, context.redis);
         await recordWhitelistUnban(event.targetUser.name, context);
-    }
-
-    /**
-     * If a user is banned on a client subreddit, check to see if the ban reason includes words like AI, Bot, etc.
-     * If so, report to Bot Bouncer.
-     */
-    if (event.action === "banuser" && event.moderator?.name !== context.appName && event.targetUser) {
-        const randomSeconds = 5 + Math.floor(Math.random() * 30);
-        await context.scheduler.runJob({
-            name: ClientSubredditJob.CheckForBanNotes,
-            runAt: addSeconds(new Date(), randomSeconds),
-            data: { username: event.targetUser.name },
-        });
     }
 
     /**
