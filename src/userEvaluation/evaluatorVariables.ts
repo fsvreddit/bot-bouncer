@@ -130,7 +130,7 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
     }
 
     for (const module of uniq(Object.keys(variables).map(key => key.split(":")[0]))) {
-        if (module === "generic" || module === "substitutions") {
+        if (module === "generic" || module === "substitutions" || module === "errors") {
             continue;
         }
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
