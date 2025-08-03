@@ -1,6 +1,6 @@
 import { TriggerContext } from "@devvit/public-api";
 import { ModAction } from "@devvit/protos";
-import { ClientSubredditJob, CONTROL_SUBREDDIT, UniversalJob } from "./constants.js";
+import { ClientSubredditJob, CONTROL_SUBREDDIT, INTERNAL_BOT, UniversalJob } from "./constants.js";
 import { recordWhitelistUnban, removeRecordOfBan } from "./handleClientSubredditWikiUpdate.js";
 import { handleExternalSubmissionsPageUpdate } from "./externalSubmissions.js";
 import { validateControlSubConfigChange } from "./settings.js";
@@ -70,14 +70,21 @@ async function handleModActionControlSub (event: ModAction, context: TriggerCont
      * check that too.
      */
     if (event.action === "wikirevise" && event.moderator) {
-        await Promise.all([
-            handleExternalSubmissionsPageUpdate(context),
-            validateControlSubConfigChange(event.moderator.name, context),
-            context.scheduler.runJob({
+        const promises: Promise<unknown>[] = [];
+
+        if (event.moderator.name === context.appName || event.moderator.name === INTERNAL_BOT) {
+            promises.push(handleExternalSubmissionsPageUpdate(context));
+        }
+
+        if (event.moderator.name !== context.appName && event.moderator.name !== INTERNAL_BOT) {
+            promises.push(validateControlSubConfigChange(event.moderator.name, context));
+            promises.push(context.scheduler.runJob({
                 name: UniversalJob.UpdateEvaluatorVariables,
                 runAt: new Date(),
                 data: { username: event.moderator.name },
-            }),
-        ]);
+            }));
+        }
+
+        await Promise.all(promises);
     }
 }
