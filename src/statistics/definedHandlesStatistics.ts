@@ -152,7 +152,7 @@ export async function gatherDefinedHandlesStats (event: ScheduledJobEvent<JSONOb
 }
 
 function cleanHandleForSort (input: string): string {
-    return replaceAll(replaceAll(replaceAll(replaceAll(input, "\\b", ""), "[", ""), "(?:)", ""), "(", "").toLowerCase();
+    return replaceAll(replaceAll(replaceAll(replaceAll(input, "\\b", ""), "[", ""), "(?:", ""), "(", "").toLowerCase();
 }
 
 async function buildDefinedHandlesWikiPage (context: JobContext) {
@@ -200,7 +200,17 @@ async function buildDefinedHandlesWikiPage (context: JobContext) {
     }
 
     const suggestedHandles = existingDefinedHandles
-        .filter(entry => entry.data.count > 0)
+        .filter((entry) => {
+            if (entry.data.count === 0) {
+                return false;
+            }
+
+            if (entry.data.count === 1 && entry.data.lastSeen < subMonths(new Date(), 1).getTime()) {
+                return false;
+            }
+
+            return true;
+        })
         .map(entry => entry.handle)
         .join("|");
 
