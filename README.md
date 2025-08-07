@@ -58,6 +58,7 @@ While you can unban the user yourself, this only affects the user on your subred
 ## Next
 
 * Refresh evaluator configuration more frequently to improve detection accuracy
+* Fixed a bug that could cause errors banning newly detected users
 * Remove disabled features including one redundant evaluator
 * Internal changes to support operations on /r/BotBouncer
 

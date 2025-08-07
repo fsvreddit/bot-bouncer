@@ -148,8 +148,9 @@ async function handleSetBanned (username: string, subredditName: string, setting
         await recordBan(username, context.redis);
         await recordBanForDigest(username, context.redis);
 
-        if (removableContent.length > 0) {
-            await context.redis.hSet(`removedItems:${username}`, fromPairs(removableContent.filter(item => item.userReportReasons.length === 0).map(item => ([item.id, item.id]))));
+        const reinstatableContent = removableContent.filter(item => item.userReportReasons.length === 0);
+        if (reinstatableContent.length > 0) {
+            await context.redis.hSet(`removedItems:${username}`, fromPairs(reinstatableContent.map(item => ([item.id, item.id]))));
             // Expire key after 14 days
             await context.redis.expire(`removedItems:${username}`, 60 * 60 * 24 * 14);
         }
