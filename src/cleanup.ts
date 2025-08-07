@@ -227,20 +227,16 @@ export async function cleanupDeletedAccounts (_: unknown, context: JobContext) {
 }
 
 async function handleDeletedAccount (username: string, context: TriggerContext) {
-    const txn = await context.redis.watch();
-    await txn.multi();
-
     if (context.subredditName === CONTROL_SUBREDDIT) {
-        await handleDeletedAccountControlSub(username, context, txn);
+        await handleDeletedAccountControlSub(username, context);
     } else {
-        await handleDeletedAccountClientSub(username, txn);
+        await handleDeletedAccountClientSub(username, context.redis);
     }
 
-    await txn.zRem(CLEANUP_LOG_KEY, [username]);
-    await txn.exec();
+    await context.redis.zRem(CLEANUP_LOG_KEY, [username]);
 }
 
-async function handleDeletedAccountControlSub (username: string, context: TriggerContext, txn: TxClientLike) {
+async function handleDeletedAccountControlSub (username: string, context: TriggerContext) {
     const status = await getUserStatus(username, context);
     const submitterOrModFlag = await context.redis.zScore(SUB_OR_MOD_LOG_KEY, username);
 
@@ -248,6 +244,9 @@ async function handleDeletedAccountControlSub (username: string, context: Trigge
         console.log(`Cleanup: ${username} has no status to delete.`);
         return;
     }
+
+    const txn = await context.redis.watch();
+    await txn.multi();
 
     if (status) {
         let newStatus: UserStatus;
@@ -297,13 +296,14 @@ async function handleDeletedAccountControlSub (username: string, context: Trigge
     }
 
     await deleteUserStatus(username, status?.trackingPostId, txn);
+    await txn.exec();
 }
 
-async function handleDeletedAccountClientSub (username: string, txn: TxClientLike) {
-    await removeRecordOfBan(username, txn);
-    await removeWhitelistUnban(username, txn);
-    await txn.del(`removed:${username}`);
-    await txn.del(`removedItems:${username}`);
+async function handleDeletedAccountClientSub (username: string, redis: RedisClient) {
+    await removeRecordOfBan(username, redis);
+    await removeWhitelistUnban(username, redis);
+    await redis.del(`removed:${username}`);
+    await redis.del(`removedItems:${username}`);
 }
 
 async function getLatestContentDate (username: string, context: JobContext): Promise<number | undefined> {
