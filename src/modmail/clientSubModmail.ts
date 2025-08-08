@@ -15,7 +15,7 @@ export async function handleClientSubredditModmail (modmail: ModmailMessage, con
         return;
     }
 
-    if (username !== modmail.participant) {
+    if (modmail.messageAuthor !== modmail.participant) {
         return;
     }
 
