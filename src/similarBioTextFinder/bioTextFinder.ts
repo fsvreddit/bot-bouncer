@@ -76,7 +76,6 @@ export async function analyseBioText (_: unknown, context: JobContext) {
 
     const subreddits = [
         "WhatIsMyCQS",
-        "cqs",
     ];
 
     const users = await getDistinctUsersFromSubreddits(subreddits, context);
