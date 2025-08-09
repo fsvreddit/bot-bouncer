@@ -13,6 +13,7 @@ import { updateDisplayNameStatistics } from "./statistics/displayNameStats.js";
 import { updateSocialLinksStatistics } from "./statistics/socialLinksStatistics.js";
 import { updateBioStatistics } from "./statistics/userBioStatistics.js";
 import { updateDefinedHandlesStats } from "./statistics/definedHandlesStatistics.js";
+import { pendingUserFinder } from "./statistics/pendingUserFinder.js";
 
 export async function perform6HourlyJobs (_: unknown, context: JobContext) {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
@@ -60,6 +61,7 @@ export async function perform6HourlyJobs (_: unknown, context: JobContext) {
         updateSocialLinksStatistics(allEntries, context),
         updateBioStatistics(allEntries, context),
         updateDefinedHandlesStats(allEntries, context),
+        pendingUserFinder(allEntries, context),
     ]);
 
     console.log("Statistics updated successfully.");
