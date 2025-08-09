@@ -201,7 +201,7 @@ export async function addExternalSubmissionToPostCreationQueue (item: ExternalSu
 
     await queuePostCreation(submission, context);
     if (item.sendFeedback) {
-        await context.redis.set(`sendFeedback:${item.username}`, "true", { expiration: addDays(new Date(), 2) });
+        await context.redis.set(`sendFeedback:${item.username}`, "true", { expiration: addDays(new Date(), 7) });
     }
     console.log(`External Submissions: Queued post creation for ${item.username}`);
 
