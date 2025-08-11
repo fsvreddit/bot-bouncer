@@ -178,7 +178,7 @@ export const appSettings: SettingsFormField[] = [
                 label: "Upgrade notifications",
                 name: AppSetting.UpgradeNotifier,
                 helpText: "Receive a message when a new version of Bot Bouncer is released",
-                defaultValue: false,
+                defaultValue: true,
             },
         ],
     },
