@@ -186,6 +186,11 @@ export function invalidEvaluatorVariableCondition (variables: Record<string, JSO
         if (errors.length > 0) {
             results.push(...errors.map(r => `${evaluator.name}: ${r.length < 200 ? r : r.substring(0, 197) + "..."}`));
         }
+
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+        if (variables[`${evaluator.shortname}:killswitch`] === undefined) {
+            console.warn(`Missing killswitch for ${evaluator.name}`);
+        }
     }
 
     return results;
