@@ -88,6 +88,7 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
         }
         for (const [username, reason] of Object.entries(matchedMods)) {
             invalidEntries.push(`Bot Group Advanced matched moderator ${username} with reason: ${reason}`);
+            console.log(`Evaluator Variables: Bot Group Advanced matched moderator ${username} with reason: ${JSON.stringify(reason)}`);
         }
     }
 
