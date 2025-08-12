@@ -159,7 +159,7 @@ async function reversePostCreationQueue (context: JobContext) {
 
 export async function deleteRecordsForRemovedUsers (_: unknown, context: JobContext) {
     const runLimit = addSeconds(new Date(), 15);
-    const removedUsers = await context.redis.zRange(REVERSED_USERS, 0, subDays(new Date(), 7).getTime());
+    const removedUsers = await context.redis.zRange(REVERSED_USERS, 0, subDays(new Date(), 7).getTime(), { by: "score" });
     if (removedUsers.length === 0) {
         return;
     }
