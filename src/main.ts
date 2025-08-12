@@ -27,6 +27,7 @@ import { buildEvaluatorAccuracyStatistics } from "./statistics/evaluatorAccuracy
 import { processExternalSubmissionsFromObserverSubreddits } from "./externalSubmissions.js";
 import { performCleanupMaintenance } from "./cleanupMaintenance.js";
 import { gatherDefinedHandlesStats, storeDefinedHandlesDataJob } from "./statistics/definedHandlesStatistics.js";
+import { deleteRecordsForRemovedUsers, evaluatorReversalsJob } from "./evaluatorReversals.js";
 
 Devvit.addSettings(appSettings);
 
@@ -227,6 +228,16 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: ControlSubredditJob.DefinedHandlesPostStore,
     onRun: storeDefinedHandlesDataJob,
+});
+
+Devvit.addSchedulerJob({
+    name: ControlSubredditJob.EvaluatorReversals,
+    onRun: evaluatorReversalsJob,
+});
+
+Devvit.addSchedulerJob({
+    name: ControlSubredditJob.DeleteRecordsForRemovedUsers,
+    onRun: deleteRecordsForRemovedUsers,
 });
 
 /**

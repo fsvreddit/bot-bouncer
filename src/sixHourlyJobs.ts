@@ -7,7 +7,7 @@ import { getFullDataStore, UserDetails } from "./dataStore.js";
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "./constants.js";
 import { updateClassificationStatistics } from "./statistics/classificationStatistics.js";
 import { updateAppealStatistics } from "./statistics/appealStatistics.js";
-import { addMinutes } from "date-fns";
+import { addMinutes, addSeconds } from "date-fns";
 import { updateUsernameStatistics } from "./statistics/usernameStatistics.js";
 import { updateDisplayNameStatistics } from "./statistics/displayNameStats.js";
 import { updateSocialLinksStatistics } from "./statistics/socialLinksStatistics.js";
@@ -62,6 +62,10 @@ export async function perform6HourlyJobs (_: unknown, context: JobContext) {
         updateBioStatistics(allEntries, context),
         updateDefinedHandlesStats(allEntries, context),
         pendingUserFinder(allEntries, context),
+        context.scheduler.runJob({
+            name: ControlSubredditJob.DeleteRecordsForRemovedUsers,
+            runAt: addSeconds(new Date(), 60),
+        }),
     ]);
 
     console.log("Statistics updated successfully.");

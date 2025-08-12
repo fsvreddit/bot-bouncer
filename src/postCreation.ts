@@ -174,6 +174,7 @@ export async function processQueuedSubmission (_: unknown, context: JobContext) 
     const submissionDetails = await context.redis.hGet(SUBMISSION_DETAILS, firstSubmission.member);
     if (!submissionDetails) {
         console.error(`Post Creation: No details found in redis for user ${firstSubmission.member}.`);
+        await context.redis.zRem(SUBMISSION_QUEUE, [firstSubmission.member]);
         return;
     }
 

@@ -4,6 +4,7 @@ import { CLIENT_SUB_WIKI_UPDATE_CRON_KEY, ClientSubredditJob, CONTROL_SUB_CLEANU
 import { handleExternalSubmissionsPageUpdate } from "./externalSubmissions.js";
 import { removeRetiredEvaluatorsFromStats } from "./userEvaluation/evaluatorHelpers.js";
 import { getControlSubSettings } from "./settings.js";
+import { addSeconds } from "date-fns";
 
 export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, context: TriggerContext) {
     console.log("App Install: Detected an app install or update event");
@@ -79,6 +80,12 @@ async function addControlSubredditJobs (context: TriggerContext) {
         context.scheduler.runJob({
             name: UniversalJob.Cleanup,
             cron: CONTROL_SUB_CLEANUP_CRON, // every 5 minutes
+        }),
+
+        context.scheduler.runJob({
+            name: ControlSubredditJob.EvaluatorReversals,
+            runAt: addSeconds(new Date(), 5),
+            data: { firstRun: true },
         }),
     ]);
 
