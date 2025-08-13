@@ -96,9 +96,10 @@ export async function cleanupDeletedAccounts (_: unknown, context: JobContext) {
     let deletedCount = 0;
     let activeCount = 0;
     let suspendedCount = 0;
+
     // Get the first N accounts that are due a check.
     const usersToCheck = items.map(item => item.member);
-    while (usersToCheck.length > 0 && new Date() < runLimit) {
+    while (usersToCheck.length > 0 && new Date() < runLimit && (deletedCount + activeCount + suspendedCount) < 10) {
         const username = usersToCheck.shift();
         if (!username) {
             break;
