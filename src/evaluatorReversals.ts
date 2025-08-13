@@ -2,7 +2,7 @@ import { JobContext, JSONObject, ScheduledJobEvent } from "@devvit/public-api";
 import { deleteUserStatus, getActiveDataStore, getUserStatus, updateAggregate, UserDetails, UserStatus } from "./dataStore.js";
 import { addSeconds, subDays } from "date-fns";
 import { CONTROL_SUBREDDIT, ControlSubredditJob, PostFlairTemplate } from "./constants.js";
-import { getAccountInitialEvaluationResults } from "./handleControlSubAccountEvaluation.js";
+import { deleteAccountInitialEvaluationResults, getAccountInitialEvaluationResults } from "./handleControlSubAccountEvaluation.js";
 import { CLEANUP_LOG_KEY } from "./cleanup.js";
 
 const REVERSALS_QUEUE = "ReversalsQueue";
@@ -141,8 +141,12 @@ async function reversePostCreationQueue (context: JobContext) {
 
         if (evaluatorData.length > 0 && evaluatorData.every(entry => entry.hitReason && HIT_REASONS_TO_REVERSE.some(reason => entry.hitReason?.includes(reason)))) {
             // Reversible.
-            await context.redis.zRem(SUBMISSION_QUEUE, [username]);
-            await context.redis.hDel(SUBMISSION_DETAILS, [username]);
+            const txn = await context.redis.watch();
+            await txn.multi();
+            await txn.zRem(SUBMISSION_QUEUE, [username]);
+            await txn.hDel(SUBMISSION_DETAILS, [username]);
+            await deleteAccountInitialEvaluationResults(username, txn);
+            await txn.exec();
             console.log(`Evaluator Reversals: Removed ${username} from the post creation queue.`);
             reversedCount++;
         }
