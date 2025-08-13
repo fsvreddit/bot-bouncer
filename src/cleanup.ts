@@ -88,17 +88,22 @@ export async function cleanupDeletedAccounts (_: unknown, context: JobContext) {
         return;
     }
 
+    const runLimit = addSeconds(new Date(), 15);
+
     // Check platform is up.
     await context.reddit.getAppUser();
-
-    const itemsToCheck = 5;
 
     let deletedCount = 0;
     let activeCount = 0;
     let suspendedCount = 0;
     // Get the first N accounts that are due a check.
-    const usersToCheck = items.slice(0, itemsToCheck).map(item => item.member);
-    for (const username of usersToCheck) {
+    const usersToCheck = items.map(item => item.member);
+    while (usersToCheck.length > 0 && new Date() < runLimit) {
+        const username = usersToCheck.shift();
+        if (!username) {
+            break;
+        }
+
         const currentUserStatus = await userActive(username, context);
 
         if (currentUserStatus === UserActiveStatus.Deleted) {
@@ -208,7 +213,7 @@ export async function cleanupDeletedAccounts (_: unknown, context: JobContext) {
 
     console.log(`Cleanup: Active ${activeCount}, Deleted ${deletedCount}, Suspended ${suspendedCount}`);
 
-    if (items.length > itemsToCheck) {
+    if (usersToCheck.length > 0) {
         // In a backlog.
         // If in control subreddit, check to see if next run is imminent.
         if (context.subredditName === CONTROL_SUBREDDIT) {
