@@ -154,7 +154,7 @@ export async function buildEvaluatorAccuracyStatistics (event: ScheduledJobEvent
                 totalCount: data.totalCount,
                 bannedCount: data.bannedCount,
                 bannedAccounts: data.bannedAccounts.slice(-5), // Show only the last 5 banned accounts
-                unbannedAccounts: data.unbannedAccounts,
+                unbannedAccounts: data.unbannedAccounts.slice(-5), // Show only the last 5 unbanned accounts
                 lastSeen: data.lastSeen,
             }];
         }));
