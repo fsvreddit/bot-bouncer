@@ -7,7 +7,7 @@ import { getControlSubSettings } from "./settings.js";
 import { addSeconds } from "date-fns";
 
 export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, context: TriggerContext) {
-    console.log(`App Install: Detected an app install or update event in ${context.subredditName}`);
+    console.log("App Install: Detected an app install or update event");
 
     // Delete cached control sub settings
     await context.redis.del("controlSubSettings");
