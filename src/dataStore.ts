@@ -6,7 +6,7 @@ import { ClientSubredditJob, CONTROL_SUBREDDIT } from "./constants.js";
 import { addHours, addMinutes, addSeconds, addWeeks, startOfSecond, subDays, subHours, subWeeks } from "date-fns";
 import pluralize from "pluralize";
 import { getControlSubSettings } from "./settings.js";
-import { isCommentId, isLinkId } from "@devvit/public-api/types/tid.js";
+import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
 import { deleteAccountInitialEvaluationResults } from "./handleControlSubAccountEvaluation.js";
 import json2md from "json2md";
 import { sendMessageToWebhook } from "./utility.js";

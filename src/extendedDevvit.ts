@@ -49,7 +49,7 @@ export interface UserExtended {
 }
 
 export async function getUserExtended (username: string, context: TriggerContext): Promise<UserExtended | undefined> {
-    const rawUserData = await getRawUserData(username, context.metadata);
+    const rawUserData = await getRawUserData(username, context.debug.metadata);
     if (!rawUserData?.data) {
         return;
     }
