@@ -157,6 +157,9 @@ export async function cleanupDeletedAccounts (_: unknown, context: JobContext) {
                     case UserStatus.Organic:
                         newFlair = PostFlairTemplate.Organic;
                         break;
+                    case UserStatus.Declined:
+                        newFlair = PostFlairTemplate.Declined;
+                        break;
                     case UserStatus.Service:
                         newFlair = PostFlairTemplate.Service;
                         break;
