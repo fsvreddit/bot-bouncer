@@ -1,0 +1,6 @@
+{
+  "name": "bot-bouncer",
+  "blocks": {
+    "entry": "src/main.ts"
+  }
+}

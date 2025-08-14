@@ -1,5 +1,5 @@
 import { Comment, Post, TriggerContext, User } from "@devvit/public-api";
-import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
+import { isCommentId, isLinkId } from "@devvit/public-api/types/tid.js";
 
 export function getUsernameFromUrl (url: string) {
     const urlRegex = /reddit\.com\/u(?:ser)?\/([\w_-]+)\/?(?:[?/].+)?$/i;
