@@ -107,11 +107,11 @@ export async function buildEvaluatorAccuracyStatistics (event: ScheduledJobEvent
                 if (isBanned) {
                     existingData.bannedAccounts.push(username);
                     existingData.bannedCount++;
+                    if (entry.reportedAt && (!existingData.lastSeen || entry.reportedAt > existingData.lastSeen)) {
+                        existingData.lastSeen = entry.reportedAt;
+                    }
                 } else if (entry.status === UserStatus.Organic) {
                     existingData.unbannedAccounts.push(username);
-                }
-                if (entry.reportedAt && (!existingData.lastSeen || entry.reportedAt > existingData.lastSeen)) {
-                    existingData.lastSeen = entry.reportedAt;
                 }
                 existingResults[getEvaluationResultsKey(evaluationResult)] = JSON.stringify(existingData);
             } else {
@@ -120,7 +120,7 @@ export async function buildEvaluatorAccuracyStatistics (event: ScheduledJobEvent
                     bannedCount: isBanned ? 1 : 0,
                     bannedAccounts: isBanned ? [username] : [],
                     unbannedAccounts: entry.status === UserStatus.Organic ? [username] : [],
-                    lastSeen: entry.reportedAt,
+                    lastSeen: isBanned ? entry.reportedAt : undefined,
                 };
                 existingResults[getEvaluationResultsKey(evaluationResult)] = JSON.stringify(newData);
             }
