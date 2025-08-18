@@ -60,6 +60,7 @@ While you can unban the user yourself, this only affects the user on your subred
 * Refresh evaluator configuration more frequently to improve detection accuracy
 * Fixed a bug that could cause errors banning newly detected users
 * Remove disabled features including one redundant evaluator
+* Add configuration setting to file daily digests in the Mod Notifications section of modmail if preferred
 * Prevent "this user is listed on /r/BotBouncer" modmail notes on bans from other bots such as Hive Protector or SafestBot
 * Internal changes to support operations on /r/BotBouncer
 

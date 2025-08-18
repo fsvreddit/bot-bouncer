@@ -51,6 +51,7 @@ export enum AppSetting {
     ReportPotentialBots = "reportPotentialBots",
     RemoveContentWhenReporting = "removeContentWhenReporting",
     DailyDigest = "dailyDigest",
+    DailyDigestAsModNotification = "dailyDigestAsModNotification",
     DailyDigestIncludeReported = "dailyDigestIncludeReported",
     DailyDigestIncludeBanned = "dailyDigestIncludeBanned",
     DailyDigestIncludeUnbanned = "dailyDigestIncludeUnbanned",
@@ -146,6 +147,13 @@ export const appSettings: SettingsFormField[] = [
                 label: "Send a daily digest of actions taken by Bot Bouncer, if any occur",
                 name: AppSetting.DailyDigest,
                 helpText: "If enabled, you will receive a daily message with a summary of actions taken by Bot Bouncer in the previous 24 hours, if any.",
+                defaultValue: false,
+            },
+            {
+                type: "boolean",
+                label: "Send digest to the 'Mod Notifications' section of modmail",
+                helpText: "If set, the daily digest will be sent to the 'Mod Notifications' section of modmail, otherwise it will go into the main inbox.",
+                name: AppSetting.DailyDigestAsModNotification,
                 defaultValue: false,
             },
             {
