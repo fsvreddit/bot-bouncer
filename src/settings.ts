@@ -236,7 +236,8 @@ export async function getControlSubSettings (context: TriggerContext): Promise<C
 
     const defaultConfig: ControlSubSettings = {
         evaluationDisabled: false,
-        proactiveEvaluationEnabled: true,
+        proactiveEvaluationEnabled: false,
+        postCreationQueueProcessingEnabled: true,
         maxInactivityMonths: 3,
         trustedSubmitters: [],
         reporterBlacklist: [],
