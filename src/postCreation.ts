@@ -74,6 +74,8 @@ async function createNewSubmission (submission: AsyncSubmission, context: Trigge
     });
 
     submission.details.trackingPostId = newPost.id;
+    submission.details.reportedAt = Date.now();
+    submission.details.lastUpdate = Date.now();
 
     await setUserStatus(submission.user.username, submission.details, context);
 
