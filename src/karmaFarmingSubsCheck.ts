@@ -1,6 +1,6 @@
 import { JobContext, JSONValue, Post, TriggerContext, ZMember } from "@devvit/public-api";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
-import { compact, fromPairs, uniq } from "lodash";
+import { chunk, compact, fromPairs, uniq } from "lodash";
 import { CONTROL_SUBREDDIT, ControlSubredditJob, EVALUATE_KARMA_FARMING_SUBS_CRON } from "./constants.js";
 import { getAllKnownUsers, getUserStatus, UserDetails, UserStatus } from "./dataStore.js";
 import { evaluateUserAccount, storeAccountInitialEvaluationResults, userHasContinuousNSFWHistory } from "./handleControlSubAccountEvaluation.js";
@@ -183,7 +183,7 @@ export async function evaluateKarmaFarmingSubs (_: unknown, context: JobContext)
         return;
     }
 
-    const runLimit = addSeconds(new Date(), 20);
+    const runLimit = addSeconds(new Date(), 10);
 
     const accounts = await context.redis.hKeys(ACCOUNTS_QUEUED_KEY);
     if (accounts.length === 0) {
@@ -191,24 +191,31 @@ export async function evaluateKarmaFarmingSubs (_: unknown, context: JobContext)
         return;
     }
 
+    const chunkedAccounts = chunk(accounts, 5); // Only 5 concurrently at present.
+
     let processed = 0;
 
     const variables = await getEvaluatorVariables(context);
 
     while (new Date() < runLimit && processed < 30) {
-        const username = accounts.shift();
-        if (!username) {
+        const chunk = chunkedAccounts.shift();
+        if (!chunk || chunk.length === 0) {
             break;
         }
 
-        processed++;
+        await Promise.all(chunk.map(async (account) => {
+            {
+                try {
+                    await evaluateAndHandleUser(account, variables, context);
+                } catch (error) {
+                    console.error(`Karma Farming Subs: Error evaluating ${account}: ${error}`);
+                }
+            }
+        }));
 
-        try {
-            await evaluateAndHandleUser(username, variables, context);
-        } catch (error) {
-            console.error(`Karma Farming Subs: Error evaluating ${username}: ${error}`);
-        }
-        await context.redis.hDel(ACCOUNTS_QUEUED_KEY, [username]);
+        processed += chunk.length;
+
+        await context.redis.hDel(ACCOUNTS_QUEUED_KEY, chunk);
     }
 
     if (accounts.length > 0) {
