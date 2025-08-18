@@ -74,16 +74,13 @@ export async function analyseBioText (_: unknown, context: JobContext) {
     const BIO_TEXT_STORAGE_KEY = "BioTextSimilarity";
     const BIO_TEXT_MODMAIL_SENT = "BioTextModmailSent";
 
-    const subreddits = [
-        "WhatIsMyCQS",
-    ];
+    const evaluatorVariables = await getEvaluatorVariables(context);
+    const subreddits = evaluatorVariables["generic:cqsbiosweepsubs"] as string[] | undefined ?? [];
 
     const users = await getDistinctUsersFromSubreddits(subreddits, context);
 
     let bioTextResults = compact(await Promise.all(users.map(username => getBioTextForUser(username, context))));
     const results: Record<string, UserBioText[]> = {};
-
-    const evaluatorVariables = await getEvaluatorVariables(context);
 
     let bestMatch: Match | undefined = undefined;
 
