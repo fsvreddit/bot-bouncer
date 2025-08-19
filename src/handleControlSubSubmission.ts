@@ -124,7 +124,7 @@ export async function handleControlSubSubmission (event: PostCreate, context: Tr
 
             await queuePostCreation(submission, context);
 
-            console.log(`Queued post creation for ${username}`);
+            console.log(`Queued post creation for ${username} via post by ${event.author.name}`);
         }
     }
 
