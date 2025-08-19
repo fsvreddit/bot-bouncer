@@ -1,6 +1,6 @@
 # Changelog for Bot Bouncer
 
-## v1.16.0
+## v1.16.1
 
 * Refresh evaluator configuration more frequently to improve detection accuracy
 * Fixed a bug that could cause errors banning newly detected users
