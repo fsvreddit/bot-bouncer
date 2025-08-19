@@ -55,7 +55,7 @@ While you can unban the user yourself, this only affects the user on your subred
 
 # Change History
 
-## Next
+## v1.16.0
 
 * Refresh evaluator configuration more frequently to improve detection accuracy
 * Fixed a bug that could cause errors banning newly detected users
