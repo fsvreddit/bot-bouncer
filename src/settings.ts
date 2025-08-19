@@ -51,6 +51,7 @@ export enum AppSetting {
     ReportPotentialBots = "reportPotentialBots",
     RemoveContentWhenReporting = "removeContentWhenReporting",
     DailyDigest = "dailyDigest",
+    DailyDigestAsModNotification = "dailyDigestAsModNotification",
     DailyDigestIncludeReported = "dailyDigestIncludeReported",
     DailyDigestIncludeBanned = "dailyDigestIncludeBanned",
     DailyDigestIncludeUnbanned = "dailyDigestIncludeUnbanned",
@@ -150,6 +151,13 @@ export const appSettings: SettingsFormField[] = [
             },
             {
                 type: "boolean",
+                label: "Send digest to the 'Mod Notifications' section of modmail",
+                helpText: "If set, the daily digest will be sent to the 'Mod Notifications' section of modmail, otherwise it will go into the main inbox.",
+                name: AppSetting.DailyDigestAsModNotification,
+                defaultValue: false,
+            },
+            {
+                type: "boolean",
                 label: "Include details of accounts reported to Bot Bouncer",
                 name: AppSetting.DailyDigestIncludeReported,
                 defaultValue: true,
@@ -178,7 +186,7 @@ export const appSettings: SettingsFormField[] = [
                 label: "Upgrade notifications",
                 name: AppSetting.UpgradeNotifier,
                 helpText: "Receive a message when a new version of Bot Bouncer is released",
-                defaultValue: false,
+                defaultValue: true,
             },
         ],
     },
@@ -236,7 +244,8 @@ export async function getControlSubSettings (context: TriggerContext): Promise<C
 
     const defaultConfig: ControlSubSettings = {
         evaluationDisabled: false,
-        proactiveEvaluationEnabled: true,
+        proactiveEvaluationEnabled: false,
+        postCreationQueueProcessingEnabled: true,
         maxInactivityMonths: 3,
         trustedSubmitters: [],
         reporterBlacklist: [],

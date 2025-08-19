@@ -1,7 +1,7 @@
 import { JobContext, JSONObject, ScheduledJobEvent } from "@devvit/public-api";
 import { getFullDataStore, UserDetails, UserStatus } from "../dataStore.js";
 import { fromPairs, toPairs } from "lodash";
-import { addSeconds, subDays } from "date-fns";
+import { addSeconds, format, subDays } from "date-fns";
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "../constants.js";
 import { EvaluationResult, getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
 import json2md from "json2md";
@@ -10,6 +10,11 @@ import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
 
 const ACCURACY_QUEUE = "evaluatorAccuracyQueue";
 const ACCURACY_STORE = "evaluatorAccuracyStore";
+
+interface AccuracyQueueItem {
+    status: UserStatus;
+    reportedAt?: number;
+}
 
 function dateInRange (date: Date): boolean {
     return date > subDays(new Date(), 14);
@@ -32,11 +37,13 @@ async function gatherUsernames (context: JobContext) {
     });
 
     const recordsToQueue = fromPairs(relevantData.map((item) => {
+        let itemToQueue: AccuracyQueueItem;
         if (item.data.userStatus === UserStatus.Purged || item.data.userStatus === UserStatus.Retired) {
-            return [item.username, item.data.lastStatus ?? item.data.userStatus];
+            itemToQueue = { status: item.data.lastStatus ?? item.data.userStatus, reportedAt: item.data.reportedAt };
         } else {
-            return [item.username, item.data.userStatus];
+            itemToQueue = { status: item.data.userStatus, reportedAt: item.data.reportedAt };
         }
+        return [item.username, JSON.stringify(itemToQueue)];
     }));
 
     await context.redis.hSet(ACCURACY_QUEUE, recordsToQueue);
@@ -48,6 +55,7 @@ interface EvaluationAccuracyResult {
     bannedCount: number;
     bannedAccounts: string[];
     unbannedAccounts: string[];
+    lastSeen?: number;
 }
 
 function getEvaluationResultsKey (evaluationResult: EvaluationResult): string {
@@ -84,8 +92,11 @@ export async function buildEvaluatorAccuracyStatistics (event: ScheduledJobEvent
         if (!record) {
             continue;
         }
-        const [username, status] = record;
-        const isBanned = status === UserStatus.Banned as string;
+
+        const username = record[0];
+        const entry = JSON.parse(record[1]) as AccuracyQueueItem;
+
+        const isBanned = entry.status === UserStatus.Banned;
 
         const initialEvaluationResults = await getAccountInitialEvaluationResults(username, context);
         for (const evaluationResult of initialEvaluationResults) {
@@ -96,7 +107,10 @@ export async function buildEvaluatorAccuracyStatistics (event: ScheduledJobEvent
                 if (isBanned) {
                     existingData.bannedAccounts.push(username);
                     existingData.bannedCount++;
-                } else if (status === UserStatus.Organic as string) {
+                    if (entry.reportedAt && (!existingData.lastSeen || entry.reportedAt > existingData.lastSeen)) {
+                        existingData.lastSeen = entry.reportedAt;
+                    }
+                } else if (entry.status === UserStatus.Organic) {
                     existingData.unbannedAccounts.push(username);
                 }
                 existingResults[getEvaluationResultsKey(evaluationResult)] = JSON.stringify(existingData);
@@ -105,7 +119,8 @@ export async function buildEvaluatorAccuracyStatistics (event: ScheduledJobEvent
                     totalCount: 1,
                     bannedCount: isBanned ? 1 : 0,
                     bannedAccounts: isBanned ? [username] : [],
-                    unbannedAccounts: status === UserStatus.Organic as string ? [username] : [],
+                    unbannedAccounts: entry.status === UserStatus.Organic ? [username] : [],
+                    lastSeen: isBanned ? entry.reportedAt : undefined,
                 };
                 existingResults[getEvaluationResultsKey(evaluationResult)] = JSON.stringify(newData);
             }
@@ -139,7 +154,8 @@ export async function buildEvaluatorAccuracyStatistics (event: ScheduledJobEvent
                 totalCount: data.totalCount,
                 bannedCount: data.bannedCount,
                 bannedAccounts: data.bannedAccounts.slice(-5), // Show only the last 5 banned accounts
-                unbannedAccounts: data.unbannedAccounts,
+                unbannedAccounts: data.unbannedAccounts.slice(-5), // Show only the last 5 unbanned accounts
+                lastSeen: data.lastSeen,
             }];
         }));
 
@@ -178,13 +194,14 @@ export async function buildEvaluatorAccuracyStatistics (event: ScheduledJobEvent
     }
 
     const tableRows: string[][] = [];
-    const headers: string[] = ["Bot Name", "Hit Reason", "Total Count", "Banned Count", "Accuracy (%)", "Example Banned Accounts", "Unbanned Accounts"];
+    const headers: string[] = ["Bot Name", "Hit Reason", "Last Seen", "Total Count", "Banned Count", "Accuracy (%)", "Example Banned Accounts", "Unbanned Accounts"];
 
     for (const [key, data] of toPairs(evaluatorAccuracyStats).sort((a, b) => a > b ? 1 : -1)) {
         const [botName, hitReason] = key.split("~");
         tableRows.push([
             botName,
             hitReason || "",
+            data.lastSeen ? format(new Date(data.lastSeen), "yyyy-MM-dd") : "",
             data.totalCount.toLocaleString(),
             data.bannedCount.toLocaleString(),
             data.totalCount ? `${Math.floor((data.bannedCount / data.totalCount) * 100)}%` : "",

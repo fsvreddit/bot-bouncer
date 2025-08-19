@@ -8,9 +8,17 @@ import { AsyncSubmission, queuePostCreation } from "../postCreation.js";
 import { getUserExtended, UserExtended } from "../extendedDevvit.js";
 import { CONTROL_SUBREDDIT } from "../constants.js";
 import pluralize from "pluralize";
+import { EvaluationResult, storeAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
+
+interface UserWithDetails {
+    username: string;
+    submitter: string;
+    reason?: string;
+}
 
 interface BulkSubmission {
     usernames?: string[];
+    userDetails?: UserWithDetails[];
     reason?: string;
 }
 
@@ -24,6 +32,20 @@ const schema: JSONSchemaType<BulkSubmission> = {
             },
             nullable: true,
         },
+        userDetails: {
+            type: "array",
+            items: {
+                type: "object",
+                properties: {
+                    username: { type: "string" },
+                    submitter: { type: "string" },
+                    reason: { type: "string", nullable: true },
+                },
+                required: ["username", "submitter"],
+                additionalProperties: false,
+            },
+            nullable: true,
+        },
         reason: {
             type: "string",
             nullable: true,
@@ -32,7 +54,7 @@ const schema: JSONSchemaType<BulkSubmission> = {
     additionalProperties: false,
 };
 
-async function handleBulkItem (username: string, initialStatus: UserStatus, submitter: string, reason: string | undefined, context: TriggerContext): Promise<boolean> {
+async function handleBulkItem (username: string, initialStatus: UserStatus, submitter: string, externalSubmitter: string | undefined, reason: string | undefined, context: TriggerContext): Promise<boolean> {
     const user = await getUserExtended(username, context);
     if (!user) {
         console.log(`Bulk submission: User ${username} is deleted or shadowbanned, skipping.`);
@@ -75,6 +97,16 @@ async function handleBulkItem (username: string, initialStatus: UserStatus, subm
     };
 
     await queuePostCreation(submission, context);
+
+    if (externalSubmitter) {
+        const evaluationResult: EvaluationResult = {
+            botName: "Modmail Bulk Submission",
+            hitReason: `Submitted via ${submitter} due to report by ${externalSubmitter}`,
+            canAutoBan: initialStatus === UserStatus.Banned,
+            metThreshold: true,
+        };
+        await storeAccountInitialEvaluationResults(username, [evaluationResult], context);
+    }
     return true;
 }
 
@@ -116,7 +148,13 @@ export async function handleBulkSubmission (submitter: string, trusted: boolean,
 
     if (data.usernames) {
         const initialStatus = trusted ? UserStatus.Banned : UserStatus.Pending;
-        const results = await Promise.all(uniq(data.usernames).map(username => handleBulkItem(username, initialStatus, submitter, data.reason, context)));
+        const results = await Promise.all(uniq(data.usernames).map(username => handleBulkItem(username, initialStatus, submitter, undefined, data.reason, context)));
+        queued += compact(results).length;
+    }
+
+    if (data.userDetails) {
+        const initialStatus = trusted ? UserStatus.Banned : UserStatus.Pending;
+        const results = await Promise.all(data.userDetails.map(entry => handleBulkItem(entry.username, initialStatus, submitter, entry.submitter, entry.reason ?? data.reason, context)));
         queued += compact(results).length;
     }
 

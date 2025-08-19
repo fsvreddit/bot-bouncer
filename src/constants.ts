@@ -45,6 +45,8 @@ export enum ControlSubredditJob {
     DefinedHandlesPostStore = "definedHandlesPostStore",
     HandleObserverSubredditSubmissions = "handleObserverSubredditSubmissions",
     PerformCleanupMaintenance = "performCleanupMaintenance",
+    EvaluatorReversals = "evaluatorReversals",
+    DeleteRecordsForRemovedUsers = "deleteRecordsForRemovedUsers",
 }
 
 /**
@@ -56,7 +58,6 @@ export enum ClientSubredditJob {
     HandleClassificationChanges = "handleClassificationChanges",
     UpgradeNotifier = "upgradeNotifier",
     SendDailyDigest = "sendDailyDigest",
-    CheckForBanNotes = "checkForBanNotes",
 }
 
 /**

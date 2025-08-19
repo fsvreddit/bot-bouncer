@@ -88,17 +88,26 @@ export async function cleanupDeletedAccounts (_: unknown, context: JobContext) {
         return;
     }
 
+    const runLimit = addSeconds(new Date(), 15);
+
     // Check platform is up.
     await context.reddit.getAppUser();
-
-    const itemsToCheck = 5;
 
     let deletedCount = 0;
     let activeCount = 0;
     let suspendedCount = 0;
+    let totalProcessed = 0;
+
     // Get the first N accounts that are due a check.
-    const usersToCheck = items.slice(0, itemsToCheck).map(item => item.member);
-    for (const username of usersToCheck) {
+    const usersToCheck = items.map(item => item.member);
+    while (usersToCheck.length > 0 && new Date() < runLimit && totalProcessed < 10) {
+        const username = usersToCheck.shift();
+        if (!username) {
+            break;
+        }
+
+        totalProcessed++;
+
         const currentUserStatus = await userActive(username, context);
 
         if (currentUserStatus === UserActiveStatus.Deleted) {
@@ -147,6 +156,9 @@ export async function cleanupDeletedAccounts (_: unknown, context: JobContext) {
                         break;
                     case UserStatus.Organic:
                         newFlair = PostFlairTemplate.Organic;
+                        break;
+                    case UserStatus.Declined:
+                        newFlair = PostFlairTemplate.Declined;
                         break;
                     case UserStatus.Service:
                         newFlair = PostFlairTemplate.Service;
@@ -208,7 +220,7 @@ export async function cleanupDeletedAccounts (_: unknown, context: JobContext) {
 
     console.log(`Cleanup: Active ${activeCount}, Deleted ${deletedCount}, Suspended ${suspendedCount}`);
 
-    if (items.length > itemsToCheck) {
+    if (usersToCheck.length > 0) {
         // In a backlog.
         // If in control subreddit, check to see if next run is imminent.
         if (context.subredditName === CONTROL_SUBREDDIT) {
@@ -227,20 +239,16 @@ export async function cleanupDeletedAccounts (_: unknown, context: JobContext) {
 }
 
 async function handleDeletedAccount (username: string, context: TriggerContext) {
-    const txn = await context.redis.watch();
-    await txn.multi();
-
     if (context.subredditName === CONTROL_SUBREDDIT) {
-        await handleDeletedAccountControlSub(username, context, txn);
+        await handleDeletedAccountControlSub(username, context);
     } else {
-        await handleDeletedAccountClientSub(username, txn);
+        await handleDeletedAccountClientSub(username, context.redis);
     }
 
-    await txn.zRem(CLEANUP_LOG_KEY, [username]);
-    await txn.exec();
+    await context.redis.zRem(CLEANUP_LOG_KEY, [username]);
 }
 
-async function handleDeletedAccountControlSub (username: string, context: TriggerContext, txn: TxClientLike) {
+async function handleDeletedAccountControlSub (username: string, context: TriggerContext) {
     const status = await getUserStatus(username, context);
     const submitterOrModFlag = await context.redis.zScore(SUB_OR_MOD_LOG_KEY, username);
 
@@ -248,6 +256,9 @@ async function handleDeletedAccountControlSub (username: string, context: Trigge
         console.log(`Cleanup: ${username} has no status to delete.`);
         return;
     }
+
+    const txn = await context.redis.watch();
+    await txn.multi();
 
     if (status) {
         let newStatus: UserStatus;
@@ -297,13 +308,14 @@ async function handleDeletedAccountControlSub (username: string, context: Trigge
     }
 
     await deleteUserStatus(username, status?.trackingPostId, txn);
+    await txn.exec();
 }
 
-async function handleDeletedAccountClientSub (username: string, txn: TxClientLike) {
-    await removeRecordOfBan(username, txn);
-    await removeWhitelistUnban(username, txn);
-    await txn.del(`removed:${username}`);
-    await txn.del(`removedItems:${username}`);
+async function handleDeletedAccountClientSub (username: string, redis: RedisClient) {
+    await removeRecordOfBan(username, redis);
+    await removeWhitelistUnban(username, redis);
+    await redis.del(`removed:${username}`);
+    await redis.del(`removedItems:${username}`);
 }
 
 async function getLatestContentDate (username: string, context: JobContext): Promise<number | undefined> {

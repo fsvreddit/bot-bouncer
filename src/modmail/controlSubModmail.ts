@@ -60,7 +60,7 @@ export async function handleControlSubredditModmail (modmail: ModmailMessage, co
         await markAppealAsHandled(modmail, context);
     }
 
-    if (modmail.participant) {
+    if (modmail.participant && modmail.participant !== context.appName) {
         const statusChangeRegex = /!setstatus (banned|organic|declined)/;
         const statusChangeMatch = statusChangeRegex.exec(modmail.bodyMarkdown);
         if (statusChangeMatch && statusChangeMatch.length === 2) {

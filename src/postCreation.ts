@@ -45,6 +45,19 @@ async function createNewSubmission (submission: AsyncSubmission, context: Trigge
         return;
     }
 
+    if (submission.details.submitter === "bot-sleuth-bot") {
+        const userHistory = await context.reddit.getCommentsAndPostsByUser({
+            username: submission.user.username,
+            sort: "new",
+            limit: 100,
+        }).all();
+
+        if (userHistory.length === 0) {
+            console.log(`Post Creation: bot-sleuth-bot submission for ${submission.user.username} is curating history, skipping post creation.`);
+            return;
+        }
+    }
+
     const postCreationLockKey = `postCreationLock:${submission.user.username}`;
     if (await context.redis.exists(postCreationLockKey)) {
         console.log(`Post Creation: User ${submission.user.username}'s lock already set.`);
@@ -61,6 +74,8 @@ async function createNewSubmission (submission: AsyncSubmission, context: Trigge
     });
 
     submission.details.trackingPostId = newPost.id;
+    submission.details.reportedAt = Date.now();
+    submission.details.lastUpdate = Date.now();
 
     await setUserStatus(submission.user.username, submission.details, context);
 
@@ -161,6 +176,7 @@ export async function processQueuedSubmission (_: unknown, context: JobContext) 
     const submissionDetails = await context.redis.hGet(SUBMISSION_DETAILS, firstSubmission.member);
     if (!submissionDetails) {
         console.error(`Post Creation: No details found in redis for user ${firstSubmission.member}.`);
+        await context.redis.zRem(SUBMISSION_QUEUE, [firstSubmission.member]);
         return;
     }
 

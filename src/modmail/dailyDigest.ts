@@ -86,11 +86,17 @@ export async function sendDailyDigest (_: unknown, context: JobContext) {
 
         message.push({ p: `These notifications can be customised or turned off on the [app configuration page](https://developers.reddit.com/r/${subredditName}/apps/${context.appName}).` });
 
-        promises.push(context.reddit.modMail.createModInboxConversation({
+        const params = {
             subredditId: context.subredditId,
             subject,
             bodyMarkdown: json2md(message),
-        }));
+        };
+
+        if (settings[AppSetting.DailyDigestAsModNotification]) {
+            promises.push(context.reddit.modMail.createModNotification(params));
+        } else {
+            promises.push(context.reddit.modMail.createModInboxConversation(params));
+        }
     }
 
     promises.push(

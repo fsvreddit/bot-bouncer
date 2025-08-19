@@ -2,9 +2,11 @@ import { JobContext, JSONObject, JSONValue, ScheduledJobEvent, TriggerContext, W
 import { ALL_EVALUATORS, yamlToVariables } from "@fsvreddit/bot-bouncer-evaluation";
 import { CONTROL_SUBREDDIT } from "../constants.js";
 import { uniq } from "lodash";
-import { sendMessageToWebhook } from "../utility.js";
+import { replaceAll, sendMessageToWebhook } from "../utility.js";
 import json2md from "json2md";
 import { getControlSubSettings } from "../settings.js";
+import { EvaluateBotGroupAdvanced } from "@fsvreddit/bot-bouncer-evaluation/dist/userEvaluation/EvaluateBotGroupAdvanced.js";
+import { getUserExtended } from "../extendedDevvit.js";
 
 const EVALUATOR_VARIABLES_KEY = "evaluatorVariables";
 const EVALUATOR_VARIABLES_YAML_PAGE = "evaluator-config";
@@ -14,6 +16,7 @@ const EVALUATOR_VARIABLES_LAST_REVISION_KEY = "evaluatorVariablesLastRevision";
 export async function getEvaluatorVariables (context: TriggerContext | JobContext): Promise<Record<string, JSONValue>> {
     const allVariables = await context.redis.get(EVALUATOR_VARIABLES_KEY);
     if (!allVariables) {
+        console.warn("Evaluator Variables: No variables found in Redis, returning empty object.");
         return {};
     }
 
@@ -56,6 +59,39 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
     const variables = yamlToVariables(wikiPage.content);
 
     const invalidEntries = invalidEvaluatorVariableCondition(variables);
+    const errors = variables.errors as string[] | undefined;
+    if (errors && errors.length > 0) {
+        invalidEntries.push(...errors);
+    }
+
+    if (invalidEntries.length === 0) {
+        // Do a sanity check to ensure that nobody's done anything silly with Bot Group Advanced.
+        const moderators = await context.reddit.getModerators({
+            subredditName: CONTROL_SUBREDDIT,
+        }).all();
+        const matchedMods: Record<string, string> = {};
+        for (const moderator of moderators.slice(0, 3)) {
+            const evaluator = new EvaluateBotGroupAdvanced(context, variables);
+            const user = await getUserExtended(moderator.username, context);
+            if (!user) {
+                console.warn(`Evaluator Variables: User ${moderator.username} not found, skipping.`);
+                continue;
+            }
+            const userHistory = await context.reddit.getCommentsAndPostsByUser({
+                username: moderator.username,
+                sort: "new",
+                limit: 100,
+            }).all();
+            if (await evaluator.evaluate(user, userHistory)) {
+                matchedMods[moderator.username] = evaluator.hitReason ?? "No reason provided";
+            }
+        }
+        for (const [username, reason] of Object.entries(matchedMods)) {
+            invalidEntries.push(`Bot Group Advanced matched moderator ${username} with reason: ${reason}`);
+            console.log(`Evaluator Variables: Bot Group Advanced matched moderator ${username} with reason: ${JSON.stringify(reason)}`);
+        }
+    }
+
     if (invalidEntries.length > 0) {
         if (!event.data?.username) {
             console.error("Evaluator Variables: Evaluator variables contains issues. Will fall back to cached values.");
@@ -76,7 +112,12 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
             const username = event.data.username as string;
             const controlSubSettings = await getControlSubSettings(context);
             if (controlSubSettings.monitoringWebhook) {
-                await sendMessageToWebhook(controlSubSettings.monitoringWebhook, `${username} has updated the evaluator config, but there's an error! Please check and correct as soon as possible. Falling back on known good values.`);
+                const discordMessage: json2md.DataObject[] = [{ p: `${username} has updated the evaluator config, but there's an error! Please check and correct as soon as possible.` }];
+                discordMessage.push({ ul: invalidEntries });
+                discordMessage.push({ p: "Last known good values will be used until the issue is resolved." });
+                const messageToSend = replaceAll(replaceAll(json2md(discordMessage), "\n\n\n", "\n\n"), "\n\n", "\n");
+                console.log(JSON.stringify(messageToSend));
+                await sendMessageToWebhook(controlSubSettings.monitoringWebhook, messageToSend);
             }
 
             await context.reddit.sendPrivateMessage({
@@ -90,7 +131,7 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
     }
 
     for (const module of uniq(Object.keys(variables).map(key => key.split(":")[0]))) {
-        if (module === "generic" || module === "substitutions") {
+        if (module === "generic" || module === "substitutions" || module === "errors") {
             continue;
         }
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
@@ -144,7 +185,12 @@ export function invalidEvaluatorVariableCondition (variables: Record<string, JSO
         const evaluator = new Evaluator({} as unknown as TriggerContext, variables);
         const errors = evaluator.validateVariables();
         if (errors.length > 0) {
-            results.push(`Evaluator ${evaluator.shortname} has the following errors: ${errors.join(", ")}`);
+            results.push(...errors.map(r => `${evaluator.name}: ${r.length < 200 ? r : r.substring(0, 197) + "..."}`));
+        }
+
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+        if (variables[`${evaluator.shortname}:killswitch`] === undefined) {
+            console.warn(`Missing killswitch for ${evaluator.name}`);
         }
     }
 

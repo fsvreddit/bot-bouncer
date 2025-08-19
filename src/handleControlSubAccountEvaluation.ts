@@ -81,8 +81,9 @@ export async function evaluateUserAccount (username: string, variables: Record<s
             return [];
         }
         if (isABot) {
-            if (evaluator.name !== "CQS Tester") {
-                console.log(`Evaluator: ${username} appears to be a bot via the evaluator: ${evaluator.name} 💥`);
+            console.log(`Evaluator: ${username} appears to be a bot via the evaluator: ${evaluator.name} 💥`);
+            if (evaluator.name.includes("Bot Group")) {
+                console.log(`Evaluator: Hit reason: ${evaluator.hitReason}`);
             }
             detectedBots.push(evaluator);
         }

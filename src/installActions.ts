@@ -4,6 +4,7 @@ import { CLIENT_SUB_WIKI_UPDATE_CRON_KEY, ClientSubredditJob, CONTROL_SUB_CLEANU
 import { handleExternalSubmissionsPageUpdate } from "./externalSubmissions.js";
 import { removeRetiredEvaluatorsFromStats } from "./userEvaluation/evaluatorHelpers.js";
 import { getControlSubSettings } from "./settings.js";
+import { addSeconds } from "date-fns";
 
 export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, context: TriggerContext) {
     console.log("App Install: Detected an app install or update event");
@@ -80,6 +81,12 @@ async function addControlSubredditJobs (context: TriggerContext) {
             name: UniversalJob.Cleanup,
             cron: CONTROL_SUB_CLEANUP_CRON, // every 5 minutes
         }),
+
+        context.scheduler.runJob({
+            name: ControlSubredditJob.EvaluatorReversals,
+            runAt: addSeconds(new Date(), 5),
+            data: { firstRun: true },
+        }),
     ]);
 
     await Promise.all([
@@ -108,10 +115,9 @@ async function addClientSubredditJobs (context: TriggerContext) {
     await context.redis.set(CLIENT_SUB_WIKI_UPDATE_CRON_KEY, clientSubReclassificationCron);
 
     randomMinute = Math.floor(Math.random() * 60);
-    let randomHour = Math.floor(Math.random() * 3);
     await context.scheduler.runJob({
         name: UniversalJob.UpdateEvaluatorVariables,
-        cron: `${randomMinute} ${randomHour}/1 * * *`,
+        cron: `${randomMinute} * * * *`,
     });
 
     await context.scheduler.runJob({
@@ -120,7 +126,7 @@ async function addClientSubredditJobs (context: TriggerContext) {
     });
 
     randomMinute = Math.floor(Math.random() * 60);
-    randomHour = Math.floor(Math.random() * 24);
+    const randomHour = Math.floor(Math.random() * 24);
     await context.scheduler.runJob({
         name: ClientSubredditJob.UpgradeNotifier,
         cron: `${randomMinute} ${randomHour} * * *`,

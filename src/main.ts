@@ -22,12 +22,12 @@ import { perform6HourlyJobs } from "./sixHourlyJobs.js";
 import { checkUptimeAndMessages } from "./uptimeMonitor.js";
 import { analyseBioText } from "./similarBioTextFinder/bioTextFinder.js";
 import { processQueuedSubmission } from "./postCreation.js";
-import { checkForBanNotes } from "./handleClientSubBanReasonCheck.js";
 import { cleanupPostStore } from "./cleanupPostStore.js";
 import { buildEvaluatorAccuracyStatistics } from "./statistics/evaluatorAccuracyStatistics.js";
 import { processExternalSubmissionsFromObserverSubreddits } from "./externalSubmissions.js";
 import { performCleanupMaintenance } from "./cleanupMaintenance.js";
 import { gatherDefinedHandlesStats, storeDefinedHandlesDataJob } from "./statistics/definedHandlesStatistics.js";
+import { deleteRecordsForRemovedUsers, evaluatorReversalsJob } from "./evaluatorReversals.js";
 
 Devvit.addSettings(appSettings);
 
@@ -230,6 +230,16 @@ Devvit.addSchedulerJob({
     onRun: storeDefinedHandlesDataJob,
 });
 
+Devvit.addSchedulerJob({
+    name: ControlSubredditJob.EvaluatorReversals,
+    onRun: evaluatorReversalsJob,
+});
+
+Devvit.addSchedulerJob({
+    name: ControlSubredditJob.DeleteRecordsForRemovedUsers,
+    onRun: deleteRecordsForRemovedUsers,
+});
+
 /**
  * Jobs that run on client subreddits only
  */
@@ -252,11 +262,6 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: ClientSubredditJob.SendDailyDigest,
     onRun: sendDailyDigest,
-});
-
-Devvit.addSchedulerJob({
-    name: ClientSubredditJob.CheckForBanNotes,
-    onRun: checkForBanNotes,
 });
 
 Devvit.configure({

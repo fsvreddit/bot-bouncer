@@ -3,6 +3,7 @@ import { getAllKnownUsers } from "./dataStore.js";
 import { addDays, addMinutes, addSeconds, subDays } from "date-fns";
 import { setCleanupForUser, userHasCleanupEntry } from "./cleanup.js";
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "./constants.js";
+import { chunk } from "lodash";
 
 export async function performCleanupMaintenance (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
@@ -21,7 +22,12 @@ export async function performCleanupMaintenance (event: ScheduledJobEvent<JSONOb
         }
 
         const allUsers = await getAllKnownUsers(context);
-        await context.redis.zAdd(storeKey, ...allUsers.map(user => ({ member: user, score: 0 })));
+        console.log(`Cleanup Maintenance: Found ${allUsers.length} known users.`);
+        const chunkedUsers = chunk(allUsers, 10000);
+        for (const chunk of chunkedUsers) {
+            await context.redis.zAdd(storeKey, ...chunk.map(user => ({ member: user, score: 0 })));
+        }
+
         await context.scheduler.runJob({
             name: ControlSubredditJob.PerformCleanupMaintenance,
             runAt: addSeconds(new Date(), 5),

@@ -44,7 +44,7 @@ interface SocialLinksEntry {
 export async function updateSocialLinksStatistics (allEntries: [string, UserDetails][], context: JobContext) {
     let recentData = allEntries
         .map(([username, data]) => ({ username, data: data as UserDetailsWithSocialLink }))
-        .filter(item => item.data.reportedAt && new Date(item.data.reportedAt) >= subWeeks(new Date(), 2))
+        .filter(item => item.data.reportedAt && new Date(item.data.reportedAt) >= subWeeks(new Date(), 4))
         .filter(item => item.data.userStatus === UserStatus.Banned || item.data.lastStatus === UserStatus.Banned);
 
     const socialLinks = await context.redis.hMGet(SOCIAL_LINKS_STORE, recentData.map(item => item.username));
@@ -103,12 +103,12 @@ export async function updateSocialLinksStatistics (allEntries: [string, UserDeta
         .sort((a, b) => b.value.hits - a.value.hits);
 
     const wikiContent: json2md.DataObject[] = [
-        { p: "This page lists social links seen on more than one user, where it has been seen on a newly banned user in the last two weeks" },
+        { p: "This page lists social links seen on more than one user, where it has been seen on a newly banned user in the last four weeks" },
         { p: "Note: OnlyFans links have been cleaned to remove share codes and trial invites." },
     ];
 
     if (records.length === 0) {
-        wikiContent.push({ p: "No social links found more than once with a hit in the last two weeks." });
+        wikiContent.push({ p: "No social links found more than once with a hit in the last four weeks." });
     } else {
         const rows: string[][] = [];
         const headers = ["Link", "In Evaluators", "Hit count", "First Seen", "Last Seen", "Example Users"];
