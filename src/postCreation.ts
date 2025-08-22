@@ -129,11 +129,18 @@ async function createNewSubmission (submission: AsyncSubmission, context: Trigge
     console.log(`Post Creation: Created new post for ${submission.user.username} with status ${submission.details.userStatus}.`);
 }
 
-export async function queuePostCreation (submission: AsyncSubmission, context: TriggerContext) {
+export enum PostCreationQueueResult {
+    Queued = "queued",
+    AlreadyInQueue = "alreadyInQueue",
+    AlreadyInDatabase = "alreadyInDatabase",
+    Error = "error",
+}
+
+export async function queuePostCreation (submission: AsyncSubmission, context: TriggerContext): Promise<PostCreationQueueResult> {
     const currentStatus = await getUserStatus(submission.user.username, context);
     if (currentStatus) {
         console.log(`Post Creation: User ${submission.user.username} already has a status of ${currentStatus.userStatus}.`);
-        return;
+        return PostCreationQueueResult.AlreadyInDatabase;
     }
 
     const score = submission.immediate ? new Date().getTime() / 1000 : new Date().getTime();
@@ -146,15 +153,17 @@ export async function queuePostCreation (submission: AsyncSubmission, context: T
         if (alreadyInQueue) {
             console.log(`Post Creation: User ${submission.user.username} is already in the queue.`);
             await txn.discard();
-            return;
+            return PostCreationQueueResult.AlreadyInQueue;
         }
 
         await txn.hSet(SUBMISSION_DETAILS, { [submission.user.username]: JSON.stringify(submission) });
         await txn.zAdd(SUBMISSION_QUEUE, { member: submission.user.username, score });
         await txn.exec();
+        return PostCreationQueueResult.Queued;
     } catch (error) {
         console.error(`Post Creation: Error queueing post for user ${submission.user.username}.`, error);
         await txn.discard();
+        return PostCreationQueueResult.Error;
     }
 }
 
