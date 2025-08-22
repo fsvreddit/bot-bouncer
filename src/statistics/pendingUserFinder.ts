@@ -4,8 +4,9 @@ import { format, subDays } from "date-fns";
 import json2md from "json2md";
 
 export async function pendingUserFinder (allEntries: [string, UserDetails][], context: JobContext) {
+    const cutoff = subDays(new Date(), 2).getTime();
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const pendingUsersOverOneDay = allEntries.filter(([_, userDetails]) => userDetails.userStatus === UserStatus.Pending && userDetails.lastUpdate < subDays(new Date(), 2).getTime());
+    const pendingUsersOverOneDay = allEntries.filter(([_, userDetails]) => userDetails.userStatus === UserStatus.Pending && (userDetails.lastUpdate < cutoff || (userDetails.reportedAt ?? 0 < cutoff)));
     if (pendingUsersOverOneDay.length === 0) {
         return;
     }
