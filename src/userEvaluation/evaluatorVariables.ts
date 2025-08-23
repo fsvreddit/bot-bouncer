@@ -71,7 +71,7 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
         }).all();
         const matchedMods: Record<string, string> = {};
         for (const moderator of moderators.slice(0, 3)) {
-            const evaluator = new EvaluateBotGroupAdvanced(context, variables);
+            const evaluator = new EvaluateBotGroupAdvanced(context, undefined, variables);
             const user = await getUserExtended(moderator.username, context);
             if (!user) {
                 console.warn(`Evaluator Variables: User ${moderator.username} not found, skipping.`);
@@ -182,7 +182,7 @@ export function invalidEvaluatorVariableCondition (variables: Record<string, JSO
 
     // Now check evaluator-specific validators
     for (const Evaluator of ALL_EVALUATORS) {
-        const evaluator = new Evaluator({} as unknown as TriggerContext, variables);
+        const evaluator = new Evaluator({} as unknown as TriggerContext, undefined, variables);
         const errors = evaluator.validateVariables();
         if (errors.length > 0) {
             results.push(...errors.map(r => `${evaluator.name}: ${r.length < 200 ? r : r.substring(0, 197) + "..."}`));

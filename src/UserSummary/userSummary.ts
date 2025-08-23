@@ -421,7 +421,7 @@ async function evaluatorsMatched (user: UserExtended, userHistory: (Post | Comme
     const evaluatorVariables = await getEvaluatorVariables(context);
 
     for (const Evaluator of ALL_EVALUATORS) {
-        const evaluator = new Evaluator(context, evaluatorVariables);
+        const evaluator = new Evaluator(context, undefined, evaluatorVariables);
         if (evaluator.evaluatorDisabled()) {
             continue;
         }

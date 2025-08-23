@@ -1,4 +1,4 @@
-import { Comment, JobContext, JSONObject, JSONValue, Post, ScheduledJobEvent, SubredditInfo, TriggerContext, TxClientLike } from "@devvit/public-api";
+import { Comment, JobContext, JSONObject, JSONValue, Post, ScheduledJobEvent, SubredditInfo, TriggerContext, TxClientLike, UserSocialLink } from "@devvit/public-api";
 import { ALL_EVALUATORS, UserEvaluatorBase } from "@fsvreddit/bot-bouncer-evaluation";
 import { getUserStatus, UserStatus } from "./dataStore.js";
 import { CONTROL_SUBREDDIT, PostFlairTemplate } from "./constants.js";
@@ -47,15 +47,20 @@ export async function evaluateUserAccount (username: string, variables: Record<s
     }
 
     let userItems: (Post | Comment)[] | undefined;
+    let socialLinks: UserSocialLink[] | undefined;
     const detectedBots: UserEvaluatorBase[] = [];
 
     for (const Evaluator of ALL_EVALUATORS) {
-        const evaluator = new Evaluator(context, variables);
+        const evaluator = new Evaluator(context, socialLinks, variables);
         if (evaluator.evaluatorDisabled()) {
             continue;
         }
 
         const userEvaluateResult = await Promise.resolve(evaluator.preEvaluateUser(user));
+        if (!socialLinks && evaluator.socialLinks) {
+            socialLinks = evaluator.socialLinks;
+        }
+
         if (!userEvaluateResult) {
             continue;
         }
@@ -76,6 +81,9 @@ export async function evaluateUserAccount (username: string, variables: Record<s
         let isABot;
         try {
             isABot = await Promise.resolve(evaluator.evaluate(user, userItems));
+            if (!socialLinks && evaluator.socialLinks) {
+                socialLinks = evaluator.socialLinks;
+            }
         } catch (error) {
             console.error(`Evaluator: ${username} threw an error during evaluation of ${evaluator.name}: ${error}`);
             return [];
