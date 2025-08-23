@@ -6,7 +6,7 @@ import { compact, countBy, mean, uniq } from "lodash";
 import { count } from "@wordpress/wordcount";
 import { isUserPotentiallyBlockingBot } from "./blockChecker.js";
 import pluralize from "pluralize";
-import { isLinkId } from "@devvit/shared-types/tid.js";
+import { isLinkId } from "@devvit/public-api/types/tid.js";
 import { getUserExtended, UserExtended } from "../extendedDevvit.js";
 import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
 import { getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";

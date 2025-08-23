@@ -1,5 +1,5 @@
 import { TriggerContext } from "@devvit/public-api";
-import { isLinkId } from "@devvit/shared-types/tid.js";
+import { isLinkId } from "@devvit/public-api/types/tid.js";
 import { getUserStatus, UserStatus } from "../dataStore.js";
 import { getSummaryForUser } from "../UserSummary/userSummary.js";
 import { getUserOrUndefined, isBanned, isModerator } from "../utility.js";

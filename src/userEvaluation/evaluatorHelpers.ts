@@ -12,7 +12,7 @@ export async function removeRetiredEvaluatorsFromStats (context: TriggerContext)
 
     for (const Evaluator of ALL_EVALUATORS) {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
-        const evaluator = new Evaluator({} as any, {});
+        const evaluator = new Evaluator({} as any, undefined, {});
         if (allStats[evaluator.name]) {
             newStats[evaluator.name] = allStats[evaluator.name];
         }

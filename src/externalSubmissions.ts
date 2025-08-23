@@ -5,7 +5,7 @@ import { ControlSubSettings, getControlSubSettings } from "./settings.js";
 import Ajv, { JSONSchemaType } from "ajv";
 import { addDays, addMinutes, addSeconds } from "date-fns";
 import { getPostOrCommentById } from "./utility.js";
-import { isLinkId } from "@devvit/shared-types/tid.js";
+import { isLinkId } from "@devvit/public-api/types/tid.js";
 import { AsyncSubmission, PostCreationQueueResult, queuePostCreation } from "./postCreation.js";
 import pluralize from "pluralize";
 import { getUserExtended } from "./extendedDevvit.js";
