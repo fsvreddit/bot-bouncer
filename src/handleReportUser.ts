@@ -1,4 +1,4 @@
-import { Context, MenuItemOnPressEvent, JSONObject, FormOnSubmitEvent, Form } from "@devvit/public-api";
+import { Context, MenuItemOnPressEvent, JSONObject, FormOnSubmitEvent, FormFunction } from "@devvit/public-api";
 import { CONTROL_SUBREDDIT } from "./constants.js";
 import { getPostOrCommentById, getUserOrUndefined, isModerator } from "./utility.js";
 import { getUserStatus } from "./dataStore.js";
@@ -8,6 +8,7 @@ import { subMonths } from "date-fns";
 import { getControlSubSettings } from "./settings.js";
 import { handleControlSubReportUser } from "./handleControlSubMenu.js";
 import { recordReportForDigest } from "./modmail/dailyDigest.js";
+import { canUserReceiveFeedback } from "./submissionFeedback.js";
 
 enum ReportFormField {
     ReportContext = "reportContext",
@@ -15,7 +16,7 @@ enum ReportFormField {
     SendFeedback = "sendFeedback",
 }
 
-export const reportFormDefinition: Form = {
+export const reportFormDefinition: FormFunction = data => ({
     fields: [
         {
             type: "paragraph",
@@ -34,12 +35,13 @@ export const reportFormDefinition: Form = {
         {
             type: "boolean",
             label: "Receive a notification when this account is classified",
-            helpText: "You must be able to receive chat messages from /u/bot-bouncer to receive this notification",
+            helpText: data.feedbackHelpText as string,
+            disabled: data.feedbackDisabled as boolean,
             defaultValue: false,
             name: ReportFormField.SendFeedback,
         },
     ],
-};
+});
 
 export async function handleReportUser (event: MenuItemOnPressEvent, context: Context) {
     const target = await getPostOrCommentById(event.targetId, context);
@@ -84,7 +86,13 @@ export async function handleReportUser (event: MenuItemOnPressEvent, context: Co
         return;
     }
 
-    context.ui.showForm(reportForm);
+    const canReceiveFeedback = await canUserReceiveFeedback(currentUser.username, context);
+    const data = {
+        feedbackHelpText: canReceiveFeedback ? "You must be able to receive chat messages from /u/bot-bouncer to receive this notification" : "We've tried to send feedback for you several times but this hasn't worked. Check to make sure you can receive chats from /u/bot-bouncer. This option will return within 24h.",
+        feedbackDisabled: !canReceiveFeedback,
+    };
+
+    context.ui.showForm(reportForm, data);
 }
 
 export async function reportFormHandler (event: FormOnSubmitEvent<JSONObject>, context: Context) {

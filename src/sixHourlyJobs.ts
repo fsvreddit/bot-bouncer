@@ -14,6 +14,7 @@ import { updateSocialLinksStatistics } from "./statistics/socialLinksStatistics.
 import { updateBioStatistics } from "./statistics/userBioStatistics.js";
 import { updateDefinedHandlesStats } from "./statistics/definedHandlesStatistics.js";
 import { pendingUserFinder } from "./statistics/pendingUserFinder.js";
+import { updateFailedFeedbackStorage } from "./submissionFeedback.js";
 
 async function getAllValues (context: TriggerContext) {
     const allDataRaw = await getFullDataStore(context);
@@ -72,6 +73,7 @@ export async function perform6HourlyJobs (_: unknown, context: JobContext) {
         createTimeOfSubmissionStatistics(allValues, context),
         updateClassificationStatistics(context),
         updateAppealStatistics(context),
+        updateFailedFeedbackStorage(context),
     ]);
 
     console.log("Statistics updated successfully.");
