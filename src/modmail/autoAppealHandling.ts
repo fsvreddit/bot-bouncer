@@ -6,11 +6,12 @@ import { CONTROL_SUBREDDIT } from "../constants.js";
 import { parseAllDocuments } from "yaml";
 import { compact } from "lodash";
 import json2md from "json2md";
-import { getUserOrUndefined, sendMessageToWebhook } from "../utility.js";
+import { getUserOrUndefined, replaceAll, sendMessageToWebhook } from "../utility.js";
 import { ModmailMessage } from "./modmail.js";
 import { getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
 import { getUserExtended } from "../extendedDevvit.js";
 import { statusToFlair } from "../postCreation.js";
+import { format } from "date-fns";
 
 const APPEAL_CONFIG_WIKI_PAGE = "appeal-config";
 const APPEAL_CONFIG_REDIS_KEY = "AppealConfig";
@@ -18,6 +19,8 @@ const APPEAL_CONFIG_REDIS_KEY = "AppealConfig";
 interface AppealConfig {
     name: string;
     priority?: number;
+    submitter?: string;
+    operator?: string;
     usernameRegex?: string[];
     banDateFrom?: string;
     banDateTo?: string;
@@ -41,6 +44,8 @@ const appealConfigSchema: JSONSchemaType<AppealConfig[]> = {
         properties: {
             name: { type: "string" },
             priority: { type: "number", nullable: true },
+            submitter: { type: "string", nullable: true },
+            operator: { type: "string", nullable: true },
             usernameRegex: { type: "array", items: { type: "string" }, nullable: true },
             banDateFrom: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$", nullable: true },
             banDateTo: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$", nullable: true },
@@ -142,6 +147,12 @@ async function getUserSocialLinks (username: string, context: TriggerContext): P
     return await user.getSocialLinks();
 }
 
+function formatPlaceholders (input: string, userDetails: UserDetails): string {
+    let output = input;
+    output = replaceAll(output, "{{classificationdate}}", format(new Date(userDetails.reportedAt ?? userDetails.lastUpdate), "MMMM do"));
+    return output;
+}
+
 export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDetails, context: TriggerContext): Promise<void> {
     const username = modmail.participant;
     if (!username) {
@@ -163,6 +174,14 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
         }
 
         if (config.banDateTo && (userDetails.reportedAt ?? userDetails.lastUpdate) > new Date(config.banDateTo).getTime()) {
+            return;
+        }
+
+        if (config.submitter && config.submitter !== userDetails.submitter) {
+            return;
+        }
+
+        if (config.operator && config.operator !== userDetails.operator) {
             return;
         }
 
@@ -234,13 +253,13 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
     if (appealOutcome.privateReply) {
         await context.reddit.modMail.reply({
             conversationId: modmail.conversationId,
-            body: appealOutcome.privateReply,
+            body: formatPlaceholders(appealOutcome.privateReply, userDetails),
             isInternal: true,
         });
     }
 
     if (appealOutcome.reply) {
-        let replyMessage = `${appealOutcome.reply}\n\n`;
+        let replyMessage = `${formatPlaceholders(appealOutcome.reply, userDetails)}\n\n`;
         if (appealOutcome.mute) {
             replyMessage += "*This is an automated response.*";
         } else if (matchedAppealConfig) {
