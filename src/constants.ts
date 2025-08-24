@@ -33,6 +33,7 @@ export enum ControlSubredditJob {
     UpdateWikiPage = "updateWikiPage",
     EvaluateUser = "evaluateUser",
     Perform6HourlyJobs = "performDailyJobs",
+    Perform6HourlyJobsPart2 = "performDailyJobsPart2",
     EvaluateKarmaFarmingSubs = "evaluateKarmaFarmingSubs",
     QueueKarmaFarmingSubs = "queueKarmaFarmingSubs",
     CopyControlSubSettings = "copyControlSubSettings",
