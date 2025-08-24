@@ -14,7 +14,7 @@ export async function pendingUserFinder (allEntries: [string, UserDetails][], co
     const modQueue = await context.reddit.getModQueue({
         subreddit: context.subredditName ?? await context.reddit.getCurrentSubredditName(),
         type: "post",
-        limit: 200,
+        limit: 100,
     }).all();
 
     const nonQueuedItems = pendingUsersOverOneDay.filter(item => !modQueue.some(queuedItem => queuedItem.id === item[1].trackingPostId));
