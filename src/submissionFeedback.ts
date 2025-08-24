@@ -5,6 +5,12 @@ import { CONTROL_SUBREDDIT } from "./constants.js";
 import { addMinutes } from "date-fns";
 
 const FEEDBACK_QUEUE = "FeedbackQueue";
+const FAILED_FEEDBACK_STORE = "FailedFeedbackStore";
+
+interface FailedFeedbackItem {
+    firstFailed: number;
+    countFailed: number;
+}
 
 export async function queueSendFeedback (username: string, context: TriggerContext) {
     const feedbackRequested = await context.redis.exists(`sendFeedback:${username}`);
@@ -14,6 +20,15 @@ export async function queueSendFeedback (username: string, context: TriggerConte
 
     if (await context.redis.zScore(FEEDBACK_QUEUE, username)) {
         return;
+    }
+
+    const failedFeedbackItem = await context.redis.hGet(FAILED_FEEDBACK_STORE, username);
+    if (failedFeedbackItem) {
+        const parsedItem = JSON.parse(failedFeedbackItem) as FailedFeedbackItem;
+        if (parsedItem.countFailed >= 5) {
+            console.log(`Not sending feedback to ${username} as there have been ${parsedItem.countFailed} previous failures`);
+            return;
+        }
     }
 
     await context.redis.zAdd(FEEDBACK_QUEUE, { member: username, score: addMinutes(new Date(), 2).getTime() });
@@ -83,7 +98,18 @@ async function sendFeedback (username: string, submitter: string, operator: stri
 
         console.log(`Feedback sent to ${submitter} about ${username} being classified as ${userStatus} by ${operator}`);
     } catch (error) {
-        console.error(`Failed to send feedback to ${submitter}: ${error}`);
+        const existingFailedItem = await context.redis.hGet(FAILED_FEEDBACK_STORE, submitter);
+        let itemToStore: FailedFeedbackItem;
+        if (existingFailedItem) {
+            itemToStore = JSON.parse(existingFailedItem) as FailedFeedbackItem;
+            itemToStore.countFailed++;
+        } else {
+            itemToStore = { firstFailed: Date.now(), countFailed: 1 };
+        }
+
+        console.error(`Failed to send feedback to ${submitter}. Total failed now: ${itemToStore.countFailed}: ${error}`);
+
+        await context.redis.hSet(FAILED_FEEDBACK_STORE, { [submitter]: JSON.stringify(itemToStore) });
     }
 
     await context.redis.del(`sendFeedback:${username}`);
