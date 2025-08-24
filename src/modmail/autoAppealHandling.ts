@@ -1,0 +1,283 @@
+import { TriggerContext, UserSocialLink } from "@devvit/public-api";
+import Ajv, { JSONSchemaType } from "ajv";
+import { UserDetails, UserStatus } from "../dataStore.js";
+import { getControlSubSettings } from "../settings.js";
+import { CONTROL_SUBREDDIT } from "../constants.js";
+import { parseAllDocuments } from "yaml";
+import { compact } from "lodash";
+import json2md from "json2md";
+import { getUserOrUndefined, sendMessageToWebhook } from "../utility.js";
+import { ModmailMessage } from "./modmail.js";
+import { getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
+import { getUserExtended } from "../extendedDevvit.js";
+import { statusToFlair } from "../postCreation.js";
+
+const APPEAL_CONFIG_WIKI_PAGE = "appeal-config";
+const APPEAL_CONFIG_REDIS_KEY = "AppealConfig";
+
+interface AppealConfig {
+    name: string;
+    priority?: number;
+    usernameRegex?: string[];
+    banDateFrom?: string;
+    banDateTo?: string;
+    evaluatorNameRegex?: string;
+    evaluatorHitReasonRegex?: string[];
+    bioRegex?: string[];
+    socialLinkRegex?: string[];
+    setStatus?: UserStatus;
+    privateReply?: string;
+    reply?: string;
+    archive?: boolean;
+    mute?: number;
+}
+
+const acceptableMuteDurations = [3, 7, 28];
+
+const appealConfigSchema: JSONSchemaType<AppealConfig[]> = {
+    type: "array",
+    items: {
+        type: "object",
+        properties: {
+            name: { type: "string" },
+            priority: { type: "number", nullable: true },
+            usernameRegex: { type: "array", items: { type: "string" }, nullable: true },
+            banDateFrom: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$", nullable: true },
+            banDateTo: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$", nullable: true },
+            evaluatorNameRegex: { type: "string", nullable: true },
+            evaluatorHitReasonRegex: { type: "array", items: { type: "string" }, nullable: true },
+            bioRegex: { type: "array", items: { type: "string" }, nullable: true },
+            socialLinkRegex: { type: "array", items: { type: "string" }, nullable: true },
+            setStatus: { type: "string", enum: Object.values(UserStatus), nullable: true },
+            privateReply: { type: "string", nullable: true },
+            reply: { type: "string", nullable: true },
+            archive: { type: "boolean", nullable: true },
+            mute: { type: "number", enum: acceptableMuteDurations, nullable: true },
+        },
+        additionalProperties: false,
+        required: ["name"],
+    },
+};
+
+interface AppealOutcome {
+    name: string;
+    newStatus?: UserStatus;
+    privateReply?: string;
+    reply?: string;
+    archive?: boolean;
+    mute?: number;
+}
+
+const defaultAppealOutcome: AppealOutcome = {
+    name: "Default Appeal Reply",
+    reply: `Your classification appeal has been received and will be reviewed by a moderator. If accepted, the result of your appeal will apply to any subreddit using /r/${CONTROL_SUBREDDIT}.
+
+If Bot Bouncer has banned you from more than one subreddit, you don't need to appeal separately.`,
+};
+
+export async function validateAndSaveAppealConfig (username: string, context: TriggerContext): Promise<void> {
+    const appealConfigRevisionKey = "AppealConfigRevision";
+    const wikiPage = await context.reddit.getWikiPage(CONTROL_SUBREDDIT, APPEAL_CONFIG_WIKI_PAGE);
+    const lastAppealConfigRevision = await context.redis.get(appealConfigRevisionKey);
+    if (wikiPage.revisionId === lastAppealConfigRevision) {
+        // The saved config is up-to-date with the latest revision
+        return;
+    }
+
+    const documents = parseAllDocuments(wikiPage.content);
+    const parsedConfigs = compact(documents.map(doc => doc.toJSON() as AppealConfig));
+
+    const ajv = new Ajv.default({
+        coerceTypes: "array",
+    });
+
+    const validate = ajv.compile(appealConfigSchema);
+
+    if (validate(parsedConfigs)) {
+        // Save the valid config to Redis
+        await context.redis.set(APPEAL_CONFIG_REDIS_KEY, JSON.stringify(parsedConfigs));
+        await context.redis.set(appealConfigRevisionKey, wikiPage.revisionId);
+        console.log(`Appeal config updated to revision ${wikiPage.revisionId}`);
+        return;
+    }
+
+    if (validate.errors) {
+        console.error("Invalid appeal config:", validate.errors);
+
+        await context.reddit.sendPrivateMessage({
+            to: username,
+            subject: "Error in appeal configuration",
+            text: json2md([
+                { p: "There was an error in your appeal configuration:" },
+                { ul: validate.errors.map(err => `${err.instancePath} ${err.message}`) },
+            ]),
+        });
+
+        const webhookUrl = await getControlSubSettings(context).then(s => s.monitoringWebhook);
+        if (webhookUrl) {
+            await sendMessageToWebhook(webhookUrl, json2md([
+                { p: `There was an error in the appeal configuration, last updated by ${username}:` },
+                { p: "Last known good values will be used until this is corrected." },
+                { ul: validate.errors.map(err => `${err.instancePath} ${err.message}`) },
+            ]));
+        }
+    }
+}
+
+async function getAppealConfig (context: TriggerContext): Promise<AppealConfig[]> {
+    const configData = await context.redis.get(APPEAL_CONFIG_REDIS_KEY);
+    if (!configData) {
+        return [];
+    }
+
+    return JSON.parse(configData) as AppealConfig[];
+}
+
+async function getUserSocialLinks (username: string, context: TriggerContext): Promise<UserSocialLink[]> {
+    const user = await getUserOrUndefined(username, context);
+    if (!user) {
+        return [];
+    }
+
+    return await user.getSocialLinks();
+}
+
+export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDetails, context: TriggerContext): Promise<void> {
+    const username = modmail.participant;
+    if (!username) {
+        return;
+    }
+
+    const appealConfig = await getAppealConfig(context).then(configs => configs.sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0)));
+    const initialAccountEvaluationResults = await getAccountInitialEvaluationResults(username, context);
+    const user = appealConfig.some(config => config.bioRegex) ? await getUserExtended(username, context) : undefined;
+    const socialLinks = appealConfig.some(config => config.socialLinkRegex) ? await getUserSocialLinks(username, context) : [];
+
+    const matchedAppealConfig = appealConfig.find((config) => {
+        if (config.usernameRegex && !config.usernameRegex.some(regex => new RegExp(regex, "i").test(username))) {
+            return;
+        }
+
+        if (config.banDateFrom && (userDetails.reportedAt ?? userDetails.lastUpdate) < new Date(config.banDateFrom).getTime()) {
+            return;
+        }
+
+        if (config.banDateTo && (userDetails.reportedAt ?? userDetails.lastUpdate) > new Date(config.banDateTo).getTime()) {
+            return;
+        }
+
+        if (config.evaluatorNameRegex || config.evaluatorHitReasonRegex) {
+            let anyMatched = false;
+            for (const evaluationResult of initialAccountEvaluationResults) {
+                if (config.evaluatorNameRegex && !new RegExp(config.evaluatorNameRegex, "i").test(evaluationResult.botName)) {
+                    continue;
+                }
+
+                if (config.evaluatorHitReasonRegex && !config.evaluatorHitReasonRegex.some(regex => new RegExp(regex, "i").test(evaluationResult.hitReason ?? ""))) {
+                    continue;
+                }
+                anyMatched = true;
+            }
+
+            if (!anyMatched) {
+                return;
+            }
+        }
+
+        if (config.bioRegex) {
+            if (!user?.userDescription) {
+                return;
+            }
+
+            if (!config.bioRegex.some(regex => new RegExp(regex, "i").test(user.userDescription ?? ""))) {
+                return;
+            }
+        }
+
+        if (config.socialLinkRegex) {
+            if (!socialLinks.length) {
+                return;
+            }
+
+            if (!config.socialLinkRegex.some(regex => socialLinks.some(link => new RegExp(regex, "i").test(link.outboundUrl)))) {
+                return;
+            }
+        }
+
+        return config;
+    });
+
+    let appealOutcome: AppealOutcome;
+    if (matchedAppealConfig) {
+        console.log(`Appeals: Found an appeal for user ${username}: ${matchedAppealConfig.name}`);
+        appealOutcome = {
+            name: matchedAppealConfig.name,
+            newStatus: matchedAppealConfig.setStatus,
+            privateReply: matchedAppealConfig.privateReply,
+            reply: matchedAppealConfig.reply,
+            archive: matchedAppealConfig.archive,
+            mute: matchedAppealConfig.mute,
+        };
+    } else {
+        console.log(`Appeals: No specific appeal config matched for user ${username}, using default reply.`);
+        appealOutcome = defaultAppealOutcome;
+    }
+
+    if (appealOutcome.newStatus && userDetails.trackingPostId) {
+        await context.reddit.setPostFlair({
+            postId: userDetails.trackingPostId,
+            flairTemplateId: statusToFlair[appealOutcome.newStatus],
+            subredditName: CONTROL_SUBREDDIT,
+        });
+    }
+
+    if (appealOutcome.privateReply) {
+        await context.reddit.modMail.reply({
+            conversationId: modmail.conversationId,
+            body: appealOutcome.privateReply,
+            isInternal: true,
+        });
+    }
+
+    if (appealOutcome.reply) {
+        let replyMessage = `${appealOutcome.reply}\n\n`;
+        if (appealOutcome.mute) {
+            replyMessage += "*This is an automated response.*";
+        } else if (matchedAppealConfig) {
+            replyMessage += "*This is an automated response, but replies will be read. Please allow 24 hours for a response.*";
+        } else {
+            replyMessage += "*This is an automated response. Please allow 24 hours for a response but we will aim to respond sooner.*";
+        }
+
+        await context.reddit.modMail.reply({
+            conversationId: modmail.conversationId,
+            body: replyMessage,
+            isInternal: false,
+            isAuthorHidden: true,
+        });
+    }
+
+    if (appealOutcome.mute === 3 || appealOutcome.mute === 7 || appealOutcome.mute === 28) {
+        let muteDuration: 72 | 168 | 672 | undefined;
+        switch (appealOutcome.mute) {
+            case 3:
+                muteDuration = 72;
+                break;
+            case 7:
+                muteDuration = 168;
+                break;
+            case 28:
+                muteDuration = 672;
+                break;
+        }
+
+        await context.reddit.modMail.muteConversation({
+            conversationId: modmail.conversationId,
+            numHours: muteDuration,
+        });
+    }
+
+    if (appealOutcome.archive) {
+        await context.reddit.modMail.archiveConversation(modmail.conversationId);
+    }
+}

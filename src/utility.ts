@@ -84,7 +84,7 @@ export function median (numbers: number[]): number {
 
 export async function sendMessageToWebhook (webhookUrl: string, message: string) {
     const params = {
-        content: message,
+        content: replaceAll(replaceAll(message, "\n\n\n", "\n\n"), "\n\n", "\n"),
     };
 
     await fetch(

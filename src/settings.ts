@@ -21,13 +21,6 @@ we recommend asking the account owner to [message /r/${CONTROL_SUBREDDIT}](https
 
 If this account is a bot that you wish to allow, remember to [allowlist](/r/${CONTROL_SUBREDDIT}/wiki/index) it before you unban it.`,
 
-    appealMessage: `Your classification appeal has been received and will be reviewed by a
-moderator. If accepted, the result of your appeal will apply to any subreddit using /r/${CONTROL_SUBREDDIT}.
-
-If Bot Bouncer has banned you from more than one subreddit, you don't need to appeal separately.
-
-*This is an automated message.*`,
-
     appealShadowbannedMessage: `Your classification appeal has been received. Unfortunately, it is not possible to review your request at this time because you have been shadowbanned by Reddit Admin, which prevents us from reviewing your account contents.
 
 You may appeal your shadowban by contacting the Reddit Admins [here](https://reddit.com/appeal). If you are able to get your shadowban lifted, please contact us again and we will be happy to review your classification status.

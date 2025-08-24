@@ -2,7 +2,7 @@ import { JobContext, JSONObject, JSONValue, ScheduledJobEvent, TriggerContext, W
 import { ALL_EVALUATORS, yamlToVariables } from "@fsvreddit/bot-bouncer-evaluation";
 import { CONTROL_SUBREDDIT } from "../constants.js";
 import { uniq } from "lodash";
-import { replaceAll, sendMessageToWebhook } from "../utility.js";
+import { sendMessageToWebhook } from "../utility.js";
 import json2md from "json2md";
 import { getControlSubSettings } from "../settings.js";
 import { EvaluateBotGroupAdvanced } from "@fsvreddit/bot-bouncer-evaluation/dist/userEvaluation/EvaluateBotGroupAdvanced.js";
@@ -115,9 +115,8 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
                 const discordMessage: json2md.DataObject[] = [{ p: `${username} has updated the evaluator config, but there's an error! Please check and correct as soon as possible.` }];
                 discordMessage.push({ ul: invalidEntries });
                 discordMessage.push({ p: "Last known good values will be used until the issue is resolved." });
-                const messageToSend = replaceAll(replaceAll(json2md(discordMessage), "\n\n\n", "\n\n"), "\n\n", "\n");
-                console.log(JSON.stringify(messageToSend));
-                await sendMessageToWebhook(controlSubSettings.monitoringWebhook, messageToSend);
+                console.log(JSON.stringify(discordMessage));
+                await sendMessageToWebhook(controlSubSettings.monitoringWebhook, json2md(discordMessage));
             }
 
             await context.reddit.sendPrivateMessage({

@@ -13,6 +13,7 @@ import { markAppealAsHandled } from "../statistics/appealStatistics.js";
 import { statusToFlair } from "../postCreation.js";
 import { CONTROL_SUBREDDIT, INTERNAL_BOT } from "../constants.js";
 import { handleBulkSubmission } from "./bulkSubmission.js";
+import { handleAppeal } from "./autoAppealHandling.js";
 
 export async function handleControlSubredditModmail (modmail: ModmailMessage, context: TriggerContext) {
     const controlSubSettings = await getControlSubSettings(context);
@@ -220,12 +221,7 @@ async function handleModmailFromUser (modmail: ModmailMessage, context: TriggerC
         return;
     }
 
-    await context.reddit.modMail.reply({
-        body: CONFIGURATION_DEFAULTS.appealMessage,
-        conversationId: modmail.conversationId,
-        isInternal: false,
-        isAuthorHidden: false,
-    });
+    await handleAppeal(modmail, currentStatus, context);
 
     await context.redis.set(recentAppealKey, new Date().getTime().toString(), { expiration: addDays(new Date(), 1) });
 }
