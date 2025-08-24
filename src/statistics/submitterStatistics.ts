@@ -45,6 +45,7 @@ export async function updateSubmitterStatistics (allStatuses: UserDetails[], con
     wikiContent.push({ p: "This lists all users who have submitted an account for review within the last month." });
 
     const tableRows = submitterStatistics
+        .filter(item => item.count >= 5)
         .sort((a, b) => b.count - a.count)
         .map(item => [item.submitter, item.count.toLocaleString(), `${item.ratio}%`]);
 
