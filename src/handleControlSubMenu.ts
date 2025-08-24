@@ -1,4 +1,4 @@
-import { Comment, Context, FormField, FormOnSubmitEvent, JSONObject, Post } from "@devvit/public-api";
+import { Comment, Context, Form, FormField, FormOnSubmitEvent, JSONObject, Post } from "@devvit/public-api";
 import { getUsernameFromUrl } from "./utility.js";
 import { deleteUserStatus, getUsernameFromPostId, getUserStatus, updateAggregate, UserStatus } from "./dataStore.js";
 import { controlSubForm, controlSubQuerySubmissionForm } from "./main.js";
@@ -184,6 +184,18 @@ async function handleRegenerateSummary (username: string, post: Post, context: C
 
     context.ui.showToast("Summary regenerated");
 }
+
+export const controlSubQuerySubmissionFormDefinition: Form = {
+    fields: [
+        {
+            type: "paragraph",
+            label: "Additional text to include in modmail to submitter",
+            placeholder: "This doesn't look like a bot to me, but maybe you can see something we didn't!",
+            name: "querySubmissionText",
+            lineHeight: 4,
+        },
+    ],
+};
 
 export async function sendQueryToSubmitter (event: FormOnSubmitEvent<JSONObject>, context: Context) {
     if (!context.postId) {
