@@ -61,23 +61,12 @@ export async function handleControlSubredditModmail (modmail: ModmailMessage, co
     }
 
     if (modmail.participant && modmail.participant !== context.appName) {
-        const statusChangeRegex = /!setstatus (banned|organic|declined)/;
+        const statusChangeRegex = new RegExp(`!setstatus (${Object.values(UserStatus).join("|")})`);
         const statusChangeMatch = statusChangeRegex.exec(modmail.bodyMarkdown);
         if (statusChangeMatch && statusChangeMatch.length === 2) {
-            let newStatus: UserStatus | undefined;
-            switch (statusChangeMatch[1]) {
-                case "banned":
-                    newStatus = UserStatus.Banned;
-                    break;
-                case "organic":
-                    newStatus = UserStatus.Organic;
-                    break;
-                case "declined":
-                    newStatus = UserStatus.Declined;
-                    break;
-            }
+            const newStatus = statusChangeMatch[1] as UserStatus;
             const currentStatus = await getUserStatus(modmail.participant, context);
-            if (currentStatus && newStatus && isLinkId(currentStatus.trackingPostId) && currentStatus.userStatus !== newStatus) {
+            if (currentStatus && isLinkId(currentStatus.trackingPostId) && currentStatus.userStatus !== newStatus) {
                 await context.redis.set(`userStatusOverride~${modmail.participant}`, modmail.messageAuthor, { expiration: addMinutes(new Date(), 5) });
 
                 const newFlair = statusToFlair[newStatus];
