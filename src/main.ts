@@ -4,21 +4,21 @@ import { updateLocalStoreFromWiki, updateWikiPage } from "./dataStore.js";
 import { ClientSubredditJob, CONTROL_SUBREDDIT, ControlSubredditJob, UniversalJob } from "./constants.js";
 import { handleInstallOrUpgrade } from "./installActions.js";
 import { handleControlSubFlairUpdate } from "./handleControlSubFlairUpdate.js";
-import { appSettings, copyControlSubSettingsToOldWiki } from "./settings.js";
+import { appSettings } from "./settings.js";
 import { cleanupDeletedAccounts } from "./cleanup.js";
 import { handleModAction } from "./handleModAction.js";
 import { handleModmail } from "./modmail/modmail.js";
 import { handleControlSubAccountEvaluation } from "./handleControlSubAccountEvaluation.js";
-import { handleReportUser, reportFormHandler } from "./handleReportUser.js";
+import { handleReportUser, reportFormDefinition, reportFormHandler } from "./handleReportUser.js";
 import { handleClientCommentCreate, handleClientCommentUpdate, handleClientPostCreate } from "./handleClientPostOrComment.js";
 import { handleClassificationChanges } from "./handleClientSubredditWikiUpdate.js";
 import { handleControlSubPostDelete } from "./handleControlSubPostDelete.js";
 import { updateEvaluatorVariablesFromWikiHandler } from "./userEvaluation/evaluatorVariables.js";
 import { evaluateKarmaFarmingSubs, queueKarmaFarmingSubs } from "./karmaFarmingSubsCheck.js";
-import { handleControlSubForm, sendQueryToSubmitter } from "./handleControlSubMenu.js";
+import { controlSubQuerySubmissionFormDefinition, handleControlSubForm, sendQueryToSubmitter } from "./handleControlSubMenu.js";
 import { checkForUpdates } from "./upgradeNotifier.js";
 import { sendDailyDigest } from "./modmail/dailyDigest.js";
-import { perform6HourlyJobs } from "./sixHourlyJobs.js";
+import { perform6HourlyJobs, perform6HourlyJobsPart2 } from "./sixHourlyJobs.js";
 import { checkUptimeAndMessages } from "./uptimeMonitor.js";
 import { analyseBioText } from "./similarBioTextFinder/bioTextFinder.js";
 import { processQueuedSubmission } from "./postCreation.js";
@@ -92,45 +92,11 @@ Devvit.addMenuItem({
     onPress: handleReportUser,
 });
 
-export const reportForm = Devvit.createForm({
-    fields: [
-        {
-            type: "paragraph",
-            label: "Optional. Please provide more information that might help us understand why this is a bot",
-            helpText: "This is in case it is not obvious that this is a bot",
-            lineHeight: 4,
-            name: "reportContext",
-        },
-        {
-            type: "boolean",
-            label: "Show the above text publicly on the post on r/BotBouncer",
-            helpText: "Your username will be kept private",
-            defaultValue: true,
-            name: "publicContext",
-        },
-        {
-            type: "boolean",
-            label: "Receive a notification when this account is classified",
-            helpText: "You must have DMs enabled to receive this notification",
-            defaultValue: false,
-            name: "sendFeedback",
-        },
-    ],
-}, reportFormHandler);
+export const reportForm = Devvit.createForm(reportFormDefinition, reportFormHandler);
 
 export const controlSubForm = Devvit.createForm(data => ({ title: data.title as string, description: data.description as string, fields: data.fields as FormField[] }), handleControlSubForm);
 
-export const controlSubQuerySubmissionForm = Devvit.createForm({
-    fields: [
-        {
-            type: "paragraph",
-            label: "Additional text to include in modmail to submitter",
-            placeholder: "This doesn't look like a bot to me, but maybe you can see something we didn't!",
-            name: "querySubmissionText",
-            lineHeight: 4,
-        },
-    ],
-}, sendQueryToSubmitter);
+export const controlSubQuerySubmissionForm = Devvit.createForm(controlSubQuerySubmissionFormDefinition, sendQueryToSubmitter);
 
 /**
  * Jobs that run on all subreddits
@@ -171,6 +137,11 @@ Devvit.addSchedulerJob({
 });
 
 Devvit.addSchedulerJob({
+    name: ControlSubredditJob.Perform6HourlyJobsPart2,
+    onRun: perform6HourlyJobsPart2,
+});
+
+Devvit.addSchedulerJob({
     name: ControlSubredditJob.QueueKarmaFarmingSubs,
     onRun: queueKarmaFarmingSubs,
 });
@@ -183,11 +154,6 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: UniversalJob.UpdateEvaluatorVariables,
     onRun: updateEvaluatorVariablesFromWikiHandler,
-});
-
-Devvit.addSchedulerJob({
-    name: ControlSubredditJob.CopyControlSubSettings,
-    onRun: copyControlSubSettingsToOldWiki,
 });
 
 Devvit.addSchedulerJob({

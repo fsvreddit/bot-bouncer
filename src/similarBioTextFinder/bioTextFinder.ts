@@ -8,7 +8,7 @@ import pluralize from "pluralize";
 import { getUserStatus, UserStatus } from "../dataStore.js";
 import { evaluateUserAccount } from "../handleControlSubAccountEvaluation.js";
 import json2md from "json2md";
-import { AsyncSubmission, queuePostCreation } from "../postCreation.js";
+import { AsyncSubmission, PostCreationQueueResult, queuePostCreation } from "../postCreation.js";
 import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
 
 interface UserBioText {
@@ -211,8 +211,12 @@ export async function addAllUsersFromModmail (conversationId: string, submitter:
             immediate: false,
         };
 
-        await queuePostCreation(submission, context);
-        console.log(`Added user ${username} to queue following !addall command in modmail.`);
+        const result = await queuePostCreation(submission, context);
+        if (result === PostCreationQueueResult.Queued) {
+            console.log(`Added user ${username} to queue following !addall command in modmail.`);
+        } else {
+            console.error(`Failed to add user ${username} to queue following !addall command in modmail. Reason: ${result}`);
+        }
     }
 
     await context.reddit.modMail.reply({

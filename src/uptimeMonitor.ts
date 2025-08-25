@@ -1,5 +1,5 @@
 import { JobContext } from "@devvit/public-api";
-import { isMessageId } from "@devvit/shared-types/tid.js";
+import { isMessageId } from "@devvit/public-api/types/tid.js";
 import { formatDistanceToNow } from "date-fns";
 import { ControlSubSettings, getControlSubSettings } from "./settings.js";
 import { CONTROL_SUBREDDIT } from "./constants.js";

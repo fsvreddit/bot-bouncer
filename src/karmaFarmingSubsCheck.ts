@@ -7,7 +7,7 @@ import { evaluateUserAccount, storeAccountInitialEvaluationResults, userHasConti
 import { getControlSubSettings } from "./settings.js";
 import { addSeconds, subMinutes, subWeeks } from "date-fns";
 import { getUserExtended } from "./extendedDevvit.js";
-import { AsyncSubmission, queuePostCreation } from "./postCreation.js";
+import { AsyncSubmission, PostCreationQueueResult, queuePostCreation } from "./postCreation.js";
 import pluralize from "pluralize";
 import json2md from "json2md";
 import { CronExpressionParser } from "cron-parser";
@@ -138,9 +138,12 @@ async function evaluateAndHandleUser (username: string, variables: Record<string
         immediate: false,
     };
 
-    await queuePostCreation(submission, context);
-
-    console.log(`Karma Farming Subs: Queued post creation for ${username}`);
+    const result = await queuePostCreation(submission, context);
+    if (result === PostCreationQueueResult.Queued) {
+        console.log(`Karma Farming Subs: Queued post creation for ${username}`);
+    } else {
+        console.error(`Karma Farming Subs: Failed to queue post creation for ${username}. Reason: ${result}`);
+    }
 
     const evaluationResultsToStore = evaluationResults.filter(result => result.canAutoBan);
     await storeAccountInitialEvaluationResults(username, evaluationResultsToStore, context);

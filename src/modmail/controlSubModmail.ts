@@ -1,5 +1,5 @@
 import { TriggerContext } from "@devvit/public-api";
-import { isLinkId } from "@devvit/shared-types/tid.js";
+import { isLinkId } from "@devvit/public-api/types/tid.js";
 import { getUserStatus, UserStatus } from "../dataStore.js";
 import { getSummaryForUser } from "../UserSummary/userSummary.js";
 import { getUserOrUndefined, isBanned, isModerator } from "../utility.js";
@@ -13,6 +13,7 @@ import { markAppealAsHandled } from "../statistics/appealStatistics.js";
 import { statusToFlair } from "../postCreation.js";
 import { CONTROL_SUBREDDIT, INTERNAL_BOT } from "../constants.js";
 import { handleBulkSubmission } from "./bulkSubmission.js";
+import { handleAppeal } from "./autoAppealHandling.js";
 
 export async function handleControlSubredditModmail (modmail: ModmailMessage, context: TriggerContext) {
     const controlSubSettings = await getControlSubSettings(context);
@@ -61,23 +62,12 @@ export async function handleControlSubredditModmail (modmail: ModmailMessage, co
     }
 
     if (modmail.participant && modmail.participant !== context.appName) {
-        const statusChangeRegex = /!setstatus (banned|organic|declined)/;
+        const statusChangeRegex = new RegExp(`!setstatus (${Object.values(UserStatus).join("|")})`);
         const statusChangeMatch = statusChangeRegex.exec(modmail.bodyMarkdown);
         if (statusChangeMatch && statusChangeMatch.length === 2) {
-            let newStatus: UserStatus | undefined;
-            switch (statusChangeMatch[1]) {
-                case "banned":
-                    newStatus = UserStatus.Banned;
-                    break;
-                case "organic":
-                    newStatus = UserStatus.Organic;
-                    break;
-                case "declined":
-                    newStatus = UserStatus.Declined;
-                    break;
-            }
+            const newStatus = statusChangeMatch[1] as UserStatus;
             const currentStatus = await getUserStatus(modmail.participant, context);
-            if (currentStatus && newStatus && isLinkId(currentStatus.trackingPostId) && currentStatus.userStatus !== newStatus) {
+            if (currentStatus && isLinkId(currentStatus.trackingPostId) && currentStatus.userStatus !== newStatus) {
                 await context.redis.set(`userStatusOverride~${modmail.participant}`, modmail.messageAuthor, { expiration: addMinutes(new Date(), 5) });
 
                 const newFlair = statusToFlair[newStatus];
@@ -231,12 +221,7 @@ async function handleModmailFromUser (modmail: ModmailMessage, context: TriggerC
         return;
     }
 
-    await context.reddit.modMail.reply({
-        body: CONFIGURATION_DEFAULTS.appealMessage,
-        conversationId: modmail.conversationId,
-        isInternal: false,
-        isAuthorHidden: false,
-    });
+    await handleAppeal(modmail, currentStatus, context);
 
     await context.redis.set(recentAppealKey, new Date().getTime().toString(), { expiration: addDays(new Date(), 1) });
 }

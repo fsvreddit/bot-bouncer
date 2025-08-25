@@ -163,7 +163,7 @@ export async function buildEvaluatorAccuracyStatistics (event: ScheduledJobEvent
     const existingEvaluators: string[] = [];
     const nonHitKeys: string[] = [];
     for (const Evaluator of ALL_EVALUATORS) {
-        const evaluator = new Evaluator(context, variables);
+        const evaluator = new Evaluator(context, undefined, variables);
         if (evaluator.evaluatorDisabled()) {
             continue;
         }

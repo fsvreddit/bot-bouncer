@@ -5,6 +5,7 @@ import { recordWhitelistUnban, removeRecordOfBan } from "./handleClientSubreddit
 import { handleExternalSubmissionsPageUpdate } from "./externalSubmissions.js";
 import { validateControlSubConfigChange } from "./settings.js";
 import { addDays } from "date-fns";
+import { validateAndSaveAppealConfig } from "./modmail/autoAppealHandling.js";
 
 export async function handleModAction (event: ModAction, context: TriggerContext) {
     if (context.subredditName === CONTROL_SUBREDDIT) {
@@ -65,6 +66,7 @@ async function handleModActionControlSub (event: ModAction, context: TriggerCont
 
         if (event.moderator.name !== context.appName && event.moderator.name !== INTERNAL_BOT) {
             promises.push(validateControlSubConfigChange(event.moderator.name, context));
+            promises.push(validateAndSaveAppealConfig(event.moderator.name, context));
             promises.push(context.scheduler.runJob({
                 name: UniversalJob.UpdateEvaluatorVariables,
                 runAt: new Date(),
