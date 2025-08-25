@@ -1,3 +1,4 @@
+/* eslint-disable @stylistic/quote-props */
 import { TriggerContext, UserSocialLink } from "@devvit/public-api";
 import Ajv, { JSONSchemaType } from "ajv";
 import { UserDetails, UserStatus } from "../dataStore.js";
@@ -22,12 +23,15 @@ interface AppealConfig {
     submitter?: string;
     operator?: string;
     usernameRegex?: string[];
+    messageBodyRegex?: string[];
     banDateFrom?: string;
     banDateTo?: string;
     evaluatorNameRegex?: string;
     evaluatorHitReasonRegex?: string[];
     bioRegex?: string[];
+    "~bioRegex"?: string[];
     socialLinkRegex?: string[];
+    "~socialLinkRegex"?: string[];
     setStatus?: UserStatus;
     privateReply?: string;
     reply?: string;
@@ -47,12 +51,15 @@ const appealConfigSchema: JSONSchemaType<AppealConfig[]> = {
             submitter: { type: "string", nullable: true },
             operator: { type: "string", nullable: true },
             usernameRegex: { type: "array", items: { type: "string" }, nullable: true },
+            messageBodyRegex: { type: "array", items: { type: "string" }, nullable: true },
             banDateFrom: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$", nullable: true },
             banDateTo: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$", nullable: true },
             evaluatorNameRegex: { type: "string", nullable: true },
             evaluatorHitReasonRegex: { type: "array", items: { type: "string" }, nullable: true },
             bioRegex: { type: "array", items: { type: "string" }, nullable: true },
+            "~bioRegex": { type: "array", items: { type: "string" }, nullable: true },
             socialLinkRegex: { type: "array", items: { type: "string" }, nullable: true },
+            "~socialLinkRegex": { type: "array", items: { type: "string" }, nullable: true },
             setStatus: { type: "string", enum: Object.values(UserStatus), nullable: true },
             privateReply: { type: "string", nullable: true },
             reply: { type: "string", nullable: true },
@@ -161,11 +168,17 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
 
     const appealConfig = await getAppealConfig(context).then(configs => configs.sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0)));
     const initialAccountEvaluationResults = await getAccountInitialEvaluationResults(username, context);
-    const user = appealConfig.some(config => config.bioRegex) ? await getUserExtended(username, context) : undefined;
-    const socialLinks = appealConfig.some(config => config.socialLinkRegex) ? await getUserSocialLinks(username, context) : [];
+    // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
+    const user = appealConfig.some(config => config.bioRegex || config["~bioRegex"]) ? await getUserExtended(username, context) : undefined;
+    // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
+    const socialLinks = appealConfig.some(config => config.socialLinkRegex || config["~socialLinkRegex"]) ? await getUserSocialLinks(username, context) : [];
 
     const matchedAppealConfig = appealConfig.find((config) => {
         if (config.usernameRegex && !config.usernameRegex.some(regex => new RegExp(regex, "i").test(username))) {
+            return;
+        }
+
+        if (config.messageBodyRegex && !config.messageBodyRegex.some(regex => new RegExp(regex, "i").test(modmail.bodyMarkdown))) {
             return;
         }
 
@@ -213,12 +226,24 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
             }
         }
 
+        if (config["~bioRegex"] && user?.userDescription) {
+            if (config["~bioRegex"].some(regex => new RegExp(regex, "i").test(user.userDescription ?? ""))) {
+                return;
+            }
+        }
+
         if (config.socialLinkRegex) {
             if (!socialLinks.length) {
                 return;
             }
 
             if (!config.socialLinkRegex.some(regex => socialLinks.some(link => new RegExp(regex, "i").test(link.outboundUrl)))) {
+                return;
+            }
+        }
+
+        if (config["~socialLinkRegex"] && socialLinks.length > 0) {
+            if (config["~socialLinkRegex"].some(regex => socialLinks.some(link => new RegExp(regex, "i").test(link.outboundUrl)))) {
                 return;
             }
         }
