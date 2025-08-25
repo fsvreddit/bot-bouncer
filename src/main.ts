@@ -4,7 +4,7 @@ import { updateLocalStoreFromWiki, updateWikiPage } from "./dataStore.js";
 import { ClientSubredditJob, CONTROL_SUBREDDIT, ControlSubredditJob, UniversalJob } from "./constants.js";
 import { handleInstallOrUpgrade } from "./installActions.js";
 import { handleControlSubFlairUpdate } from "./handleControlSubFlairUpdate.js";
-import { appSettings, copyControlSubSettingsToOldWiki } from "./settings.js";
+import { appSettings } from "./settings.js";
 import { cleanupDeletedAccounts } from "./cleanup.js";
 import { handleModAction } from "./handleModAction.js";
 import { handleModmail } from "./modmail/modmail.js";
@@ -154,11 +154,6 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: UniversalJob.UpdateEvaluatorVariables,
     onRun: updateEvaluatorVariablesFromWikiHandler,
-});
-
-Devvit.addSchedulerJob({
-    name: ControlSubredditJob.CopyControlSubSettings,
-    onRun: copyControlSubSettingsToOldWiki,
 });
 
 Devvit.addSchedulerJob({

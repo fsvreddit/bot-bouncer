@@ -1,5 +1,5 @@
-import { SettingsFormField, TriggerContext, WikiPage, WikiPagePermissionLevel } from "@devvit/public-api";
-import { CONTROL_SUBREDDIT, ControlSubredditJob } from "./constants.js";
+import { SettingsFormField, TriggerContext, WikiPage } from "@devvit/public-api";
+import { CONTROL_SUBREDDIT } from "./constants.js";
 import Ajv, { JSONSchemaType } from "ajv";
 import { addHours } from "date-fns";
 import json2md from "json2md";
@@ -203,7 +203,6 @@ export interface ControlSubSettings {
 }
 
 const CONTROL_SUB_SETTINGS_WIKI_PAGE = "control-sub-settings";
-const OLD_CONTROL_SUB_SETTINGS_WIKI_PAGE = "controlsubsettings";
 
 const schema: JSONSchemaType<ControlSubSettings> = {
     type: "object",
@@ -325,52 +324,4 @@ export async function validateControlSubConfigChange (username: string, context:
 
     await context.redis.set(redisKey, wikiPage.revisionId);
     console.log("Control sub settings validated successfully");
-
-    await context.scheduler.runJob({
-        name: ControlSubredditJob.CopyControlSubSettings,
-        runAt: new Date(),
-    });
-}
-
-export async function copyControlSubSettingsToOldWiki (_: unknown, context: TriggerContext) {
-    if (context.subredditName !== CONTROL_SUBREDDIT) {
-        return;
-    }
-
-    let wikiPage: WikiPage;
-    try {
-        wikiPage = await context.reddit.getWikiPage(CONTROL_SUBREDDIT, CONTROL_SUB_SETTINGS_WIKI_PAGE);
-    } catch {
-        console.error("Failed to get control sub settings wiki page");
-        return;
-    }
-
-    let oldWikiPage: WikiPage;
-    try {
-        oldWikiPage = await context.reddit.getWikiPage(CONTROL_SUBREDDIT, OLD_CONTROL_SUB_SETTINGS_WIKI_PAGE);
-    } catch {
-        console.error("Failed to get old control sub settings wiki page");
-        return;
-    }
-
-    if (oldWikiPage.content.trim() === wikiPage.content.trim()) {
-        console.log("Control sub settings wiki page is already up to date");
-        return;
-    }
-
-    await context.reddit.updateWikiPage({
-        subredditName: CONTROL_SUBREDDIT,
-        page: OLD_CONTROL_SUB_SETTINGS_WIKI_PAGE,
-        content: wikiPage.content,
-        reason: "Updating overwritten control sub settings wiki page",
-    });
-
-    await context.reddit.updateWikiPageSettings({
-        subredditName: CONTROL_SUBREDDIT,
-        page: OLD_CONTROL_SUB_SETTINGS_WIKI_PAGE,
-        listed: false,
-        permLevel: WikiPagePermissionLevel.MODS_ONLY,
-    });
-
-    console.log("Control sub settings wiki page copied to old wiki page");
 }

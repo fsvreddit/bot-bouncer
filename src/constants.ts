@@ -36,7 +36,6 @@ export enum ControlSubredditJob {
     Perform6HourlyJobsPart2 = "performDailyJobsPart2",
     EvaluateKarmaFarmingSubs = "evaluateKarmaFarmingSubs",
     QueueKarmaFarmingSubs = "queueKarmaFarmingSubs",
-    CopyControlSubSettings = "copyControlSubSettings",
     UptimeAndMessageCheck = "uptimeAndMessageCheck",
     BioTextAnalyser = "bioTextAnalyser",
     AsyncPostCreation = "asyncPostCreation",
