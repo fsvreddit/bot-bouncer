@@ -365,9 +365,10 @@ export async function updateWikiPage (_: unknown, context: JobContext) {
 
     await context.redis.del(WIKI_UPDATE_DUE);
 
-    console.log(`Wiki page has been updated with ${Object.keys(dataToWrite).length} entries, size: ${content.length.toLocaleString()} bytes`);
-
     const maxSupportedSize = MAX_WIKI_PAGE_SIZE * numberOfPages;
+
+    console.log(`Wiki page has been updated with ${Object.keys(dataToWrite).length} entries, ${content.length.toLocaleString()} bytes, ${Math.round(content.length / maxSupportedSize * 100)}%`);
+
     if (content.length > maxSupportedSize * 0.9) {
         const spaceAlertKey = "wikiSpaceAlert";
         const alertDone = await context.redis.exists(spaceAlertKey);
