@@ -157,7 +157,7 @@ export async function validateAndSaveAppealConfig (username: string, context: Tr
             subject: "Error in appeal configuration",
             text: json2md([
                 { p: "There was an error in your appeal configuration:" },
-                { ul: validate.errors.map(err => `${err.instancePath} ${err.message}`) },
+                { blockquote: ajv.errorsText(validate.errors) },
             ]),
         });
 
