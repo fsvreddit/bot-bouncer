@@ -1,5 +1,5 @@
 import { Comment, JSONValue, Post, TriggerContext } from "@devvit/public-api";
-import { domainFromUrl, getUserOrUndefined, median, replaceAll } from "../utility.js";
+import { domainFromUrl, getUserSocialLinks, median, replaceAll } from "../utility.js";
 import { addMilliseconds, differenceInDays, differenceInHours, differenceInMilliseconds, differenceInMinutes, Duration, formatDuration, intervalToDuration, startOfDecade } from "date-fns";
 import { autogenRegex, femaleNameRegex, resemblesAutogen } from "./regexes.js";
 import { compact, countBy, mean, uniq } from "lodash";
@@ -172,12 +172,9 @@ function cleanedBio (bio: string, bannedDomains: string[]): string {
 }
 
 export async function getSummaryForUser (username: string, source: "modmail" | "submission", context: TriggerContext): Promise<json2md.DataObject[] | undefined> {
-    const [user, extendedUser] = await Promise.all([
-        getUserOrUndefined(username, context),
-        getUserExtended(username, context),
-    ]);
+    const extendedUser = await getUserExtended(username, context);
 
-    if (!user || !extendedUser) {
+    if (!extendedUser) {
         console.log(`User Summary: User ${username} is already shadowbanned or suspended, so summary will not be created.`);
         return;
     }
@@ -186,31 +183,31 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
 
     const evaluatorVariables = await getEvaluatorVariables(context);
 
-    const accountAge = formatDifferenceInDates(user.createdAt, new Date());
+    const accountAge = formatDifferenceInDates(extendedUser.createdAt, new Date());
 
     const summary: json2md.DataObject[] = [];
     summary.push({ h2: `Account Properties` });
 
     const accountPropsBullets = [
         `Account age: ${accountAge}`,
-        `Comment karma: ${user.commentKarma.toLocaleString()}`,
-        `Post karma: ${user.linkKarma.toLocaleString()}`,
-        `Verified Email: ${user.hasVerifiedEmail ? "Yes" : "No"}`,
+        `Comment karma: ${extendedUser.commentKarma.toLocaleString()}`,
+        `Post karma: ${extendedUser.linkKarma.toLocaleString()}`,
+        `Verified Email: ${extendedUser.hasVerifiedEmail ? "Yes" : "No"}`,
         `Subreddit Moderator: ${extendedUser.isModerator ? "Yes" : "No"}`,
     ];
 
-    const socialLinks = await user.getSocialLinks();
+    const socialLinks = await getUserSocialLinks(username, context);
     const uniqueSocialDomains = compact(uniq(socialLinks.map(link => domainFromUrl(link.outboundUrl))));
     if (uniqueSocialDomains.length > 0) {
         accountPropsBullets.push(`Social links: ${uniqueSocialDomains.length}`);
     }
 
-    if (autogenRegex.test(user.username)) {
+    if (autogenRegex.test(extendedUser.username)) {
         accountPropsBullets.push("Username matches autogen pattern");
-    } else if (resemblesAutogen.test(user.username)) {
+    } else if (resemblesAutogen.test(extendedUser.username)) {
         accountPropsBullets.push("Username resembles autogen pattern, but uses different keywords");
     } else {
-        const femaleNameSummaryLine = femaleNameCheck(user.username);
+        const femaleNameSummaryLine = femaleNameCheck(extendedUser.username);
         if (femaleNameSummaryLine) {
             accountPropsBullets.push(femaleNameSummaryLine);
         }
@@ -365,7 +362,7 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
         bullets.push(`Comments per post: ${Object.entries(commentsPerPost).map(([count, posts]) => `${count} comments: ${posts}`).join(", ")}`);
 
         if (userComments.length < 90) {
-            bullets.push(`First comment was ${formatDifferenceInDates(user.createdAt, userComments[userComments.length - 1].createdAt)} after account creation`);
+            bullets.push(`First comment was ${formatDifferenceInDates(extendedUser.createdAt, userComments[userComments.length - 1].createdAt)} after account creation`);
         }
 
         summary.push({ ul: bullets });
@@ -397,7 +394,7 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
         const subreddits = countBy(compact(userPosts.map(post => post.subredditName)));
         bullets.push(`Post subreddits: ${Object.entries(subreddits).map(([subreddit, count]) => `${markdownEscape(subreddit)}: ${count}`).join(", ")}`);
         if (userPosts.length < 90) {
-            bullets.push(`First post was ${formatDifferenceInDates(user.createdAt, userPosts[userPosts.length - 1].createdAt)} after account creation`);
+            bullets.push(`First post was ${formatDifferenceInDates(extendedUser.createdAt, userPosts[userPosts.length - 1].createdAt)} after account creation`);
         }
 
         summary.push({ ul: bullets });

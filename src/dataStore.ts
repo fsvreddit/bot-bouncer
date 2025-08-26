@@ -9,7 +9,7 @@ import { getControlSubSettings } from "./settings.js";
 import { isCommentId, isLinkId } from "@devvit/public-api/types/tid.js";
 import { deleteAccountInitialEvaluationResults } from "./handleControlSubAccountEvaluation.js";
 import json2md from "json2md";
-import { sendMessageToWebhook } from "./utility.js";
+import { getUserSocialLinks, sendMessageToWebhook } from "./utility.js";
 import { getUserExtended } from "./extendedDevvit.js";
 import { storeClassificationEvent } from "./statistics/classificationStatistics.js";
 import { queueReclassifications } from "./handleClientSubredditWikiUpdate.js";
@@ -509,12 +509,9 @@ export async function removeRecordOfSubmitterOrMod (username: string, context: T
 }
 
 export async function storeInitialAccountProperties (username: string, context: TriggerContext) {
-    const [userExtended, user] = await Promise.all([
-        getUserExtended(username, context),
-        context.reddit.getUserByUsername(username),
-    ]);
+    const userExtended = await getUserExtended(username, context);
 
-    if (!userExtended || !user) {
+    if (!userExtended) {
         return;
     }
 
@@ -529,7 +526,7 @@ export async function storeInitialAccountProperties (username: string, context: 
         console.log(`Data Store: Stored display name for ${username}`);
     }
 
-    const socialLinks = await user.getSocialLinks();
+    const socialLinks = await getUserSocialLinks(username, context);
     if (socialLinks.length > 0) {
         promises.push(context.redis.hSet(SOCIAL_LINKS_STORE, { [username]: JSON.stringify(socialLinks) }));
         console.log(`Data Store: Stored social links for ${username}`);

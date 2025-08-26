@@ -1,5 +1,5 @@
 /* eslint-disable @stylistic/quote-props */
-import { TriggerContext, UserSocialLink } from "@devvit/public-api";
+import { TriggerContext } from "@devvit/public-api";
 import Ajv, { JSONSchemaType } from "ajv";
 import { UserDetails, UserStatus } from "../dataStore.js";
 import { getControlSubSettings } from "../settings.js";
@@ -7,7 +7,7 @@ import { CONTROL_SUBREDDIT } from "../constants.js";
 import { parseAllDocuments } from "yaml";
 import { compact } from "lodash";
 import json2md from "json2md";
-import { getUserOrUndefined, replaceAll, sendMessageToWebhook } from "../utility.js";
+import { getUserSocialLinks, replaceAll, sendMessageToWebhook } from "../utility.js";
 import { ModmailMessage } from "./modmail.js";
 import { getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
 import { getUserExtended } from "../extendedDevvit.js";
@@ -143,15 +143,6 @@ async function getAppealConfig (context: TriggerContext): Promise<AppealConfig[]
     }
 
     return JSON.parse(configData) as AppealConfig[];
-}
-
-async function getUserSocialLinks (username: string, context: TriggerContext): Promise<UserSocialLink[]> {
-    const user = await getUserOrUndefined(username, context);
-    if (!user) {
-        return [];
-    }
-
-    return await user.getSocialLinks();
 }
 
 function formatPlaceholders (input: string, userDetails: UserDetails): string {
