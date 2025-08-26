@@ -87,6 +87,33 @@ const defaultAppealOutcome: AppealOutcome = {
 If Bot Bouncer has banned you from more than one subreddit, you don't need to appeal separately.`,
 };
 
+function getSubstitutions (wikiPage: string): Record<string, string | string[]> {
+    const documents = parseAllDocuments(wikiPage);
+
+    const results: Record<string, string | string[]> = {};
+
+    const substitutionDocument = documents
+        .map(doc => doc.toJSON() as Record<string, unknown>)
+        .find(doc => doc.name === "substitutions");
+
+    if (!substitutionDocument) {
+        return {};
+    }
+
+    for (const [key, value] of Object.entries(substitutionDocument)) {
+        if (key === "name") {
+            continue;
+        }
+
+        if (typeof value === "string" || Array.isArray(value)) {
+            results[key] = value;
+        }
+    }
+
+    console.log(results);
+    return results;
+}
+
 export async function validateAndSaveAppealConfig (username: string, context: TriggerContext): Promise<void> {
     const appealConfigRevisionKey = "AppealConfigRevision";
     const wikiPage = await context.reddit.getWikiPage(CONTROL_SUBREDDIT, APPEAL_CONFIG_WIKI_PAGE);
@@ -96,8 +123,17 @@ export async function validateAndSaveAppealConfig (username: string, context: Tr
         return;
     }
 
-    const documents = parseAllDocuments(wikiPage.content);
-    const parsedConfigs = compact(documents.map(doc => doc.toJSON() as AppealConfig));
+    const substitutions = getSubstitutions(wikiPage.content);
+
+    let pageToParse = wikiPage.content;
+    for (const [key, value] of Object.entries(substitutions)) {
+        const valueToSubstitute = typeof value === "string" ? value : JSON.stringify(value);
+        pageToParse = replaceAll(pageToParse, `{{${key}}}`, valueToSubstitute);
+    }
+
+    const documents = parseAllDocuments(pageToParse);
+
+    const parsedConfigs = compact(documents.map(doc => doc.toJSON() as AppealConfig)).filter(item => item.name !== "substitutions");
 
     const ajv = new Ajv.default({
         coerceTypes: "array",
