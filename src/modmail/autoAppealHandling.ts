@@ -110,7 +110,6 @@ function getSubstitutions (wikiPage: string): Record<string, string | string[]> 
         }
     }
 
-    console.log(results);
     return results;
 }
 
