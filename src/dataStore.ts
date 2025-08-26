@@ -156,7 +156,14 @@ export async function setUserStatus (username: string, details: UserDetails, con
 
     const currentStatus = await getUserStatus(username, context);
 
-    if (currentStatus?.userStatus === UserStatus.Banned || currentStatus?.userStatus === UserStatus.Service || currentStatus?.userStatus === UserStatus.Organic) {
+    const statusesForLastStatusCopy = [
+        UserStatus.Banned,
+        UserStatus.Service,
+        UserStatus.Organic,
+        UserStatus.Declined,
+    ];
+
+    if (currentStatus?.userStatus && statusesForLastStatusCopy.includes(currentStatus.userStatus)) {
         details.lastStatus = currentStatus.userStatus;
     }
 
@@ -165,10 +172,6 @@ export async function setUserStatus (username: string, details: UserDetails, con
 
     if (currentStatus?.mostRecentActivity && !details.mostRecentActivity) {
         details.mostRecentActivity = currentStatus.mostRecentActivity;
-    }
-
-    if (currentStatus && details.userStatus === UserStatus.Purged) {
-        details.lastUpdate = currentStatus.lastUpdate;
     }
 
     const txn = await context.redis.watch();

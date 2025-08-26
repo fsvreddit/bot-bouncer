@@ -1,7 +1,7 @@
 import { TriggerContext } from "@devvit/public-api";
 import { PostFlairUpdate } from "@devvit/protos";
 import { CONTROL_SUBREDDIT } from "./constants.js";
-import { getUserStatus, setUserStatus, UserStatus } from "./dataStore.js";
+import { getUserStatus, setUserStatus, UserDetails, UserStatus } from "./dataStore.js";
 import { getUsernameFromUrl } from "./utility.js";
 import { queueSendFeedback } from "./submissionFeedback.js";
 
@@ -48,13 +48,23 @@ export async function handleControlSubFlairUpdate (event: PostFlairUpdate, conte
         await context.redis.del(`userStatusOverride~${username}`);
     }
 
-    await setUserStatus(username, {
-        trackingPostId: event.post.id,
-        userStatus: postFlair,
-        submitter: currentStatus?.submitter,
-        lastUpdate: new Date().getTime(),
-        operator,
-    }, context);
+    let newStatus: UserDetails;
+    if (currentStatus) {
+        newStatus = { ...currentStatus };
+        newStatus.trackingPostId = event.post.id;
+        newStatus.userStatus = postFlair;
+        newStatus.operator = operator;
+        newStatus.lastUpdate = new Date().getTime();
+    } else {
+        newStatus = {
+            trackingPostId: event.post.id,
+            userStatus: postFlair,
+            lastUpdate: new Date().getTime(),
+            operator,
+        };
+    }
+
+    await setUserStatus(username, newStatus, context);
 
     console.log(`Flair Update: Status for ${username} set to ${postFlair} by ${operator}`);
 

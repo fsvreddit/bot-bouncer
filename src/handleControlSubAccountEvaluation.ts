@@ -190,7 +190,7 @@ export async function storeAccountInitialEvaluationResults (username: string, re
     }));
 
     const resultsKey = getEvaluationResultsKey(username);
-    await context.redis.set(resultsKey, JSON.stringify(resultsToStore), { expiration: addMonths(new Date(), 6) });
+    await context.redis.set(resultsKey, JSON.stringify(resultsToStore), { expiration: addMonths(new Date(), 12) });
 }
 
 export async function getAccountInitialEvaluationResults (username: string, context: TriggerContext): Promise<EvaluationResult[]> {
