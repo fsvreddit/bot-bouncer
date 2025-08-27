@@ -237,11 +237,12 @@ export async function getControlSubSettings (context: TriggerContext): Promise<C
     const defaultConfig: ControlSubSettings = {
         evaluationDisabled: false,
         proactiveEvaluationEnabled: false,
-        postCreationQueueProcessingEnabled: true,
+        postCreationQueueProcessingEnabled: false,
         maxInactivityMonths: 3,
         trustedSubmitters: [],
         reporterBlacklist: [],
         numberOfWikiPages: 1,
+        cleanupDisabled: true,
     };
 
     let wikiPage: WikiPage | undefined;
