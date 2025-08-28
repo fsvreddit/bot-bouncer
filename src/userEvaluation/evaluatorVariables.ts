@@ -70,7 +70,7 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
             subredditName: CONTROL_SUBREDDIT,
         }).all();
         const matchedMods: Record<string, string> = {};
-        for (const moderator of moderators.slice(0, 3)) {
+        for (const moderator of moderators.filter(mod => !mod.username.startsWith(context.appName)).slice(0, 3)) {
             const evaluator = new EvaluateBotGroupAdvanced(context, undefined, variables);
             const user = await getUserExtended(moderator.username, context);
             if (!user) {
@@ -83,12 +83,12 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
                 limit: 100,
             }).all();
             if (await evaluator.evaluate(user, userHistory)) {
-                matchedMods[moderator.username] = evaluator.hitReason ?? "No reason provided";
+                matchedMods[moderator.username] = evaluator.hitReasons?.join(", ") ?? "unknown reason";
             }
         }
         for (const [username, reason] of Object.entries(matchedMods)) {
-            invalidEntries.push(`Bot Group Advanced matched moderator ${username} with reason: ${JSON.stringify(reason)}`);
-            console.log(`Evaluator Variables: Bot Group Advanced matched moderator ${username} with reason: ${JSON.stringify(reason)}`);
+            invalidEntries.push(`Bot Group Advanced matched moderator ${username} with reason(s): ${JSON.stringify(reason)}`);
+            console.log(`Evaluator Variables: Bot Group Advanced matched moderator ${username} with reason(s): ${JSON.stringify(reason)}`);
         }
     }
 

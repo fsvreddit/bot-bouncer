@@ -316,13 +316,17 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
         if (matchedEvaluators.length > 0) {
             summary.push({ p: `User currently matches ${matchedEvaluators.length} ${pluralize("evaluator", matchedEvaluators.length)}` });
 
-            const hitsRows = matchedEvaluators.map((evaluator) => {
-                let row = `${evaluator.name} matched`;
-                if (evaluator.hitReason) {
-                    row += `: ${evaluator.hitReason.slice(0, 1000)}`;
+            const hitsRows: string[] = [];
+
+            for (const evaluator of matchedEvaluators) {
+                if (!evaluator.hitReasons || evaluator.hitReasons.length === 0) {
+                    hitsRows.push(`${evaluator.name} matched`);
+                } else {
+                    for (const hitReason of evaluator.hitReasons) {
+                        hitsRows.push(`${evaluator.name} matched: ${hitReason.slice(0, 1000)}`);
+                    }
                 }
-                return row;
-            });
+            }
 
             summary.push({ ul: hitsRows });
         }

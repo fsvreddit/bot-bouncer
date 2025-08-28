@@ -90,8 +90,8 @@ export async function evaluateUserAccount (username: string, variables: Record<s
         }
         if (isABot) {
             console.log(`Evaluator: ${username} appears to be a bot via the evaluator: ${evaluator.name} 💥`);
-            if (evaluator.name.includes("Bot Group")) {
-                console.log(`Evaluator: Hit reason: ${evaluator.hitReason}`);
+            if (evaluator.name.includes("Bot Group") && evaluator.hitReasons && evaluator.hitReasons.length > 0) {
+                console.log(`Evaluator: Hit reasons: ${evaluator.hitReasons.join(", ")}`);
             }
             detectedBots.push(evaluator);
         }
@@ -102,12 +102,22 @@ export async function evaluateUserAccount (username: string, variables: Record<s
     }
 
     const itemCount = userItems?.length ?? 0;
-    const results: EvaluationResult[] = detectedBots.map(bot => ({
-        botName: bot.name,
-        hitReason: bot.hitReason,
-        canAutoBan: bot.canAutoBan,
-        metThreshold: itemCount >= bot.banContentThreshold,
-    }));
+
+    const results: EvaluationResult[] = [];
+
+    for (const bot of detectedBots) {
+        const metThreshold = itemCount >= bot.banContentThreshold;
+        if (!bot.hitReasons || bot.hitReasons.length === 0) {
+            results.push({ botName: bot.name, canAutoBan: bot.canAutoBan, metThreshold });
+        } else {
+            results.push(...bot.hitReasons.map(hitReason => ({
+                botName: bot.name,
+                hitReason,
+                canAutoBan: bot.canAutoBan,
+                metThreshold,
+            })));
+        }
+    }
 
     if (storeStats) {
         await storeEvaluationStatistics(results, context);
