@@ -1,11 +1,12 @@
 import { JobContext, JSONObject, Post, ScheduledJobEvent } from "@devvit/public-api";
-import { BIO_TEXT_STORE, DISPLAY_NAME_STORE, UserDetails, UserStatus } from "../dataStore.js";
+import { BIO_TEXT_STORE, DISPLAY_NAME_STORE, UserStatus } from "../dataStore.js";
 import { addSeconds, format, subMonths } from "date-fns";
 import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
 import { fromPairs } from "lodash";
 import { ControlSubredditJob } from "../constants.js";
 import json2md from "json2md";
 import { replaceAll } from "../utility.js";
+import { StatsUserEntry } from "../sixHourlyJobs.js";
 
 const DEFINED_HANDLES_QUEUE = "definedHandlesQueue";
 const DEFINED_HANDLES_DATA = "definedHandlesData";
@@ -26,13 +27,12 @@ interface UserDefinedHandlePost {
     seen?: number;
 }
 
-export async function updateDefinedHandlesStats (allEntries: [string, UserDetails][], context: JobContext) {
+export async function updateDefinedHandlesStats (allEntries: StatsUserEntry[], context: JobContext) {
     await context.redis.del(DEFINED_HANDLES_QUEUE);
     await context.redis.del(DEFINED_HANDLES_DATA);
     const lastMonthData = allEntries
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        .filter(([_username, data]) => data.reportedAt && data.reportedAt > subMonths(new Date(), 3).getTime() && (data.userStatus === UserStatus.Banned || data.lastStatus === UserStatus.Banned))
-        .map(([username, data]) => ({ member: username, score: data.reportedAt ?? 0 }));
+        .filter(item => item.data.reportedAt && item.data.reportedAt > subMonths(new Date(), 3).getTime() && (item.data.userStatus === UserStatus.Banned || item.data.lastStatus === UserStatus.Banned))
+        .map(item => ({ member: item.username, score: item.data.reportedAt ?? 0 }));
 
     await context.redis.zAdd(DEFINED_HANDLES_QUEUE, ...lastMonthData);
 

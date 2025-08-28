@@ -1,6 +1,6 @@
-import { JobContext, JSONObject, ScheduledJobEvent } from "@devvit/public-api";
+import { JobContext, JSONObject, ScheduledJobEvent, TriggerContext } from "@devvit/public-api";
 import { deleteUserStatus, getActiveDataStore, getUserStatus, updateAggregate, UserDetails, UserStatus } from "./dataStore.js";
-import { addSeconds, subDays } from "date-fns";
+import { addDays, addSeconds, subDays } from "date-fns";
 import { CONTROL_SUBREDDIT, ControlSubredditJob, PostFlairTemplate } from "./constants.js";
 import { deleteAccountInitialEvaluationResults, getAccountInitialEvaluationResults } from "./handleControlSubAccountEvaluation.js";
 import { CLEANUP_LOG_KEY } from "./cleanup.js";
@@ -20,6 +20,11 @@ const HIT_REASONS_TO_REVERSE: string[] = [
     // "\\(\\[Hh\\].\\[Tt\\]\\)",
     // "\\(\\[Ss\\].\\[Nn\\].\\[Pp\\]|\\[Ss\\]\\[Nn\\].\\[Pp\\]|\\[Ss\\].\\[Nn\\]\\[Pp\\]\\)",
 ];
+
+export async function addToReversalsQueue (username: string, days: number, context: TriggerContext) {
+    const removalDate = addDays(new Date(), days).getTime();
+    await context.redis.zAdd(REVERSED_USERS, { member: username, score: removalDate });
+}
 
 export async function evaluatorReversalsJob (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
     if (HIT_REASONS_TO_REVERSE.length === 0) {
@@ -90,7 +95,7 @@ async function reverseExistingBanned (context: JobContext) {
                     postId: userStatus.trackingPostId,
                     flairTemplateId: PostFlairTemplate.Declined,
                 });
-                await context.redis.zAdd(REVERSED_USERS, { member: username, score: new Date().getTime() });
+                await addToReversalsQueue(username, 7, context);
                 reversedCount++;
             }
         }
@@ -163,7 +168,7 @@ async function reversePostCreationQueue (context: JobContext) {
 
 export async function deleteRecordsForRemovedUsers (_: unknown, context: JobContext) {
     const runLimit = addSeconds(new Date(), 15);
-    const removedUsers = await context.redis.zRange(REVERSED_USERS, 0, subDays(new Date(), 7).getTime(), { by: "score" });
+    const removedUsers = await context.redis.zRange(REVERSED_USERS, 0, Date.now(), { by: "score" });
     if (removedUsers.length === 0) {
         return;
     }

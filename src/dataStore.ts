@@ -40,6 +40,11 @@ export enum UserStatus {
     Inactive = "inactive",
 }
 
+export enum UserFlag {
+    HackedAndRecovered = "recovered",
+    Scammed = "scammed",
+}
+
 export interface UserDetails {
     trackingPostId: string;
     userStatus: UserStatus;
@@ -53,6 +58,7 @@ export interface UserDetails {
     */
     bioText?: string;
     mostRecentActivity?: number;
+    flags?: UserFlag[];
 }
 
 interface UserDetailsForWiki {

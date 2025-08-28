@@ -1,13 +1,13 @@
 import { JobContext } from "@devvit/public-api";
-import { UserDetails, UserStatus } from "../dataStore.js";
+import { UserStatus } from "../dataStore.js";
 import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
 import { subWeeks } from "date-fns";
 import json2md from "json2md";
 import { replaceAll } from "../utility.js";
+import { StatsUserEntry } from "../sixHourlyJobs.js";
 
-export async function updateUsernameStatistics (allEntries: [string, UserDetails][], context: JobContext) {
+export async function updateUsernameStatistics (allEntries: StatsUserEntry[], context: JobContext) {
     const recentData = allEntries
-        .map(([username, data]) => ({ username, data }))
         .filter(item => item.data.reportedAt && new Date(item.data.reportedAt) >= subWeeks(new Date(), 2));
 
     const evaluatorVariables = await getEvaluatorVariables(context);

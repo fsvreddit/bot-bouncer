@@ -4,7 +4,7 @@ import { getUserStatus, UserStatus } from "../dataStore.js";
 import { getSummaryForUser } from "../UserSummary/userSummary.js";
 import { getUserOrUndefined, isBanned, isModerator } from "../utility.js";
 import { CONFIGURATION_DEFAULTS, getControlSubSettings } from "../settings.js";
-import { addDays, addMinutes, subMinutes } from "date-fns";
+import { addDays, addHours, subMinutes } from "date-fns";
 import json2md from "json2md";
 import { ModmailMessage } from "./modmail.js";
 import { dataExtract } from "./dataExtract.js";
@@ -14,6 +14,12 @@ import { statusToFlair } from "../postCreation.js";
 import { CONTROL_SUBREDDIT, INTERNAL_BOT } from "../constants.js";
 import { handleBulkSubmission } from "./bulkSubmission.js";
 import { handleAppeal } from "./autoAppealHandling.js";
+import { FLAIR_MAPPINGS } from "../handleControlSubFlairUpdate.js";
+import { uniq } from "lodash";
+
+export function getPossibleSetStatusValues (): string[] {
+    return uniq([...FLAIR_MAPPINGS.map(entry => entry.postFlair), ...Object.values(UserStatus)]);
+}
 
 export async function handleControlSubredditModmail (modmail: ModmailMessage, context: TriggerContext) {
     const controlSubSettings = await getControlSubSettings(context);
@@ -62,18 +68,24 @@ export async function handleControlSubredditModmail (modmail: ModmailMessage, co
     }
 
     if (modmail.participant && modmail.participant !== context.appName) {
-        const statusChangeRegex = new RegExp(`!setstatus (${Object.values(UserStatus).join("|")})`);
+        const statusChangeRegex = new RegExp(`!setstatus (${getPossibleSetStatusValues().join("|")})`);
         const statusChangeMatch = statusChangeRegex.exec(modmail.bodyMarkdown);
         if (statusChangeMatch && statusChangeMatch.length === 2) {
             const newStatus = statusChangeMatch[1] as UserStatus;
             const currentStatus = await getUserStatus(modmail.participant, context);
             if (currentStatus && isLinkId(currentStatus.trackingPostId) && currentStatus.userStatus !== newStatus) {
-                await context.redis.set(`userStatusOverride~${modmail.participant}`, modmail.messageAuthor, { expiration: addMinutes(new Date(), 5) });
+                await context.redis.set(`userStatusOverride~${modmail.participant}`, modmail.messageAuthor, { expiration: addHours(new Date(), 2) });
 
-                const newFlair = statusToFlair[newStatus];
+                const newFlairTemplate = statusToFlair[newStatus];
+                let newFlairText: string | undefined;
+                // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+                if (!newFlairTemplate) {
+                    newFlairText = newStatus;
+                }
                 await context.reddit.setPostFlair({
                     postId: currentStatus.trackingPostId,
-                    flairTemplateId: newFlair,
+                    flairTemplateId: newFlairTemplate,
+                    text: newFlairText,
                     subredditName: CONTROL_SUBREDDIT,
                 });
 

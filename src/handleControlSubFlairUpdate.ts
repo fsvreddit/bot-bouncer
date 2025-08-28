@@ -1,9 +1,32 @@
 import { TriggerContext } from "@devvit/public-api";
 import { PostFlairUpdate } from "@devvit/protos";
-import { CONTROL_SUBREDDIT } from "./constants.js";
-import { getUserStatus, setUserStatus, UserDetails, UserStatus } from "./dataStore.js";
+import { CONTROL_SUBREDDIT, PostFlairTemplate } from "./constants.js";
+import { getUserStatus, setUserStatus, UserDetails, UserFlag, UserStatus, writeUserStatus } from "./dataStore.js";
 import { getUsernameFromUrl } from "./utility.js";
 import { queueSendFeedback } from "./submissionFeedback.js";
+import { uniq } from "lodash";
+import { addHours } from "date-fns";
+import { addToReversalsQueue } from "./evaluatorReversals.js";
+
+interface FlairMapping {
+    postFlair: string;
+    flagToSet: UserFlag;
+    destinationFlair: PostFlairTemplate;
+    removeFromDatabaseAfterDays?: number;
+}
+
+export const FLAIR_MAPPINGS: FlairMapping[] = [
+    {
+        postFlair: "recovered",
+        flagToSet: UserFlag.HackedAndRecovered,
+        destinationFlair: PostFlairTemplate.Organic,
+    },
+    {
+        postFlair: "scammed",
+        flagToSet: UserFlag.Scammed,
+        destinationFlair: PostFlairTemplate.Organic,
+    },
+];
 
 export async function handleControlSubFlairUpdate (event: PostFlairUpdate, context: TriggerContext) {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
@@ -32,6 +55,36 @@ export async function handleControlSubFlairUpdate (event: PostFlairUpdate, conte
 
     const username = getUsernameFromUrl(event.post.url);
     if (!username) {
+        return;
+    }
+
+    // Handle post flair mappings here.
+    const mapping = FLAIR_MAPPINGS.find(m => m.postFlair === postFlair as string);
+    if (mapping) {
+        const currentStatus = await getUserStatus(username, context);
+        if (currentStatus) {
+            const flags = currentStatus.flags ?? [];
+            flags.push(mapping.flagToSet);
+            currentStatus.flags = uniq(flags);
+            await writeUserStatus(username, currentStatus, context.redis);
+        }
+
+        if (event.author.name !== context.appName) {
+            await context.redis.set(`userStatusOverride~${username}`, event.author.name, { expiration: addHours(new Date(), 1) });
+        }
+
+        await context.reddit.setPostFlair({
+            postId: event.post.id,
+            subredditName: CONTROL_SUBREDDIT,
+            flairTemplateId: mapping.destinationFlair,
+        });
+
+        if (mapping.removeFromDatabaseAfterDays) {
+            await addToReversalsQueue(username, mapping.removeFromDatabaseAfterDays, context);
+        }
+
+        console.log(`Flair Update: Mapped flair ${postFlair} to flag ${mapping.flagToSet} for user ${username}.`);
+
         return;
     }
 

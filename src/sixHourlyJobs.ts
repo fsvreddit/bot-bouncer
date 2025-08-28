@@ -3,7 +3,7 @@ import { updateMainStatisticsPage } from "./statistics/mainStatistics.js";
 import { updateSubmitterStatistics } from "./statistics/submitterStatistics.js";
 import { updateEvaluatorHitsWikiPage } from "./statistics/evaluatorHitsStatistics.js";
 import { createTimeOfSubmissionStatistics } from "./statistics/timeOfSubmissionStatistics.js";
-import { getFullDataStore, UserDetails } from "./dataStore.js";
+import { getFullDataStore, UserDetails, UserFlag } from "./dataStore.js";
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "./constants.js";
 import { updateClassificationStatistics } from "./statistics/classificationStatistics.js";
 import { updateAppealStatistics } from "./statistics/appealStatistics.js";
@@ -16,14 +16,23 @@ import { updateDefinedHandlesStats } from "./statistics/definedHandlesStatistics
 import { pendingUserFinder } from "./statistics/pendingUserFinder.js";
 import { updateFailedFeedbackStorage } from "./submissionFeedback.js";
 
+const FLAGS_TO_EXCLUDE_FROM_STATS: UserFlag[] = [
+    UserFlag.HackedAndRecovered,
+];
+
+export interface StatsUserEntry {
+    username: string;
+    data: UserDetails;
+}
+
 async function getAllValues (context: TriggerContext) {
     const allDataRaw = await getFullDataStore(context);
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
-    const allEntries = Object.entries(allDataRaw)
-        .map(([key, value]) => [key, JSON.parse(value) as UserDetails]) as [string, UserDetails][];
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const allValues = allEntries.map(([_, value]) => value);
+    const allEntries = Object.entries(allDataRaw)
+        .map(([key, value]) => ({ username: key, data: JSON.parse(value) as UserDetails } as StatsUserEntry))
+        .filter(entry => !FLAGS_TO_EXCLUDE_FROM_STATS.some(flag => entry.data.flags?.includes(flag)));
+
+    const allValues = allEntries.map(({ data }) => data);
 
     return { allEntries, allValues };
 }

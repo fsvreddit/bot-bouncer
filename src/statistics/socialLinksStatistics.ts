@@ -4,6 +4,7 @@ import json2md from "json2md";
 import { max, min, uniq } from "lodash";
 import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
 import { SOCIAL_LINKS_STORE, UserDetails, UserStatus } from "../dataStore.js";
+import { StatsUserEntry } from "../sixHourlyJobs.js";
 
 export function cleanLink (input: string): string {
     if (!input.includes("onlyfans.com") && !input.includes("fans.ly") && !input.includes("fans.ly")) {
@@ -41,9 +42,9 @@ interface SocialLinksEntry {
     usernames: string[];
 }
 
-export async function updateSocialLinksStatistics (allEntries: [string, UserDetails][], context: JobContext) {
+export async function updateSocialLinksStatistics (allEntries: StatsUserEntry[], context: JobContext) {
     let recentData = allEntries
-        .map(([username, data]) => ({ username, data: data as UserDetailsWithSocialLink }))
+        .map(item => ({ username: item.username, data: item.data as UserDetailsWithSocialLink }))
         .filter(item => item.data.reportedAt && new Date(item.data.reportedAt) >= subWeeks(new Date(), 4))
         .filter(item => item.data.userStatus === UserStatus.Banned || item.data.lastStatus === UserStatus.Banned);
 
