@@ -16,6 +16,7 @@ interface ModmailDataExtract {
     bioRegex?: string;
     evaluator?: string;
     hitReason?: string;
+    flags?: UserFlag[];
     since?: string;
     format?: "json" | "table";
     recheck?: boolean;
@@ -54,6 +55,14 @@ const schema: JSONSchemaType<ModmailDataExtract> = {
         },
         hitReason: {
             type: "string",
+            nullable: true,
+        },
+        flags: {
+            type: "array",
+            items: {
+                type: "string",
+                enum: Object.values(UserFlag),
+            },
             nullable: true,
         },
         since: {
@@ -180,6 +189,12 @@ export async function dataExtract (message: string | undefined, conversationId: 
 
             if (usernameRegex) {
                 if (!usernameRegex.test(entry.username)) {
+                    return false;
+                }
+            }
+
+            if (request.flags) {
+                if (!entry.data.flags || !request.flags.every(flag => entry.data.flags?.includes(flag))) {
                     return false;
                 }
             }
