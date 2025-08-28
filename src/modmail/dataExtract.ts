@@ -1,5 +1,5 @@
 import { TriggerContext, WikiPage, WikiPagePermissionLevel } from "@devvit/public-api";
-import { BIO_TEXT_STORE, getFullDataStore, UserDetails, UserStatus } from "../dataStore.js";
+import { BIO_TEXT_STORE, getFullDataStore, UserDetails, UserFlag, UserStatus } from "../dataStore.js";
 import Ajv, { JSONSchemaType } from "ajv";
 import { fromPairs } from "lodash";
 import pluralize from "pluralize";
@@ -81,6 +81,7 @@ interface FriendlyUserDetails {
     lastUpdate: string;
     submitter?: string;
     operator?: string;
+    flags?: UserFlag[];
     bioText?: string;
 }
 
@@ -92,6 +93,7 @@ function userDetailsToFriendly (details: UserDetails): FriendlyUserDetails {
         lastUpdate: format(new Date(details.lastUpdate), "yyyy-MM-dd"),
         submitter: details.submitter,
         operator: details.operator,
+        flags: details.flags,
         // eslint-disable-next-line @typescript-eslint/no-deprecated
         bioText: details.bioText,
     };
@@ -264,6 +266,8 @@ export async function dataExtract (message: string | undefined, conversationId: 
         //
     }
 
+    const includeFlags = data.some(entry => entry.data.flags && entry.data.flags.length > 0);
+
     let content: string;
     if (request.format === "json") {
         const dataToExport = fromPairs(data.map(entry => [entry.username, userDetailsToFriendly(entry.data)]));
@@ -274,6 +278,9 @@ export async function dataExtract (message: string | undefined, conversationId: 
         ];
 
         const headers = ["User", "Tracking Post", "Status", "Reported At", "Last Update", "Submitter", "Operator"];
+        if (includeFlags) {
+            headers.push("Flags");
+        }
         if (request.bioRegex) {
             headers.push("Bio Text");
         }
@@ -291,6 +298,10 @@ export async function dataExtract (message: string | undefined, conversationId: 
                 userDetails.submitter ?? "",
                 userDetails.operator ?? "unknown",
             ];
+
+            if (includeFlags) {
+                row.push(userDetails.flags?.join(", ") ?? "");
+            }
 
             if (request.bioRegex) {
                 row.push(userDetails.bioText ?? "");
