@@ -37,17 +37,17 @@ export async function evaluatorReversalsJob (event: ScheduledJobEvent<JSONObject
     if (event.data?.firstRun) {
         const allActiveData = await getActiveDataStore(context);
         const cutoff = subDays(new Date(), 1).getTime();
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const recentBannedUsers = Object.entries(allActiveData).filter(([_username, userData]) => {
+        const recentBannedUsers = Object.entries(allActiveData).filter(([, userData]) => {
             const parsed = JSON.parse(userData) as UserDetails;
             return parsed.userStatus === UserStatus.Banned && parsed.reportedAt && parsed.reportedAt > cutoff;
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        }).map(([username, _userData]) => username);
+        }).map(([username]) => username);
 
         await context.redis.zAdd(REVERSALS_QUEUE, ...recentBannedUsers.map(username => ({ member: username, score: 0 })));
 
         const submissionQueue = await context.redis.zRange(SUBMISSION_QUEUE, 0, -1);
-        await context.redis.zAdd(SUBMISSION_REVERSAL_QUEUE, ...submissionQueue);
+        if (submissionQueue.length > 0) {
+            await context.redis.zAdd(SUBMISSION_REVERSAL_QUEUE, ...submissionQueue);
+        }
 
         await context.scheduler.runJob({
             name: ControlSubredditJob.EvaluatorReversals,
