@@ -45,6 +45,11 @@ export enum UserFlag {
     Scammed = "scammed",
 }
 
+const eligibleFlagsForStatus: Record<UserFlag, UserStatus[]> = {
+    [UserFlag.HackedAndRecovered]: [UserStatus.Pending, UserStatus.Organic, UserStatus.Declined],
+    [UserFlag.Scammed]: [UserStatus.Pending, UserStatus.Organic, UserStatus.Declined],
+};
+
 export interface UserDetails {
     trackingPostId: string;
     userStatus: UserStatus;
@@ -178,6 +183,14 @@ export async function setUserStatus (username: string, details: UserDetails, con
 
     if (currentStatus?.mostRecentActivity && !details.mostRecentActivity) {
         details.mostRecentActivity = currentStatus.mostRecentActivity;
+    }
+
+    if (details.flags && details.flags.length > 0) {
+        details.flags = details.flags.filter(flag => eligibleFlagsForStatus[flag].includes(details.userStatus));
+        if (details.flags.length === 0) {
+            console.log("User flags cleared due to new status.");
+            delete details.flags;
+        }
     }
 
     const txn = await context.redis.watch();

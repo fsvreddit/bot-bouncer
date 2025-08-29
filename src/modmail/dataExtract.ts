@@ -147,7 +147,7 @@ export async function dataExtract (message: string | undefined, conversationId: 
         return;
     }
 
-    if (!request.status && !request.submitter && !request.usernameRegex && !request.since) {
+    if (!request.status && !request.submitter && !request.usernameRegex && !request.since && !request.flags) {
         await context.reddit.modMail.reply({
             conversationId,
             body: "Request is empty. Please provide at least one of the following fields: `status`, `submitter`, `usernameRegex`, `since`. `bioRegex` cannot be used on its own.",
