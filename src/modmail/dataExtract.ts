@@ -147,10 +147,11 @@ export async function dataExtract (message: string | undefined, conversationId: 
         return;
     }
 
-    if (!request.status && !request.submitter && !request.usernameRegex && !request.since && !request.flags) {
+    const atLeastOneRequiredFields = ["status", "submitter", "usernameRegex", "since", "flags"];
+    if (!atLeastOneRequiredFields.some(field => field in request)) {
         await context.reddit.modMail.reply({
             conversationId,
-            body: "Request is empty. Please provide at least one of the following fields: `status`, `submitter`, `usernameRegex`, `since`. `bioRegex` cannot be used on its own.",
+            body: `Request is empty. Please provide at least one of the following fields: ${atLeastOneRequiredFields.map(field => `\`${field}\``).join(", ")}. \`bioRegex\` cannot be used on its own.`,
             isAuthorHidden: false,
         });
         return;
