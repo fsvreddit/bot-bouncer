@@ -15,10 +15,13 @@ enum ReversalPhase {
     PostCreationQueue = "postCreationQueue",
 }
 
-const HIT_REASONS_TO_REVERSE: string[] = [
-    // "\\(?:.\\){4,}",
-    // "\\(\\[Hh\\].\\[Tt\\]\\)",
-    // "\\(\\[Ss\\].\\[Nn\\].\\[Pp\\]|\\[Ss\\]\\[Nn\\].\\[Pp\\]|\\[Ss\\].\\[Nn\\]\\[Pp\\]\\)",
+interface EvaluatorResultToReverse {
+    evaluatorName: string;
+    hitReason: string;
+}
+
+const HIT_REASONS_TO_REVERSE: EvaluatorResultToReverse[] = [
+    // { evaluatorName: "Bot Group Advanced", hitReason: "AITAH Snitch Accounts Created C. May 29, 2025" },
 ];
 
 export async function addToReversalsQueue (username: string, days: number, context: TriggerContext) {
@@ -85,7 +88,7 @@ async function reverseExistingBanned (context: JobContext) {
 
         const evaluatorData = await getAccountInitialEvaluationResults(username, context);
 
-        if (evaluatorData.length > 0 && evaluatorData.every(entry => entry.hitReason && HIT_REASONS_TO_REVERSE.some(reason => entry.hitReason?.includes(reason)))) {
+        if (evaluatorData.length > 0 && evaluatorData.every(entry => entry.hitReason && HIT_REASONS_TO_REVERSE.some(reason => entry.botName === reason.evaluatorName && entry.hitReason?.includes(reason.hitReason)))) {
             // Reversible.
             console.log(`Evaluator Reversals: Reversing ${username} due to hit reasons.`);
             const userStatus = await getUserStatus(username, context);
@@ -144,7 +147,7 @@ async function reversePostCreationQueue (context: JobContext) {
         const username = entry.member;
         const evaluatorData = await getAccountInitialEvaluationResults(username, context);
 
-        if (evaluatorData.length > 0 && evaluatorData.every(entry => entry.hitReason && HIT_REASONS_TO_REVERSE.some(reason => entry.hitReason?.includes(reason)))) {
+        if (evaluatorData.length > 0 && evaluatorData.every(entry => entry.hitReason && HIT_REASONS_TO_REVERSE.some(reason => entry.botName === reason.evaluatorName && entry.hitReason?.includes(reason.hitReason)))) {
             // Reversible.
             const txn = await context.redis.watch();
             await txn.multi();
