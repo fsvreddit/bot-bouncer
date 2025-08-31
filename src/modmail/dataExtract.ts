@@ -1,3 +1,4 @@
+/* eslint-disable @stylistic/quote-props */
 import { TriggerContext, WikiPage, WikiPagePermissionLevel } from "@devvit/public-api";
 import { BIO_TEXT_STORE, getFullDataStore, UserDetails, UserFlag, UserStatus } from "../dataStore.js";
 import Ajv, { JSONSchemaType } from "ajv";
@@ -17,6 +18,7 @@ interface ModmailDataExtract {
     evaluator?: string;
     hitReason?: string;
     flags?: UserFlag[];
+    "~flags"?: UserFlag[];
     since?: string;
     format?: "json" | "table";
     recheck?: boolean;
@@ -58,6 +60,14 @@ const schema: JSONSchemaType<ModmailDataExtract> = {
             nullable: true,
         },
         flags: {
+            type: "array",
+            items: {
+                type: "string",
+                enum: Object.values(UserFlag),
+            },
+            nullable: true,
+        },
+        "~flags": {
             type: "array",
             items: {
                 type: "string",
@@ -196,6 +206,12 @@ export async function dataExtract (message: string | undefined, conversationId: 
 
             if (request.flags) {
                 if (!entry.data.flags || !request.flags.every(flag => entry.data.flags?.includes(flag))) {
+                    return false;
+                }
+            }
+
+            if (request["~flags"]) {
+                if (request["~flags"].some(flag => entry.data.flags?.includes(flag))) {
                     return false;
                 }
             }

@@ -26,6 +26,11 @@ export const FLAIR_MAPPINGS: FlairMapping[] = [
         flagToSet: UserFlag.Scammed,
         destinationFlair: PostFlairTemplate.Organic,
     },
+    {
+        postFlair: "locked",
+        flagToSet: UserFlag.Locked,
+        destinationFlair: PostFlairTemplate.Banned,
+    },
 ];
 
 export async function handleControlSubFlairUpdate (event: PostFlairUpdate, context: TriggerContext) {

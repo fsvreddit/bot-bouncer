@@ -43,11 +43,13 @@ export enum UserStatus {
 export enum UserFlag {
     HackedAndRecovered = "recovered",
     Scammed = "scammed",
+    Locked = "locked",
 }
 
 const eligibleFlagsForStatus: Record<UserFlag, UserStatus[]> = {
     [UserFlag.HackedAndRecovered]: [UserStatus.Pending, UserStatus.Organic, UserStatus.Declined],
     [UserFlag.Scammed]: [UserStatus.Pending, UserStatus.Organic, UserStatus.Declined],
+    [UserFlag.Locked]: [UserStatus.Banned],
 };
 
 export interface UserDetails {
