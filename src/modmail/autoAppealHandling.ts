@@ -13,6 +13,7 @@ import { getAccountInitialEvaluationResults } from "../handleControlSubAccountEv
 import { getUserExtended } from "../extendedDevvit.js";
 import { statusToFlair } from "../postCreation.js";
 import { format } from "date-fns";
+import { getPossibleSetStatusValues } from "./controlSubModmail.js";
 
 const APPEAL_CONFIG_WIKI_PAGE = "appeal-config";
 const APPEAL_CONFIG_REDIS_KEY = "AppealConfig";
@@ -32,7 +33,7 @@ interface AppealConfig {
     "~bioRegex"?: string[];
     socialLinkRegex?: string[];
     "~socialLinkRegex"?: string[];
-    setStatus?: UserStatus;
+    setStatus?: string;
     privateReply?: string;
     reply?: string;
     archive?: boolean;
@@ -60,7 +61,7 @@ const appealConfigSchema: JSONSchemaType<AppealConfig[]> = {
             "~bioRegex": { type: "array", items: { type: "string" }, nullable: true },
             socialLinkRegex: { type: "array", items: { type: "string" }, nullable: true },
             "~socialLinkRegex": { type: "array", items: { type: "string" }, nullable: true },
-            setStatus: { type: "string", enum: Object.values(UserStatus), nullable: true },
+            setStatus: { type: "string", enum: getPossibleSetStatusValues(), nullable: true },
             privateReply: { type: "string", nullable: true },
             reply: { type: "string", nullable: true },
             archive: { type: "boolean", nullable: true },
@@ -73,7 +74,7 @@ const appealConfigSchema: JSONSchemaType<AppealConfig[]> = {
 
 interface AppealOutcome {
     name: string;
-    newStatus?: UserStatus;
+    newStatus?: string;
     privateReply?: string;
     reply?: string;
     archive?: boolean;
@@ -294,9 +295,12 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
     }
 
     if (appealOutcome.newStatus && userDetails.trackingPostId) {
+        const flairTemplateId = Object.values(UserStatus).includes(appealOutcome.newStatus as UserStatus) ? statusToFlair[appealOutcome.newStatus as UserStatus] : undefined;
+        const flairText = flairTemplateId === undefined ? appealOutcome.newStatus : undefined;
         await context.reddit.setPostFlair({
             postId: userDetails.trackingPostId,
-            flairTemplateId: statusToFlair[appealOutcome.newStatus],
+            flairTemplateId,
+            text: flairText,
             subredditName: CONTROL_SUBREDDIT,
         });
     }
