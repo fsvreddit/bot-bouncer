@@ -1,4 +1,4 @@
-import { Context, MenuItemOnPressEvent, JSONObject, FormOnSubmitEvent } from "@devvit/public-api";
+import { Context, MenuItemOnPressEvent, JSONObject, FormOnSubmitEvent, FormFunction } from "@devvit/public-api";
 import { CONTROL_SUBREDDIT } from "./constants.js";
 import { getPostOrCommentById, getUserOrUndefined, isModerator } from "./utility.js";
 import { getUserStatus } from "./dataStore.js";
@@ -8,6 +8,40 @@ import { subMonths } from "date-fns";
 import { getControlSubSettings } from "./settings.js";
 import { handleControlSubReportUser } from "./handleControlSubMenu.js";
 import { recordReportForDigest } from "./modmail/dailyDigest.js";
+import { canUserReceiveFeedback } from "./submissionFeedback.js";
+
+enum ReportFormField {
+    ReportContext = "reportContext",
+    PublicContext = "publicContext",
+    SendFeedback = "sendFeedback",
+}
+
+export const reportFormDefinition: FormFunction = data => ({
+    fields: [
+        {
+            type: "paragraph",
+            label: "Optional. Please provide more information that might help us understand why this is a bot",
+            helpText: "This is in case it is not obvious that this is a bot",
+            lineHeight: 4,
+            name: ReportFormField.ReportContext,
+        },
+        {
+            type: "boolean",
+            label: "Show the above text publicly on the post on r/BotBouncer",
+            helpText: "Your username will be kept private",
+            defaultValue: true,
+            name: ReportFormField.PublicContext,
+        },
+        {
+            type: "boolean",
+            label: "Receive a notification when this account is classified",
+            helpText: data.feedbackHelpText as string,
+            disabled: data.feedbackDisabled as boolean,
+            defaultValue: false,
+            name: ReportFormField.SendFeedback,
+        },
+    ],
+});
 
 export async function handleReportUser (event: MenuItemOnPressEvent, context: Context) {
     const target = await getPostOrCommentById(event.targetId, context);
@@ -52,12 +86,18 @@ export async function handleReportUser (event: MenuItemOnPressEvent, context: Co
         return;
     }
 
-    context.ui.showForm(reportForm);
+    const canReceiveFeedback = await canUserReceiveFeedback(currentUser.username, context);
+    const data = {
+        feedbackHelpText: canReceiveFeedback ? "You must be able to receive chat messages from /u/bot-bouncer to receive this notification" : "We've tried to send feedback for you several times but this hasn't worked. Check to make sure you can receive chats from /u/bot-bouncer. This option will return within 24h.",
+        feedbackDisabled: !canReceiveFeedback,
+    };
+
+    context.ui.showForm(reportForm, data);
 }
 
 export async function reportFormHandler (event: FormOnSubmitEvent<JSONObject>, context: Context) {
     const targetId = context.commentId ?? context.postId;
-    const publicContext = event.values.publicContext as boolean | undefined ?? true;
+    const publicContext = event.values[ReportFormField.PublicContext] as boolean | undefined ?? true;
     if (!targetId) {
         context.ui.showToast("Sorry, could not report user.");
         console.log("Error handling report form", context);
@@ -87,7 +127,7 @@ export async function reportFormHandler (event: FormOnSubmitEvent<JSONObject>, c
     }
 
     const currentUser = await context.reddit.getCurrentUser();
-    const reportContext = event.values.reportContext as string | undefined;
+    const reportContext = event.values[ReportFormField.ReportContext] as string | undefined;
 
     await Promise.all([
         addExternalSubmissionFromClientSub({
@@ -96,7 +136,7 @@ export async function reportFormHandler (event: FormOnSubmitEvent<JSONObject>, c
             reportContext,
             publicContext,
             targetId: target.id,
-            sendFeedback: event.values.sendFeedback as boolean | undefined,
+            sendFeedback: event.values[ReportFormField.SendFeedback] as boolean | undefined,
         }, "manual", context),
         recordReportForDigest(target.authorName, "manually", context.redis),
     ]);

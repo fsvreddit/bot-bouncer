@@ -1,5 +1,5 @@
 import { Comment, JobContext, Post, RedisClient, TriggerContext, TxClientLike } from "@devvit/public-api";
-import { addDays, addHours, addSeconds, format, subDays, subSeconds } from "date-fns";
+import { addDays, addHours, addSeconds, subDays, subSeconds } from "date-fns";
 import { CONTROL_SUB_CLEANUP_CRON, CONTROL_SUBREDDIT, PostFlairTemplate, UniversalJob } from "./constants.js";
 import { deleteUserStatus, getUserStatus, removeRecordOfSubmitterOrMod, updateAggregate, UserStatus, writeUserStatus } from "./dataStore.js";
 import { getUserOrUndefined } from "./utility.js";
@@ -174,7 +174,6 @@ export async function cleanupDeletedAccounts (_: unknown, context: JobContext) {
             if (latestActivity) {
                 // Store the latest activity date.
                 currentStatus.mostRecentActivity = latestActivity;
-                console.log(`Cleanup: ${username} last activity: ${format(latestActivity, "yyyy-MM-dd")}`);
                 await writeUserStatus(username, currentStatus, context.redis);
 
                 if (latestContent && new Date(latestContent) > subDays(new Date(), 14) && currentStatus.userStatus === UserStatus.Inactive) {

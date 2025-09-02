@@ -4,6 +4,7 @@ import json2md from "json2md";
 import { BIO_TEXT_STORE, UserDetails, UserStatus } from "../dataStore.js";
 import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
 import { max } from "lodash";
+import { StatsUserEntry } from "../sixHourlyJobs.js";
 
 interface BioRecord {
     lastSeen?: Date;
@@ -17,9 +18,9 @@ function appendedArray (existing: string[], newItems: string[]): string[] {
 
 type UserDetailsWithBio = UserDetails & { bio?: string };
 
-export async function updateBioStatistics (allEntries: [string, UserDetails][], context: JobContext) {
+export async function updateBioStatistics (allEntries: StatsUserEntry[], context: JobContext) {
     let recentData = allEntries
-        .map(([username, data]) => ({ username, data: data as UserDetailsWithBio }))
+        .map(item => ({ username: item.username, data: item.data as UserDetailsWithBio }))
         .filter(item => item.data.reportedAt && new Date(item.data.reportedAt) >= subWeeks(new Date(), 2))
         .filter(item => item.data.userStatus === UserStatus.Banned || item.data.lastStatus === UserStatus.Banned);
 

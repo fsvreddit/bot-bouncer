@@ -1,5 +1,5 @@
-import { SettingsFormField, TriggerContext, WikiPage, WikiPagePermissionLevel } from "@devvit/public-api";
-import { CONTROL_SUBREDDIT, ControlSubredditJob } from "./constants.js";
+import { SettingsFormField, TriggerContext, WikiPage } from "@devvit/public-api";
+import { CONTROL_SUBREDDIT } from "./constants.js";
 import Ajv, { JSONSchemaType } from "ajv";
 import { addHours } from "date-fns";
 import json2md from "json2md";
@@ -20,13 +20,6 @@ If this account is claiming to be human and isn't an obvious novelty account,
 we recommend asking the account owner to [message /r/${CONTROL_SUBREDDIT}](https://www.reddit.com/message/compose?to=/r/${CONTROL_SUBREDDIT}&subject=Ban%20dispute%20for%20/u/{account}%20on%20/r/{subreddit}).
 
 If this account is a bot that you wish to allow, remember to [allowlist](/r/${CONTROL_SUBREDDIT}/wiki/index) it before you unban it.`,
-
-    appealMessage: `Your classification appeal has been received and will be reviewed by a
-moderator. If accepted, the result of your appeal will apply to any subreddit using /r/${CONTROL_SUBREDDIT}.
-
-If Bot Bouncer has banned you from more than one subreddit, you don't need to appeal separately.
-
-*This is an automated message.*`,
 
     appealShadowbannedMessage: `Your classification appeal has been received. Unfortunately, it is not possible to review your request at this time because you have been shadowbanned by Reddit Admin, which prevents us from reviewing your account contents.
 
@@ -210,7 +203,6 @@ export interface ControlSubSettings {
 }
 
 const CONTROL_SUB_SETTINGS_WIKI_PAGE = "control-sub-settings";
-const OLD_CONTROL_SUB_SETTINGS_WIKI_PAGE = "controlsubsettings";
 
 const schema: JSONSchemaType<ControlSubSettings> = {
     type: "object",
@@ -245,11 +237,12 @@ export async function getControlSubSettings (context: TriggerContext): Promise<C
     const defaultConfig: ControlSubSettings = {
         evaluationDisabled: false,
         proactiveEvaluationEnabled: false,
-        postCreationQueueProcessingEnabled: true,
+        postCreationQueueProcessingEnabled: false,
         maxInactivityMonths: 3,
         trustedSubmitters: [],
         reporterBlacklist: [],
         numberOfWikiPages: 1,
+        cleanupDisabled: true,
     };
 
     let wikiPage: WikiPage | undefined;
@@ -332,52 +325,4 @@ export async function validateControlSubConfigChange (username: string, context:
 
     await context.redis.set(redisKey, wikiPage.revisionId);
     console.log("Control sub settings validated successfully");
-
-    await context.scheduler.runJob({
-        name: ControlSubredditJob.CopyControlSubSettings,
-        runAt: new Date(),
-    });
-}
-
-export async function copyControlSubSettingsToOldWiki (_: unknown, context: TriggerContext) {
-    if (context.subredditName !== CONTROL_SUBREDDIT) {
-        return;
-    }
-
-    let wikiPage: WikiPage;
-    try {
-        wikiPage = await context.reddit.getWikiPage(CONTROL_SUBREDDIT, CONTROL_SUB_SETTINGS_WIKI_PAGE);
-    } catch {
-        console.error("Failed to get control sub settings wiki page");
-        return;
-    }
-
-    let oldWikiPage: WikiPage;
-    try {
-        oldWikiPage = await context.reddit.getWikiPage(CONTROL_SUBREDDIT, OLD_CONTROL_SUB_SETTINGS_WIKI_PAGE);
-    } catch {
-        console.error("Failed to get old control sub settings wiki page");
-        return;
-    }
-
-    if (oldWikiPage.content.trim() === wikiPage.content.trim()) {
-        console.log("Control sub settings wiki page is already up to date");
-        return;
-    }
-
-    await context.reddit.updateWikiPage({
-        subredditName: CONTROL_SUBREDDIT,
-        page: OLD_CONTROL_SUB_SETTINGS_WIKI_PAGE,
-        content: wikiPage.content,
-        reason: "Updating overwritten control sub settings wiki page",
-    });
-
-    await context.reddit.updateWikiPageSettings({
-        subredditName: CONTROL_SUBREDDIT,
-        page: OLD_CONTROL_SUB_SETTINGS_WIKI_PAGE,
-        listed: false,
-        permLevel: WikiPagePermissionLevel.MODS_ONLY,
-    });
-
-    console.log("Control sub settings wiki page copied to old wiki page");
 }

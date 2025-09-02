@@ -1,11 +1,12 @@
 import { JobContext } from "@devvit/public-api";
-import { UserDetails, UserStatus } from "../dataStore.js";
+import { UserStatus } from "../dataStore.js";
 import { format, subDays } from "date-fns";
 import json2md from "json2md";
+import { StatsUserEntry } from "../sixHourlyJobs.js";
 
-export async function pendingUserFinder (allEntries: [string, UserDetails][], context: JobContext) {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const pendingUsersOverOneDay = allEntries.filter(([_, userDetails]) => userDetails.userStatus === UserStatus.Pending && userDetails.lastUpdate < subDays(new Date(), 2).getTime());
+export async function pendingUserFinder (allEntries: StatsUserEntry[], context: JobContext) {
+    const cutoff = subDays(new Date(), 2).getTime();
+    const pendingUsersOverOneDay = allEntries.filter(item => item.data.userStatus === UserStatus.Pending && (item.data.lastUpdate < cutoff || (item.data.reportedAt ?? 0 < cutoff)));
     if (pendingUsersOverOneDay.length === 0) {
         return;
     }
@@ -13,10 +14,10 @@ export async function pendingUserFinder (allEntries: [string, UserDetails][], co
     const modQueue = await context.reddit.getModQueue({
         subreddit: context.subredditName ?? await context.reddit.getCurrentSubredditName(),
         type: "post",
-        limit: 1000,
+        limit: 100,
     }).all();
 
-    const nonQueuedItems = pendingUsersOverOneDay.filter(item => !modQueue.some(queuedItem => queuedItem.id === item[1].trackingPostId));
+    const nonQueuedItems = pendingUsersOverOneDay.filter(item => !modQueue.some(queuedItem => queuedItem.id === item.data.trackingPostId));
     if (nonQueuedItems.length === 0) {
         return;
     }
@@ -33,11 +34,11 @@ export async function pendingUserFinder (allEntries: [string, UserDetails][], co
     ];
 
     const tableRows: string[][] = [];
-    for (const [username, userDetails] of nonQueuedItems) {
+    for (const item of nonQueuedItems) {
         tableRows.push([
-            `/u/${username}`,
-            `[link](https://redd.it/${userDetails.trackingPostId.substring(3)})`,
-            userDetails.reportedAt ? format(userDetails.reportedAt, "yyyy-MM-dd") : "",
+            `/u/${item.username}`,
+            `[link](https://redd.it/${item.data.trackingPostId.substring(3)})`,
+            item.data.reportedAt ? format(item.data.reportedAt, "yyyy-MM-dd") : "",
         ]);
     }
 

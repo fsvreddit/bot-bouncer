@@ -1,5 +1,6 @@
+/* eslint-disable @stylistic/quote-props */
 import { TriggerContext, WikiPage, WikiPagePermissionLevel } from "@devvit/public-api";
-import { BIO_TEXT_STORE, getFullDataStore, UserDetails, UserStatus } from "../dataStore.js";
+import { BIO_TEXT_STORE, getFullDataStore, UserDetails, UserFlag, UserStatus } from "../dataStore.js";
 import Ajv, { JSONSchemaType } from "ajv";
 import { fromPairs } from "lodash";
 import pluralize from "pluralize";
@@ -16,6 +17,8 @@ interface ModmailDataExtract {
     bioRegex?: string;
     evaluator?: string;
     hitReason?: string;
+    flags?: UserFlag[];
+    "~flags"?: UserFlag[];
     since?: string;
     format?: "json" | "table";
     recheck?: boolean;
@@ -56,6 +59,22 @@ const schema: JSONSchemaType<ModmailDataExtract> = {
             type: "string",
             nullable: true,
         },
+        flags: {
+            type: "array",
+            items: {
+                type: "string",
+                enum: Object.values(UserFlag),
+            },
+            nullable: true,
+        },
+        "~flags": {
+            type: "array",
+            items: {
+                type: "string",
+                enum: Object.values(UserFlag),
+            },
+            nullable: true,
+        },
         since: {
             type: "string",
             nullable: true,
@@ -81,6 +100,7 @@ interface FriendlyUserDetails {
     lastUpdate: string;
     submitter?: string;
     operator?: string;
+    flags?: UserFlag[];
     bioText?: string;
 }
 
@@ -92,6 +112,7 @@ function userDetailsToFriendly (details: UserDetails): FriendlyUserDetails {
         lastUpdate: format(new Date(details.lastUpdate), "yyyy-MM-dd"),
         submitter: details.submitter,
         operator: details.operator,
+        flags: details.flags,
         // eslint-disable-next-line @typescript-eslint/no-deprecated
         bioText: details.bioText,
     };
@@ -136,10 +157,11 @@ export async function dataExtract (message: string | undefined, conversationId: 
         return;
     }
 
-    if (!request.status && !request.submitter && !request.usernameRegex && !request.since) {
+    const atLeastOneRequiredFields = ["status", "submitter", "usernameRegex", "since", "flags"];
+    if (!atLeastOneRequiredFields.some(field => field in request)) {
         await context.reddit.modMail.reply({
             conversationId,
-            body: "Request is empty. Please provide at least one of the following fields: `status`, `submitter`, `usernameRegex`, `since`. `bioRegex` cannot be used on its own.",
+            body: `Request is empty. Please provide at least one of the following fields: ${atLeastOneRequiredFields.map(field => `\`${field}\``).join(", ")}. \`bioRegex\` cannot be used on its own.`,
             isAuthorHidden: false,
         });
         return;
@@ -178,6 +200,18 @@ export async function dataExtract (message: string | undefined, conversationId: 
 
             if (usernameRegex) {
                 if (!usernameRegex.test(entry.username)) {
+                    return false;
+                }
+            }
+
+            if (request.flags) {
+                if (!entry.data.flags || !request.flags.every(flag => entry.data.flags?.includes(flag))) {
+                    return false;
+                }
+            }
+
+            if (request["~flags"]) {
+                if (request["~flags"].some(flag => entry.data.flags?.includes(flag))) {
                     return false;
                 }
             }
@@ -264,6 +298,8 @@ export async function dataExtract (message: string | undefined, conversationId: 
         //
     }
 
+    const includeFlags = data.some(entry => entry.data.flags && entry.data.flags.length > 0);
+
     let content: string;
     if (request.format === "json") {
         const dataToExport = fromPairs(data.map(entry => [entry.username, userDetailsToFriendly(entry.data)]));
@@ -274,6 +310,9 @@ export async function dataExtract (message: string | undefined, conversationId: 
         ];
 
         const headers = ["User", "Tracking Post", "Status", "Reported At", "Last Update", "Submitter", "Operator"];
+        if (includeFlags) {
+            headers.push("Flags");
+        }
         if (request.bioRegex) {
             headers.push("Bio Text");
         }
@@ -291,6 +330,10 @@ export async function dataExtract (message: string | undefined, conversationId: 
                 userDetails.submitter ?? "",
                 userDetails.operator ?? "unknown",
             ];
+
+            if (includeFlags) {
+                row.push(userDetails.flags?.join(", ") ?? "");
+            }
 
             if (request.bioRegex) {
                 row.push(userDetails.bioText ?? "");

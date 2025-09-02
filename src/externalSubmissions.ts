@@ -5,8 +5,8 @@ import { ControlSubSettings, getControlSubSettings } from "./settings.js";
 import Ajv, { JSONSchemaType } from "ajv";
 import { addDays, addMinutes, addSeconds } from "date-fns";
 import { getPostOrCommentById } from "./utility.js";
-import { isLinkId } from "@devvit/shared-types/tid.js";
-import { AsyncSubmission, queuePostCreation } from "./postCreation.js";
+import { isLinkId } from "@devvit/public-api/types/tid.js";
+import { AsyncSubmission, PostCreationQueueResult, queuePostCreation } from "./postCreation.js";
 import pluralize from "pluralize";
 import { getUserExtended } from "./extendedDevvit.js";
 import { evaluateUserAccount, EvaluationResult, storeAccountInitialEvaluationResults, storeEvaluationStatistics } from "./handleControlSubAccountEvaluation.js";
@@ -199,22 +199,26 @@ export async function addExternalSubmissionToPostCreationQueue (item: ExternalSu
         removeComment: item.publicContext === false,
     };
 
-    await queuePostCreation(submission, context);
-    if (item.sendFeedback) {
-        await context.redis.set(`sendFeedback:${item.username}`, "true", { expiration: addDays(new Date(), 7) });
-    }
-    console.log(`External Submissions: Queued post creation for ${item.username}`);
+    const result = await queuePostCreation(submission, context);
+    if (result === PostCreationQueueResult.Queued) {
+        console.log(`External Submissions: Queued post creation for ${item.username}`);
+        if (item.sendFeedback) {
+            await context.redis.set(`sendFeedback:${item.username}`, "true", { expiration: addDays(new Date(), 7) });
+        }
 
-    if (item.evaluatorName) {
-        const evaluationResult = {
-            botName: item.evaluatorName,
-            hitReason: item.hitReason,
-            canAutoBan: true,
-            metThreshold: true,
-        } as EvaluationResult;
-        await storeAccountInitialEvaluationResults(item.username, [evaluationResult], context);
-    } else if (item.evaluationResults) {
-        await storeAccountInitialEvaluationResults(item.username, item.evaluationResults, context);
+        if (item.evaluatorName) {
+            const evaluationResult = {
+                botName: item.evaluatorName,
+                hitReason: item.hitReason,
+                canAutoBan: true,
+                metThreshold: true,
+            } as EvaluationResult;
+            await storeAccountInitialEvaluationResults(item.username, [evaluationResult], context);
+        } else if (item.evaluationResults) {
+            await storeAccountInitialEvaluationResults(item.username, item.evaluationResults, context);
+        }
+    } else {
+        console.log(`External Submissions: Post not queued for ${item.username} due to ${result}`);
     }
 
     return true;

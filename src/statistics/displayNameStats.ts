@@ -3,12 +3,13 @@ import { DISPLAY_NAME_STORE, UserDetails, UserStatus } from "../dataStore.js";
 import { subWeeks } from "date-fns";
 import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
 import json2md from "json2md";
+import { StatsUserEntry } from "../sixHourlyJobs.js";
 
 type UserDetailsWithDisplayName = UserDetails & { displayName?: string };
 
-export async function updateDisplayNameStatistics (allEntries: [string, UserDetails][], context: JobContext) {
+export async function updateDisplayNameStatistics (allEntries: StatsUserEntry[], context: JobContext) {
     let recentData = allEntries
-        .map(([username, data]) => ({ username, data: data as UserDetailsWithDisplayName }))
+        .map(item => ({ username: item.username, data: item.data as UserDetailsWithDisplayName }))
         .filter(item => item.data.reportedAt && new Date(item.data.reportedAt) >= subWeeks(new Date(), 2));
 
     const displayNames = await context.redis.hMGet(DISPLAY_NAME_STORE, recentData.map(item => item.username));

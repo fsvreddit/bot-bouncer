@@ -1,6 +1,7 @@
 import { Devvit, TriggerContext } from "@devvit/public-api";
 import * as protos from "@devvit/protos";
 import { UserAboutResponse } from "@devvit/protos/types/devvit/plugin/redditapi/users/users_msg.js";
+import { addMinutes } from "date-fns";
 
 export interface RedditAPIPlugins {
     NewModmail: protos.NewModmail;
@@ -49,12 +50,18 @@ export interface UserExtended {
 }
 
 export async function getUserExtended (username: string, context: TriggerContext): Promise<UserExtended | undefined> {
-    const rawUserData = await getRawUserData(username, context.debug.metadata);
+    const cachedUserExtendedKey = `userExtended~${username}`;
+    const cachedValue = await context.redis.get(cachedUserExtendedKey);
+    if (cachedValue) {
+        return JSON.parse(cachedValue) as UserExtended;
+    }
+
+    const rawUserData = await getRawUserData(username, context.metadata);
     if (!rawUserData?.data) {
         return;
     }
 
-    return {
+    const userExtendedVal = {
         createdAt: new Date((rawUserData.data.created ?? 0) * 1000),
         commentKarma: rawUserData.data.commentKarma ?? 0,
         displayName: rawUserData.data.subreddit?.title,
@@ -68,4 +75,7 @@ export async function getUserExtended (username: string, context: TriggerContext
         username: rawUserData.data.name ?? "",
         userDescription: rawUserData.data.subreddit?.publicDescription,
     };
+
+    await context.redis.set(cachedUserExtendedKey, JSON.stringify(userExtendedVal), { expiration: addMinutes(new Date(), 1) });
+    return userExtendedVal;
 }

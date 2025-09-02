@@ -1,4 +1,4 @@
-import { Post, Comment, TriggerContext, SettingsValues, JSONValue } from "@devvit/public-api";
+import { Post, Comment, TriggerContext, SettingsValues, JSONValue, UserSocialLink } from "@devvit/public-api";
 import { CommentCreate, CommentUpdate, PostCreate } from "@devvit/protos";
 import { ALL_EVALUATORS } from "@fsvreddit/bot-bouncer-evaluation";
 import { addDays, addWeeks, formatDate, subMinutes } from "date-fns";
@@ -8,7 +8,7 @@ import { CONTROL_SUBREDDIT } from "./constants.js";
 import { getPostOrCommentById, getUserOrUndefined, isApproved, isBanned, isModerator, replaceAll } from "./utility.js";
 import { ActionType, AppSetting, CONFIGURATION_DEFAULTS, getControlSubSettings } from "./settings.js";
 import { addExternalSubmissionFromClientSub } from "./externalSubmissions.js";
-import { isLinkId } from "@devvit/shared-types/tid.js";
+import { isLinkId } from "@devvit/public-api/types/tid.js";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { recordBanForDigest, recordReportForDigest } from "./modmail/dailyDigest.js";
 import { getUserExtended } from "./extendedDevvit.js";
@@ -43,7 +43,7 @@ export async function handleClientPostCreate (event: PostCreate, context: Trigge
     const post = await context.reddit.getPostById(event.post.id);
     let possibleBot = false;
     for (const Evaluator of ALL_EVALUATORS) {
-        const evaluator = new Evaluator(context, variables);
+        const evaluator = new Evaluator(context, undefined, variables);
         if (evaluator.evaluatorDisabled()) {
             continue;
         }
@@ -87,7 +87,7 @@ export async function handleClientCommentCreate (event: CommentCreate, context: 
 
     let possibleBot = false;
     for (const Evaluator of ALL_EVALUATORS) {
-        const evaluator = new Evaluator(context, variables);
+        const evaluator = new Evaluator(context, undefined, variables);
         if (evaluator.evaluatorDisabled()) {
             continue;
         }
@@ -144,7 +144,7 @@ export async function handleClientCommentUpdate (event: CommentUpdate, context: 
 
     let possibleBot = false;
     for (const Evaluator of ALL_EVALUATORS) {
-        const evaluator = new Evaluator(context, variables);
+        const evaluator = new Evaluator(context, undefined, variables);
         if (evaluator.evaluatorDisabled()) {
             continue;
         }
@@ -284,8 +284,10 @@ async function checkAndReportPotentialBot (username: string, target: Post | Comm
     let anyEvaluatorsChecked = false;
     let botName: string | undefined;
 
+    let socialLinks: UserSocialLink[] | undefined;
+
     for (const Evaluator of ALL_EVALUATORS) {
-        const evaluator = new Evaluator(context, variables);
+        const evaluator = new Evaluator(context, socialLinks, variables);
         if (evaluator.evaluatorDisabled()) {
             continue;
         }
@@ -301,6 +303,10 @@ async function checkAndReportPotentialBot (username: string, target: Post | Comm
         }
 
         const userEvalateResult = await Promise.resolve(evaluator.preEvaluateUser(user));
+        if (!socialLinks && evaluator.socialLinks) {
+            socialLinks = evaluator.socialLinks;
+        }
+
         if (!userEvalateResult) {
             continue;
         }
@@ -321,6 +327,10 @@ async function checkAndReportPotentialBot (username: string, target: Post | Comm
 
         anyEvaluatorsChecked = true;
         const evaluationResult = await Promise.resolve(evaluator.evaluate(user, userItems));
+        if (!socialLinks && evaluator.socialLinks) {
+            socialLinks = evaluator.socialLinks;
+        }
+
         if (evaluationResult) {
             isLikelyBot = true;
             botName = evaluator.name;
@@ -376,7 +386,10 @@ async function checkAndReportPotentialBot (username: string, target: Post | Comm
             );
         }
     } else if (actionToTake === ActionType.Report) {
-        promises.push(context.redis.set(`reported:${targetItem.id}`, "true", { expiration: addWeeks(new Date(), 2) }));
+        const isApprovedUser = await isApproved(user.username, context);
+        if (!isApprovedUser) {
+            promises.push(context.redis.set(`reported:${targetItem.id}`, "true", { expiration: addWeeks(new Date(), 2) }));
+        }
     }
 
     await Promise.all(promises);

@@ -53,11 +53,6 @@ async function addControlSubredditJobs (context: TriggerContext) {
         }),
 
         context.scheduler.runJob({
-            name: ControlSubredditJob.CopyControlSubSettings,
-            cron: "15 * * * *",
-        }),
-
-        context.scheduler.runJob({
             name: ControlSubredditJob.AsyncPostCreation,
             cron: "*/30 * * * * *",
         }),

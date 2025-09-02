@@ -9,9 +9,8 @@
     "test:unit": "vitest --run"
   },
   "dependencies": {
-    "@devvit/protos": "0.11.19",
-    "@devvit/public-api": "0.11.19",
-    "@devvit/shared-types": "0.11.19",
+    "@devvit/protos": "0.12.0",
+    "@devvit/public-api": "0.12.0",
     "@fsvreddit/bot-bouncer-evaluation": "github:fsvreddit/bot-bouncer-evaluation",
     "@types/json2md": "^1.5.4",
     "@types/lodash": "^4.17.13",
@@ -29,7 +28,8 @@
     "markdown-escape": "^2.0.0",
     "pako": "^2.1.0",
     "pluralize": "^8.0.0",
-    "semver": "^7.7.1"
+    "semver": "^7.7.1",
+    "yaml": "^2.8.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.10.0",

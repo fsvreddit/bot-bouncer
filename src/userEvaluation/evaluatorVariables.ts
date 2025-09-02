@@ -2,7 +2,7 @@ import { JobContext, JSONObject, JSONValue, ScheduledJobEvent, TriggerContext, W
 import { ALL_EVALUATORS, yamlToVariables } from "@fsvreddit/bot-bouncer-evaluation";
 import { CONTROL_SUBREDDIT } from "../constants.js";
 import { uniq } from "lodash";
-import { replaceAll, sendMessageToWebhook } from "../utility.js";
+import { sendMessageToWebhook } from "../utility.js";
 import json2md from "json2md";
 import { getControlSubSettings } from "../settings.js";
 import { EvaluateBotGroupAdvanced } from "@fsvreddit/bot-bouncer-evaluation/dist/userEvaluation/EvaluateBotGroupAdvanced.js";
@@ -70,8 +70,8 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
             subredditName: CONTROL_SUBREDDIT,
         }).all();
         const matchedMods: Record<string, string> = {};
-        for (const moderator of moderators.slice(0, 3)) {
-            const evaluator = new EvaluateBotGroupAdvanced(context, variables);
+        for (const moderator of moderators.filter(mod => !mod.username.startsWith(context.appName)).slice(0, 3)) {
+            const evaluator = new EvaluateBotGroupAdvanced(context, undefined, variables);
             const user = await getUserExtended(moderator.username, context);
             if (!user) {
                 console.warn(`Evaluator Variables: User ${moderator.username} not found, skipping.`);
@@ -83,12 +83,12 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
                 limit: 100,
             }).all();
             if (await evaluator.evaluate(user, userHistory)) {
-                matchedMods[moderator.username] = evaluator.hitReason ?? "No reason provided";
+                matchedMods[moderator.username] = evaluator.hitReasons?.join(", ") ?? "unknown reason";
             }
         }
         for (const [username, reason] of Object.entries(matchedMods)) {
-            invalidEntries.push(`Bot Group Advanced matched moderator ${username} with reason: ${reason}`);
-            console.log(`Evaluator Variables: Bot Group Advanced matched moderator ${username} with reason: ${JSON.stringify(reason)}`);
+            invalidEntries.push(`Bot Group Advanced matched moderator ${username} with reason(s): ${JSON.stringify(reason)}`);
+            console.log(`Evaluator Variables: Bot Group Advanced matched moderator ${username} with reason(s): ${JSON.stringify(reason)}`);
         }
     }
 
@@ -115,9 +115,8 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
                 const discordMessage: json2md.DataObject[] = [{ p: `${username} has updated the evaluator config, but there's an error! Please check and correct as soon as possible.` }];
                 discordMessage.push({ ul: invalidEntries });
                 discordMessage.push({ p: "Last known good values will be used until the issue is resolved." });
-                const messageToSend = replaceAll(replaceAll(json2md(discordMessage), "\n\n\n", "\n\n"), "\n\n", "\n");
-                console.log(JSON.stringify(messageToSend));
-                await sendMessageToWebhook(controlSubSettings.monitoringWebhook, messageToSend);
+                console.log(JSON.stringify(discordMessage));
+                await sendMessageToWebhook(controlSubSettings.monitoringWebhook, json2md(discordMessage));
             }
 
             await context.reddit.sendPrivateMessage({
@@ -182,7 +181,7 @@ export function invalidEvaluatorVariableCondition (variables: Record<string, JSO
 
     // Now check evaluator-specific validators
     for (const Evaluator of ALL_EVALUATORS) {
-        const evaluator = new Evaluator({} as unknown as TriggerContext, variables);
+        const evaluator = new Evaluator({} as unknown as TriggerContext, undefined, variables);
         const errors = evaluator.validateVariables();
         if (errors.length > 0) {
             results.push(...errors.map(r => `${evaluator.name}: ${r.length < 200 ? r : r.substring(0, 197) + "..."}`));

@@ -6,10 +6,10 @@ import { ClientSubredditJob, CONTROL_SUBREDDIT } from "./constants.js";
 import { addHours, addMinutes, addSeconds, addWeeks, startOfSecond, subDays, subHours, subWeeks } from "date-fns";
 import pluralize from "pluralize";
 import { getControlSubSettings } from "./settings.js";
-import { isCommentId, isLinkId } from "@devvit/shared-types/tid.js";
+import { isCommentId, isLinkId } from "@devvit/public-api/types/tid.js";
 import { deleteAccountInitialEvaluationResults } from "./handleControlSubAccountEvaluation.js";
 import json2md from "json2md";
-import { sendMessageToWebhook } from "./utility.js";
+import { getUserSocialLinks, sendMessageToWebhook } from "./utility.js";
 import { getUserExtended } from "./extendedDevvit.js";
 import { storeClassificationEvent } from "./statistics/classificationStatistics.js";
 import { queueReclassifications } from "./handleClientSubredditWikiUpdate.js";
@@ -40,6 +40,18 @@ export enum UserStatus {
     Inactive = "inactive",
 }
 
+export enum UserFlag {
+    HackedAndRecovered = "recovered",
+    Scammed = "scammed",
+    Locked = "locked",
+}
+
+const eligibleFlagsForStatus: Record<UserFlag, UserStatus[]> = {
+    [UserFlag.HackedAndRecovered]: [UserStatus.Pending, UserStatus.Organic, UserStatus.Declined],
+    [UserFlag.Scammed]: [UserStatus.Pending, UserStatus.Organic, UserStatus.Declined],
+    [UserFlag.Locked]: [UserStatus.Banned],
+};
+
 export interface UserDetails {
     trackingPostId: string;
     userStatus: UserStatus;
@@ -53,6 +65,7 @@ export interface UserDetails {
     */
     bioText?: string;
     mostRecentActivity?: number;
+    flags?: UserFlag[];
 }
 
 interface UserDetailsForWiki {
@@ -156,7 +169,14 @@ export async function setUserStatus (username: string, details: UserDetails, con
 
     const currentStatus = await getUserStatus(username, context);
 
-    if (currentStatus?.userStatus === UserStatus.Banned || currentStatus?.userStatus === UserStatus.Service || currentStatus?.userStatus === UserStatus.Organic) {
+    const statusesForLastStatusCopy = [
+        UserStatus.Banned,
+        UserStatus.Service,
+        UserStatus.Organic,
+        UserStatus.Declined,
+    ];
+
+    if (currentStatus?.userStatus && statusesForLastStatusCopy.includes(currentStatus.userStatus)) {
         details.lastStatus = currentStatus.userStatus;
     }
 
@@ -167,8 +187,12 @@ export async function setUserStatus (username: string, details: UserDetails, con
         details.mostRecentActivity = currentStatus.mostRecentActivity;
     }
 
-    if (currentStatus && details.userStatus === UserStatus.Purged) {
-        details.lastUpdate = currentStatus.lastUpdate;
+    if (details.flags && details.flags.length > 0) {
+        details.flags = details.flags.filter(flag => eligibleFlagsForStatus[flag].includes(details.userStatus));
+        if (details.flags.length === 0) {
+            console.log("User flags cleared due to new status.");
+            delete details.flags;
+        }
     }
 
     const txn = await context.redis.watch();
@@ -365,9 +389,10 @@ export async function updateWikiPage (_: unknown, context: JobContext) {
 
     await context.redis.del(WIKI_UPDATE_DUE);
 
-    console.log(`Wiki page has been updated with ${Object.keys(dataToWrite).length} entries, size: ${content.length.toLocaleString()} bytes`);
-
     const maxSupportedSize = MAX_WIKI_PAGE_SIZE * numberOfPages;
+
+    console.log(`Wiki page has been updated with ${Object.keys(dataToWrite).length} entries, ${content.length.toLocaleString()} bytes, ${Math.round(content.length / maxSupportedSize * 100)}%`);
+
     if (content.length > maxSupportedSize * 0.9) {
         const spaceAlertKey = "wikiSpaceAlert";
         const alertDone = await context.redis.exists(spaceAlertKey);
@@ -508,12 +533,9 @@ export async function removeRecordOfSubmitterOrMod (username: string, context: T
 }
 
 export async function storeInitialAccountProperties (username: string, context: TriggerContext) {
-    const [userExtended, user] = await Promise.all([
-        getUserExtended(username, context),
-        context.reddit.getUserByUsername(username),
-    ]);
+    const userExtended = await getUserExtended(username, context);
 
-    if (!userExtended || !user) {
+    if (!userExtended) {
         return;
     }
 
@@ -528,7 +550,7 @@ export async function storeInitialAccountProperties (username: string, context: 
         console.log(`Data Store: Stored display name for ${username}`);
     }
 
-    const socialLinks = await user.getSocialLinks();
+    const socialLinks = await getUserSocialLinks(username, context);
     if (socialLinks.length > 0) {
         promises.push(context.redis.hSet(SOCIAL_LINKS_STORE, { [username]: JSON.stringify(socialLinks) }));
         console.log(`Data Store: Stored social links for ${username}`);

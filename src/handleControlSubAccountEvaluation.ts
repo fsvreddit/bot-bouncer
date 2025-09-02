@@ -1,4 +1,4 @@
-import { Comment, JobContext, JSONObject, JSONValue, Post, ScheduledJobEvent, SubredditInfo, TriggerContext, TxClientLike } from "@devvit/public-api";
+import { Comment, JobContext, JSONObject, JSONValue, Post, ScheduledJobEvent, SubredditInfo, TriggerContext, TxClientLike, UserSocialLink } from "@devvit/public-api";
 import { ALL_EVALUATORS, UserEvaluatorBase } from "@fsvreddit/bot-bouncer-evaluation";
 import { getUserStatus, UserStatus } from "./dataStore.js";
 import { CONTROL_SUBREDDIT, PostFlairTemplate } from "./constants.js";
@@ -47,15 +47,20 @@ export async function evaluateUserAccount (username: string, variables: Record<s
     }
 
     let userItems: (Post | Comment)[] | undefined;
+    let socialLinks: UserSocialLink[] | undefined;
     const detectedBots: UserEvaluatorBase[] = [];
 
     for (const Evaluator of ALL_EVALUATORS) {
-        const evaluator = new Evaluator(context, variables);
+        const evaluator = new Evaluator(context, socialLinks, variables);
         if (evaluator.evaluatorDisabled()) {
             continue;
         }
 
         const userEvaluateResult = await Promise.resolve(evaluator.preEvaluateUser(user));
+        if (!socialLinks && evaluator.socialLinks) {
+            socialLinks = evaluator.socialLinks;
+        }
+
         if (!userEvaluateResult) {
             continue;
         }
@@ -76,14 +81,17 @@ export async function evaluateUserAccount (username: string, variables: Record<s
         let isABot;
         try {
             isABot = await Promise.resolve(evaluator.evaluate(user, userItems));
+            if (!socialLinks && evaluator.socialLinks) {
+                socialLinks = evaluator.socialLinks;
+            }
         } catch (error) {
             console.error(`Evaluator: ${username} threw an error during evaluation of ${evaluator.name}: ${error}`);
             return [];
         }
         if (isABot) {
             console.log(`Evaluator: ${username} appears to be a bot via the evaluator: ${evaluator.name} 💥`);
-            if (evaluator.name.includes("Bot Group")) {
-                console.log(`Evaluator: Hit reason: ${evaluator.hitReason}`);
+            if (evaluator.name.includes("Bot Group") && evaluator.hitReasons && evaluator.hitReasons.length > 0) {
+                console.log(`Evaluator: Hit reasons: ${evaluator.hitReasons.join(", ")}`);
             }
             detectedBots.push(evaluator);
         }
@@ -94,12 +102,22 @@ export async function evaluateUserAccount (username: string, variables: Record<s
     }
 
     const itemCount = userItems?.length ?? 0;
-    const results: EvaluationResult[] = detectedBots.map(bot => ({
-        botName: bot.name,
-        hitReason: bot.hitReason,
-        canAutoBan: bot.canAutoBan,
-        metThreshold: itemCount >= bot.banContentThreshold,
-    }));
+
+    const results: EvaluationResult[] = [];
+
+    for (const bot of detectedBots) {
+        const metThreshold = itemCount >= bot.banContentThreshold;
+        if (!bot.hitReasons || bot.hitReasons.length === 0) {
+            results.push({ botName: bot.name, canAutoBan: bot.canAutoBan, metThreshold });
+        } else {
+            results.push(...bot.hitReasons.map(hitReason => ({
+                botName: bot.name,
+                hitReason,
+                canAutoBan: bot.canAutoBan,
+                metThreshold,
+            })));
+        }
+    }
 
     if (storeStats) {
         await storeEvaluationStatistics(results, context);
@@ -182,7 +200,7 @@ export async function storeAccountInitialEvaluationResults (username: string, re
     }));
 
     const resultsKey = getEvaluationResultsKey(username);
-    await context.redis.set(resultsKey, JSON.stringify(resultsToStore), { expiration: addMonths(new Date(), 6) });
+    await context.redis.set(resultsKey, JSON.stringify(resultsToStore), { expiration: addMonths(new Date(), 12) });
 }
 
 export async function getAccountInitialEvaluationResults (username: string, context: TriggerContext): Promise<EvaluationResult[]> {

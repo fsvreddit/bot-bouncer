@@ -2,9 +2,16 @@ import { TriggerContext } from "@devvit/public-api";
 import { getUserStatus, UserStatus } from "./dataStore.js";
 import json2md from "json2md";
 import { CONTROL_SUBREDDIT } from "./constants.js";
-import { addMinutes } from "date-fns";
+import { addHours, addMinutes, subDays } from "date-fns";
 
 const FEEDBACK_QUEUE = "FeedbackQueue";
+const FAILED_FEEDBACK_STORE = "FailedFeedbackStore";
+const FAILED_FEEDBACK_WIKI_PAGE = "failed-feedback-users";
+
+interface FailedFeedbackItem {
+    firstFailed: number;
+    countFailed: number;
+}
 
 export async function queueSendFeedback (username: string, context: TriggerContext) {
     const feedbackRequested = await context.redis.exists(`sendFeedback:${username}`);
@@ -14,6 +21,15 @@ export async function queueSendFeedback (username: string, context: TriggerConte
 
     if (await context.redis.zScore(FEEDBACK_QUEUE, username)) {
         return;
+    }
+
+    const failedFeedbackItem = await context.redis.hGet(FAILED_FEEDBACK_STORE, username);
+    if (failedFeedbackItem) {
+        const parsedItem = JSON.parse(failedFeedbackItem) as FailedFeedbackItem;
+        if (parsedItem.countFailed >= 5) {
+            console.log(`Not sending feedback to ${username} as there have been ${parsedItem.countFailed} previous failures`);
+            return;
+        }
     }
 
     await context.redis.zAdd(FEEDBACK_QUEUE, { member: username, score: addMinutes(new Date(), 2).getTime() });
@@ -83,8 +99,63 @@ async function sendFeedback (username: string, submitter: string, operator: stri
 
         console.log(`Feedback sent to ${submitter} about ${username} being classified as ${userStatus} by ${operator}`);
     } catch (error) {
-        console.error(`Failed to send feedback to ${submitter}: ${error}`);
+        const existingFailedItem = await context.redis.hGet(FAILED_FEEDBACK_STORE, submitter);
+        let itemToStore: FailedFeedbackItem;
+        if (existingFailedItem) {
+            itemToStore = JSON.parse(existingFailedItem) as FailedFeedbackItem;
+            itemToStore.countFailed++;
+        } else {
+            itemToStore = { firstFailed: Date.now(), countFailed: 1 };
+        }
+
+        console.error(`Failed to send feedback to ${submitter}. Total failed now: ${itemToStore.countFailed}: ${error}`);
+
+        await context.redis.hSet(FAILED_FEEDBACK_STORE, { [submitter]: JSON.stringify(itemToStore) });
     }
 
     await context.redis.del(`sendFeedback:${username}`);
+}
+
+export async function updateFailedFeedbackStorage (context: TriggerContext) {
+    const failedFeedbackDataRaw = await context.redis.hGetAll(FAILED_FEEDBACK_STORE);
+    const itemsToRemoveFromStore: string[] = [];
+    const itemsToExcludeFromPage: string[] = [];
+
+    for (const [username, data] of Object.entries(failedFeedbackDataRaw)) {
+        const parsedData = JSON.parse(data) as FailedFeedbackItem;
+        if (parsedData.firstFailed < subDays(new Date(), 1).getTime()) {
+            itemsToRemoveFromStore.push(username);
+        }
+
+        if (parsedData.countFailed < 3) {
+            itemsToExcludeFromPage.push(username);
+        }
+    }
+
+    if (itemsToRemoveFromStore.length > 0) {
+        await context.redis.hDel(FAILED_FEEDBACK_STORE, itemsToRemoveFromStore);
+    }
+
+    const usernamesWithFailedFeedback = Object.keys(failedFeedbackDataRaw)
+        .filter(username => !itemsToRemoveFromStore.includes(username) && !itemsToExcludeFromPage.includes(username));
+
+    await context.reddit.updateWikiPage({
+        subredditName: CONTROL_SUBREDDIT,
+        page: FAILED_FEEDBACK_WIKI_PAGE,
+        content: JSON.stringify(usernamesWithFailedFeedback),
+    });
+}
+
+export async function canUserReceiveFeedback (username: string, context: TriggerContext): Promise<boolean> {
+    const redisKey = `canReceiveFeedback:${username}`;
+    const canReceiveValue = await context.redis.get(redisKey);
+    if (canReceiveValue) {
+        return JSON.parse(canReceiveValue) as boolean;
+    }
+
+    const wikiPage = await context.reddit.getWikiPage(CONTROL_SUBREDDIT, FAILED_FEEDBACK_WIKI_PAGE);
+    const usernamesWithFailedFeedback = JSON.parse(wikiPage.content) as string[];
+    const userCanReceiveFeedback = !usernamesWithFailedFeedback.includes(username);
+    await context.redis.set(redisKey, JSON.stringify(userCanReceiveFeedback), { expiration: addHours(new Date(), 6) });
+    return userCanReceiveFeedback;
 }
