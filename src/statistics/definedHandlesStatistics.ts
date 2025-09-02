@@ -217,6 +217,9 @@ async function buildDefinedHandlesWikiPage (context: JobContext) {
     wikiContent.push({ p: "Suggested handles for evaluation:" });
     wikiContent.push({ p: `\`${suggestedHandles}\`` });
 
+    wikiContent.push({ p: "Existing defined handles, sorted:" });
+    wikiContent.push({ p: `\`${existingDefinedHandles.map(entry => entry.handle).join("|")}\`` });
+
     await context.reddit.updateWikiPage({
         subredditName: context.subredditName ?? await context.reddit.getCurrentSubredditName(),
         page: "statistics/definedhandles",
