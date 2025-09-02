@@ -55,7 +55,7 @@ While you can unban the user yourself, this only affects the user on your subred
 
 # Change History
 
-## Next
+## v1.17.0
 
 * Disable "receive feedback" checkbox on report form if Bot Bouncer has failed to send messages several times, with user feedback to check settings.
 * Remove five obsolete evaluators
