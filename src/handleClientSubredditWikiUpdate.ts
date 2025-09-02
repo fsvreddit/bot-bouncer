@@ -4,7 +4,7 @@ import pluralize from "pluralize";
 import { getUserStatus, UserStatus } from "./dataStore.js";
 import { setCleanupForUser } from "./cleanup.js";
 import { ActionType, AppSetting, CONFIGURATION_DEFAULTS } from "./settings.js";
-import { isBanned, replaceAll } from "./utility.js";
+import { getUserOrUndefined, isApproved, isBanned, isModerator, replaceAll } from "./utility.js";
 import { CLIENT_SUB_WIKI_UPDATE_CRON_KEY, ClientSubredditJob } from "./constants.js";
 import { fromPairs } from "lodash";
 import { recordBanForDigest, recordUnbanForDigest, removeRecordOfBanForDigest } from "./modmail/dailyDigest.js";
@@ -119,6 +119,25 @@ async function handleSetBanned (username: string, subredditName: string, setting
 
     if (recentLocalContent.some(item => item.distinguishedBy)) {
         console.log(`Wiki Update: ${username} has distinguished content on ${subredditName}. Skipping.`);
+        return;
+    }
+
+    const user = await getUserOrUndefined(username, context);
+    if (user) {
+        const flair = await user.getUserFlairBySubreddit(subredditName);
+        if (flair?.flairCssClass?.toLowerCase().endsWith("proof")) {
+            console.log(`Wiki Update: ${user.username} is allowlisted via flair`);
+            return;
+        }
+    }
+
+    if (await isApproved(username, context)) {
+        console.log(`Wiki Update: ${username} is allowlisted as an approved user`);
+        return;
+    }
+
+    if (await isModerator(username, context)) {
+        console.log(`Wiki Update: ${username} is allowlisted as a moderator`);
         return;
     }
 

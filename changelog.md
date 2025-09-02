@@ -1,7 +1,8 @@
 # Changelog for Bot Bouncer
 
-## v1.17.0
+## v1.17.2
 
+* Fix issues that could result in allowlisted users being reported/banned in some situations
 * Disable "receive feedback" checkbox on report form if Bot Bouncer has failed to send messages several times, with user feedback to check settings.
 * Remove five obsolete evaluators
 * Improve efficiency of account evaluation code

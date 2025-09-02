@@ -386,7 +386,10 @@ async function checkAndReportPotentialBot (username: string, target: Post | Comm
             );
         }
     } else if (actionToTake === ActionType.Report) {
-        promises.push(context.redis.set(`reported:${targetItem.id}`, "true", { expiration: addWeeks(new Date(), 2) }));
+        const isApprovedUser = await isApproved(user.username, context);
+        if (!isApprovedUser) {
+            promises.push(context.redis.set(`reported:${targetItem.id}`, "true", { expiration: addWeeks(new Date(), 2) }));
+        }
     }
 
     await Promise.all(promises);
