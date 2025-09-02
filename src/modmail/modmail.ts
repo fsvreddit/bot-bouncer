@@ -52,6 +52,8 @@ export async function handleModmail (event: ModMail, context: TriggerContext) {
         return;
     }
 
+    await context.redis.set(messageHandledKey, "true", { expiration: addDays(new Date(), 1) });
+
     const modmail: ModmailMessage = {
         conversationId: event.conversationId,
         subject: conversationResponse.conversation.subject,
@@ -68,6 +70,4 @@ export async function handleModmail (event: ModMail, context: TriggerContext) {
     } else if (modmail.participant) {
         await handleClientSubredditModmail(modmail, context);
     }
-
-    await context.redis.set(messageHandledKey, "true", { expiration: addDays(new Date(), 1) });
 }
