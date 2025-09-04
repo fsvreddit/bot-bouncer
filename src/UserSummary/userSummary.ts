@@ -1,7 +1,7 @@
 import { Comment, JSONValue, Post, TriggerContext } from "@devvit/public-api";
 import { domainFromUrl, getUserSocialLinks, median, replaceAll } from "../utility.js";
 import { addMilliseconds, differenceInDays, differenceInHours, differenceInMilliseconds, differenceInMinutes, Duration, formatDuration, intervalToDuration, startOfDecade } from "date-fns";
-import { autogenRegex, femaleNameRegex, resemblesAutogen } from "./regexes.js";
+import { autogenRegex, resemblesAutogen } from "./regexes.js";
 import { compact, countBy, mean, uniq } from "lodash";
 import { count } from "@wordpress/wordcount";
 import { isUserPotentiallyBlockingBot } from "./blockChecker.js";
@@ -13,7 +13,7 @@ import { getAccountInitialEvaluationResults } from "../handleControlSubAccountEv
 import json2md from "json2md";
 import markdownEscape from "markdown-escape";
 import { ALL_EVALUATORS } from "@fsvreddit/bot-bouncer-evaluation";
-import { BIO_TEXT_STORE } from "../dataStore.js";
+import { BIO_TEXT_STORE, getUserStatus } from "../dataStore.js";
 
 function formatDifferenceInDates (start: Date, end: Date) {
     const units: (keyof Duration)[] = ["years", "months", "days"];
@@ -105,27 +105,6 @@ function minMaxAvg (numbers: number[]) {
         + `Median: ${mdn.toLocaleString()}`;
 }
 
-function femaleNameCheck (username: string) {
-    const matches = femaleNameRegex.exec(username);
-    if (matches && matches.length === 2) {
-        const [, name] = matches;
-        return `Username includes a female name (${name}), a common trait of bot accounts\n`;
-    }
-
-    // Now repeat the checks, taking out doubled-up letters one by one
-    for (let i = 0; i < username.length - 1; i++) {
-        if (username[i] !== username[i + 1]) {
-            continue;
-        }
-        const newUsername = username.slice(0, i) + username.slice(i + 1);
-        const newMatches = femaleNameRegex.exec(newUsername);
-        if (newMatches && newMatches.length === 2) {
-            const [, name] = newMatches;
-            return `Username includes a female name (${name}) with a doubled up letter, a common trait of bot accounts\n`;
-        }
-    }
-}
-
 function numberToBlock (input: number): string {
     switch (input) {
         case 0: return "";
@@ -196,6 +175,11 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
         `Subreddit Moderator: ${extendedUser.isModerator ? "Yes" : "No"}`,
     ];
 
+    const userStatus = await getUserStatus(username, context);
+    if (userStatus?.flags && userStatus.flags.length > 0) {
+        accountPropsBullets.push(`Account flags: ${userStatus.flags.join(", ")}`);
+    }
+
     const socialLinks = await getUserSocialLinks(username, context);
     const uniqueSocialDomains = compact(uniq(socialLinks.map(link => domainFromUrl(link.outboundUrl))));
     if (uniqueSocialDomains.length > 0) {
@@ -206,11 +190,6 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
         accountPropsBullets.push("Username matches autogen pattern");
     } else if (resemblesAutogen.test(extendedUser.username)) {
         accountPropsBullets.push("Username resembles autogen pattern, but uses different keywords");
-    } else {
-        const femaleNameSummaryLine = femaleNameCheck(extendedUser.username);
-        if (femaleNameSummaryLine) {
-            accountPropsBullets.push(femaleNameSummaryLine);
-        }
     }
 
     const userHasGold = extendedUser.isGold;
