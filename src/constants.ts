@@ -47,6 +47,7 @@ export enum ControlSubredditJob {
     PerformCleanupMaintenance = "performCleanupMaintenance",
     EvaluatorReversals = "evaluatorReversals",
     DeleteRecordsForRemovedUsers = "deleteRecordsForRemovedUsers",
+    HandleConfigWikiChange = "handleConfigWikiChange",
 }
 
 /**

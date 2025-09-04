@@ -6,7 +6,7 @@ import { handleInstallOrUpgrade } from "./installActions.js";
 import { handleControlSubFlairUpdate } from "./handleControlSubFlairUpdate.js";
 import { appSettings } from "./settings.js";
 import { cleanupDeletedAccounts } from "./cleanup.js";
-import { handleModAction } from "./handleModAction.js";
+import { handleConfigWikiChange, handleModAction } from "./handleModAction.js";
 import { handleModmail } from "./modmail/modmail.js";
 import { handleControlSubAccountEvaluation } from "./handleControlSubAccountEvaluation.js";
 import { handleReportUser, reportFormDefinition, reportFormHandler } from "./handleReportUser.js";
@@ -204,6 +204,11 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: ControlSubredditJob.DeleteRecordsForRemovedUsers,
     onRun: deleteRecordsForRemovedUsers,
+});
+
+Devvit.addSchedulerJob({
+    name: ControlSubredditJob.HandleConfigWikiChange,
+    onRun: handleConfigWikiChange,
 });
 
 /**
