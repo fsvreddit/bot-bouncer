@@ -1,16 +1,15 @@
 import { Devvit, FormField } from "@devvit/public-api";
-import { handleControlSubSubmission } from "./handleControlSubSubmission.js";
 import { updateLocalStoreFromWiki, updateWikiPage } from "./dataStore.js";
 import { ClientSubredditJob, CONTROL_SUBREDDIT, ControlSubredditJob, UniversalJob } from "./constants.js";
 import { handleInstallOrUpgrade } from "./installActions.js";
 import { handleControlSubFlairUpdate } from "./handleControlSubFlairUpdate.js";
 import { appSettings } from "./settings.js";
 import { cleanupDeletedAccounts } from "./cleanup.js";
-import { handleModAction } from "./handleModAction.js";
+import { handleConfigWikiChange, handleModAction } from "./handleModAction.js";
 import { handleModmail } from "./modmail/modmail.js";
 import { handleControlSubAccountEvaluation } from "./handleControlSubAccountEvaluation.js";
 import { handleReportUser, reportFormDefinition, reportFormHandler } from "./handleReportUser.js";
-import { handleClientCommentCreate, handleClientCommentUpdate, handleClientPostCreate } from "./handleClientPostOrComment.js";
+import { handleClientCommentUpdate } from "./handleClientPostOrComment.js";
 import { handleClassificationChanges } from "./handleClientSubredditWikiUpdate.js";
 import { handleControlSubPostDelete } from "./handleControlSubPostDelete.js";
 import { updateEvaluatorVariablesFromWikiHandler } from "./userEvaluation/evaluatorVariables.js";
@@ -28,6 +27,7 @@ import { processExternalSubmissionsFromObserverSubreddits } from "./externalSubm
 import { performCleanupMaintenance } from "./cleanupMaintenance.js";
 import { gatherDefinedHandlesStats, storeDefinedHandlesDataJob } from "./statistics/definedHandlesStatistics.js";
 import { deleteRecordsForRemovedUsers, evaluatorReversalsJob } from "./evaluatorReversals.js";
+import { handleCommentCreate, handlePostCreate } from "./handleContentCreation.js";
 
 Devvit.addSettings(appSettings);
 
@@ -38,17 +38,12 @@ Devvit.addTrigger({
 
 Devvit.addTrigger({
     event: "PostCreate",
-    onEvent: handleControlSubSubmission,
-});
-
-Devvit.addTrigger({
-    event: "PostCreate",
-    onEvent: handleClientPostCreate,
+    onEvent: handlePostCreate,
 });
 
 Devvit.addTrigger({
     event: "CommentCreate",
-    onEvent: handleClientCommentCreate,
+    onEvent: handleCommentCreate,
 });
 
 Devvit.addTrigger({
@@ -204,6 +199,11 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: ControlSubredditJob.DeleteRecordsForRemovedUsers,
     onRun: deleteRecordsForRemovedUsers,
+});
+
+Devvit.addSchedulerJob({
+    name: ControlSubredditJob.HandleConfigWikiChange,
+    onRun: handleConfigWikiChange,
 });
 
 /**
