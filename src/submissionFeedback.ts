@@ -111,6 +111,10 @@ async function sendFeedback (username: string, submitter: string, operator: stri
         console.error(`Failed to send feedback to ${submitter}. Total failed now: ${itemToStore.countFailed}: ${error}`);
 
         await context.redis.hSet(FAILED_FEEDBACK_STORE, { [submitter]: JSON.stringify(itemToStore) });
+
+        if (itemToStore.countFailed >= 3) {
+            await updateFailedFeedbackStorage(context);
+        }
     }
 
     await context.redis.del(`sendFeedback:${username}`);
