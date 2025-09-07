@@ -12,7 +12,7 @@ import { ModmailMessage } from "./modmail.js";
 import { getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
 import { getUserExtended } from "../extendedDevvit.js";
 import { statusToFlair } from "../postCreation.js";
-import { format } from "date-fns";
+import { format, getYear } from "date-fns";
 import { getPossibleSetStatusValues } from "./controlSubModmail.js";
 
 const APPEAL_CONFIG_WIKI_PAGE = "appeal-config";
@@ -187,7 +187,15 @@ async function getAppealConfig (context: TriggerContext): Promise<AppealConfig[]
 
 function formatPlaceholders (input: string, userDetails: UserDetails): string {
     let output = input;
-    output = replaceAll(output, "{{classificationdate}}", format(new Date(userDetails.reportedAt ?? userDetails.lastUpdate), "MMMM do"));
+    let dateFormat: string;
+    const date = new Date(userDetails.reportedAt ?? userDetails.lastUpdate);
+    if (getYear(date) !== getYear(new Date())) {
+        dateFormat = "MMMM do, yyyy";
+    } else {
+        dateFormat = "MMMM do";
+    }
+
+    output = replaceAll(output, "{{classificationdate}}", format(new Date(userDetails.reportedAt ?? userDetails.lastUpdate), dateFormat));
     return output;
 }
 
