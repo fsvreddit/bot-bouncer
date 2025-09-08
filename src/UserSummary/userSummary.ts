@@ -1,7 +1,6 @@
 import { Comment, JSONValue, Post, TriggerContext } from "@devvit/public-api";
 import { domainFromUrl, getUserSocialLinks, median, replaceAll } from "../utility.js";
-import { addMilliseconds, differenceInDays, differenceInHours, differenceInMilliseconds, differenceInMinutes, Duration, formatDuration, intervalToDuration, startOfDecade } from "date-fns";
-import { autogenRegex, resemblesAutogen } from "./regexes.js";
+import { addMilliseconds, differenceInDays, differenceInHours, differenceInMilliseconds, differenceInMinutes, Duration, format, formatDuration, intervalToDuration, startOfDecade } from "date-fns";
 import { compact, countBy, mean, uniq } from "lodash";
 import { count } from "@wordpress/wordcount";
 import { isUserPotentiallyBlockingBot } from "./blockChecker.js";
@@ -186,12 +185,6 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
         accountPropsBullets.push(`Social links: ${uniqueSocialDomains.length}`);
     }
 
-    if (autogenRegex.test(extendedUser.username)) {
-        accountPropsBullets.push("Username matches autogen pattern");
-    } else if (resemblesAutogen.test(extendedUser.username)) {
-        accountPropsBullets.push("Username resembles autogen pattern, but uses different keywords");
-    }
-
     const userHasGold = extendedUser.isGold;
     if (userHasGold) {
         accountPropsBullets.push("User has Reddit Premium");
@@ -308,6 +301,23 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
             }
 
             summary.push({ ul: hitsRows });
+        }
+    }
+
+    const allModNotes = await context.reddit.getModNotes({
+        user: username,
+        limit: 100,
+        subreddit: context.subredditName ?? await context.reddit.getCurrentSubredditName(),
+        filter: "NOTE",
+    }).all();
+
+    const relevantModNotes = allModNotes.filter(note => note.userNote?.note && note.operator.name && note.operator.name !== context.appName);
+
+    if (relevantModNotes.length > 0) {
+        summary.push({ h2: "Mod Notes" });
+        for (const note of relevantModNotes) {
+            summary.push({ p: `**${markdownEscape(note.operator.name ?? "unknown")}** on ${format(note.createdAt, "yyyy-MM-dd")}` });
+            summary.push({ blockquote: note.userNote?.note ?? "" });
         }
     }
 
