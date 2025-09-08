@@ -304,21 +304,25 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
         }
     }
 
-    const allModNotes = await context.reddit.getModNotes({
-        user: username,
-        limit: 100,
-        subreddit: context.subredditName ?? await context.reddit.getCurrentSubredditName(),
-        filter: "NOTE",
-    }).all();
+    try {
+        const allModNotes = await context.reddit.getModNotes({
+            user: username,
+            limit: 100,
+            subreddit: context.subredditName ?? await context.reddit.getCurrentSubredditName(),
+            filter: "NOTE",
+        }).all();
 
-    const relevantModNotes = allModNotes.filter(note => note.userNote?.note && note.operator.name && note.operator.name !== context.appName);
+        const relevantModNotes = allModNotes.filter(note => note.userNote?.note && note.operator.name && note.operator.name !== context.appName);
 
-    if (relevantModNotes.length > 0) {
-        summary.push({ h2: "Mod Notes" });
-        for (const note of relevantModNotes) {
-            summary.push({ p: `**${markdownEscape(note.operator.name ?? "unknown")}** on ${format(note.createdAt, "yyyy-MM-dd")}` });
-            summary.push({ blockquote: note.userNote?.note ?? "" });
+        if (relevantModNotes.length > 0) {
+            summary.push({ h2: "Mod Notes" });
+            for (const note of relevantModNotes) {
+                summary.push({ p: `**${markdownEscape(note.operator.name ?? "unknown")}** on ${format(note.createdAt, "yyyy-MM-dd")}` });
+                summary.push({ blockquote: note.userNote?.note ?? "" });
+            }
         }
+    } catch {
+        // This seems to fail a fair bit. Just ignore it if mod notes don't load.
     }
 
     if (userComments.length > 0) {
