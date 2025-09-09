@@ -144,7 +144,12 @@ async function handleModmailFromUser (modmail: ModmailMessage, context: TriggerC
 
     const currentStatus = await getUserStatus(username, context);
 
-    if (!currentStatus || currentStatus.userStatus === UserStatus.Pending) {
+    if (!currentStatus) {
+        await context.reddit.modMail.reply({
+            conversationId: modmail.conversationId,
+            body: "This user is not currently listed in the Bot Bouncer database. This may be a general enquiry, mistaken appeal or a third party appeal from another sub's mods.",
+            isInternal: true,
+        });
         return;
     }
 

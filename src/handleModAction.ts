@@ -1,10 +1,10 @@
-import { TriggerContext } from "@devvit/public-api";
+import { JobContext, JSONObject, ScheduledJobEvent, TriggerContext } from "@devvit/public-api";
 import { ModAction } from "@devvit/protos";
-import { CONTROL_SUBREDDIT, INTERNAL_BOT, UniversalJob } from "./constants.js";
+import { CONTROL_SUBREDDIT, ControlSubredditJob, INTERNAL_BOT, UniversalJob } from "./constants.js";
 import { recordWhitelistUnban, removeRecordOfBan } from "./handleClientSubredditWikiUpdate.js";
 import { handleExternalSubmissionsPageUpdate } from "./externalSubmissions.js";
 import { validateControlSubConfigChange } from "./settings.js";
-import { addDays } from "date-fns";
+import { addDays, addMinutes, addSeconds } from "date-fns";
 import { validateAndSaveAppealConfig } from "./modmail/autoAppealHandling.js";
 
 export async function handleModAction (event: ModAction, context: TriggerContext) {
@@ -49,6 +49,11 @@ async function handleModActionClientSub (event: ModAction, context: TriggerConte
     }
 }
 
+enum ConfigWikiPage {
+    AutoAppealHandling = "autoAppealHandling",
+    ControlSubSettings = "controlSubSettings",
+}
+
 async function handleModActionControlSub (event: ModAction, context: TriggerContext) {
     /**
      * When the wiki gets revised on the control subreddit, it may be because another
@@ -58,22 +63,56 @@ async function handleModActionControlSub (event: ModAction, context: TriggerCont
      * check that too.
      */
     if (event.action === "wikirevise" && event.moderator) {
-        const promises: Promise<unknown>[] = [];
-
         if (event.moderator.name === context.appName || event.moderator.name === INTERNAL_BOT) {
-            promises.push(handleExternalSubmissionsPageUpdate(context));
+            await handleExternalSubmissionsPageUpdate(context);
         }
 
         if (event.moderator.name !== context.appName && event.moderator.name !== INTERNAL_BOT) {
-            promises.push(validateControlSubConfigChange(event.moderator.name, context));
-            promises.push(validateAndSaveAppealConfig(event.moderator.name, context));
-            promises.push(context.scheduler.runJob({
-                name: UniversalJob.UpdateEvaluatorVariables,
-                runAt: new Date(),
-                data: { username: event.moderator.name },
-            }));
-        }
+            await Promise.all([
+                context.scheduler.runJob({
+                    name: UniversalJob.UpdateEvaluatorVariables,
+                    runAt: new Date(),
+                    data: { username: event.moderator.name },
+                }),
 
-        await Promise.all(promises);
+                queueConfigWikiCheck(ConfigWikiPage.AutoAppealHandling, 5, context),
+                queueConfigWikiCheck(ConfigWikiPage.ControlSubSettings, 10, context),
+            ]);
+        }
     }
+}
+
+async function queueConfigWikiCheck (configWikiPage: ConfigWikiPage, delay: number, context: JobContext) {
+    const redisKey = `configWikiQueued:${configWikiPage}`;
+    const alreadyQueued = await context.redis.exists(redisKey);
+    if (alreadyQueued) {
+        console.log(`handleConfigWikiChange: Another job is already queued for ${configWikiPage}, skipping this run.`);
+        return;
+    }
+
+    await context.redis.set(redisKey, "true", { expiration: addMinutes(new Date(), 1) });
+
+    await context.scheduler.runJob({
+        name: ControlSubredditJob.HandleConfigWikiChange,
+        runAt: addSeconds(new Date(), delay),
+        data: { page: configWikiPage },
+    });
+}
+
+export async function handleConfigWikiChange (event: ScheduledJobEvent<JSONObject>, context: JobContext) {
+    const configWikiPage = event.data.page as ConfigWikiPage;
+    const redisKey = `configWikiQueued:${configWikiPage}`;
+
+    switch (configWikiPage) {
+        case ConfigWikiPage.AutoAppealHandling:
+            await validateAndSaveAppealConfig(context.appName, context);
+            break;
+        case ConfigWikiPage.ControlSubSettings:
+            await validateControlSubConfigChange(context.appName, context);
+            break;
+        default:
+            console.error(`handleConfigWikiChange: Unknown config wiki page: ${configWikiPage}`);
+    }
+
+    await context.redis.del(redisKey);
 }

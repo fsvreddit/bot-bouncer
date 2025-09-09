@@ -26,7 +26,7 @@ export async function isModerator (username: string, context: TriggerContext, su
 
 export async function isApproved (username: string, context: TriggerContext) {
     const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
-    const approvedList = await context.reddit.getModerators({ subredditName, username }).all();
+    const approvedList = await context.reddit.getApprovedUsers({ subredditName, username }).all();
     return approvedList.length > 0;
 }
 

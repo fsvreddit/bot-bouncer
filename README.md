@@ -55,6 +55,11 @@ While you can unban the user yourself, this only affects the user on your subred
 
 # Change History
 
+## v1.17.15
+
+* Fix issues that could result in allowlisted users being reported/banned in some situations
+* Internal changes to support operations on /r/BotBouncer
+
 ## v1.17.2
 
 * Fix issues that could result in allowlisted users being reported/banned in some situations

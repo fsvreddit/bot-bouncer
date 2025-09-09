@@ -137,7 +137,7 @@ export async function updateSocialLinksStatistics (allEntries: StatsUserEntry[],
 
         if (bullets.length > 0) {
             wikiContent.push({ hr: {} });
-            wikiContent.push({ p: "The following links are in the Evaluator Configuration but have not been seen in the last two weeks:" });
+            wikiContent.push({ p: "The following links are in the Evaluator Configuration but have not been seen in the last four weeks:" });
             wikiContent.push({ ul: bullets });
         }
     }

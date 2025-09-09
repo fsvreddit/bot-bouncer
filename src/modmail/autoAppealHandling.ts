@@ -1,7 +1,7 @@
 /* eslint-disable @stylistic/quote-props */
 import { TriggerContext } from "@devvit/public-api";
 import Ajv, { JSONSchemaType } from "ajv";
-import { UserDetails, UserStatus } from "../dataStore.js";
+import { UserDetails, UserFlag, UserStatus } from "../dataStore.js";
 import { getControlSubSettings } from "../settings.js";
 import { CONTROL_SUBREDDIT } from "../constants.js";
 import { parseAllDocuments } from "yaml";
@@ -12,7 +12,7 @@ import { ModmailMessage } from "./modmail.js";
 import { getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
 import { getUserExtended } from "../extendedDevvit.js";
 import { statusToFlair } from "../postCreation.js";
-import { format } from "date-fns";
+import { format, getYear } from "date-fns";
 import { getPossibleSetStatusValues } from "./controlSubModmail.js";
 
 const APPEAL_CONFIG_WIKI_PAGE = "appeal-config";
@@ -33,6 +33,8 @@ interface AppealConfig {
     "~bioRegex"?: string[];
     socialLinkRegex?: string[];
     "~socialLinkRegex"?: string[];
+    flags?: UserFlag[];
+    "~flags"?: UserFlag[];
     setStatus?: string;
     privateReply?: string;
     reply?: string;
@@ -61,6 +63,8 @@ const appealConfigSchema: JSONSchemaType<AppealConfig[]> = {
             "~bioRegex": { type: "array", items: { type: "string" }, nullable: true },
             socialLinkRegex: { type: "array", items: { type: "string" }, nullable: true },
             "~socialLinkRegex": { type: "array", items: { type: "string" }, nullable: true },
+            flags: { type: "array", items: { type: "string", enum: Object.values(UserFlag) }, nullable: true },
+            "~flags": { type: "array", items: { type: "string", enum: Object.values(UserFlag) }, nullable: true },
             setStatus: { type: "string", enum: getPossibleSetStatusValues(), nullable: true },
             privateReply: { type: "string", nullable: true },
             reply: { type: "string", nullable: true },
@@ -183,7 +187,15 @@ async function getAppealConfig (context: TriggerContext): Promise<AppealConfig[]
 
 function formatPlaceholders (input: string, userDetails: UserDetails): string {
     let output = input;
-    output = replaceAll(output, "{{classificationdate}}", format(new Date(userDetails.reportedAt ?? userDetails.lastUpdate), "MMMM do"));
+    let dateFormat: string;
+    const date = new Date(userDetails.reportedAt ?? userDetails.lastUpdate);
+    if (getYear(date) !== getYear(new Date())) {
+        dateFormat = "MMMM do, yyyy";
+    } else {
+        dateFormat = "MMMM do";
+    }
+
+    output = replaceAll(output, "{{classificationdate}}", format(new Date(userDetails.reportedAt ?? userDetails.lastUpdate), dateFormat));
     return output;
 }
 
@@ -271,6 +283,18 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
 
         if (config["~socialLinkRegex"] && socialLinks.length > 0) {
             if (config["~socialLinkRegex"].some(regex => socialLinks.some(link => new RegExp(regex, "i").test(link.outboundUrl)))) {
+                return;
+            }
+        }
+
+        if (config.flags) {
+            if (!userDetails.flags || !config.flags.every(flag => userDetails.flags?.includes(flag))) {
+                return;
+            }
+        }
+
+        if (config["~flags"]) {
+            if (userDetails.flags && config["~flags"].some(flag => userDetails.flags?.includes(flag))) {
                 return;
             }
         }

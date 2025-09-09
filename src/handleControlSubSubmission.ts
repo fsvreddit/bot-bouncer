@@ -9,7 +9,7 @@ import { AsyncSubmission, PostCreationQueueResult, queuePostCreation } from "./p
 import { getUserExtended, UserExtended } from "./extendedDevvit.js";
 import json2md from "json2md";
 
-export async function handleControlSubSubmission (event: PostCreate, context: TriggerContext) {
+export async function handleControlSubPostCreate (event: PostCreate, context: TriggerContext) {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
         return;
     }
