@@ -31,6 +31,8 @@ export async function handleControlSubCommentCreate (event: CommentCreate, conte
         id: event.comment.id,
         text: json2md(replyText),
     });
+
+    await newComment.distinguish();
     await newComment.lock();
 
     console.log(`CommentCreate: Removed comment by banned user ${event.author.name} in ${CONTROL_SUBREDDIT}`);

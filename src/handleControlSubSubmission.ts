@@ -101,7 +101,7 @@ export async function handleControlSubPostCreate (event: PostCreate, context: Tr
                     comment: json2md([
                         { p: "Hi, thanks for your submission." },
                         { p: `The post tracking ${user.username} can be found [here]({{permalink}}).` },
-                        { p: `Your post has been removed, and can be deleted.` },
+                        { p: `Your post has been removed, and can be deleted. Consider reporting the account for Spam->Bots, as this may result in the account being suspended or shadowbanned.` },
                     ]),
                 },
                 immediate: true,
