@@ -63,7 +63,15 @@ export async function isUserWhitelisted (username: string, context: TriggerConte
 async function approveIfNotRemovedByMod (targetId: string, context: TriggerContext) {
     const removedByMod = await context.redis.exists(`removedbymod:${targetId}`);
     if (!removedByMod) {
-        await context.reddit.approve(targetId);
+        try {
+            await context.reddit.approve(targetId);
+        } catch (error) {
+            if (error instanceof Error) {
+                console.error(`Failed to approve ${targetId}:`, error.message);
+            } else {
+                console.error(`Failed to approve ${targetId}`);
+            }
+        }
     }
 }
 
