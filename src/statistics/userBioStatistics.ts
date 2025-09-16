@@ -75,14 +75,17 @@ export async function updateBioStatistics (allEntries: StatsUserEntry[], context
 
     const content: json2md.DataObject[] = [];
 
+    const notCoveredByEvaluatorData: json2md.DataObject[] = [];
+    const coveredByEvaluatorData: json2md.DataObject[] = [];
+
     content.push({ h1: "User Bio Text" });
     content.push({ h2: "Bio text used by more than one user in the last two weeks" });
     for (const record of reusedRecords) {
-        content.push({ blockquote: record.bioText });
+        const currentContent: json2md.DataObject[] = [];
+
+        currentContent.push({ blockquote: record.bioText });
         const listRows: string[] = [];
-        if (!configuredBioRegexes.some(regex => new RegExp(regex, "u").exec(record.bioText))) {
-            listRows.push("**Not in Evaluators**");
-        }
+
         listRows.push(
             `Last seen: ${record.record.lastSeen ? format(record.record.lastSeen, "MMM dd") : ""}`,
             `Distinct users: ${record.record.hits}`,
@@ -90,8 +93,28 @@ export async function updateBioStatistics (allEntries: StatsUserEntry[], context
         if (record.record.users) {
             listRows.push(`Example users: ${record.record.users.slice(-5).map(user => `u/${user}`).join(", ")}`);
         }
-        content.push({ ul: listRows });
-        content.push({ hr: {} });
+        currentContent.push({ ul: listRows });
+        currentContent.push({ hr: {} });
+
+        if (!configuredBioRegexes.some(regex => new RegExp(regex, "u").exec(record.bioText))) {
+            notCoveredByEvaluatorData.push(...currentContent);
+        } else {
+            coveredByEvaluatorData.push(...currentContent);
+        }
+    }
+
+    content.push({ h3: "Bio text not covered by Evaluator configuration" });
+    if (notCoveredByEvaluatorData.length === 0) {
+        content.push({ p: "None" });
+    } else {
+        content.push(...notCoveredByEvaluatorData);
+    }
+
+    content.push({ h3: "Bio text covered by Evaluator configuration" });
+    if (coveredByEvaluatorData.length === 0) {
+        content.push({ p: "None" });
+    } else {
+        content.push(...coveredByEvaluatorData);
     }
 
     if (configuredBioRegexes.length > 0) {

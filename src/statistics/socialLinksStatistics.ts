@@ -111,20 +111,40 @@ export async function updateSocialLinksStatistics (allEntries: StatsUserEntry[],
     if (records.length === 0) {
         wikiContent.push({ p: "No social links found more than once with a hit in the last four weeks." });
     } else {
-        const rows: string[][] = [];
-        const headers = ["Link", "In Evaluators", "Hit count", "First Seen", "Last Seen", "Example Users"];
+        const coveredByEvaluatorRows: string[][] = [];
+        const notCoveredByEvaluatorRows: string[][] = [];
+
+        const headers = ["Link", "Hit count", "First Seen", "Last Seen", "Example Users"];
 
         for (const record of records) {
-            rows.push([
+            const recordRow = [
                 record.link,
-                record.value.coveredByEvaluator ? "Yes" : "**No**",
                 record.value.hits.toLocaleString(),
                 record.value.firstSeen ? format(record.value.firstSeen, "MMM dd") : "",
                 record.value.lastSeen ? format(record.value.lastSeen, "MMM dd") : "",
                 uniq(record.value.usernames).map(username => `/u/${username}`).slice(-5).join(", "),
-            ]);
+            ];
+
+            if (record.value.coveredByEvaluator) {
+                coveredByEvaluatorRows.push(recordRow);
+            } else {
+                notCoveredByEvaluatorRows.push(recordRow);
+            }
         }
-        wikiContent.push({ table: { headers, rows } });
+
+        wikiContent.push({ h2: "Links not covered by Evaluator configuration" });
+        if (notCoveredByEvaluatorRows.length > 0) {
+            wikiContent.push({ table: { headers, rows: notCoveredByEvaluatorRows } });
+        } else {
+            wikiContent.push({ p: "None! Well done!" });
+        }
+
+        wikiContent.push({ h2: "Links covered by Evaluator configuration" });
+        if (coveredByEvaluatorRows.length > 0) {
+            wikiContent.push({ table: { headers, rows: coveredByEvaluatorRows } });
+        } else {
+            wikiContent.push({ p: "None!" });
+        }
     }
 
     if (configuredLinks.length > 0) {
