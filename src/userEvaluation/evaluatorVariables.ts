@@ -1,12 +1,13 @@
 import { JobContext, JSONObject, JSONValue, ScheduledJobEvent, TriggerContext, WikiPage } from "@devvit/public-api";
 import { ALL_EVALUATORS, yamlToVariables } from "@fsvreddit/bot-bouncer-evaluation";
-import { CONTROL_SUBREDDIT } from "../constants.js";
+import { CONTROL_SUBREDDIT, ControlSubredditJob } from "../constants.js";
 import { uniq } from "lodash";
 import { sendMessageToWebhook } from "../utility.js";
 import json2md from "json2md";
 import { getControlSubSettings } from "../settings.js";
 import { EvaluateBotGroupAdvanced } from "@fsvreddit/bot-bouncer-evaluation/dist/userEvaluation/EvaluateBotGroupAdvanced.js";
 import { getUserExtended } from "../extendedDevvit.js";
+import { addSeconds } from "date-fns";
 
 const EVALUATOR_VARIABLES_KEY = "evaluatorVariables";
 const EVALUATOR_VARIABLES_YAML_PAGE = "evaluator-config";
@@ -163,6 +164,11 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
             console.log(`Evaluator Variables: Updated wiki page on /r/${subreddit}`);
         }
     }
+
+    await context.scheduler.runJob({
+        name: ControlSubredditJob.ConditionalStatsUpdate,
+        runAt: addSeconds(new Date(), 10),
+    });
 }
 
 export function invalidEvaluatorVariableCondition (variables: Record<string, JSONValue>): string[] {

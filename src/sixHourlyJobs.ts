@@ -25,7 +25,7 @@ export interface StatsUserEntry {
     data: UserDetails;
 }
 
-async function getAllValues (context: TriggerContext) {
+export async function getAllValuesForStats (context: TriggerContext) {
     const allDataRaw = await getFullDataStore(context);
 
     const allEntries = Object.entries(allDataRaw)
@@ -43,7 +43,7 @@ export async function perform6HourlyJobs (_: unknown, context: JobContext) {
         return;
     }
 
-    const { allValues } = await getAllValues(context);
+    const { allValues } = await getAllValuesForStats(context);
 
     await Promise.all([
         context.scheduler.runJob({
@@ -89,7 +89,7 @@ export async function perform6HourlyJobs (_: unknown, context: JobContext) {
 }
 
 export async function perform6HourlyJobsPart2 (_: unknown, context: JobContext) {
-    const { allEntries } = await getAllValues(context);
+    const { allEntries } = await getAllValuesForStats(context);
     await Promise.all([
         updateUsernameStatistics(allEntries, context),
         updateDisplayNameStatistics(allEntries, context),
