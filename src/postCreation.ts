@@ -149,10 +149,15 @@ export async function queuePostCreation (submission: AsyncSubmission, context: T
     await txn.multi();
 
     try {
-        const alreadyInQueue = await context.redis.zScore(SUBMISSION_QUEUE, submission.user.username);
-        if (alreadyInQueue) {
+        const alreadyInQueueScore = await context.redis.zScore(SUBMISSION_QUEUE, submission.user.username);
+        if (alreadyInQueueScore) {
             console.log(`Post Creation: User ${submission.user.username} is already in the queue.`);
             await txn.discard();
+            if (submission.immediate) {
+                // If the new submission is immediate, we need to update the score to be sooner.
+                await context.redis.zAdd(SUBMISSION_QUEUE, { member: submission.user.username, score });
+                console.log(`Post Creation: Updated ${submission.user.username}'s position in the queue to be sooner.`);
+            }
             return PostCreationQueueResult.AlreadyInQueue;
         }
 
