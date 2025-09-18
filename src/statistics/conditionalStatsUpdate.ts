@@ -3,7 +3,7 @@ import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
 import { updateSocialLinksStatistics } from "./socialLinksStatistics.js";
 import { updateBioStatistics } from "./userBioStatistics.js";
 import { getAllValuesForStats, StatsUserEntry } from "../sixHourlyJobs.js";
-import { addHours } from "date-fns";
+import { addDays } from "date-fns";
 import { updateUsernameStatistics } from "./usernameStatistics.js";
 import { updateDisplayNameStatistics } from "./displayNameStats.js";
 import { updateDefinedHandlesStats } from "./definedHandlesStatistics.js";
@@ -81,6 +81,6 @@ export async function shouldUpdateStatistic (config: ConditionalStatsUpdateConfi
         return false;
     }
 
-    await context.redis.set(redisKey, JSON.stringify(currentConfig), { expiration: addHours(new Date(), 12) });
+    await context.redis.set(redisKey, JSON.stringify(currentConfig), { expiration: addDays(new Date(), 7) });
     return true;
 }
