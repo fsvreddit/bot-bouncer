@@ -37,8 +37,11 @@ export async function conditionalStatsUpdate (_: unknown, context: JobContext) {
     }
 
     if (configsToUpdate.length === 0) {
+        console.log("Conditional Stats Update: No statistics require updating.");
         return;
     }
+
+    console.log(`Conditional Stats Update: Preparing to update statistics for ${configsToUpdate.map(c => c.statName).join(", ")}.`);
 
     const { allEntries } = await getAllValuesForStats(context);
 
