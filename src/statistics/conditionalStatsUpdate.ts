@@ -77,7 +77,7 @@ export async function shouldUpdateStatistic (config: ConditionalStatsUpdateConfi
     const currentConfig = variables[config.variableKey] as string[] | undefined ?? [];
 
     const cachedEntries = await context.redis.get(redisKey);
-    if (JSON.stringify(cachedEntries) === JSON.stringify(currentConfig)) {
+    if (JSON.stringify(cachedEntries).trim() === JSON.stringify(currentConfig).trim()) {
         return false;
     }
 
