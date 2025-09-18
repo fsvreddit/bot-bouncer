@@ -4,6 +4,9 @@ import { updateSocialLinksStatistics } from "./socialLinksStatistics.js";
 import { updateBioStatistics } from "./userBioStatistics.js";
 import { getAllValuesForStats, StatsUserEntry } from "../sixHourlyJobs.js";
 import { addHours } from "date-fns";
+import { updateUsernameStatistics } from "./usernameStatistics.js";
+import { updateDisplayNameStatistics } from "./displayNameStats.js";
+import { updateDefinedHandlesStats } from "./definedHandlesStatistics.js";
 
 interface ConditionalStatsUpdateConfig {
     statName: string;
@@ -13,6 +16,16 @@ interface ConditionalStatsUpdateConfig {
 
 const STATUS_UPDATE_CONFIGS: ConditionalStatsUpdateConfig[] = [
     {
+        statName: "badUsernames",
+        variableKey: "badusername:regexes",
+        updateFunction: updateUsernameStatistics,
+    },
+    {
+        statName: "displayNames",
+        variableKey: "baddisplayname:regexes",
+        updateFunction: updateDisplayNameStatistics,
+    },
+    {
         statName: "socialLinks",
         variableKey: "sociallinks:badlinks",
         updateFunction: updateSocialLinksStatistics,
@@ -21,6 +34,11 @@ const STATUS_UPDATE_CONFIGS: ConditionalStatsUpdateConfig[] = [
         statName: "bioText",
         variableKey: "biotext:bantext",
         updateFunction: updateBioStatistics,
+    },
+    {
+        statName: "definedHandles",
+        variableKey: "substitutions:definedhandles",
+        updateFunction: updateDefinedHandlesStats,
     },
 ];
 
