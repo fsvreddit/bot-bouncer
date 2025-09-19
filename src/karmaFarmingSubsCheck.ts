@@ -226,8 +226,9 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
         processed += chunk.length;
     }
 
-    if (accounts.length > 0) {
-        console.log(`Karma Farming Subs: ${processed} checked, ${totalQueued - processed} ${pluralize("account", totalQueued - processed)} remaining to evaluate`);
+    const remaining = totalQueued - processed;
+    if (remaining > 0) {
+        console.log(`Karma Farming Subs: ${processed} checked, ${remaining} ${pluralize("account", remaining)} remaining to evaluate`);
         await context.scheduler.runJob({
             name: ControlSubredditJob.EvaluateKarmaFarmingSubs,
             runAt: new Date(),
