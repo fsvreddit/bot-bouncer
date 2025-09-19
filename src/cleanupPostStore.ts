@@ -1,7 +1,7 @@
 import { JobContext, JSONObject, Post, ScheduledJobEvent } from "@devvit/public-api";
 import { getUserStatus, POST_STORE, UserStatus } from "./dataStore.js";
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "./constants.js";
-import { addSeconds, subWeeks } from "date-fns";
+import { addSeconds, format, subWeeks } from "date-fns";
 import { statusToFlair } from "./postCreation.js";
 
 const POST_STORE_DUPLICATES_KEY = "PostStoreDuplicates";
@@ -10,7 +10,7 @@ async function queuePostStoreDuplicates (context: JobContext): Promise<boolean> 
     const postStoreDuplicatesLastRunKey = "PostStoreDuplicatesLastRun";
     const postStoreDuplicatesLastRun = await context.redis.get(postStoreDuplicatesLastRunKey);
     if (postStoreDuplicatesLastRun && new Date(parseInt(postStoreDuplicatesLastRun)) > subWeeks(new Date(), 2)) {
-        console.log("Post store duplicates: Skipping duplicate check, last run was less than 2 weeks ago.");
+        console.log(`Post store duplicates: Skipping duplicate check, last run was on ${format(parseInt(postStoreDuplicatesLastRun), "yyyy-MM-dd")}.`);
         return false;
     }
 
