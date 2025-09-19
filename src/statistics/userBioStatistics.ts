@@ -131,6 +131,7 @@ export async function updateBioStatistics (allEntries: StatsUserEntry[], context
         }
     }
 
+    console.log("Updating bio statistics wiki page");
     await context.reddit.updateWikiPage({
         subredditName: "botbouncer",
         page: "statistics/biotext",
