@@ -50,6 +50,7 @@ async function addControlSubredditJobs (context: TriggerContext) {
         context.scheduler.runJob({
             name: ControlSubredditJob.EvaluateKarmaFarmingSubs,
             cron: EVALUATE_KARMA_FARMING_SUBS_CRON,
+            data: { firstRun: true },
         }),
 
         context.scheduler.runJob({

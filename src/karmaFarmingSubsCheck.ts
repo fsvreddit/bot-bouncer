@@ -1,6 +1,6 @@
-import { JobContext, JSONValue, Post, TriggerContext, ZMember } from "@devvit/public-api";
+import { JobContext, JSONObject, JSONValue, Post, ScheduledJobEvent, TriggerContext, ZMember } from "@devvit/public-api";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
-import { chunk, compact, fromPairs, uniq } from "lodash";
+import { chunk, compact, uniq } from "lodash";
 import { CONTROL_SUBREDDIT, ControlSubredditJob, EVALUATE_KARMA_FARMING_SUBS_CRON } from "./constants.js";
 import { getAllKnownUsers, getUserStatus, UserDetails, UserStatus } from "./dataStore.js";
 import { evaluateUserAccount, storeAccountInitialEvaluationResults, userHasContinuousNSFWHistory } from "./handleControlSubAccountEvaluation.js";
@@ -33,7 +33,7 @@ async function getAccountsFromSub (subredditName: string, since: Date, context: 
 
     return {
         subredditName,
-        accounts: uniq(posts.filter(post => post.createdAt > since).map(post => post.authorName)),
+        accounts: uniq(posts.filter(post => post.createdAt > since && post.authorName !== "[deleted]").map(post => post.authorName)),
     };
 }
 
@@ -69,9 +69,9 @@ async function getDistinctAccounts (context: JobContext): Promise<string[]> {
     // Order subs by oldest first.
     subsWithDates.sort((a, b) => a.lastCheckDate.getTime() - b.lastCheckDate.getTime());
 
-    // Take top 150 subreddits.
+    // Take top 200 subreddits.
     const subsToCheck: Record<string, Date> = {};
-    for (const sub of subsWithDates.slice(0, 150)) {
+    for (const sub of subsWithDates.slice(0, 200)) {
         subsToCheck[sub.subredditName] = sub.lastCheckDate;
     }
 
@@ -149,7 +149,7 @@ async function evaluateAndHandleUser (username: string, variables: Record<string
     await storeAccountInitialEvaluationResults(username, evaluationResultsToStore, context);
 }
 
-const ACCOUNTS_QUEUED_KEY = "KarmaFarmingSubsAccountsQueued";
+const ACCOUNTS_QUEUED_KEY = "KarmaFarmingSubsAccountsQueue";
 
 async function isEvaluationDisabled (context: JobContext): Promise<boolean> {
     const controlSubSettings = await getControlSubSettings(context);
@@ -157,8 +157,7 @@ async function isEvaluationDisabled (context: JobContext): Promise<boolean> {
 }
 
 export async function queueKarmaFarmingAccounts (accounts: string[], context: TriggerContext | JobContext) {
-    const accountsData = fromPairs(accounts.map(account => [account, account]));
-    await context.redis.hSet(ACCOUNTS_QUEUED_KEY, accountsData);
+    await context.redis.zAdd(ACCOUNTS_QUEUED_KEY, ...accounts.map(username => ({ member: username, score: new Date().getTime() })));
 }
 
 export async function queueKarmaFarmingSubs (_: unknown, context: JobContext) {
@@ -179,7 +178,7 @@ export async function queueKarmaFarmingSubs (_: unknown, context: JobContext) {
     console.log(`Karma Farming Subs: Queued ${accounts.length} ${pluralize("account", accounts.length)} to evaluate, filtered ${filteredCount} ${pluralize("account", filteredCount)} already known to Bot Bouncer`);
 }
 
-export async function evaluateKarmaFarmingSubs (_: unknown, context: JobContext) {
+export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
     const nextScheduledRun = CronExpressionParser.parse(EVALUATE_KARMA_FARMING_SUBS_CRON).next().toDate();
     if (nextScheduledRun < addSeconds(new Date(), 45)) {
         console.log(`Karma Farming Subs: Next scheduled run is too soon, skipping this run.`);
@@ -187,28 +186,33 @@ export async function evaluateKarmaFarmingSubs (_: unknown, context: JobContext)
     }
 
     const runLimit = addSeconds(new Date(), 10);
+    const batchSize = 10;
 
-    const accounts = await context.redis.hKeys(ACCOUNTS_QUEUED_KEY);
+    const totalQueued = await context.redis.zCard(ACCOUNTS_QUEUED_KEY);
+
+    if (event.data?.firstRun) {
+        console.log(`Karma Farming Subs: First run in this batch, total queued: ${totalQueued}`);
+    }
+
+    const accounts = (await context.redis.zRange(ACCOUNTS_QUEUED_KEY, 0, batchSize - 1)).map(item => item.member);
     if (accounts.length === 0) {
         console.log("Karma Farming Subs: No accounts to evaluate.");
         return;
     }
 
-    console.log(`Karma Farming Subs: Starting evaluation of ${accounts.length} ${pluralize("account", accounts.length)}.`);
-
-    const chunkedAccounts = chunk(accounts, 5); // Only 5 concurrently at present.
-
     let processed = 0;
 
     const variables = await getEvaluatorVariables(context);
 
-    while (new Date() < runLimit && processed < 30) {
+    const chunkedAccounts = chunk(accounts, 5); // Only 5 concurrently at present.
+
+    while (new Date() < runLimit) {
         const chunk = chunkedAccounts.shift();
         if (!chunk || chunk.length === 0) {
             break;
         }
 
-        await context.redis.hDel(ACCOUNTS_QUEUED_KEY, chunk);
+        await context.redis.zRem(ACCOUNTS_QUEUED_KEY, chunk);
         await Promise.all(chunk.map(async (account) => {
             {
                 try {
@@ -223,7 +227,7 @@ export async function evaluateKarmaFarmingSubs (_: unknown, context: JobContext)
     }
 
     if (accounts.length > 0) {
-        console.log(`Karma Farming Subs: ${processed} checked, ${accounts.length} ${pluralize("account", accounts.length)} remaining to evaluate`);
+        console.log(`Karma Farming Subs: ${processed} checked, ${totalQueued - processed} ${pluralize("account", totalQueued - processed)} remaining to evaluate`);
         await context.scheduler.runJob({
             name: ControlSubredditJob.EvaluateKarmaFarmingSubs,
             runAt: new Date(),
