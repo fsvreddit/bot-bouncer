@@ -194,6 +194,8 @@ export async function evaluateKarmaFarmingSubs (_: unknown, context: JobContext)
         return;
     }
 
+    console.log(`Karma Farming Subs: Starting evaluation of ${accounts.length} ${pluralize("account", accounts.length)}.`);
+
     const chunkedAccounts = chunk(accounts, 5); // Only 5 concurrently at present.
 
     let processed = 0;
@@ -206,6 +208,7 @@ export async function evaluateKarmaFarmingSubs (_: unknown, context: JobContext)
             break;
         }
 
+        await context.redis.hDel(ACCOUNTS_QUEUED_KEY, chunk);
         await Promise.all(chunk.map(async (account) => {
             {
                 try {
@@ -217,8 +220,6 @@ export async function evaluateKarmaFarmingSubs (_: unknown, context: JobContext)
         }));
 
         processed += chunk.length;
-
-        await context.redis.hDel(ACCOUNTS_QUEUED_KEY, chunk);
     }
 
     if (accounts.length > 0) {
