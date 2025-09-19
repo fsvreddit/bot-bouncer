@@ -49,6 +49,7 @@ export enum ControlSubredditJob {
     DeleteRecordsForRemovedUsers = "deleteRecordsForRemovedUsers",
     HandleConfigWikiChange = "handleConfigWikiChange",
     ConditionalStatsUpdate = "conditionalStatsUpdate",
+    AsyncWikiUpdate = "asyncWikiUpdate",
 }
 
 /**

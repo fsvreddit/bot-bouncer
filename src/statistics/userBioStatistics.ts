@@ -1,10 +1,11 @@
-import { JobContext } from "@devvit/public-api";
+import { JobContext, UpdateWikiPageOptions } from "@devvit/public-api";
 import { format, subWeeks } from "date-fns";
 import json2md from "json2md";
 import { BIO_TEXT_STORE, UserDetails, UserStatus } from "../dataStore.js";
 import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
 import { max } from "lodash";
 import { StatsUserEntry } from "../sixHourlyJobs.js";
+import { ControlSubredditJob } from "../constants.js";
 
 interface BioRecord {
     lastSeen?: Date;
@@ -132,9 +133,16 @@ export async function updateBioStatistics (allEntries: StatsUserEntry[], context
     }
 
     console.log("Updating bio statistics wiki page");
-    await context.reddit.updateWikiPage({
+    const wikiUpdateData: UpdateWikiPageOptions = {
         subredditName: "botbouncer",
         page: "statistics/biotext",
         content: json2md(content),
+    };
+
+    console.log(`Queueing wiki update job for biotext stats`);
+    await context.scheduler.runJob({
+        name: ControlSubredditJob.AsyncWikiUpdate,
+        data: wikiUpdateData,
+        runAt: new Date(),
     });
 }
