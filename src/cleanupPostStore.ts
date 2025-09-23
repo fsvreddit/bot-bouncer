@@ -3,6 +3,7 @@ import { getUserStatus, POST_STORE, UserStatus } from "./dataStore.js";
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "./constants.js";
 import { addSeconds, format, subWeeks } from "date-fns";
 import { statusToFlair } from "./postCreation.js";
+import { chunk } from "lodash";
 
 const POST_STORE_DUPLICATES_KEY = "PostStoreDuplicates";
 
@@ -14,9 +15,24 @@ async function queuePostStoreDuplicates (context: JobContext): Promise<boolean> 
         return false;
     }
 
+    const postStoreKeys = await context.redis.hKeys(POST_STORE);
+    const postStoreChunks = chunk(postStoreKeys, 5000);
+
+    const postStore: Record<string, string> = {};
+
+    for (const chunk of postStoreChunks) {
+        const chunkData = await context.redis.hMGet(POST_STORE, chunk);
+        for (let i = 0; i < chunk.length; i++) {
+            const key = chunk[i];
+            const record = chunkData[i];
+            if (record) {
+                postStore[key] = record;
+            }
+        }
+    }
+
     await context.redis.set(postStoreDuplicatesLastRunKey, Date.now().toString());
 
-    const postStore = await context.redis.hGetAll(POST_STORE);
     const userPosts: Record<string, string[]> = {};
     const duplicateUserPosts: Record<string, string> = {};
 
