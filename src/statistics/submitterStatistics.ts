@@ -1,14 +1,17 @@
-import { JobContext, WikiPage, WikiPagePermissionLevel } from "@devvit/public-api";
+import { JobContext, TriggerContext, WikiPage, WikiPagePermissionLevel } from "@devvit/public-api";
 import { UserDetails, UserStatus } from "../dataStore.js";
 import { uniq } from "lodash";
 import { subMonths } from "date-fns";
 import json2md from "json2md";
+import { ZMember } from "@devvit/protos";
 
 interface SubmitterStatistic {
     submitter: string;
     count: number;
     ratio: number;
 }
+
+const SUBMITTER_SUCCESS_RATE_KEY = "SubmitterSuccessRate";
 
 export async function updateSubmitterStatistics (allStatuses: UserDetails[], context: JobContext) {
     const organicStatuses: Record<string, number> = {};
@@ -32,12 +35,18 @@ export async function updateSubmitterStatistics (allStatuses: UserDetails[], con
 
     const distinctUsers = uniq([...Object.keys(organicStatuses), ...Object.keys(bannedStatuses)]);
     const submitterStatistics: SubmitterStatistic[] = [];
+    const successRatesToStore: ZMember[] = [];
+
     for (const user of distinctUsers) {
         const organicCount = organicStatuses[user] ?? 0;
         const bannedCount = bannedStatuses[user] ?? 0;
         const totalCount = organicCount + bannedCount;
         const ratio = Math.round(100 * bannedCount / totalCount);
         submitterStatistics.push({ submitter: user, count: totalCount, ratio });
+
+        if (organicCount + bannedCount >= 5) {
+            successRatesToStore.push({ member: user, score: ratio });
+        }
     }
 
     const wikiContent: json2md.DataObject[] = [];
@@ -75,4 +84,13 @@ export async function updateSubmitterStatistics (allStatuses: UserDetails[], con
             permLevel: WikiPagePermissionLevel.MODS_ONLY,
         });
     }
+
+    await context.redis.del(SUBMITTER_SUCCESS_RATE_KEY);
+    if (successRatesToStore.length > 0) {
+        await context.redis.zAdd(SUBMITTER_SUCCESS_RATE_KEY, ...successRatesToStore);
+    }
+}
+
+export async function getSubmitterSuccessRate (submitter: string, context: TriggerContext): Promise<number | undefined> {
+    return await context.redis.zScore(SUBMITTER_SUCCESS_RATE_KEY, submitter);
 }

@@ -7,6 +7,7 @@ import { createUserSummary } from "./UserSummary/userSummary.js";
 import { addMonths, addWeeks, subMonths } from "date-fns";
 import { getUserExtended } from "./extendedDevvit.js";
 import { uniq } from "lodash";
+import { getSubmitterSuccessRate } from "./statistics/submitterStatistics.js";
 
 export interface EvaluatorStats {
     hitCount: number;
@@ -150,7 +151,7 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
     let reportReason: string | undefined;
 
     if (evaluationResults.length === 0) {
-        reportReason = "Not detected as a bot via evaluation, needs manual review.";
+        reportReason = "Needs manual review.";
     } else if (evaluationResults.every(result => !result.metThreshold)) {
         reportReason = `Possible bot via evaluation, but insufficient content: ${evaluationResults.map(result => result.botName).join(", ")}`;
     } else if (!evaluationResults.some(result => result.canAutoBan)) {
@@ -162,6 +163,10 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
     if (reportReason) {
         if (currentStatus?.submitter) {
             reportReason += ` Submitted by ${currentStatus.submitter}`;
+            const submitterSuccessRate = await getSubmitterSuccessRate(currentStatus.submitter, context);
+            if (submitterSuccessRate !== undefined) {
+                reportReason += ` (${submitterSuccessRate}%)`;
+            }
         }
         const post = await context.reddit.getPostById(postId);
         await context.reddit.report(post, { reason: reportReason });

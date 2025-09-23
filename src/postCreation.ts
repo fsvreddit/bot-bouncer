@@ -45,19 +45,6 @@ async function createNewSubmission (submission: AsyncSubmission, context: Trigge
         return;
     }
 
-    if (submission.details.submitter === "bot-sleuth-bot") {
-        const userHistory = await context.reddit.getCommentsAndPostsByUser({
-            username: submission.user.username,
-            sort: "new",
-            limit: 100,
-        }).all();
-
-        if (userHistory.length === 0) {
-            console.log(`Post Creation: bot-sleuth-bot submission for ${submission.user.username} is curating history, skipping post creation.`);
-            return;
-        }
-    }
-
     const postCreationLockKey = `postCreationLock:${submission.user.username}`;
     if (await context.redis.exists(postCreationLockKey)) {
         console.log(`Post Creation: User ${submission.user.username}'s lock already set.`);
