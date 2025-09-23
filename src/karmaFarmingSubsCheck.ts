@@ -180,7 +180,7 @@ export async function queueKarmaFarmingSubs (_: unknown, context: JobContext) {
 
 export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
     const nextScheduledRun = CronExpressionParser.parse(EVALUATE_KARMA_FARMING_SUBS_CRON).next().toDate();
-    if (nextScheduledRun < addSeconds(new Date(), 45)) {
+    if (nextScheduledRun < addSeconds(new Date(), 30)) {
         console.log(`Karma Farming Subs: Next scheduled run is too soon, skipping this run.`);
         return;
     }
