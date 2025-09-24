@@ -54,7 +54,10 @@ export async function getUserOrUndefined (username: string, context: TriggerCont
     let user: User | undefined;
     try {
         user = await context.reddit.getUserByUsername(username);
-    } catch {
+    } catch (err) {
+        if (context.userId === "t2_g0jld") {
+            console.log(`Error retrieving user ${username}:`, err);
+        }
         //
     }
     return user;

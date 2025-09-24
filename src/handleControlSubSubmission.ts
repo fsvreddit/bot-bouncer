@@ -55,7 +55,6 @@ export async function handleControlSubPostCreate (event: PostCreate, context: Tr
 
     if (!user && submissionResponse.length === 0) {
         submissionResponse.push({ p: `${username} appears to be deleted, suspended or shadowbanned already, so no post will be created for it.` });
-        submissionResponse.push({ p: `If you believe this is a mistake, please try once again and if that does not work, please [message the mods](https://www.reddit.com/message/compose/?to=/r/${CONTROL_SUBREDDIT}) with details of the user involved.` });
     }
 
     if (user?.username === event.author.name && submissionResponse.length === 0) {
