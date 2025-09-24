@@ -50,15 +50,14 @@ export function getPostOrCommentById (thingId: string, context: TriggerContext):
     }
 }
 
-export async function getUserOrUndefined (username: string, context: TriggerContext): Promise<User | undefined> {
+export async function getUserOrUndefined (username: string, context: TriggerContext, logError = false): Promise<User | undefined> {
     let user: User | undefined;
     try {
         user = await context.reddit.getUserByUsername(username);
     } catch (err) {
-        if (context.userId === "t2_g0jld") {
-            console.log(`Error retrieving user ${username}:`, err);
+        if (logError) {
+            console.error(`Error retrieving user ${username}:`, err);
         }
-        //
     }
     return user;
 }

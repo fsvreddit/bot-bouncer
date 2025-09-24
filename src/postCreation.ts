@@ -99,7 +99,11 @@ async function createNewSubmission (submission: AsyncSubmission, context: Trigge
         }
     }
 
-    await storeInitialAccountProperties(submission.user.username, context);
+    try {
+        await storeInitialAccountProperties(submission.user.username, context);
+    } catch (error) {
+        console.error(`Post Creation: Error storing initial account properties for user ${submission.user.username}.`, error);
+    }
 
     if (submission.details.userStatus !== UserStatus.Pending) {
         await queueSendFeedback(submission.user.username, context);

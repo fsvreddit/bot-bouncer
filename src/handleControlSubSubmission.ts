@@ -50,7 +50,7 @@ export async function handleControlSubPostCreate (event: PostCreate, context: Tr
 
     let user: User | undefined;
     if (username) {
-        user = await getUserOrUndefined(username, context);
+        user = await getUserOrUndefined(username, context, true);
     }
 
     if (!user && submissionResponse.length === 0) {
