@@ -16,6 +16,7 @@ import { handleBulkSubmission } from "./bulkSubmission.js";
 import { handleAppeal } from "./autoAppealHandling.js";
 import { FLAIR_MAPPINGS } from "../handleControlSubFlairUpdate.js";
 import { uniq } from "lodash";
+import { CHECK_DATE_KEY } from "../karmaFarmingSubsCheck.js";
 
 export function getPossibleSetStatusValues (): string[] {
     return uniq([...FLAIR_MAPPINGS.map(entry => entry.postFlair), ...Object.values(UserStatus)]);
@@ -43,6 +44,20 @@ export async function handleControlSubredditModmail (modmail: ModmailMessage, co
     if (modmail.bodyMarkdown.startsWith("!extract")) {
         await dataExtract(modmail.bodyMarkdown, modmail.conversationId, context);
         return;
+    }
+
+    const setDateRegex = /^!setdate ([A-Za-z0-9_-]+)(\d{4}-\d{2}-\d{2})/;
+    const setDateMatch = setDateRegex.exec(modmail.bodyMarkdown);
+    if (setDateMatch && setDateMatch.length === 3) {
+        const subredditName = setDateMatch[1];
+        const dateString = setDateMatch[2];
+        const date = new Date(dateString);
+        await context.redis.zAdd(CHECK_DATE_KEY, { score: date.getTime(), member: subredditName });
+        await context.reddit.modMail.reply({
+            conversationId: modmail.conversationId,
+            body: `Set the next check date for /r/${subredditName} to ${dateString}.`,
+            isInternal: true,
+        });
     }
 
     const addAllRegex = /^!addall(?: (banned))?/;

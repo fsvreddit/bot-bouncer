@@ -12,7 +12,7 @@ import pluralize from "pluralize";
 import json2md from "json2md";
 import { CronExpressionParser } from "cron-parser";
 
-const CHECK_DATE_KEY = "KarmaFarmingSubsCheckDates";
+export const CHECK_DATE_KEY = "KarmaFarmingSubsCheckDates";
 
 interface AccountsToCheck {
     subredditName: string;
