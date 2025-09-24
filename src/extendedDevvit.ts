@@ -1,4 +1,4 @@
-import { Devvit, TriggerContext } from "@devvit/public-api";
+import { Devvit, TriggerContext, User } from "@devvit/public-api";
 import * as protos from "@devvit/protos";
 import { UserAboutResponse } from "@devvit/protos/types/devvit/plugin/redditapi/users/users_msg.js";
 import { addMinutes } from "date-fns";
@@ -85,4 +85,28 @@ export async function getUserExtended (username: string, context: TriggerContext
 
     await context.redis.set(cachedUserExtendedKey, JSON.stringify(userExtendedVal), { expiration: addMinutes(new Date(), 1) });
     return userExtendedVal;
+}
+
+export async function getUserExtendedFromUser (user: User, context: TriggerContext): Promise<UserExtended> {
+    try {
+        const userExtended = await getUserExtended(user.username, context);
+        if (userExtended) {
+            return userExtended;
+        }
+    } catch {
+        //
+    }
+
+    return {
+        createdAt: user.createdAt,
+        commentKarma: user.commentKarma,
+        hasVerifiedEmail: user.hasVerifiedEmail,
+        id: user.id,
+        isAdmin: user.isAdmin,
+        isGold: false,
+        isModerator: false,
+        linkKarma: user.linkKarma,
+        nsfw: user.nsfw,
+        username: user.username,
+    };
 }

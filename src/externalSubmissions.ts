@@ -1,14 +1,14 @@
-import { JobContext, TriggerContext, WikiPage } from "@devvit/public-api";
+import { JobContext, TriggerContext, User, WikiPage } from "@devvit/public-api";
 import { CONTROL_SUBREDDIT, INTERNAL_BOT } from "./constants.js";
 import { addUserToTempDeclineStore, getUserStatus, setUserStatus, UserStatus } from "./dataStore.js";
 import { ControlSubSettings, getControlSubSettings } from "./settings.js";
 import Ajv, { JSONSchemaType } from "ajv";
 import { addDays, addMinutes, addSeconds } from "date-fns";
-import { getPostOrCommentById } from "./utility.js";
+import { getPostOrCommentById, getUserOrUndefined } from "./utility.js";
 import { isLinkId } from "@devvit/public-api/types/tid.js";
 import { AsyncSubmission, PostCreationQueueResult, queuePostCreation } from "./postCreation.js";
 import pluralize from "pluralize";
-import { getUserExtended, UserExtended } from "./extendedDevvit.js";
+import { getUserExtendedFromUser } from "./extendedDevvit.js";
 import { evaluateUserAccount, EvaluationResult, storeAccountInitialEvaluationResults, storeEvaluationStatistics } from "./handleControlSubAccountEvaluation.js";
 import json2md from "json2md";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
@@ -121,9 +121,9 @@ export async function addExternalSubmissionToPostCreationQueue (item: ExternalSu
         throw new Error("This function can only be called from the control subreddit.");
     }
 
-    let user: UserExtended | undefined;
+    let user: User | undefined;
     try {
-        user = await getUserExtended(item.username, context);
+        user = await getUserOrUndefined(item.username, context);
     } catch {
         console.log(`External Submissions: Error fetching data for ${item.username}, skipping.`);
         return false;
@@ -192,7 +192,7 @@ export async function addExternalSubmissionToPostCreationQueue (item: ExternalSu
     }
 
     const submission: AsyncSubmission = {
-        user,
+        user: await getUserExtendedFromUser(user, context),
         details: {
             userStatus: initialStatus,
             lastUpdate: new Date().getTime(),

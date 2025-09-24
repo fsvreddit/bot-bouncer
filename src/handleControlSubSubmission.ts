@@ -1,12 +1,12 @@
-import { TriggerContext } from "@devvit/public-api";
+import { TriggerContext, User } from "@devvit/public-api";
 import { PostCreate } from "@devvit/protos";
 import { CONTROL_SUBREDDIT } from "./constants.js";
-import { getUsernameFromUrl, isModerator } from "./utility.js";
+import { getUsernameFromUrl, getUserOrUndefined, isModerator } from "./utility.js";
 import { getUserStatus, UserDetails, UserStatus } from "./dataStore.js";
 import { subMonths } from "date-fns";
 import { getControlSubSettings } from "./settings.js";
 import { AsyncSubmission, PostCreationQueueResult, queuePostCreation } from "./postCreation.js";
-import { getUserExtended, UserExtended } from "./extendedDevvit.js";
+import { getUserExtendedFromUser } from "./extendedDevvit.js";
 import json2md from "json2md";
 
 export async function handleControlSubPostCreate (event: PostCreate, context: TriggerContext) {
@@ -48,13 +48,14 @@ export async function handleControlSubPostCreate (event: PostCreate, context: Tr
         submissionResponse.push({ p: `You are currently listed as a bot on r/${CONTROL_SUBREDDIT}, so we cannot accept submissions from you. Please [message the mods](https://www.reddit.com/message/compose/?to=/r/${CONTROL_SUBREDDIT}) if you believe this is a mistake` });
     }
 
-    let user: UserExtended | undefined;
+    let user: User | undefined;
     if (username) {
-        user = await getUserExtended(username, context);
+        user = await getUserOrUndefined(username, context);
     }
 
     if (!user && submissionResponse.length === 0) {
         submissionResponse.push({ p: `${username} appears to be deleted, suspended or shadowbanned already, so no post will be created for it.` });
+        submissionResponse.push({ p: `If you believe this is a mistake, please try once again and if that does not work, please [message the mods](https://www.reddit.com/message/compose/?to=/r/${CONTROL_SUBREDDIT}) with details of the user involved.` });
     }
 
     if (user?.username === event.author.name && submissionResponse.length === 0) {
@@ -94,7 +95,7 @@ export async function handleControlSubPostCreate (event: PostCreate, context: Tr
             };
 
             const submission: AsyncSubmission = {
-                user,
+                user: await getUserExtendedFromUser(user, context),
                 details: newDetails,
                 callback: {
                     postId: event.post.id,
