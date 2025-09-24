@@ -27,11 +27,18 @@ export function getExtendedDevvit (): ExtendedDevvit {
 }
 
 async function getRawUserData (username: string, metadata: protos.Metadata): Promise<UserAboutResponse | undefined> {
+    let userAboutResponse: UserAboutResponse | undefined;
+
     try {
-        return await getExtendedDevvit().redditAPIPlugins.Users.UserAbout({ username }, metadata);
-    } catch {
-        return undefined;
+        userAboutResponse = await getExtendedDevvit().redditAPIPlugins.Users.UserAbout({ username }, metadata);
+    } catch (error) {
+        if (error instanceof Error && (error.message.includes("404 Not Found") || error.message.includes("403 Forbidden"))) {
+            return;
+        }
+        throw error; // Rethrow the error if it's not a 404 or 403
     }
+
+    return userAboutResponse;
 }
 
 export interface UserExtended {
