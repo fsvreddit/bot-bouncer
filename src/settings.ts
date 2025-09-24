@@ -9,7 +9,7 @@ export const CONFIGURATION_DEFAULTS = {
 
 [I am a bot, and this action was performed automatically](/r/${CONTROL_SUBREDDIT}/wiki/index).
 If you wish to appeal the classification of the /u/{account} account, please
-[message /r/${CONTROL_SUBREDDIT}](https://www.reddit.com/message/compose?to=/r/${CONTROL_SUBREDDIT}&subject=Ban%20dispute%20for%20/u/{account}%20on%20/r/{subreddit})
+[message /r/${CONTROL_SUBREDDIT}](https://www.reddit.com/message/compose?to=/r/${CONTROL_SUBREDDIT}&subject=Ban%20dispute%20for%20/u/{account}%20on%20/r/{subreddit}&message=bot%20classifcation%20appeal)
 rather than replying to this message.`,
 
     banNote: "Banned by /u/{me} at {date}",
@@ -17,7 +17,7 @@ rather than replying to this message.`,
     noteClient: `/u/{account} is [listed on /r/${CONTROL_SUBREDDIT}]({link}).
 
 If this account is claiming to be human and isn't an obvious novelty account,
-we recommend asking the account owner to [message /r/${CONTROL_SUBREDDIT}](https://www.reddit.com/message/compose?to=/r/${CONTROL_SUBREDDIT}&subject=Ban%20dispute%20for%20/u/{account}%20on%20/r/{subreddit}).
+we recommend asking the account owner to [message /r/${CONTROL_SUBREDDIT}](https://www.reddit.com/message/compose?to=/r/${CONTROL_SUBREDDIT}&subject=Ban%20dispute%20for%20/u/{account}%20on%20/r/{subreddit}&message=bot%20classifcation%20appeal).
 
 If this account is a bot that you wish to allow, remember to [allowlist](/r/${CONTROL_SUBREDDIT}/wiki/index) it before you unban it.`,
 
