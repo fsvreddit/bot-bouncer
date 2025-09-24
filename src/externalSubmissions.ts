@@ -8,7 +8,7 @@ import { getPostOrCommentById } from "./utility.js";
 import { isLinkId } from "@devvit/public-api/types/tid.js";
 import { AsyncSubmission, PostCreationQueueResult, queuePostCreation } from "./postCreation.js";
 import pluralize from "pluralize";
-import { getUserExtended } from "./extendedDevvit.js";
+import { getUserExtended, UserExtended } from "./extendedDevvit.js";
 import { evaluateUserAccount, EvaluationResult, storeAccountInitialEvaluationResults, storeEvaluationStatistics } from "./handleControlSubAccountEvaluation.js";
 import json2md from "json2md";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
@@ -121,7 +121,14 @@ export async function addExternalSubmissionToPostCreationQueue (item: ExternalSu
         throw new Error("This function can only be called from the control subreddit.");
     }
 
-    const user = await getUserExtended(item.username, context);
+    let user: UserExtended | undefined;
+    try {
+        user = await getUserExtended(item.username, context);
+    } catch {
+        console.log(`External Submissions: Error fetching data for ${item.username}, skipping.`);
+        return false;
+    }
+
     if (!user) {
         console.log(`External Submissions: User ${item.username} is deleted or shadowbanned, skipping.`);
         return false;
