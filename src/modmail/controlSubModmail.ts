@@ -17,6 +17,7 @@ import { handleAppeal } from "./autoAppealHandling.js";
 import { FLAIR_MAPPINGS } from "../handleControlSubFlairUpdate.js";
 import { uniq } from "lodash";
 import { CHECK_DATE_KEY } from "../karmaFarmingSubsCheck.js";
+import { evaluateAccountFromModmail } from "./modmailEvaluaton.js";
 
 export function getPossibleSetStatusValues (): string[] {
     return uniq([...FLAIR_MAPPINGS.map(entry => entry.postFlair), ...Object.values(UserStatus)]);
@@ -80,6 +81,11 @@ export async function handleControlSubredditModmail (modmail: ModmailMessage, co
 
     if (!modmail.isInternal && modmail.messageAuthor !== context.appName) {
         await markAppealAsHandled(modmail, context);
+    }
+
+    if (modmail.bodyMarkdown.startsWith("!evaluate ")) {
+        await evaluateAccountFromModmail(modmail, context);
+        return;
     }
 
     if (modmail.participant && modmail.participant !== context.appName) {
