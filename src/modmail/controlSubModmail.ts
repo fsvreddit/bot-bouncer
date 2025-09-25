@@ -47,7 +47,7 @@ export async function handleControlSubredditModmail (modmail: ModmailMessage, co
         return;
     }
 
-    const setDateRegex = /^!setdate ([A-Za-z0-9_-]+)(\d{4}-\d{2}-\d{2})/;
+    const setDateRegex = /^!setdate ([A-Za-z0-9_-]+) (\d{4}-\d{2}-\d{2})/;
     const setDateMatch = setDateRegex.exec(modmail.bodyMarkdown);
     if (setDateMatch && setDateMatch.length === 3) {
         const subredditName = setDateMatch[1];
