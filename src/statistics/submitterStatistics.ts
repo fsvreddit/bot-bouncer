@@ -63,7 +63,7 @@ export async function updateSubmitterStatistics (allStatuses: UserDetails[], con
             item.submitter,
             item.count.toLocaleString(),
             `${item.ratio}%`,
-            controlSubSettings.trustedSubmitters.includes(item.submitter) ? "Yes" : "",
+            controlSubSettings.trustedSubmitters.includes(item.submitter) || item.submitter.startsWith(context.appName) ? "Yes" : "",
         ]);
 
     wikiContent.push({ table: { headers: ["Submitter", "Total Accounts", "Ratio", "Trusted"], rows: tableRows } });
