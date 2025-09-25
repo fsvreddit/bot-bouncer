@@ -55,9 +55,10 @@ While you can unban the user yourself, this only affects the user on your subred
 
 # Change History
 
-## v1.17.19
+## v1.18 (coming soon)
 
 * Fix issues that could result in ban appeals not being processed on subreddits using Bot Bouncer
+* Add option to add a mod note on accounts banned by Bot Bouncer
 * Internal changes to support operations on /r/BotBouncer
 
 ## v1.17.15
