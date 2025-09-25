@@ -67,24 +67,21 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
 
     if (invalidEntries.length === 0) {
         // Do a sanity check to ensure that nobody's done anything silly with Bot Group Advanced.
-        const moderators = await context.reddit.getModerators({
-            subredditName: CONTROL_SUBREDDIT,
-        }).all();
         const matchedMods: Record<string, string> = {};
-        for (const moderator of moderators.filter(mod => !mod.username.startsWith(context.appName)).slice(0, 3)) {
+        for (const moderator of ["fsv", "bot-bouncer", "NeedAGoodUsername"]) {
             const evaluator = new EvaluateBotGroupAdvanced(context, undefined, variables);
-            const user = await getUserExtended(moderator.username, context);
+            const user = await getUserExtended(moderator, context);
             if (!user) {
-                console.warn(`Evaluator Variables: User ${moderator.username} not found, skipping.`);
+                console.warn(`Evaluator Variables: User ${moderator} not found, skipping.`);
                 continue;
             }
             const userHistory = await context.reddit.getCommentsAndPostsByUser({
-                username: moderator.username,
+                username: moderator,
                 sort: "new",
                 limit: 100,
             }).all();
             if (await evaluator.evaluate(user, userHistory)) {
-                matchedMods[moderator.username] = evaluator.hitReasons?.join(", ") ?? "unknown reason";
+                matchedMods[moderator] = evaluator.hitReasons?.join(", ") ?? "unknown reason";
             }
         }
         for (const [username, reason] of Object.entries(matchedMods)) {
