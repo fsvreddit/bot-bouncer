@@ -217,19 +217,7 @@ async function handleModmailFromUser (modmail: ModmailMessage, context: TriggerC
 
     await storeKeyForAppeal(modmail.conversationId, context);
 
-    const post = await context.reddit.getPostById(currentStatus.trackingPostId);
-
-    const message: json2md.DataObject[] = [
-        { p: `/u/${username} is currently listed as ${currentStatus.userStatus}, set by ${currentStatus.operator} at ${new Date(currentStatus.lastUpdate).toUTCString()} and reported by ${currentStatus.submitter ?? "unknown"}` },
-        { link: { title: "Link to submission", source: `https://www.reddit.com${post.permalink}` } },
-    ];
-
-    if (currentStatus.userStatus === UserStatus.Banned || currentStatus.userStatus === UserStatus.Purged) {
-        const userSummary = await getSummaryForUser(username, "modmail", context);
-        if (userSummary) {
-            message.push(userSummary);
-        }
-    }
+    const message = await getSummaryForUser(username, "modmail", context);
 
     const modmailStrings = markdownToText(message);
 
@@ -288,11 +276,7 @@ export async function deleteKeyForAppeal (conversationId: string, context: Trigg
 }
 
 async function addSummaryForUser (conversationId: string, username: string, context: TriggerContext) {
-    const userSummary = await getSummaryForUser(username, "modmail", context);
-    const shadowbannedSummary: json2md.DataObject[] = [
-        { p: "No summary available, user may be shadowbanned." },
-    ];
-    const messageText = userSummary ?? shadowbannedSummary;
+    const messageText = await getSummaryForUser(username, "modmail", context);
 
     const modmailStrings = markdownToText(messageText);
 
