@@ -161,7 +161,7 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
     }
 
     if (reportReason) {
-        if (currentStatus?.submitter) {
+        if (currentStatus?.submitter && !currentStatus.submitter.startsWith(context.appName)) {
             reportReason += ` Submitted by ${currentStatus.submitter}`;
             const submitterSuccessRate = await getSubmitterSuccessRate(currentStatus.submitter, context);
             if (submitterSuccessRate !== undefined) {
