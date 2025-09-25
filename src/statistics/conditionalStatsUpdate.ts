@@ -10,34 +10,34 @@ import { updateDefinedHandlesStats } from "./definedHandlesStatistics.js";
 
 interface ConditionalStatsUpdateConfig {
     statName: string;
-    variableKey: string;
+    variableKeys: string[];
     updateFunction: (allEntries: StatsUserEntry[], context: JobContext) => Promise<void>;
 }
 
 const STATUS_UPDATE_CONFIGS: ConditionalStatsUpdateConfig[] = [
     {
         statName: "badUsernames",
-        variableKey: "badusername:regexes",
+        variableKeys: ["badusername:regexes"],
         updateFunction: updateUsernameStatistics,
     },
     {
         statName: "displayNames",
-        variableKey: "baddisplayname:regexes",
+        variableKeys: ["baddisplayname:regexes"],
         updateFunction: updateDisplayNameStatistics,
     },
     {
         statName: "socialLinks",
-        variableKey: "sociallinks:badlinks",
+        variableKeys: ["sociallinks:badlinks", "sociallinks:ignored"],
         updateFunction: updateSocialLinksStatistics,
     },
     {
         statName: "bioText",
-        variableKey: "biotext:bantext",
+        variableKeys: ["biotext:bantext"],
         updateFunction: updateBioStatistics,
     },
     {
         statName: "definedHandles",
-        variableKey: "substitutions:definedhandles",
+        variableKeys: ["substitutions:definedhandles"],
         updateFunction: updateDefinedHandlesStats,
     },
 ];
@@ -74,7 +74,11 @@ export async function conditionalStatsUpdate (_: unknown, context: JobContext) {
 
 export async function shouldUpdateStatistic (config: ConditionalStatsUpdateConfig, variables: Record<string, JSONValue>, context: JobContext): Promise<boolean> {
     const redisKey = `${config.statName}ConfigCached`;
-    const currentConfig = variables[config.variableKey] as string[] | undefined ?? [];
+    const currentConfig: Record<string, unknown> = {};
+
+    for (const key of config.variableKeys) {
+        currentConfig[key] = variables[key];
+    }
 
     const cachedEntries = await context.redis.get(redisKey);
     if (cachedEntries === JSON.stringify(currentConfig)) {

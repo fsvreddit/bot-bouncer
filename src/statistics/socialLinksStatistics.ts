@@ -65,6 +65,7 @@ export async function updateSocialLinksStatistics (allEntries: StatsUserEntry[],
 
     const evaluatorVariables = await getEvaluatorVariables(context);
     const configuredLinks = evaluatorVariables["sociallinks:badlinks"] as string[] | undefined ?? [];
+    const ignoredLinks = evaluatorVariables["sociallinks:ignored"] as string[] | undefined ?? [];
 
     const socialLinksCounts: Record<string, SocialLinksEntry> = {};
     for (const item of recentData) {
@@ -128,7 +129,9 @@ export async function updateSocialLinksStatistics (allEntries: StatsUserEntry[],
             if (record.value.coveredByEvaluator) {
                 coveredByEvaluatorRows.push(recordRow);
             } else {
-                notCoveredByEvaluatorRows.push(recordRow);
+                if (!ignoredLinks.some(ignoredLink => new RegExp(ignoredLink).test(record.link))) {
+                    notCoveredByEvaluatorRows.push(recordRow);
+                }
             }
         }
 
