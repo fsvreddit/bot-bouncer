@@ -11,17 +11,6 @@ export async function pendingUserFinder (allEntries: StatsUserEntry[], context: 
         return;
     }
 
-    const modQueue = await context.reddit.getModQueue({
-        subreddit: context.subredditName ?? await context.reddit.getCurrentSubredditName(),
-        type: "post",
-        limit: 100,
-    }).all();
-
-    const nonQueuedItems = pendingUsersOverOneDay.filter(item => !modQueue.some(queuedItem => queuedItem.id === item.data.trackingPostId));
-    if (nonQueuedItems.length === 0) {
-        return;
-    }
-
     const lastReportSentKey = "pendingUsersReportSent";
     const lastReportVal = await context.redis.get(lastReportSentKey);
     if (lastReportVal && parseInt(lastReportVal, 10) > subDays(new Date(), 1).getTime()) {
@@ -34,7 +23,7 @@ export async function pendingUserFinder (allEntries: StatsUserEntry[], context: 
     ];
 
     const tableRows: string[][] = [];
-    for (const item of nonQueuedItems) {
+    for (const item of pendingUsersOverOneDay) {
         tableRows.push([
             `/u/${item.username}`,
             `[link](https://redd.it/${item.data.trackingPostId.substring(3)})`,
