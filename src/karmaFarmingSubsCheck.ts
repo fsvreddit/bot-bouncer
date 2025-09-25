@@ -1,6 +1,6 @@
 import { JobContext, JSONObject, JSONValue, Post, ScheduledJobEvent, TriggerContext, ZMember } from "@devvit/public-api";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
-import { chunk, compact, uniq } from "lodash";
+import { compact, uniq } from "lodash";
 import { CONTROL_SUBREDDIT, ControlSubredditJob, EVALUATE_KARMA_FARMING_SUBS_CRON } from "./constants.js";
 import { getAllKnownUsers, getUserStatus, UserDetails, UserStatus } from "./dataStore.js";
 import { evaluateUserAccount, storeAccountInitialEvaluationResults, userHasContinuousNSFWHistory } from "./handleControlSubAccountEvaluation.js";
@@ -209,26 +209,21 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
 
     const variables = await getEvaluatorVariables(context);
 
-    const chunkedAccounts = chunk(accounts, 2); // Only 2 concurrently at present.
-
     while (new Date() < runLimit) {
-        const chunk = chunkedAccounts.shift();
-        if (!chunk || chunk.length === 0) {
+        const account = accounts.shift();
+        if (!account) {
             break;
         }
 
-        await context.redis.zRem(ACCOUNTS_QUEUED_KEY, chunk);
-        await Promise.all(chunk.map(async (account) => {
-            {
-                try {
-                    await evaluateAndHandleUser(account, variables, context);
-                } catch (error) {
-                    console.error(`Karma Farming Subs: Error evaluating ${account}: ${error}`);
-                }
-            }
-        }));
+        await context.redis.zRem(ACCOUNTS_QUEUED_KEY, [account]);
 
-        processed += chunk.length;
+        try {
+            await evaluateAndHandleUser(account, variables, context);
+        } catch (error) {
+            console.error(`Karma Farming Subs: Error evaluating ${account}: ${error}`);
+        }
+
+        processed += 1;
     }
 
     const remaining = totalQueued - processed;
