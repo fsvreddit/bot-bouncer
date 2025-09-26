@@ -8,6 +8,7 @@ import { getControlSubSettings } from "./settings.js";
 import { AsyncSubmission, PostCreationQueueResult, queuePostCreation } from "./postCreation.js";
 import { getUserExtendedFromUser } from "./extendedDevvit.js";
 import json2md from "json2md";
+import { userIsTrustedSubmitter } from "./trustedSubmitterHelpers.js";
 
 export async function handleControlSubPostCreate (event: PostCreate, context: TriggerContext) {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
@@ -83,7 +84,7 @@ export async function handleControlSubPostCreate (event: PostCreate, context: Tr
                 submissionResponse.push({ p: `If you have information about how this user is a bot that we may have missed, please [modmail us](https://www.reddit.com/message/compose?to=/r/BotBouncer&subject=More%20information%20about%20/u/${user.username}) with the details, so that we can review again.` });
             }
         } else {
-            const newStatus = controlSubSettings.trustedSubmitters.includes(event.author.name) ? UserStatus.Banned : UserStatus.Pending;
+            const newStatus = await userIsTrustedSubmitter(event.author.name, context) ? UserStatus.Banned : UserStatus.Pending;
 
             const newDetails: UserDetails = {
                 userStatus: newStatus,

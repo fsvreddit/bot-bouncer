@@ -198,6 +198,7 @@ export interface ControlSubSettings {
     proactiveEvaluationEnabled?: boolean;
     maxInactivityMonths?: number;
     trustedSubmitters: string[];
+    trustedSubmitterAutoThreshold?: number;
     reporterBlacklist: string[];
     numberOfWikiPages?: number;
     bulkSubmitters?: string[];
@@ -219,6 +220,7 @@ const schema: JSONSchemaType<ControlSubSettings> = {
         proactiveEvaluationEnabled: { type: "boolean", nullable: true },
         maxInactivityMonths: { type: "number", nullable: true },
         trustedSubmitters: { type: "array", items: { type: "string" } },
+        trustedSubmitterAutoThreshold: { type: "number", nullable: true },
         reporterBlacklist: { type: "array", items: { type: "string" } },
         numberOfWikiPages: { type: "number", nullable: true },
         bulkSubmitters: { type: "array", items: { type: "string" }, nullable: true },
