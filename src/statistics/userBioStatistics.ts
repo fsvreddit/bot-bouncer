@@ -80,7 +80,6 @@ export async function updateBioStatistics (allEntries: StatsUserEntry[], context
     const coveredByEvaluatorData: json2md.DataObject[] = [];
 
     content.push({ h1: "User Bio Text" });
-    content.push({ h2: "Bio text used by more than one user in the last two weeks" });
     for (const record of reusedRecords) {
         const currentContent: json2md.DataObject[] = [];
 
@@ -98,20 +97,22 @@ export async function updateBioStatistics (allEntries: StatsUserEntry[], context
         currentContent.push({ hr: {} });
 
         if (!configuredBioRegexes.some(regex => new RegExp(regex, "u").exec(record.bioText))) {
-            notCoveredByEvaluatorData.push(...currentContent);
+            if (record.record.lastSeen && record.record.lastSeen > subWeeks(new Date(), 1)) {
+                notCoveredByEvaluatorData.push(...currentContent);
+            }
         } else {
             coveredByEvaluatorData.push(...currentContent);
         }
     }
 
-    content.push({ h3: "Bio text not covered by Evaluator configuration" });
+    content.push({ h2: "Bio text not covered by Evaluator configuration and seen in the last week" });
     if (notCoveredByEvaluatorData.length === 0) {
         content.push({ p: "None" });
     } else {
         content.push(...notCoveredByEvaluatorData);
     }
 
-    content.push({ h3: "Bio text covered by Evaluator configuration" });
+    content.push({ h2: "Bio text covered by Evaluator configuration and seen in the last two weeks" });
     if (coveredByEvaluatorData.length === 0) {
         content.push({ p: "None" });
     } else {
@@ -127,6 +128,7 @@ export async function updateBioStatistics (allEntries: StatsUserEntry[], context
         }
 
         if (bullets.length > 0) {
+            content.push({ h2: "Regexes not seen in the last two weeks" });
             content.push({ p: "The following bio regexes are in the Evaluator Configuration but have not been seen in the last two weeks:" });
             content.push({ ul: bullets });
         }

@@ -71,7 +71,7 @@ export async function perform6HourlyJobs (_: unknown, context: JobContext) {
 
         context.scheduler.runJob({
             name: ControlSubredditJob.Perform6HourlyJobsPart2,
-            runAt: addMinutes(new Date(), 1),
+            runAt: addMinutes(new Date(), 2),
         }),
     ]);
 
