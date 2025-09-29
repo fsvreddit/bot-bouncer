@@ -116,4 +116,10 @@ export async function checkIfStatsNeedUpdating (context: TriggerContext) {
         name: ControlSubredditJob.Perform6HourlyJobs,
         runAt: new Date(),
     });
+
+    await context.reddit.updateWikiPage({
+        subredditName: CONTROL_SUBREDDIT,
+        page: "statistics/update_stats",
+        content: "false",
+    });
 }
