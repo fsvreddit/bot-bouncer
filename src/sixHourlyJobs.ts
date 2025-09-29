@@ -108,8 +108,6 @@ export async function checkIfStatsNeedUpdating (context: TriggerContext) {
         return;
     }
 
-    await context.redis.set(lastRevisionKey, wikiPage.revisionId);
-
     console.log("Stats wiki page has been updated, scheduling stats update job.");
 
     await context.scheduler.runJob({
@@ -117,9 +115,11 @@ export async function checkIfStatsNeedUpdating (context: TriggerContext) {
         runAt: new Date(),
     });
 
-    await context.reddit.updateWikiPage({
+    const newEntry = await context.reddit.updateWikiPage({
         subredditName: CONTROL_SUBREDDIT,
         page: "statistics/update_stats",
         content: "false",
     });
+
+    await context.redis.set(lastRevisionKey, newEntry.revisionId);
 }
