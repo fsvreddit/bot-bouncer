@@ -99,3 +99,21 @@ export async function perform6HourlyJobsPart2 (_: unknown, context: JobContext) 
         pendingUserFinder(allEntries, context),
     ]);
 }
+
+export async function checkIfStatsNeedUpdating (context: TriggerContext) {
+    const lastRevisionKey = "lastRemoteStatsUpdate";
+    const lastRevisionVal = await context.redis.get(lastRevisionKey);
+    const wikiPage = await context.reddit.getWikiPage(CONTROL_SUBREDDIT, "statistics/update_stats");
+    if (lastRevisionVal === wikiPage.revisionId) {
+        return;
+    }
+
+    await context.redis.set(lastRevisionKey, wikiPage.revisionId);
+
+    console.log("Stats wiki page has been updated, scheduling stats update job.");
+
+    await context.scheduler.runJob({
+        name: ControlSubredditJob.Perform6HourlyJobs,
+        runAt: new Date(),
+    });
+}

@@ -6,6 +6,7 @@ import { handleExternalSubmissionsPageUpdate } from "./externalSubmissions.js";
 import { validateControlSubConfigChange } from "./settings.js";
 import { addDays, addMinutes, addSeconds } from "date-fns";
 import { validateAndSaveAppealConfig } from "./modmail/autoAppealHandling.js";
+import { checkIfStatsNeedUpdating } from "./sixHourlyJobs.js";
 
 export async function handleModAction (event: ModAction, context: TriggerContext) {
     if (context.subredditName === CONTROL_SUBREDDIT) {
@@ -65,6 +66,10 @@ async function handleModActionControlSub (event: ModAction, context: TriggerCont
     if (event.action === "wikirevise" && event.moderator) {
         if (event.moderator.name === context.appName || event.moderator.name === INTERNAL_BOT) {
             await handleExternalSubmissionsPageUpdate(context);
+        }
+
+        if (event.moderator.name === INTERNAL_BOT) {
+            await checkIfStatsNeedUpdating(context);
         }
 
         if (event.moderator.name !== context.appName && event.moderator.name !== INTERNAL_BOT) {
