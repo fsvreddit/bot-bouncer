@@ -63,11 +63,19 @@ export async function isUserWhitelisted (username: string, context: TriggerConte
 async function approveIfNotRemovedByMod (targetId: string, context: TriggerContext) {
     const removedByMod = await context.redis.exists(`removedbymod:${targetId}`);
     if (!removedByMod) {
-        await context.reddit.approve(targetId);
+        try {
+            await context.reddit.approve(targetId);
+        } catch (error) {
+            if (error instanceof Error) {
+                console.error(`Failed to approve ${targetId}:`, error.message);
+            } else {
+                console.error(`Failed to approve ${targetId}`);
+            }
+        }
     }
 }
 
-async function handleSetOrganic (username: string, subredditName: string, context: TriggerContext) {
+async function handleSetOrganic (username: string, subredditName: string, settings: SettingsValues, context: TriggerContext) {
     const contentToReinstate: string[] = [];
 
     const removedItems = await context.redis.hGetAll(`removedItems:${username}`);
@@ -90,6 +98,14 @@ async function handleSetOrganic (username: string, subredditName: string, contex
     }
 
     await removeRecordOfBan(username, context.redis);
+
+    if (settings[AppSetting.AddModNoteOnClassificationChange]) {
+        await context.reddit.addModNote({
+            note: "User unbanned by Bot Bouncer after classification was changed",
+            subreddit: subredditName,
+            user: username,
+        });
+    }
 }
 
 async function handleSetBanned (username: string, subredditName: string, settings: SettingsValues, context: TriggerContext) {
@@ -181,6 +197,15 @@ async function handleSetBanned (username: string, subredditName: string, setting
         } else {
             console.log(`Wiki Update: ${username} has been banned following wiki update. ${removableContent.length} ${pluralize("item", removableContent.length)} removed.`);
         }
+
+        if (settings[AppSetting.AddModNoteOnClassificationChange]) {
+            await context.reddit.addModNote({
+                note: "User banned by Bot Bouncer",
+                subreddit: subredditName,
+                user: username,
+                label: "BOT_BAN",
+            });
+        }
     } else {
         // Report content instead of banning.
         await Promise.all(removableContent.map(async (item) => {
@@ -239,7 +264,7 @@ export async function handleClassificationChanges (_: unknown, context: JobConte
         if (!currentStatus) {
             console.log(`Wiki Update: No user status found for ${username}. Skipping.`);
         } else if (currentStatus.userStatus === UserStatus.Organic || currentStatus.userStatus === UserStatus.Declined || currentStatus.userStatus === UserStatus.Service) {
-            await handleSetOrganic(username, subredditName, context);
+            await handleSetOrganic(username, subredditName, settings, context);
         } else if (currentStatus.userStatus === UserStatus.Banned) {
             await handleSetBanned(username, subredditName, settings, context);
         }

@@ -52,7 +52,7 @@ export async function handleModmail (event: ModMail, context: TriggerContext) {
         return;
     }
 
-    await context.redis.set(messageHandledKey, "true", { expiration: addDays(new Date(), 1) });
+    await context.redis.set(messageHandledKey, "true", { expiration: addDays(new Date(), 28) });
 
     const modmail: ModmailMessage = {
         conversationId: event.conversationId,

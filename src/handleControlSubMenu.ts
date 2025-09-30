@@ -85,14 +85,16 @@ export async function handleControlSubReportUser (target: Post | Comment, contex
     });
 
     const initialEvaluationResult = await getAccountInitialEvaluationResults(username, context);
+    let hitCount = 0;
     for (const hit of initialEvaluationResult) {
         fields.push({
-            name: hit.botName,
+            name: `${hit.botName}${hitCount}`,
             label: `User hit ${hit.botName}`,
             type: "paragraph",
             lineHeight: 4,
             defaultValue: hit.hitReason,
         });
+        hitCount++;
     }
 
     let history: (Comment | Post)[] | undefined;

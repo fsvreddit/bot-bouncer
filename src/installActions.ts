@@ -50,6 +50,7 @@ async function addControlSubredditJobs (context: TriggerContext) {
         context.scheduler.runJob({
             name: ControlSubredditJob.EvaluateKarmaFarmingSubs,
             cron: EVALUATE_KARMA_FARMING_SUBS_CRON,
+            data: { firstRun: true },
         }),
 
         context.scheduler.runJob({
@@ -88,6 +89,10 @@ async function addControlSubredditJobs (context: TriggerContext) {
         handleExternalSubmissionsPageUpdate(context),
         removeRetiredEvaluatorsFromStats(context),
     ]);
+
+    await context.redis.del("bioStatisticsQueue");
+    await context.redis.del("bioStatisticsRecords");
+    await context.redis.del("bioStatisticsRecordCount");
 
     console.log("App Install: Control subreddit jobs added");
 }

@@ -149,12 +149,39 @@ function cleanedBio (bio: string, bannedDomains: string[]): string {
     return result;
 }
 
-export async function getSummaryForUser (username: string, source: "modmail" | "submission", context: TriggerContext): Promise<json2md.DataObject[] | undefined> {
+function getCommonEntriesForContent (items: Post[] | Comment[]): string[] {
+    const kind = items[0] instanceof Post ? "post" : "comment";
+
+    const bullets: string[] = [];
+    if (items.length > 2) {
+        bullets.push(`Min time between ${kind}s: ${timeBetween(items, "min")}`);
+        bullets.push(`10th percentile time between ${kind}s: ${timeBetween(items, "10th")}`);
+        bullets.push(`Max time between ${kind}s: ${timeBetween(items, "max")}`);
+        bullets.push(`Average time between ${kind}s: ${averageInterval(items, "mean")} (median: ${averageInterval(items, "median")})`);
+    } else if (items.length === 2) {
+        bullets.push(`Time between ${kind}s: ${timeBetween(items, "min")}`);
+    }
+
+    return bullets;
+}
+
+export async function getSummaryForUser (username: string, source: "modmail" | "submission", context: TriggerContext): Promise<json2md.DataObject[]> {
+    const userStatus = await getUserStatus(username, context);
+    const summary: json2md.DataObject[] = [];
+
+    if (userStatus && (source === "modmail")) {
+        const post = await context.reddit.getPostById(userStatus.trackingPostId);
+        summary.push(
+            { p: `/u/${username} is currently listed as ${userStatus.userStatus}, set by ${userStatus.operator} at ${new Date(userStatus.lastUpdate).toUTCString()} and reported by ${userStatus.submitter ?? "unknown"}` },
+            { link: { title: "Link to submission", source: `https://www.reddit.com${post.permalink}` } },
+        );
+    }
+
     const extendedUser = await getUserExtended(username, context);
 
     if (!extendedUser) {
-        console.log(`User Summary: User ${username} is already shadowbanned or suspended, so summary will not be created.`);
-        return;
+        summary.push({ p: `User Summary: User ${username} is already shadowbanned or suspended, so summary will not be created.` });
+        return summary;
     }
 
     console.log(`User Summary: Creating summary for ${username}`);
@@ -163,7 +190,6 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
 
     const accountAge = formatDifferenceInDates(extendedUser.createdAt, new Date());
 
-    const summary: json2md.DataObject[] = [];
     summary.push({ h2: `Account Properties` });
 
     const accountPropsBullets = [
@@ -174,7 +200,6 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
         `Subreddit Moderator: ${extendedUser.isModerator ? "Yes" : "No"}`,
     ];
 
-    const userStatus = await getUserStatus(username, context);
     if (userStatus?.flags && userStatus.flags.length > 0) {
         accountPropsBullets.push(`Account flags: ${userStatus.flags.join(", ")}`);
     }
@@ -329,15 +354,7 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
         summary.push({ h2: "Comments" });
         summary.push({ p: `User has ${userComments.length} ${pluralize("comment", userComments.length)}` });
 
-        const bullets: string[] = [];
-        if (userComments.length > 2) {
-            bullets.push(`Min time between comments: ${timeBetween(userComments, "min")}`);
-            bullets.push(`10th percentile time between comments: ${timeBetween(userComments, "10th")}`);
-            bullets.push(`Max time between comments: ${timeBetween(userComments, "max")}`);
-            bullets.push(`Average time between comments: ${averageInterval(userComments, "mean")} (median: ${averageInterval(userComments, "median")})`);
-        } else if (userComments.length === 2) {
-            bullets.push(`Time between comments: ${timeBetween(userComments, "min")}`);
-        }
+        const bullets = getCommonEntriesForContent(userComments);
 
         bullets.push(`Length: ${minMaxAvg(userComments.map(comment => comment.body.length))}`);
         bullets.push(`Word count: ${minMaxAvg(userComments.map(comment => count(comment.body, "words", {})))}`);
@@ -368,20 +385,12 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
     if (userPosts.length > 0) {
         summary.push({ h2: "Posts" });
         summary.push({ p: `User has ${userPosts.length} ${pluralize("post", userPosts.length)}` });
-        const bullets: string[] = [];
 
         const nonStickied = userPosts
             .filter(post => !post.stickied)
             .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
-        if (userPosts.length > 2) {
-            bullets.push(`Min time between posts: ${timeBetween(nonStickied, "min")}`);
-            bullets.push(`10th percentile time between posts: ${timeBetween(nonStickied, "10th")}`);
-            bullets.push(`Max time between posts: ${timeBetween(nonStickied, "max")}`);
-            bullets.push(`Average time between posts: ${averageInterval(nonStickied, "mean")} (median: ${averageInterval(nonStickied, "median")})`);
-        } else if (userPosts.length === 2) {
-            bullets.push(`Time between posts: ${timeBetween(nonStickied, "min")}`);
-        }
+        const bullets = getCommonEntriesForContent(nonStickied);
 
         const editedPostPercentage = Math.round(100 * userPosts.filter(post => post.edited).length / userPosts.length);
         if (editedPostPercentage > 0) {
@@ -409,9 +418,6 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
 
 export async function createUserSummary (username: string, postId: string, context: TriggerContext) {
     const summary = await getSummaryForUser(username, "submission", context);
-    if (!summary) {
-        return;
-    }
 
     const newComment = await context.reddit.submitComment({
         id: postId,

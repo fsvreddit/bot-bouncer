@@ -25,7 +25,7 @@ export interface StatsUserEntry {
     data: UserDetails;
 }
 
-async function getAllValues (context: TriggerContext) {
+export async function getAllValuesForStats (context: TriggerContext) {
     const allDataRaw = await getFullDataStore(context);
 
     const allEntries = Object.entries(allDataRaw)
@@ -43,7 +43,7 @@ export async function perform6HourlyJobs (_: unknown, context: JobContext) {
         return;
     }
 
-    const { allValues } = await getAllValues(context);
+    const { allValues } = await getAllValuesForStats(context);
 
     await Promise.all([
         context.scheduler.runJob({
@@ -89,7 +89,7 @@ export async function perform6HourlyJobs (_: unknown, context: JobContext) {
 }
 
 export async function perform6HourlyJobsPart2 (_: unknown, context: JobContext) {
-    const { allEntries } = await getAllValues(context);
+    const { allEntries } = await getAllValuesForStats(context);
     await Promise.all([
         updateUsernameStatistics(allEntries, context),
         updateDisplayNameStatistics(allEntries, context),
@@ -98,4 +98,28 @@ export async function perform6HourlyJobsPart2 (_: unknown, context: JobContext) 
         updateDefinedHandlesStats(allEntries, context),
         pendingUserFinder(allEntries, context),
     ]);
+}
+
+export async function checkIfStatsNeedUpdating (context: TriggerContext) {
+    const lastRevisionKey = "lastRemoteStatsUpdate";
+    const lastRevisionVal = await context.redis.get(lastRevisionKey);
+    const wikiPage = await context.reddit.getWikiPage(CONTROL_SUBREDDIT, "statistics/update_stats");
+    if (lastRevisionVal === wikiPage.revisionId) {
+        return;
+    }
+
+    console.log("Stats wiki page has been updated, scheduling stats update job.");
+
+    await context.scheduler.runJob({
+        name: ControlSubredditJob.Perform6HourlyJobs,
+        runAt: new Date(),
+    });
+
+    const newEntry = await context.reddit.updateWikiPage({
+        subredditName: CONTROL_SUBREDDIT,
+        page: "statistics/update_stats",
+        content: "false",
+    });
+
+    await context.redis.set(lastRevisionKey, newEntry.revisionId);
 }

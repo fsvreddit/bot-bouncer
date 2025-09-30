@@ -9,7 +9,7 @@ export const CONFIGURATION_DEFAULTS = {
 
 [I am a bot, and this action was performed automatically](/r/${CONTROL_SUBREDDIT}/wiki/index).
 If you wish to appeal the classification of the /u/{account} account, please
-[message /r/${CONTROL_SUBREDDIT}](https://www.reddit.com/message/compose?to=/r/${CONTROL_SUBREDDIT}&subject=Ban%20dispute%20for%20/u/{account}%20on%20/r/{subreddit})
+[message /r/${CONTROL_SUBREDDIT}](https://www.reddit.com/message/compose?to=/r/${CONTROL_SUBREDDIT}&subject=Ban%20dispute%20for%20/u/{account}%20on%20/r/{subreddit}&message=bot%20classifcation%20appeal)
 rather than replying to this message.`,
 
     banNote: "Banned by /u/{me} at {date}",
@@ -17,7 +17,7 @@ rather than replying to this message.`,
     noteClient: `/u/{account} is [listed on /r/${CONTROL_SUBREDDIT}]({link}).
 
 If this account is claiming to be human and isn't an obvious novelty account,
-we recommend asking the account owner to [message /r/${CONTROL_SUBREDDIT}](https://www.reddit.com/message/compose?to=/r/${CONTROL_SUBREDDIT}&subject=Ban%20dispute%20for%20/u/{account}%20on%20/r/{subreddit}).
+we recommend asking the account owner to [message /r/${CONTROL_SUBREDDIT}](https://www.reddit.com/message/compose?to=/r/${CONTROL_SUBREDDIT}&subject=Ban%20dispute%20for%20/u/{account}%20on%20/r/{subreddit}&message=bot%20classifcation%20appeal).
 
 If this account is a bot that you wish to allow, remember to [allowlist](/r/${CONTROL_SUBREDDIT}/wiki/index) it before you unban it.`,
 
@@ -43,6 +43,7 @@ export enum AppSetting {
     RemoveRecentContent = "removeRecentContent",
     ReportPotentialBots = "reportPotentialBots",
     RemoveContentWhenReporting = "removeContentWhenReporting",
+    AddModNoteOnClassificationChange = "addModNoteOnClassificationChange",
     DailyDigest = "dailyDigest",
     DailyDigestAsModNotification = "dailyDigestAsModNotification",
     DailyDigestIncludeReported = "dailyDigestIncludeReported",
@@ -107,6 +108,13 @@ export const appSettings: SettingsFormField[] = [
                 label: "Ban newly classified accounts if they have recent interactions on your sub, and remove the last week's posts and comments",
                 helpText: "If this is turned off, accounts banned on r/BotBouncer will only be actioned if they comment or post in the future.",
                 defaultValue: true,
+            },
+            {
+                type: "boolean",
+                name: AppSetting.AddModNoteOnClassificationChange,
+                label: "Add a moderator note to users when they are banned or unbanned by Bot Bouncer",
+                helpText: "If this is turned on, a mod note will be added to the account when it is banned or unbanned by Bot Bouncer. The note will include the date and time of the action.",
+                defaultValue: false,
             },
         ],
     },
@@ -190,6 +198,7 @@ export interface ControlSubSettings {
     proactiveEvaluationEnabled?: boolean;
     maxInactivityMonths?: number;
     trustedSubmitters: string[];
+    trustedSubmitterAutoThreshold?: number;
     reporterBlacklist: string[];
     numberOfWikiPages?: number;
     bulkSubmitters?: string[];
@@ -211,6 +220,7 @@ const schema: JSONSchemaType<ControlSubSettings> = {
         proactiveEvaluationEnabled: { type: "boolean", nullable: true },
         maxInactivityMonths: { type: "number", nullable: true },
         trustedSubmitters: { type: "array", items: { type: "string" } },
+        trustedSubmitterAutoThreshold: { type: "number", nullable: true },
         reporterBlacklist: { type: "array", items: { type: "string" } },
         numberOfWikiPages: { type: "number", nullable: true },
         bulkSubmitters: { type: "array", items: { type: "string" }, nullable: true },

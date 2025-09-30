@@ -16,6 +16,8 @@ import { handleBulkSubmission } from "./bulkSubmission.js";
 import { handleAppeal } from "./autoAppealHandling.js";
 import { FLAIR_MAPPINGS } from "../handleControlSubFlairUpdate.js";
 import { uniq } from "lodash";
+import { CHECK_DATE_KEY } from "../karmaFarmingSubsCheck.js";
+import { evaluateAccountFromModmail } from "./modmailEvaluaton.js";
 
 export function getPossibleSetStatusValues (): string[] {
     return uniq([...FLAIR_MAPPINGS.map(entry => entry.postFlair), ...Object.values(UserStatus)]);
@@ -45,6 +47,20 @@ export async function handleControlSubredditModmail (modmail: ModmailMessage, co
         return;
     }
 
+    const setDateRegex = /^!setdate ([A-Za-z0-9_-]+) (\d{4}-\d{2}-\d{2})/;
+    const setDateMatch = setDateRegex.exec(modmail.bodyMarkdown);
+    if (setDateMatch && setDateMatch.length === 3) {
+        const subredditName = setDateMatch[1];
+        const dateString = setDateMatch[2];
+        const date = new Date(dateString);
+        await context.redis.zAdd(CHECK_DATE_KEY, { score: date.getTime(), member: subredditName });
+        await context.reddit.modMail.reply({
+            conversationId: modmail.conversationId,
+            body: `Set the next check date for /r/${subredditName} to ${dateString}.`,
+            isInternal: true,
+        });
+    }
+
     const addAllRegex = /^!addall(?: (banned))?/;
     const addAllMatches = addAllRegex.exec(modmail.bodyMarkdown);
     if (addAllMatches && addAllMatches.length === 2) {
@@ -65,6 +81,11 @@ export async function handleControlSubredditModmail (modmail: ModmailMessage, co
 
     if (!modmail.isInternal && modmail.messageAuthor !== context.appName) {
         await markAppealAsHandled(modmail, context);
+    }
+
+    if (modmail.bodyMarkdown.startsWith("!evaluate ")) {
+        await evaluateAccountFromModmail(modmail, context);
+        return;
     }
 
     if (modmail.participant && modmail.participant !== context.appName) {
@@ -196,19 +217,7 @@ async function handleModmailFromUser (modmail: ModmailMessage, context: TriggerC
 
     await storeKeyForAppeal(modmail.conversationId, context);
 
-    const post = await context.reddit.getPostById(currentStatus.trackingPostId);
-
-    const message: json2md.DataObject[] = [
-        { p: `/u/${username} is currently listed as ${currentStatus.userStatus}, set by ${currentStatus.operator} at ${new Date(currentStatus.lastUpdate).toUTCString()} and reported by ${currentStatus.submitter ?? "unknown"}` },
-        { link: { title: "Link to submission", source: `https://www.reddit.com${post.permalink}` } },
-    ];
-
-    if (currentStatus.userStatus === UserStatus.Banned || currentStatus.userStatus === UserStatus.Purged) {
-        const userSummary = await getSummaryForUser(username, "modmail", context);
-        if (userSummary) {
-            message.push(userSummary);
-        }
-    }
+    const message = await getSummaryForUser(username, "modmail", context);
 
     const modmailStrings = markdownToText(message);
 
@@ -267,11 +276,7 @@ export async function deleteKeyForAppeal (conversationId: string, context: Trigg
 }
 
 async function addSummaryForUser (conversationId: string, username: string, context: TriggerContext) {
-    const userSummary = await getSummaryForUser(username, "modmail", context);
-    const shadowbannedSummary: json2md.DataObject[] = [
-        { p: "No summary available, user may be shadowbanned." },
-    ];
-    const messageText = userSummary ?? shadowbannedSummary;
+    const messageText = await getSummaryForUser(username, "modmail", context);
 
     const modmailStrings = markdownToText(messageText);
 

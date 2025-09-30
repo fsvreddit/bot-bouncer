@@ -1,6 +1,6 @@
 import { JobContext, JSONObject, ScheduledJobEvent } from "@devvit/public-api";
 import { getAllKnownUsers } from "./dataStore.js";
-import { addDays, addMinutes, addSeconds, subDays } from "date-fns";
+import { addDays, addMinutes, addSeconds, format, subDays } from "date-fns";
 import { setCleanupForUser, userHasCleanupEntry } from "./cleanup.js";
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "./constants.js";
 import { chunk } from "lodash";
@@ -12,12 +12,12 @@ export async function performCleanupMaintenance (event: ScheduledJobEvent<JSONOb
     }
 
     const storeKey = "CleanupMaintenanceStore";
-    const cleanupMaintenanceRunKey = "CleanupMaintenanceRun";
+    const cleanupMaintenanceRunKey = "CleanupMaintenanceLastRun";
 
     if (event.data?.firstRun) {
         const lastRun = await context.redis.get(cleanupMaintenanceRunKey);
         if (lastRun && new Date(parseInt(lastRun)) > subDays(new Date(), 14)) {
-            console.log("Cleanup Maintenance: Skipping first run as it was recently run.");
+            console.log(`Cleanup Maintenance: Skipping first run as it was recently run on ${format(parseInt(lastRun), "yyyy-MM-dd")}.`);
             return;
         }
 

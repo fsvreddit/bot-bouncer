@@ -309,6 +309,43 @@ export async function dataExtract (message: string | undefined, conversationId: 
             { p: `Data export for ${data.length} ${pluralize("user", data.length)}.` },
         ];
 
+        const criteriaBullets: string[] = [];
+        if (request.status) {
+            criteriaBullets.push(`Status: ${request.status.join(", ")}`);
+        }
+        if (request.submitter) {
+            criteriaBullets.push(`Submitter: ${request.submitter}`);
+        }
+        if (request.operator) {
+            criteriaBullets.push(`Operator: ${request.operator}`);
+        }
+        if (request.usernameRegex) {
+            criteriaBullets.push(`Username Regex: \`${request.usernameRegex}\``);
+        }
+        if (request.flags) {
+            criteriaBullets.push(`Includes Flags: ${request.flags.join(", ")}`);
+        }
+        if (request["~flags"]) {
+            criteriaBullets.push(`Excludes Flags: ${request["~flags"].join(", ")}`);
+        }
+        if (request.since) {
+            criteriaBullets.push(`Reported Since: ${request.since}`);
+        }
+        if (request.bioRegex) {
+            criteriaBullets.push(`Bio Regex: \`${request.bioRegex}\``);
+        }
+        if (request.evaluator) {
+            criteriaBullets.push(`Evaluator: ${request.evaluator}`);
+        }
+        if (request.hitReason) {
+            criteriaBullets.push(`Hit Reason: ${request.hitReason}`);
+        }
+
+        if (criteriaBullets.length > 0) {
+            markdown.push({ p: "Criteria for this extract:" });
+            markdown.push({ ul: criteriaBullets });
+        }
+
         const headers = ["User", "Tracking Post", "Status", "Reported At", "Last Update", "Submitter", "Operator"];
         if (includeFlags) {
             headers.push("Flags");

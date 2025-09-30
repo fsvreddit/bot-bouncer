@@ -1,18 +1,19 @@
-import { JobContext, TriggerContext, WikiPage } from "@devvit/public-api";
+import { JobContext, TriggerContext, User, WikiPage } from "@devvit/public-api";
 import { CONTROL_SUBREDDIT, INTERNAL_BOT } from "./constants.js";
 import { addUserToTempDeclineStore, getUserStatus, setUserStatus, UserStatus } from "./dataStore.js";
-import { ControlSubSettings, getControlSubSettings } from "./settings.js";
+import { getControlSubSettings } from "./settings.js";
 import Ajv, { JSONSchemaType } from "ajv";
 import { addDays, addMinutes, addSeconds } from "date-fns";
-import { getPostOrCommentById } from "./utility.js";
+import { getPostOrCommentById, getUserOrUndefined } from "./utility.js";
 import { isLinkId } from "@devvit/public-api/types/tid.js";
 import { AsyncSubmission, PostCreationQueueResult, queuePostCreation } from "./postCreation.js";
 import pluralize from "pluralize";
-import { getUserExtended } from "./extendedDevvit.js";
+import { getUserExtendedFromUser } from "./extendedDevvit.js";
 import { evaluateUserAccount, EvaluationResult, storeAccountInitialEvaluationResults, storeEvaluationStatistics } from "./handleControlSubAccountEvaluation.js";
 import json2md from "json2md";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { queueKarmaFarmingAccounts } from "./karmaFarmingSubsCheck.js";
+import { userIsTrustedSubmitter } from "./trustedSubmitterHelpers.js";
 
 const WIKI_PAGE = "externalsubmissions";
 
@@ -116,12 +117,19 @@ export async function addExternalSubmissionFromClientSub (data: ExternalSubmissi
     });
 }
 
-export async function addExternalSubmissionToPostCreationQueue (item: ExternalSubmission, immediate: boolean, controlSubSettings: ControlSubSettings, context: TriggerContext): Promise<boolean> {
+export async function addExternalSubmissionToPostCreationQueue (item: ExternalSubmission, immediate: boolean, context: TriggerContext): Promise<boolean> {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
         throw new Error("This function can only be called from the control subreddit.");
     }
 
-    const user = await getUserExtended(item.username, context);
+    let user: User | undefined;
+    try {
+        user = await getUserOrUndefined(item.username, context);
+    } catch {
+        console.log(`External Submissions: Error fetching data for ${item.username}, skipping.`);
+        return false;
+    }
+
     if (!user) {
         console.log(`External Submissions: User ${item.username} is deleted or shadowbanned, skipping.`);
         return false;
@@ -160,7 +168,7 @@ export async function addExternalSubmissionToPostCreationQueue (item: ExternalSu
         }
     }
 
-    const initialStatus = item.initialStatus ??= item.submitter && controlSubSettings.trustedSubmitters.includes(item.submitter) ? UserStatus.Banned : UserStatus.Pending;
+    const initialStatus = item.initialStatus ??= item.submitter && await userIsTrustedSubmitter(item.submitter, context) ? UserStatus.Banned : UserStatus.Pending;
 
     let commentToAdd: string | undefined;
 
@@ -185,7 +193,7 @@ export async function addExternalSubmissionToPostCreationQueue (item: ExternalSu
     }
 
     const submission: AsyncSubmission = {
-        user,
+        user: await getUserExtendedFromUser(user, context),
         details: {
             userStatus: initialStatus,
             lastUpdate: new Date().getTime(),
@@ -260,7 +268,6 @@ export async function handleExternalSubmissionsPageUpdate (context: TriggerConte
     }
 
     const executionLimit = addSeconds(new Date(), 15);
-    const controlSubSettings = await getControlSubSettings(context);
     const immediate = currentSubmissionList.length === 1;
     let added = 0;
     while (currentSubmissionList.length > 0 && new Date() < executionLimit) {
@@ -268,7 +275,7 @@ export async function handleExternalSubmissionsPageUpdate (context: TriggerConte
         if (!submission) {
             break;
         }
-        const postSubmitted = await addExternalSubmissionToPostCreationQueue(submission, immediate, controlSubSettings, context);
+        const postSubmitted = await addExternalSubmissionToPostCreationQueue(submission, immediate, context);
         if (postSubmitted) {
             added++;
         }
@@ -310,7 +317,7 @@ export async function processExternalSubmissionsFromObserverSubreddits (_: unkno
         }
 
         for (const submission of currentSubmissionList) {
-            const postSubmitted = await addExternalSubmissionToPostCreationQueue(submission, false, controlSubSettings, context);
+            const postSubmitted = await addExternalSubmissionToPostCreationQueue(submission, false, context);
             if (postSubmitted) {
                 processed++;
             }

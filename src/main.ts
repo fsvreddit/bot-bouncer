@@ -28,6 +28,8 @@ import { performCleanupMaintenance } from "./cleanupMaintenance.js";
 import { gatherDefinedHandlesStats, storeDefinedHandlesDataJob } from "./statistics/definedHandlesStatistics.js";
 import { deleteRecordsForRemovedUsers, evaluatorReversalsJob } from "./evaluatorReversals.js";
 import { handleCommentCreate, handlePostCreate } from "./handleContentCreation.js";
+import { conditionalStatsUpdate } from "./statistics/conditionalStatsUpdate.js";
+import { asyncWikiUpdate } from "./statistics/asyncWikiUpdate.js";
 
 Devvit.addSettings(appSettings);
 
@@ -204,6 +206,16 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: ControlSubredditJob.HandleConfigWikiChange,
     onRun: handleConfigWikiChange,
+});
+
+Devvit.addSchedulerJob({
+    name: ControlSubredditJob.ConditionalStatsUpdate,
+    onRun: conditionalStatsUpdate,
+});
+
+Devvit.addSchedulerJob({
+    name: ControlSubredditJob.AsyncWikiUpdate,
+    onRun: asyncWikiUpdate,
 });
 
 /**

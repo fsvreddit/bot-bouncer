@@ -1,13 +1,14 @@
-import { TriggerContext } from "@devvit/public-api";
+import { TriggerContext, User } from "@devvit/public-api";
 import { PostCreate } from "@devvit/protos";
 import { CONTROL_SUBREDDIT } from "./constants.js";
-import { getUsernameFromUrl, isModerator } from "./utility.js";
+import { getUsernameFromUrl, getUserOrUndefined, isModerator } from "./utility.js";
 import { getUserStatus, UserDetails, UserStatus } from "./dataStore.js";
 import { subMonths } from "date-fns";
 import { getControlSubSettings } from "./settings.js";
 import { AsyncSubmission, PostCreationQueueResult, queuePostCreation } from "./postCreation.js";
-import { getUserExtended, UserExtended } from "./extendedDevvit.js";
+import { getUserExtendedFromUser } from "./extendedDevvit.js";
 import json2md from "json2md";
+import { userIsTrustedSubmitter } from "./trustedSubmitterHelpers.js";
 
 export async function handleControlSubPostCreate (event: PostCreate, context: TriggerContext) {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
@@ -48,9 +49,9 @@ export async function handleControlSubPostCreate (event: PostCreate, context: Tr
         submissionResponse.push({ p: `You are currently listed as a bot on r/${CONTROL_SUBREDDIT}, so we cannot accept submissions from you. Please [message the mods](https://www.reddit.com/message/compose/?to=/r/${CONTROL_SUBREDDIT}) if you believe this is a mistake` });
     }
 
-    let user: UserExtended | undefined;
+    let user: User | undefined;
     if (username) {
-        user = await getUserExtended(username, context);
+        user = await getUserOrUndefined(username, context, true);
     }
 
     if (!user && submissionResponse.length === 0) {
@@ -83,7 +84,7 @@ export async function handleControlSubPostCreate (event: PostCreate, context: Tr
                 submissionResponse.push({ p: `If you have information about how this user is a bot that we may have missed, please [modmail us](https://www.reddit.com/message/compose?to=/r/BotBouncer&subject=More%20information%20about%20/u/${user.username}) with the details, so that we can review again.` });
             }
         } else {
-            const newStatus = controlSubSettings.trustedSubmitters.includes(event.author.name) ? UserStatus.Banned : UserStatus.Pending;
+            const newStatus = await userIsTrustedSubmitter(event.author.name, context) ? UserStatus.Banned : UserStatus.Pending;
 
             const newDetails: UserDetails = {
                 userStatus: newStatus,
@@ -94,14 +95,14 @@ export async function handleControlSubPostCreate (event: PostCreate, context: Tr
             };
 
             const submission: AsyncSubmission = {
-                user,
+                user: await getUserExtendedFromUser(user, context),
                 details: newDetails,
                 callback: {
                     postId: event.post.id,
                     comment: json2md([
                         { p: "Hi, thanks for your submission." },
                         { p: `The post tracking ${user.username} can be found [here]({{permalink}}).` },
-                        { p: `Your post has been removed, and can be deleted.` },
+                        { p: `Your post has been removed, and can be deleted. Consider reporting the account for Spam->Bots, as this may result in the account being suspended or shadowbanned.` },
                     ]),
                 },
                 immediate: true,

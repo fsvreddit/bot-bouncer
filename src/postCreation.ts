@@ -45,19 +45,6 @@ async function createNewSubmission (submission: AsyncSubmission, context: Trigge
         return;
     }
 
-    if (submission.details.submitter === "bot-sleuth-bot") {
-        const userHistory = await context.reddit.getCommentsAndPostsByUser({
-            username: submission.user.username,
-            sort: "new",
-            limit: 100,
-        }).all();
-
-        if (userHistory.length === 0) {
-            console.log(`Post Creation: bot-sleuth-bot submission for ${submission.user.username} is curating history, skipping post creation.`);
-            return;
-        }
-    }
-
     const postCreationLockKey = `postCreationLock:${submission.user.username}`;
     if (await context.redis.exists(postCreationLockKey)) {
         console.log(`Post Creation: User ${submission.user.username}'s lock already set.`);
@@ -112,7 +99,11 @@ async function createNewSubmission (submission: AsyncSubmission, context: Trigge
         }
     }
 
-    await storeInitialAccountProperties(submission.user.username, context);
+    try {
+        await storeInitialAccountProperties(submission.user.username, context);
+    } catch (error) {
+        console.error(`Post Creation: Error storing initial account properties for user ${submission.user.username}.`, error);
+    }
 
     if (submission.details.userStatus !== UserStatus.Pending) {
         await queueSendFeedback(submission.user.username, context);
@@ -149,10 +140,15 @@ export async function queuePostCreation (submission: AsyncSubmission, context: T
     await txn.multi();
 
     try {
-        const alreadyInQueue = await context.redis.zScore(SUBMISSION_QUEUE, submission.user.username);
-        if (alreadyInQueue) {
+        const alreadyInQueueScore = await context.redis.zScore(SUBMISSION_QUEUE, submission.user.username);
+        if (alreadyInQueueScore) {
             console.log(`Post Creation: User ${submission.user.username} is already in the queue.`);
             await txn.discard();
+            if (submission.immediate) {
+                // If the new submission is immediate, we need to update the score to be sooner.
+                await context.redis.zAdd(SUBMISSION_QUEUE, { member: submission.user.username, score });
+                console.log(`Post Creation: Updated ${submission.user.username}'s position in the queue to be sooner.`);
+            }
             return PostCreationQueueResult.AlreadyInQueue;
         }
 
