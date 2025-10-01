@@ -60,10 +60,6 @@ export interface UserDetails {
     submitter?: string;
     operator?: string;
     reportedAt?: number;
-    /**
-    * @deprecated bioText should not be used.
-    */
-    bioText?: string;
     mostRecentActivity?: number;
     flags?: UserFlag[];
 }
