@@ -68,7 +68,7 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
     if (invalidEntries.length === 0) {
         // Do a sanity check to ensure that nobody's done anything silly with Bot Group Advanced.
         const matchedMods: Record<string, string> = {};
-        for (const moderator of ["fsv", "bot-bouncer", "NeedAGoodUsername"]) {
+        for (const moderator of ["fsv", "Leonichol", "NeedAGoodUsername"]) {
             const evaluator = new EvaluateBotGroupAdvanced(context, undefined, variables);
             const user = await getUserExtended(moderator, context);
             if (!user) {
