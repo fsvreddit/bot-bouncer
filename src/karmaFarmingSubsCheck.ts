@@ -199,11 +199,6 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
         return;
     }
 
-    await context.scheduler.runJob({
-        name: ControlSubredditJob.EvaluateKarmaFarmingSubs,
-        runAt: addSeconds(new Date(), 5),
-    });
-
     let processed = 0;
 
     const variables = await getEvaluatorVariables(context);
@@ -228,6 +223,11 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
     const remaining = totalQueued - processed;
     if (remaining > 0) {
         console.log(`Karma Farming Subs: ${processed} checked, ${remaining} ${pluralize("account", remaining)} remaining to evaluate`);
+
+        await context.scheduler.runJob({
+            name: ControlSubredditJob.EvaluateKarmaFarmingSubs,
+            runAt: new Date(),
+        });
     } else {
         console.log(`Karma Farming Subs: Finished checking remaining ${processed} ${pluralize("account", processed)}.`);
     }
