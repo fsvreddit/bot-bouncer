@@ -267,7 +267,7 @@ export async function handleExternalSubmissionsPageUpdate (context: TriggerConte
         return;
     }
 
-    const executionLimit = addSeconds(new Date(), 15);
+    const executionLimit = addSeconds(new Date(), 10);
     const immediate = currentSubmissionList.length === 1;
     let added = 0;
     while (currentSubmissionList.length > 0 && new Date() < executionLimit) {
