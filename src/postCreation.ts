@@ -33,6 +33,11 @@ export interface AsyncSubmission {
     immediate: boolean;
 }
 
+export async function isUserAlreadyQueued (username: string, context: JobContext): Promise<boolean> {
+    const score = await context.redis.zScore(SUBMISSION_QUEUE, username);
+    return score !== undefined;
+}
+
 async function createNewSubmission (submission: AsyncSubmission, context: TriggerContext) {
     if (submission.user.username.endsWith("-ModTeam")) {
         console.log(`Post Creation: Skipping post creation for ${submission.user.username} as it is a ModTeam account.`);
@@ -140,8 +145,8 @@ export async function queuePostCreation (submission: AsyncSubmission, context: T
     await txn.multi();
 
     try {
-        const alreadyInQueueScore = await context.redis.zScore(SUBMISSION_QUEUE, submission.user.username);
-        if (alreadyInQueueScore) {
+        const alreadyInQueue = await isUserAlreadyQueued(submission.user.username, context);
+        if (alreadyInQueue) {
             console.log(`Post Creation: User ${submission.user.username} is already in the queue.`);
             await txn.discard();
             if (submission.immediate) {

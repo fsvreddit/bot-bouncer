@@ -6,7 +6,7 @@ import Ajv, { JSONSchemaType } from "ajv";
 import { addDays, addMinutes, addSeconds } from "date-fns";
 import { getPostOrCommentById, getUserOrUndefined } from "./utility.js";
 import { isLinkId } from "@devvit/public-api/types/tid.js";
-import { AsyncSubmission, PostCreationQueueResult, queuePostCreation } from "./postCreation.js";
+import { AsyncSubmission, isUserAlreadyQueued, PostCreationQueueResult, queuePostCreation } from "./postCreation.js";
 import pluralize from "pluralize";
 import { getUserExtendedFromUser } from "./extendedDevvit.js";
 import { evaluateUserAccount, EvaluationResult, storeAccountInitialEvaluationResults, storeEvaluationStatistics } from "./handleControlSubAccountEvaluation.js";
@@ -122,6 +122,23 @@ export async function addExternalSubmissionToPostCreationQueue (item: ExternalSu
         throw new Error("This function can only be called from the control subreddit.");
     }
 
+    const currentStatus = await getUserStatus(item.username, context);
+    if (currentStatus) {
+        console.log(`External Submissions: User ${item.username} already has a status of ${currentStatus.userStatus}.`);
+        if (!item.submitter) {
+            // Submitted automatically, but in the database already.
+            // Need to send back initial status.
+            await addUserToTempDeclineStore(item.username, context);
+        }
+        return false;
+    }
+
+    const alreadyQueued = await isUserAlreadyQueued(item.username, context);
+    if (alreadyQueued) {
+        console.log(`External Submissions: User ${item.username} is already in the queue.`);
+        return false;
+    }
+
     let user: User | undefined;
     try {
         user = await getUserOrUndefined(item.username, context);
@@ -132,17 +149,6 @@ export async function addExternalSubmissionToPostCreationQueue (item: ExternalSu
 
     if (!user) {
         console.log(`External Submissions: User ${item.username} is deleted or shadowbanned, skipping.`);
-        return false;
-    }
-
-    const currentStatus = await getUserStatus(item.username, context);
-    if (currentStatus) {
-        console.log(`External Submissions: User ${item.username} already has a status of ${currentStatus.userStatus}.`);
-        if (!item.submitter) {
-            // Submitted automatically, but in the database already.
-            // Need to send back initial status.
-            await addUserToTempDeclineStore(item.username, context);
-        }
         return false;
     }
 
