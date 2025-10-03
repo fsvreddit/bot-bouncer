@@ -1,7 +1,7 @@
 import { JobContext, JSONObject, JSONValue, Post, ScheduledJobEvent, TriggerContext, ZMember } from "@devvit/public-api";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { compact, uniq } from "lodash";
-import { CONTROL_SUBREDDIT, ControlSubredditJob, EVALUATE_KARMA_FARMING_SUBS_CRON } from "./constants.js";
+import { CONTROL_SUBREDDIT, ControlSubredditJob } from "./constants.js";
 import { getAllKnownUsers, getUserStatus, UserDetails, UserStatus } from "./dataStore.js";
 import { evaluateUserAccount, storeAccountInitialEvaluationResults, userHasContinuousNSFWHistory } from "./handleControlSubAccountEvaluation.js";
 import { getControlSubSettings } from "./settings.js";
@@ -10,7 +10,6 @@ import { getUserExtended } from "./extendedDevvit.js";
 import { AsyncSubmission, PostCreationQueueResult, queuePostCreation } from "./postCreation.js";
 import pluralize from "pluralize";
 import json2md from "json2md";
-import { CronExpressionParser } from "cron-parser";
 
 export const CHECK_DATE_KEY = "KarmaFarmingSubsCheckDates";
 
@@ -179,11 +178,11 @@ export async function queueKarmaFarmingSubs (_: unknown, context: JobContext) {
 }
 
 export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
-    const nextScheduledRun = CronExpressionParser.parse(EVALUATE_KARMA_FARMING_SUBS_CRON).next().toDate();
-    if (nextScheduledRun < addSeconds(new Date(), 30)) {
-        console.log(`Karma Farming Subs: Next scheduled run is too soon, skipping this run.`);
+    const inProgressKey = "KarmaFarmingSubsInProgress";
+    if (event.data?.firstRun && await context.redis.exists(inProgressKey)) {
         return;
     }
+    await context.redis.set(inProgressKey, "true", { expiration: addSeconds(new Date(), 30) });
 
     const runLimit = addSeconds(new Date(), 10);
     const batchSize = 10;
