@@ -20,7 +20,7 @@ import { sendDailyDigest } from "./modmail/dailyDigest.js";
 import { perform6HourlyJobs, perform6HourlyJobsPart2 } from "./sixHourlyJobs.js";
 import { checkUptimeAndMessages } from "./uptimeMonitor.js";
 import { analyseBioText } from "./similarBioTextFinder/bioTextFinder.js";
-import { processQueuedSubmission } from "./postCreation.js";
+import { handleRapidJob } from "./handleRapidJob.js";
 import { cleanupPostStore } from "./cleanupPostStore.js";
 import { buildEvaluatorAccuracyStatistics } from "./statistics/evaluatorAccuracyStatistics.js";
 import { processExternalSubmissionsFromObserverSubreddits } from "./externalSubmissions.js";
@@ -124,8 +124,8 @@ Devvit.addSchedulerJob({
 });
 
 Devvit.addSchedulerJob({
-    name: ControlSubredditJob.AsyncPostCreation,
-    onRun: processQueuedSubmission,
+    name: ControlSubredditJob.RapidJob,
+    onRun: handleRapidJob,
 });
 
 Devvit.addSchedulerJob({

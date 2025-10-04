@@ -17,6 +17,12 @@ import { userIsTrustedSubmitter } from "./trustedSubmitterHelpers.js";
 
 const WIKI_PAGE = "externalsubmissions";
 
+const EXTERNAL_SUBMISSION_QUEUE_KEY = "externalSubmissionQueue";
+
+function getExternalSubmissionDataKey (username: string): string {
+    return `externalSubmissionData:${username}`;
+}
+
 export interface ExternalSubmission {
     username: string;
     submitter?: string;
@@ -29,6 +35,7 @@ export interface ExternalSubmission {
     evaluationResults?: EvaluationResult[];
     sendFeedback?: boolean;
     proactive?: boolean;
+    immediate?: boolean;
 };
 
 const externalSubmissionSchema: JSONSchemaType<ExternalSubmission[]> = {
@@ -60,6 +67,7 @@ const externalSubmissionSchema: JSONSchemaType<ExternalSubmission[]> = {
             },
             sendFeedback: { type: "boolean", nullable: true },
             proactive: { type: "boolean", nullable: true },
+            immediate: { type: "boolean", nullable: true },
         },
         required: ["username"],
     },
@@ -273,30 +281,80 @@ export async function handleExternalSubmissionsPageUpdate (context: TriggerConte
         return;
     }
 
-    const executionLimit = addSeconds(new Date(), 10);
     const immediate = currentSubmissionList.length === 1;
-    let added = 0;
-    while (currentSubmissionList.length > 0 && new Date() < executionLimit) {
-        const submission = currentSubmissionList.shift();
-        if (!submission) {
-            break;
+
+    const results = await Promise.all(currentSubmissionList.map(async (item) => {
+        const alreadyQueued = await context.redis.zScore(EXTERNAL_SUBMISSION_QUEUE_KEY, item.username);
+        if (alreadyQueued) {
+            return false;
         }
-        const postSubmitted = await addExternalSubmissionToPostCreationQueue(submission, immediate, context);
-        if (postSubmitted) {
-            added++;
+
+        const currentStatus = await getUserStatus(item.username, context);
+        if (currentStatus) {
+            console.log(`External Submissions: User ${item.username} already has a status of ${currentStatus.userStatus}, skipping.`);
+            return false;
         }
-    }
+
+        item.immediate = immediate;
+
+        await context.redis.set(getExternalSubmissionDataKey(item.username), JSON.stringify(item), { expiration: addDays(new Date(), 7) });
+        await context.redis.zAdd(EXTERNAL_SUBMISSION_QUEUE_KEY, { score: new Date().getTime(), member: item.username });
+        return true;
+    }));
+
+    const enqueued = results.filter(r => r).length;
+
+    console.log(`External Submissions: Enqueued ${enqueued} external ${pluralize("submission", enqueued)} for processing.`);
 
     // Resave.
     await context.reddit.updateWikiPage({
         subredditName: CONTROL_SUBREDDIT,
         page: WIKI_PAGE,
-        content: JSON.stringify(currentSubmissionList),
+        content: JSON.stringify([]),
         reason: "Cleared the external submission list",
     });
 
-    console.log(`External Submissions: Added ${added} external ${pluralize("submission", added)} to the queue.`);
     await context.redis.del(externalSubmissionLock);
+}
+
+export async function processExternalSubmissionsQueue (context: JobContext): Promise<number> {
+    if (context.subredditName !== CONTROL_SUBREDDIT) {
+        throw new Error("This function can only be called from the control subreddit.");
+    }
+
+    const submissionQueue = await context.redis.zRange(EXTERNAL_SUBMISSION_QUEUE_KEY, 0, -1);
+    if (submissionQueue.length === 0) {
+        return 0;
+    }
+
+    const executionLimit = addSeconds(new Date(), 10);
+
+    // Process each submission in the queue.
+    let processed = 0;
+    while (submissionQueue.length > 0 && new Date() < executionLimit) {
+        const username = submissionQueue.shift()?.member;
+        if (!username) {
+            break;
+        }
+
+        await context.redis.zRem(EXTERNAL_SUBMISSION_QUEUE_KEY, [username]);
+
+        const submissionDataRaw = await context.redis.get(getExternalSubmissionDataKey(username));
+        if (!submissionDataRaw) {
+            console.error(`External Submissions: No data found for ${username}, skipping.`);
+            continue;
+        }
+
+        const submissionData = JSON.parse(submissionDataRaw) as ExternalSubmission;
+        const postSubmitted = await addExternalSubmissionToPostCreationQueue(submissionData, submissionData.immediate ?? false, context);
+        await context.redis.del(getExternalSubmissionDataKey(username));
+        if (postSubmitted) {
+            processed++;
+        }
+    }
+
+    console.log(`External Submissions: Processed ${processed} external ${pluralize("submission", processed)} from the queue.`);
+    return processed;
 }
 
 export async function processExternalSubmissionsFromObserverSubreddits (_: unknown, context: JobContext) {

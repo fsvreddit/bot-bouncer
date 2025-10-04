@@ -168,7 +168,7 @@ export async function queuePostCreation (submission: AsyncSubmission, context: T
     }
 }
 
-export async function processQueuedSubmission (_: unknown, context: JobContext) {
+export async function processQueuedSubmission (context: JobContext) {
     const queuedSubmissions = await context.redis.zRange(SUBMISSION_QUEUE, 0, -1);
     if (queuedSubmissions.length === 0) {
         // No submissions to process, so process feedback queue instead.
