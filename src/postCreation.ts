@@ -5,7 +5,7 @@ import { UserExtended } from "./extendedDevvit.js";
 import { addHours, addSeconds } from "date-fns";
 import { getControlSubSettings } from "./settings.js";
 import pluralize from "pluralize";
-import { processFeedbackQueue, queueSendFeedback } from "./submissionFeedback.js";
+import { queueSendFeedback } from "./submissionFeedback.js";
 
 export const statusToFlair: Record<UserStatus, PostFlairTemplate> = {
     [UserStatus.Pending]: PostFlairTemplate.Pending,
@@ -171,8 +171,6 @@ export async function queuePostCreation (submission: AsyncSubmission, context: T
 export async function processQueuedSubmission (context: JobContext) {
     const queuedSubmissions = await context.redis.zRange(SUBMISSION_QUEUE, 0, -1);
     if (queuedSubmissions.length === 0) {
-        // No submissions to process, so process feedback queue instead.
-        await processFeedbackQueue(context);
         return;
     }
 
