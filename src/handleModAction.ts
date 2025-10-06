@@ -7,6 +7,7 @@ import { validateControlSubConfigChange } from "./settings.js";
 import { addDays, addMinutes, addSeconds } from "date-fns";
 import { validateAndSaveAppealConfig } from "./modmail/autoAppealHandling.js";
 import { checkIfStatsNeedUpdating } from "./sixHourlyJobs.js";
+import { handleBannedSubredditsModAction } from "./statistics/bannedSubreddits.js";
 
 export async function handleModAction (event: ModAction, context: TriggerContext) {
     if (context.subredditName === CONTROL_SUBREDDIT) {
@@ -83,6 +84,10 @@ async function handleModActionControlSub (event: ModAction, context: TriggerCont
                 queueConfigWikiCheck(ConfigWikiPage.AutoAppealHandling, 5, context),
                 queueConfigWikiCheck(ConfigWikiPage.ControlSubSettings, 10, context),
             ]);
+        }
+
+        if (event.moderator.name.startsWith(context.appName) && event.moderator.name !== context.appName && event.moderator.name !== INTERNAL_BOT) {
+            await handleBannedSubredditsModAction(event, context);
         }
     }
 }
