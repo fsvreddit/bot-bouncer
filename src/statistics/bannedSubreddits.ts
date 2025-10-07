@@ -6,10 +6,11 @@ import { CONTROL_SUBREDDIT } from "../constants.js";
 const WIKI_PAGE_NAME = "statistics/banned-subreddits";
 
 export async function handleBannedSubredditsModAction (_: unknown, context: TriggerContext) {
+    const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
+
     const lastRevisionKey = "bannedSubredditsLastRevision";
     const lastRevision = await context.redis.get(lastRevisionKey);
 
-    const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
     let wikiPage: WikiPage | undefined;
     try {
         wikiPage = await context.reddit.getWikiPage(subredditName, WIKI_PAGE_NAME);

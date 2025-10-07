@@ -49,6 +49,11 @@ async function handleModActionClientSub (event: ModAction, context: TriggerConte
             await context.redis.set(`removedbymod:${targetId}`, "true", { expiration: addDays(new Date(), 28) });
         }
     }
+
+    // Special action for observer subreddits
+    if (event.action === "wikirevise" && event.moderator?.name.startsWith(context.appName) && event.moderator.name !== context.appName && event.moderator.name !== INTERNAL_BOT) {
+        await handleBannedSubredditsModAction(event, context);
+    }
 }
 
 enum ConfigWikiPage {
@@ -84,10 +89,6 @@ async function handleModActionControlSub (event: ModAction, context: TriggerCont
                 queueConfigWikiCheck(ConfigWikiPage.AutoAppealHandling, 5, context),
                 queueConfigWikiCheck(ConfigWikiPage.ControlSubSettings, 10, context),
             ]);
-        }
-
-        if (event.moderator.name.startsWith(context.appName) && event.moderator.name !== context.appName && event.moderator.name !== INTERNAL_BOT) {
-            await handleBannedSubredditsModAction(event, context);
         }
     }
 }
