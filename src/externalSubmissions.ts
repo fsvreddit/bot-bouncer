@@ -14,6 +14,7 @@ import json2md from "json2md";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { queueKarmaFarmingAccounts } from "./karmaFarmingSubsCheck.js";
 import { userIsTrustedSubmitter } from "./trustedSubmitterHelpers.js";
+import { setCleanupForUser } from "./cleanup.js";
 
 const WIKI_PAGE = "externalsubmissions";
 
@@ -291,6 +292,9 @@ export async function handleExternalSubmissionsPageUpdate (context: TriggerConte
 
         const currentStatus = await getUserStatus(item.username, context);
         if (currentStatus) {
+            if (currentStatus.userStatus === UserStatus.Purged || currentStatus.userStatus === UserStatus.Retired) {
+                await setCleanupForUser(item.username, context.redis, addSeconds(new Date(), 10));
+            }
             console.log(`External Submissions: User ${item.username} already has a status of ${currentStatus.userStatus}, skipping.`);
             return false;
         }

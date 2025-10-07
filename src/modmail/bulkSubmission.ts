@@ -2,13 +2,14 @@ import { Comment, Post, TriggerContext } from "@devvit/public-api";
 import Ajv, { JSONSchemaType } from "ajv";
 import { getUserStatus, UserStatus } from "../dataStore.js";
 import { compact, countBy, uniq } from "lodash";
-import { subMonths } from "date-fns";
+import { addSeconds, subMonths } from "date-fns";
 import json2md from "json2md";
 import { AsyncSubmission, queuePostCreation } from "../postCreation.js";
 import { getUserExtended, UserExtended } from "../extendedDevvit.js";
 import { CONTROL_SUBREDDIT } from "../constants.js";
 import pluralize from "pluralize";
 import { EvaluationResult, storeAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
+import { setCleanupForUser } from "../cleanup.js";
 
 interface UserWithDetails {
     username: string;
@@ -64,6 +65,9 @@ async function handleBulkItem (username: string, initialStatus: UserStatus, subm
     const currentStatus = await getUserStatus(username, context);
     if (currentStatus) {
         console.log(`Bulk submission: User ${username} already has a status of ${currentStatus.userStatus}.`);
+        if (currentStatus.userStatus === UserStatus.Purged || currentStatus.userStatus === UserStatus.Retired) {
+            await setCleanupForUser(user.username, context.redis, addSeconds(new Date(), 10));
+        }
         return false;
     }
 
