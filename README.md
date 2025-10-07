@@ -55,7 +55,7 @@ While you can unban the user yourself, this only affects the user on your subred
 
 # Change History
 
-## Next version (coming soon)
+## v1.19.1
 
 * Fix typo on default appeal message that users are prompted to send
 * Add feature to query a user's classification status when reporting, if they are marked as human
