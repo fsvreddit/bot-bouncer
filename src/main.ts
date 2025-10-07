@@ -8,7 +8,7 @@ import { cleanupDeletedAccounts } from "./cleanup.js";
 import { handleConfigWikiChange, handleModAction } from "./handleModAction.js";
 import { handleModmail } from "./modmail/modmail.js";
 import { handleControlSubAccountEvaluation } from "./handleControlSubAccountEvaluation.js";
-import { handleReportUser, reportFormDefinition, reportFormHandler } from "./handleReportUser.js";
+import { handleReportUser, queryFormDefinition, queryFormHandler, reportFormDefinition, reportFormHandler } from "./handleReportUser.js";
 import { handleClientCommentUpdate } from "./handleClientPostOrComment.js";
 import { handleClassificationChanges } from "./handleClientSubredditWikiUpdate.js";
 import { handleControlSubPostDelete } from "./handleControlSubPostDelete.js";
@@ -90,6 +90,8 @@ Devvit.addMenuItem({
 });
 
 export const reportForm = Devvit.createForm(reportFormDefinition, reportFormHandler);
+
+export const queryForm = Devvit.createForm(queryFormDefinition, queryFormHandler);
 
 export const controlSubForm = Devvit.createForm(data => ({ title: data.title as string, description: data.description as string, fields: data.fields as FormField[] }), handleControlSubForm);
 

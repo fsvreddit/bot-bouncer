@@ -1,14 +1,16 @@
 import { Context, MenuItemOnPressEvent, JSONObject, FormOnSubmitEvent, FormFunction } from "@devvit/public-api";
 import { CONTROL_SUBREDDIT } from "./constants.js";
 import { getPostOrCommentById, getUserOrUndefined, isModerator } from "./utility.js";
-import { getUserStatus } from "./dataStore.js";
+import { getUserStatus, UserStatus } from "./dataStore.js";
 import { addExternalSubmissionFromClientSub } from "./externalSubmissions.js";
-import { reportForm } from "./main.js";
+import { queryForm, reportForm } from "./main.js";
 import { subMonths } from "date-fns";
 import { getControlSubSettings } from "./settings.js";
 import { handleControlSubReportUser } from "./handleControlSubMenu.js";
 import { recordReportForDigest } from "./modmail/dailyDigest.js";
 import { canUserReceiveFeedback } from "./submissionFeedback.js";
+import json2md from "json2md";
+import { isLinkId } from "@devvit/public-api/types/tid.js";
 
 enum ReportFormField {
     ReportContext = "reportContext",
@@ -52,7 +54,15 @@ export async function handleReportUser (event: MenuItemOnPressEvent, context: Co
 
     const currentStatus = await getUserStatus(target.authorName, context);
     if (currentStatus) {
-        context.ui.showToast(`${target.authorName} has already been reported to Bot Bouncer with status: ${currentStatus.userStatus}`);
+        const controlSubSettings = await getControlSubSettings(context);
+        const queryableStatuses = [UserStatus.Organic, UserStatus.Declined, UserStatus.Service];
+        if (queryableStatuses.includes(currentStatus.userStatus) && controlSubSettings.allowClassificationQueries) {
+            context.ui.showForm(queryForm, { username: target.authorName, status: currentStatus.userStatus });
+            return;
+        } else {
+            context.ui.showToast(`${target.authorName} has already been reported to Bot Bouncer with status: ${currentStatus.userStatus}`);
+        }
+
         return;
     }
 
@@ -142,4 +152,58 @@ export async function reportFormHandler (event: FormOnSubmitEvent<JSONObject>, c
     ]);
 
     context.ui.showToast(`${target.authorName} has been submitted to /r/${CONTROL_SUBREDDIT}. A tracking post will be created shortly.`);
+}
+
+export const queryFormDefinition: FormFunction = data => ({
+    title: `Query status for ${data.username}`,
+    description: `This user is currently marked as ${data.status}. If you think this is a bot, please tell us why.`,
+    fields: [
+        {
+            type: "paragraph",
+            label: "Please provide more information that might help us understand why this is a bot",
+            lineHeight: 6,
+            name: "queryReason",
+        },
+    ],
+});
+
+export async function queryFormHandler (event: FormOnSubmitEvent<JSONObject>, context: Context) {
+    const currentUser = await context.reddit.getCurrentUsername();
+    if (!currentUser) {
+        context.ui.showToast("You must be logged in to report users to Bot Bouncer.");
+        return;
+    }
+
+    const targetId = context.commentId ?? context.postId;
+    if (!targetId) {
+        context.ui.showToast("Sorry, could not query user.");
+        console.log("Error handling query form", context);
+        return;
+    }
+
+    const target = isLinkId(targetId) ? await context.reddit.getPostById(targetId) : await context.reddit.getCommentById(targetId);
+
+    const queryReason = event.values.queryReason as string | undefined;
+    if (!queryReason || queryReason.trim().length < 10) {
+        context.ui.showToast("Please provide a more detailed reason for your query (at least 10 characters).");
+        return;
+    }
+
+    const message: json2md.DataObject[] = [
+        { p: `User /u/${currentUser} has queried the status of /u/${target.authorName} who is currently marked as human. They have given the following reason:` },
+        { blockquote: queryReason.trim() },
+    ];
+
+    const subredditInfo = await context.reddit.getSubredditInfoByName(CONTROL_SUBREDDIT);
+    if (!subredditInfo.id) {
+        context.ui.showToast("Sorry, could not report user.");
+        console.log("Error finding control subreddit", context);
+        return;
+    }
+
+    await context.reddit.modMail.createModInboxConversation({
+        subredditId: subredditInfo.id,
+        subject: `Classification status query about /u/${target.authorName}`,
+        bodyMarkdown: json2md(message),
+    });
 }
