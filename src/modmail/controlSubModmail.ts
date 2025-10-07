@@ -159,7 +159,7 @@ export function markdownToText (markdown: json2md.DataObject[], limit = 9500): s
 async function handleModmailFromUser (modmail: ModmailMessage, context: TriggerContext) {
     const username = modmail.messageAuthor;
 
-    if (username === INTERNAL_BOT) {
+    if (username === INTERNAL_BOT || username.startsWith(context.appName)) {
         return;
     }
 

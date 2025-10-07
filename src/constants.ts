@@ -38,7 +38,7 @@ export enum ControlSubredditJob {
     QueueKarmaFarmingSubs = "queueKarmaFarmingSubs",
     UptimeAndMessageCheck = "uptimeAndMessageCheck",
     BioTextAnalyser = "bioTextAnalyser",
-    AsyncPostCreation = "asyncPostCreation",
+    RapidJob = "rapidJob",
     CleanupPostStore = "cleanupPostStore",
     EvaluatorAccuracyStatistics = "evaluatorAccuracyStatistics",
     DefinedHandlesStatistics = "definedHandlesStatistics",
@@ -67,7 +67,7 @@ export enum ClientSubredditJob {
  * Job Crons
  */
 
-export const EVALUATE_KARMA_FARMING_SUBS_CRON = "1/5 * * * *"; // Every 5 minutes
+export const EVALUATE_KARMA_FARMING_SUBS_CRON = "* * * * *"; // Every 5 minutes
 export const CONTROL_SUB_CLEANUP_CRON = "1/5 * * * *"; // Every 5 minutes
 
 export const CLIENT_SUB_WIKI_UPDATE_CRON_KEY = "clientSubWikiUpdateCron";

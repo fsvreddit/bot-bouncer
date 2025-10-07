@@ -55,6 +55,12 @@ While you can unban the user yourself, this only affects the user on your subred
 
 # Change History
 
+## v1.19.1
+
+* Fix typo on default appeal message that users are prompted to send
+* Add feature to query a user's classification status when reporting, if they are marked as human
+* Internal changes to support operations on /r/BotBouncer
+
 ## v1.18.0
 
 * Fix issues that could result in ban appeals not being processed on subreddits using Bot Bouncer

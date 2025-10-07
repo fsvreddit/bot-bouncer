@@ -5,7 +5,7 @@ import { UserExtended } from "./extendedDevvit.js";
 import { addHours, addSeconds } from "date-fns";
 import { getControlSubSettings } from "./settings.js";
 import pluralize from "pluralize";
-import { processFeedbackQueue, queueSendFeedback } from "./submissionFeedback.js";
+import { queueSendFeedback } from "./submissionFeedback.js";
 
 export const statusToFlair: Record<UserStatus, PostFlairTemplate> = {
     [UserStatus.Pending]: PostFlairTemplate.Pending,
@@ -31,6 +31,11 @@ export interface AsyncSubmission {
         comment: string;
     };
     immediate: boolean;
+}
+
+export async function isUserAlreadyQueued (username: string, context: JobContext): Promise<boolean> {
+    const score = await context.redis.zScore(SUBMISSION_QUEUE, username);
+    return score !== undefined;
 }
 
 async function createNewSubmission (submission: AsyncSubmission, context: TriggerContext) {
@@ -140,8 +145,8 @@ export async function queuePostCreation (submission: AsyncSubmission, context: T
     await txn.multi();
 
     try {
-        const alreadyInQueueScore = await context.redis.zScore(SUBMISSION_QUEUE, submission.user.username);
-        if (alreadyInQueueScore) {
+        const alreadyInQueue = await isUserAlreadyQueued(submission.user.username, context);
+        if (alreadyInQueue) {
             console.log(`Post Creation: User ${submission.user.username} is already in the queue.`);
             await txn.discard();
             if (submission.immediate) {
@@ -163,11 +168,9 @@ export async function queuePostCreation (submission: AsyncSubmission, context: T
     }
 }
 
-export async function processQueuedSubmission (_: unknown, context: JobContext) {
+export async function processQueuedSubmission (context: JobContext) {
     const queuedSubmissions = await context.redis.zRange(SUBMISSION_QUEUE, 0, -1);
     if (queuedSubmissions.length === 0) {
-        // No submissions to process, so process feedback queue instead.
-        await processFeedbackQueue(context);
         return;
     }
 

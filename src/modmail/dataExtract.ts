@@ -1,8 +1,7 @@
 /* eslint-disable @stylistic/quote-props */
-import { TriggerContext, WikiPage, WikiPagePermissionLevel } from "@devvit/public-api";
-import { BIO_TEXT_STORE, getFullDataStore, UserDetails, UserFlag, UserStatus } from "../dataStore.js";
+import { TriggerContext, UserSocialLink, WikiPage, WikiPagePermissionLevel } from "@devvit/public-api";
+import { BIO_TEXT_STORE, getFullDataStore, SOCIAL_LINKS_STORE, UserDetails, UserFlag, UserStatus } from "../dataStore.js";
 import Ajv, { JSONSchemaType } from "ajv";
-import { fromPairs } from "lodash";
 import pluralize from "pluralize";
 import json2md from "json2md";
 import { addSeconds, format } from "date-fns";
@@ -15,12 +14,12 @@ interface ModmailDataExtract {
     operator?: string;
     usernameRegex?: string;
     bioRegex?: string;
+    socialLinkStartsWith?: string;
     evaluator?: string;
     hitReason?: string;
     flags?: UserFlag[];
     "~flags"?: UserFlag[];
     since?: string;
-    format?: "json" | "table";
     recheck?: boolean;
 }
 
@@ -48,6 +47,10 @@ const schema: JSONSchemaType<ModmailDataExtract> = {
             nullable: true,
         },
         bioRegex: {
+            type: "string",
+            nullable: true,
+        },
+        socialLinkStartsWith: {
             type: "string",
             nullable: true,
         },
@@ -80,11 +83,6 @@ const schema: JSONSchemaType<ModmailDataExtract> = {
             nullable: true,
             pattern: "^\\d{4}-\\d{2}-\\d{2}$", // YYYY-MM-DD format
         },
-        format: {
-            type: "string",
-            enum: ["json", "table"],
-            nullable: true,
-        },
         recheck: {
             type: "boolean",
             nullable: true,
@@ -93,30 +91,7 @@ const schema: JSONSchemaType<ModmailDataExtract> = {
     additionalProperties: false,
 };
 
-interface FriendlyUserDetails {
-    postId: string;
-    userStatus: UserStatus;
-    reportedAt?: string;
-    lastUpdate: string;
-    submitter?: string;
-    operator?: string;
-    flags?: UserFlag[];
-    bioText?: string;
-}
-
-function userDetailsToFriendly (details: UserDetails): FriendlyUserDetails {
-    return {
-        postId: details.trackingPostId,
-        userStatus: details.userStatus,
-        reportedAt: details.reportedAt ? format(new Date(details.reportedAt), "yyyy-MM-dd") : undefined,
-        lastUpdate: format(new Date(details.lastUpdate), "yyyy-MM-dd"),
-        submitter: details.submitter,
-        operator: details.operator,
-        flags: details.flags,
-        // eslint-disable-next-line @typescript-eslint/no-deprecated
-        bioText: details.bioText,
-    };
-}
+type UserDetailsWithBioAndSocialLinks = UserDetails & { bioText?: string; socialLinks?: string };
 
 export async function dataExtract (message: string | undefined, conversationId: string, context: TriggerContext) {
     if (!message?.startsWith("!extract {")) {
@@ -184,7 +159,7 @@ export async function dataExtract (message: string | undefined, conversationId: 
     // Get all data from database.
     const allData = await getFullDataStore(context);
     let data = Object.entries(allData)
-        .map(([username, data]) => ({ username, data: JSON.parse(data) as UserDetails }))
+        .map(([username, data]) => ({ username, data: JSON.parse(data) as UserDetailsWithBioAndSocialLinks }))
         .filter((entry) => {
             if (request.status && !request.status.includes(entry.data.userStatus)) {
                 return false;
@@ -244,14 +219,30 @@ export async function dataExtract (message: string | undefined, conversationId: 
         for (let i = 0; i < data.length; i++) {
             const userBioText = bioTexts[i];
             if (userBioText && regex.test(userBioText)) {
-                // eslint-disable-next-line @typescript-eslint/no-deprecated
                 data[i].data.bioText = userBioText; // Store the bio text for the user
             }
         }
 
-        // eslint-disable-next-line @typescript-eslint/no-deprecated
         data = data.filter(entry => entry.data.bioText);
         console.log(`Filtered data by bioRegex: ${request.bioRegex}, remaining entries: ${data.length}`);
+    }
+
+    if (request.socialLinkStartsWith) {
+        const socialLinkPrefix = request.socialLinkStartsWith.toLowerCase();
+        const socialLinks = await context.redis.hMGet(SOCIAL_LINKS_STORE, data.map(entry => entry.username));
+        for (let i = 0; i < data.length; i++) {
+            const userSocialLinks = socialLinks[i];
+            if (userSocialLinks) {
+                const link = JSON.parse(userSocialLinks) as UserSocialLink[];
+                const matchingLink = link.find(l => l.outboundUrl.startsWith(socialLinkPrefix));
+                if (matchingLink) {
+                    data[i].data.socialLinks = matchingLink.outboundUrl;
+                }
+            }
+        }
+
+        data = data.filter(entry => entry.data.socialLinks);
+        console.log(`Filtered data by socialLinkStartsWith: ${request.socialLinkStartsWith}, remaining entries: ${data.length}`);
     }
 
     if (request.evaluator || request.hitReason) {
@@ -300,88 +291,91 @@ export async function dataExtract (message: string | undefined, conversationId: 
 
     const includeFlags = data.some(entry => entry.data.flags && entry.data.flags.length > 0);
 
-    let content: string;
-    if (request.format === "json") {
-        const dataToExport = fromPairs(data.map(entry => [entry.username, userDetailsToFriendly(entry.data)]));
-        content = JSON.stringify(dataToExport);
-    } else {
-        const markdown: json2md.DataObject[] = [
-            { p: `Data export for ${data.length} ${pluralize("user", data.length)}.` },
+    const markdown: json2md.DataObject[] = [
+        { p: `Data export for ${data.length} ${pluralize("user", data.length)}.` },
+    ];
+
+    const criteriaBullets: string[] = [];
+    if (request.status) {
+        criteriaBullets.push(`Status: ${request.status.join(", ")}`);
+    }
+    if (request.submitter) {
+        criteriaBullets.push(`Submitter: ${request.submitter}`);
+    }
+    if (request.operator) {
+        criteriaBullets.push(`Operator: ${request.operator}`);
+    }
+    if (request.usernameRegex) {
+        criteriaBullets.push(`Username Regex: \`${request.usernameRegex}\``);
+    }
+    if (request.flags) {
+        criteriaBullets.push(`Includes Flags: ${request.flags.join(", ")}`);
+    }
+    if (request["~flags"]) {
+        criteriaBullets.push(`Excludes Flags: ${request["~flags"].join(", ")}`);
+    }
+    if (request.since) {
+        criteriaBullets.push(`Reported Since: ${request.since}`);
+    }
+    if (request.bioRegex) {
+        criteriaBullets.push(`Bio Regex: \`${request.bioRegex}\``);
+    }
+    if (request.socialLinkStartsWith) {
+        criteriaBullets.push(`Social Link Starts With: ${request.socialLinkStartsWith}`);
+    }
+    if (request.evaluator) {
+        criteriaBullets.push(`Evaluator: ${request.evaluator}`);
+    }
+    if (request.hitReason) {
+        criteriaBullets.push(`Hit Reason: ${request.hitReason}`);
+    }
+
+    if (criteriaBullets.length > 0) {
+        markdown.push({ p: "Criteria for this extract:" });
+        markdown.push({ ul: criteriaBullets });
+    }
+
+    const headers = ["User", "Tracking Post", "Status", "Reported At", "Last Update", "Submitter", "Operator"];
+    if (includeFlags) {
+        headers.push("Flags");
+    }
+    if (request.bioRegex) {
+        headers.push("Bio Text");
+    }
+    if (request.socialLinkStartsWith) {
+        headers.push("Social Link");
+    }
+
+    const rows: string[][] = [];
+
+    for (const entry of data) {
+        const row: string[] = [
+            `[${entry.username}](https://www.reddit.com/user/${entry.username})`,
+            `https://redd.it/${entry.data.trackingPostId.substring(3)}`,
+            entry.data.userStatus,
+            entry.data.reportedAt ? format(new Date(entry.data.reportedAt), "yyyy-MM-dd") : "",
+            entry.data.lastUpdate ? format(new Date(entry.data.lastUpdate), "yyyy-MM-dd") : "",
+            entry.data.submitter ?? "",
+            entry.data.operator ?? "unknown",
         ];
 
-        const criteriaBullets: string[] = [];
-        if (request.status) {
-            criteriaBullets.push(`Status: ${request.status.join(", ")}`);
-        }
-        if (request.submitter) {
-            criteriaBullets.push(`Submitter: ${request.submitter}`);
-        }
-        if (request.operator) {
-            criteriaBullets.push(`Operator: ${request.operator}`);
-        }
-        if (request.usernameRegex) {
-            criteriaBullets.push(`Username Regex: \`${request.usernameRegex}\``);
-        }
-        if (request.flags) {
-            criteriaBullets.push(`Includes Flags: ${request.flags.join(", ")}`);
-        }
-        if (request["~flags"]) {
-            criteriaBullets.push(`Excludes Flags: ${request["~flags"].join(", ")}`);
-        }
-        if (request.since) {
-            criteriaBullets.push(`Reported Since: ${request.since}`);
-        }
-        if (request.bioRegex) {
-            criteriaBullets.push(`Bio Regex: \`${request.bioRegex}\``);
-        }
-        if (request.evaluator) {
-            criteriaBullets.push(`Evaluator: ${request.evaluator}`);
-        }
-        if (request.hitReason) {
-            criteriaBullets.push(`Hit Reason: ${request.hitReason}`);
-        }
-
-        if (criteriaBullets.length > 0) {
-            markdown.push({ p: "Criteria for this extract:" });
-            markdown.push({ ul: criteriaBullets });
-        }
-
-        const headers = ["User", "Tracking Post", "Status", "Reported At", "Last Update", "Submitter", "Operator"];
         if (includeFlags) {
-            headers.push("Flags");
+            row.push(entry.data.flags?.join(", ") ?? "");
         }
+
         if (request.bioRegex) {
-            headers.push("Bio Text");
+            row.push(entry.data.bioText ?? "");
         }
 
-        const rows: string[][] = [];
-
-        for (const entry of data) {
-            const userDetails = userDetailsToFriendly(entry.data);
-            const row: string[] = [
-                `[${entry.username}](https://www.reddit.com/user/${entry.username})`,
-                `https://redd.it/${userDetails.postId.substring(3)}`,
-                userDetails.userStatus,
-                userDetails.reportedAt ?? "",
-                userDetails.lastUpdate,
-                userDetails.submitter ?? "",
-                userDetails.operator ?? "unknown",
-            ];
-
-            if (includeFlags) {
-                row.push(userDetails.flags?.join(", ") ?? "");
-            }
-
-            if (request.bioRegex) {
-                row.push(userDetails.bioText ?? "");
-            }
-
-            rows.push(row);
+        if (request.socialLinkStartsWith) {
+            row.push(entry.data.socialLinks ?? "");
         }
 
-        markdown.push({ table: { headers, rows } });
-        content = json2md(markdown);
+        rows.push(row);
     }
+
+    markdown.push({ table: { headers, rows } });
+    const content = json2md(markdown);
 
     if (content.length > 512 * 1024) {
         await context.reddit.modMail.reply({

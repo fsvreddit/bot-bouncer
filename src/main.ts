@@ -8,7 +8,7 @@ import { cleanupDeletedAccounts } from "./cleanup.js";
 import { handleConfigWikiChange, handleModAction } from "./handleModAction.js";
 import { handleModmail } from "./modmail/modmail.js";
 import { handleControlSubAccountEvaluation } from "./handleControlSubAccountEvaluation.js";
-import { handleReportUser, reportFormDefinition, reportFormHandler } from "./handleReportUser.js";
+import { handleReportUser, queryFormDefinition, queryFormHandler, reportFormDefinition, reportFormHandler } from "./handleReportUser.js";
 import { handleClientCommentUpdate } from "./handleClientPostOrComment.js";
 import { handleClassificationChanges } from "./handleClientSubredditWikiUpdate.js";
 import { handleControlSubPostDelete } from "./handleControlSubPostDelete.js";
@@ -20,7 +20,7 @@ import { sendDailyDigest } from "./modmail/dailyDigest.js";
 import { perform6HourlyJobs, perform6HourlyJobsPart2 } from "./sixHourlyJobs.js";
 import { checkUptimeAndMessages } from "./uptimeMonitor.js";
 import { analyseBioText } from "./similarBioTextFinder/bioTextFinder.js";
-import { processQueuedSubmission } from "./postCreation.js";
+import { handleRapidJob } from "./handleRapidJob.js";
 import { cleanupPostStore } from "./cleanupPostStore.js";
 import { buildEvaluatorAccuracyStatistics } from "./statistics/evaluatorAccuracyStatistics.js";
 import { processExternalSubmissionsFromObserverSubreddits } from "./externalSubmissions.js";
@@ -91,6 +91,8 @@ Devvit.addMenuItem({
 
 export const reportForm = Devvit.createForm(reportFormDefinition, reportFormHandler);
 
+export const queryForm = Devvit.createForm(queryFormDefinition, queryFormHandler);
+
 export const controlSubForm = Devvit.createForm(data => ({ title: data.title as string, description: data.description as string, fields: data.fields as FormField[] }), handleControlSubForm);
 
 export const controlSubQuerySubmissionForm = Devvit.createForm(controlSubQuerySubmissionFormDefinition, sendQueryToSubmitter);
@@ -124,8 +126,8 @@ Devvit.addSchedulerJob({
 });
 
 Devvit.addSchedulerJob({
-    name: ControlSubredditJob.AsyncPostCreation,
-    onRun: processQueuedSubmission,
+    name: ControlSubredditJob.RapidJob,
+    onRun: handleRapidJob,
 });
 
 Devvit.addSchedulerJob({
