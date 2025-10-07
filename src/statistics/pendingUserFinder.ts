@@ -6,7 +6,7 @@ import { StatsUserEntry } from "../sixHourlyJobs.js";
 
 export async function pendingUserFinder (allEntries: StatsUserEntry[], context: JobContext) {
     const cutoff = subDays(new Date(), 2).getTime();
-    const pendingUsersOverOneDay = allEntries.filter(item => item.data.userStatus === UserStatus.Pending && (item.data.lastUpdate < cutoff || (item.data.reportedAt ?? 0 < cutoff)));
+    const pendingUsersOverOneDay = allEntries.filter(item => item.data.userStatus === UserStatus.Pending && (item.data.reportedAt ?? 0 < cutoff));
     if (pendingUsersOverOneDay.length === 0) {
         return;
     }
