@@ -1,10 +1,10 @@
-import { TriggerContext } from "@devvit/public-api";
+import { Comment, TriggerContext } from "@devvit/public-api";
 import { isLinkId } from "@devvit/public-api/types/tid.js";
 import { getUserStatus, UserStatus } from "../dataStore.js";
 import { getSummaryForUser } from "../UserSummary/userSummary.js";
 import { getUserOrUndefined, isBanned, isModerator } from "../utility.js";
 import { CONFIGURATION_DEFAULTS, getControlSubSettings } from "../settings.js";
-import { addDays, addHours, subMinutes } from "date-fns";
+import { addDays, addHours, format, subMinutes } from "date-fns";
 import json2md from "json2md";
 import { ModmailMessage } from "./modmail.js";
 import { dataExtract } from "./dataExtract.js";
@@ -85,6 +85,11 @@ export async function handleControlSubredditModmail (modmail: ModmailMessage, co
 
     if (modmail.bodyMarkdown.startsWith("!evaluate ")) {
         await evaluateAccountFromModmail(modmail, context);
+        return;
+    }
+
+    if (modmail.bodyMarkdown.startsWith("!history ")) {
+        await showUserHistory(modmail, context);
         return;
     }
 
@@ -315,6 +320,47 @@ async function checkBanOnSub (modmail: ModmailMessage, context: TriggerContext) 
             message.push({ blockquote: error instanceof Error ? error.message : String(error) });
         }
     }
+    await context.reddit.modMail.reply({
+        body: json2md(message),
+        conversationId: modmail.conversationId,
+        isInternal: true,
+    });
+}
+
+async function showUserHistory (modmail: ModmailMessage, context: TriggerContext) {
+    const regex = /^!history (\d+)/;
+    const match = regex.exec(modmail.bodyMarkdown);
+    if (!modmail.participant || !match || match.length !== 2) {
+        await context.reddit.modMail.reply({
+            body: "Invalid command format. Use `!history <number_of_items>`.",
+            conversationId: modmail.conversationId,
+            isInternal: true,
+        });
+        return;
+    }
+
+    const numberOfItems = parseInt(match[1], 10);
+    const userHistory = await context.reddit.getCommentsAndPostsByUser({
+        username: modmail.participant,
+        limit: numberOfItems,
+        sort: "new",
+    }).all();
+
+    const message: json2md.DataObject[] = [];
+
+    if (userHistory.length === 0) {
+        message.push({ p: `No recent posts or comments found for /u/${modmail.participant}.` });
+    } else {
+        message.push({ p: `Showing the ${numberOfItems} most recent posts and comments by /u/${modmail.participant}:` });
+
+        for (const item of userHistory) {
+            message.push({ p: `[${item instanceof Comment ? "Comment" : "Post"}](${item.permalink}) in /r/${item.subredditName} on ${format(item.createdAt, "yyyy-MM-dd hh:mm")}` });
+            if (item instanceof Comment) {
+                message.push({ blockquote: item.body });
+            }
+        }
+    }
+
     await context.reddit.modMail.reply({
         body: json2md(message),
         conversationId: modmail.conversationId,
