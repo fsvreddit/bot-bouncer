@@ -30,6 +30,7 @@ import { deleteRecordsForRemovedUsers, evaluatorReversalsJob } from "./evaluator
 import { handleCommentCreate, handlePostCreate } from "./handleContentCreation.js";
 import { conditionalStatsUpdate } from "./statistics/conditionalStatsUpdate.js";
 import { asyncWikiUpdate } from "./statistics/asyncWikiUpdate.js";
+import { generateBioStatisticsReport, updateBioStatisticsJob } from "./statistics/userBioStatistics.js";
 
 Devvit.addSettings(appSettings);
 
@@ -218,6 +219,16 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: ControlSubredditJob.AsyncWikiUpdate,
     onRun: asyncWikiUpdate,
+});
+
+Devvit.addSchedulerJob({
+    name: ControlSubredditJob.BioStatsUpdate,
+    onRun: updateBioStatisticsJob,
+});
+
+Devvit.addSchedulerJob({
+    name: ControlSubredditJob.BioStatsGenerateReport,
+    onRun: generateBioStatisticsReport,
 });
 
 /**

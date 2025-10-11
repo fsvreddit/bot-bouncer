@@ -23,6 +23,9 @@ export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, contex
     }
 
     await checkJobsAreApplicable(context);
+
+    // Remove legacy redis keys
+    await context.redis.del("evaluatorVariables");
 }
 
 async function addControlSubredditJobs (context: TriggerContext) {
@@ -89,10 +92,6 @@ async function addControlSubredditJobs (context: TriggerContext) {
         handleExternalSubmissionsPageUpdate(context),
         removeRetiredEvaluatorsFromStats(context),
     ]);
-
-    await context.redis.del("bioStatisticsQueue");
-    await context.redis.del("bioStatisticsRecords");
-    await context.redis.del("bioStatisticsRecordCount");
 
     console.log("App Install: Control subreddit jobs added");
 }

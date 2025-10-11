@@ -1,7 +1,7 @@
 import { JobContext } from "@devvit/public-api";
 import { DISPLAY_NAME_STORE, UserDetails, UserStatus } from "../dataStore.js";
 import { subWeeks } from "date-fns";
-import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
+import { getEvaluatorVariable } from "../userEvaluation/evaluatorVariables.js";
 import json2md from "json2md";
 import { StatsUserEntry } from "../sixHourlyJobs.js";
 
@@ -21,8 +21,7 @@ export async function updateDisplayNameStatistics (allEntries: StatsUserEntry[],
     recentData = recentData.filter(item => item.data.displayName);
     const recentBanned = recentData.filter(item => item.data.userStatus === UserStatus.Banned || item.data.lastStatus === UserStatus.Banned);
 
-    const evaluatorVariables = await getEvaluatorVariables(context);
-    const displayNameRegexes = evaluatorVariables["baddisplayname:regexes"] as string[] | undefined ?? [];
+    const displayNameRegexes = await getEvaluatorVariable<string[]>("baddisplayname:regexes", context) ?? [];
 
     const displayNameCounts: Record<string, number> = {};
     for (const item of recentBanned) {
