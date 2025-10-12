@@ -1,7 +1,7 @@
 import { JobContext, JSONObject, Post, ScheduledJobEvent } from "@devvit/public-api";
 import { BIO_TEXT_STORE, DISPLAY_NAME_STORE, UserStatus } from "../dataStore.js";
 import { addSeconds, format, subMonths } from "date-fns";
-import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
+import { getEvaluatorVariable } from "../userEvaluation/evaluatorVariables.js";
 import { fromPairs } from "lodash";
 import { ControlSubredditJob } from "../constants.js";
 import json2md from "json2md";
@@ -228,8 +228,7 @@ async function buildDefinedHandlesWikiPage (context: JobContext) {
 }
 
 async function getDefinedHandles (context: JobContext): Promise<string[]> {
-    const evaluatorVariables = await getEvaluatorVariables(context);
-    const definedHandles = evaluatorVariables["substitutions:definedhandles"] as string | undefined ?? "";
+    const definedHandles = await getEvaluatorVariable<string>("substitutions:definedhandles", context) ?? "";
     return getHandlesFromRegex(definedHandles);
 }
 

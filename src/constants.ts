@@ -50,6 +50,8 @@ export enum ControlSubredditJob {
     HandleConfigWikiChange = "handleConfigWikiChange",
     ConditionalStatsUpdate = "conditionalStatsUpdate",
     AsyncWikiUpdate = "asyncWikiUpdate",
+    BioStatsUpdate = "bioStatsUpdate",
+    BioStatsGenerateReport = "bioStatsGenerateReport",
 }
 
 /**
