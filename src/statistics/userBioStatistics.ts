@@ -211,24 +211,6 @@ export async function generateBioStatisticsReport (event: ScheduledJobEvent<JSON
 
     console.log(`Bio Stats: Found ${reusedRecords.length} reused bio texts`);
 
-    // const reusedRecords: { key: string; record: BioRecord }[] = [];
-    // for (const { member, score } of itemsWithReuse.reverse()) {
-    //     if (score < 2) {
-    //         console.log("Bio Stats: Reached bio texts with only single hits, stopping processing");
-    //         break;
-    //     }
-
-    //     console.log(`Bio Stats: Retrieving record with count ${score} and key ${member}`);
-    //     const recordData = await context.redis.hGet(BIO_STATS_TEMP_STORE, member);
-    //     if (!recordData) {
-    //         console.log(`Bio Stats: No record found for key ${member}, skipping`);
-    //         continue;
-    //     } else {
-    //         console.log(`Bio Stats: Retrieved record`);
-    //     }
-    //     reusedRecords.push({ key: member, record: JSON.parse(recordData) as BioRecord });
-    // }
-
     if (reusedRecords.length === 0) {
         console.log("Bio Stats: No reused bio texts found, skipping report generation");
         return;
