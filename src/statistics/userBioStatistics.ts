@@ -95,7 +95,7 @@ export async function updateBioStatisticsJob (event: ScheduledJobEvent<JSONObjec
         await context.scheduler.runJob({
             name: ControlSubredditJob.BioStatsGenerateReport,
             runAt: addSeconds(new Date(), 2),
-            data: { configuredBioRegexes },
+            // data: { configuredBioRegexes },
         });
         return;
     }
@@ -231,7 +231,6 @@ export async function generateBioStatisticsReport (event: ScheduledJobEvent<JSON
     for (const record of reusedRecords) {
         const currentContent: json2md.DataObject[] = [];
 
-        console.log(`Bio Stats: Processing record with bio text: ${decodedBio(record.record.bioText)}`);
         currentContent.push({ blockquote: decodedBio(record.record.bioText) });
         const listRows: string[] = [];
 
@@ -245,11 +244,11 @@ export async function generateBioStatisticsReport (event: ScheduledJobEvent<JSON
         currentContent.push({ hr: {} });
 
         if (record.record.inEvaluators) {
+            coveredByEvaluatorData.push(...currentContent);
+        } else {
             if (record.record.lastSeen > subWeeks(new Date(), 1).getTime()) {
                 notCoveredByEvaluatorData.push(...currentContent);
             }
-        } else {
-            coveredByEvaluatorData.push(...currentContent);
         }
 
         console.log(`Bio Stats: Processed record with ${record.record.hits} hits`);

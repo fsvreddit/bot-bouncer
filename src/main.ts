@@ -17,7 +17,7 @@ import { evaluateKarmaFarmingSubs, queueKarmaFarmingSubs } from "./karmaFarmingS
 import { controlSubQuerySubmissionFormDefinition, handleControlSubForm, sendQueryToSubmitter } from "./handleControlSubMenu.js";
 import { checkForUpdates } from "./upgradeNotifier.js";
 import { sendDailyDigest } from "./modmail/dailyDigest.js";
-import { getAllValuesForStats, perform6HourlyJobs, perform6HourlyJobsPart2 } from "./sixHourlyJobs.js";
+import { perform6HourlyJobs, perform6HourlyJobsPart2 } from "./sixHourlyJobs.js";
 import { checkUptimeAndMessages } from "./uptimeMonitor.js";
 import { analyseBioText } from "./similarBioTextFinder/bioTextFinder.js";
 import { handleRapidJob } from "./handleRapidJob.js";
@@ -30,7 +30,7 @@ import { deleteRecordsForRemovedUsers, evaluatorReversalsJob } from "./evaluator
 import { handleCommentCreate, handlePostCreate } from "./handleContentCreation.js";
 import { conditionalStatsUpdate } from "./statistics/conditionalStatsUpdate.js";
 import { asyncWikiUpdate } from "./statistics/asyncWikiUpdate.js";
-import { generateBioStatisticsReport, updateBioStatistics, updateBioStatisticsJob } from "./statistics/userBioStatistics.js";
+import { generateBioStatisticsReport, updateBioStatisticsJob } from "./statistics/userBioStatistics.js";
 
 Devvit.addSettings(appSettings);
 
@@ -253,17 +253,6 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: ClientSubredditJob.SendDailyDigest,
     onRun: sendDailyDigest,
-});
-
-Devvit.addMenuItem({
-    label: "Redo Bio Stats",
-    location: "subreddit",
-    forUserType: "moderator",
-    onPress: async (_, context) => {
-        const { allEntries } = await getAllValuesForStats(context);
-        await updateBioStatistics(allEntries, context);
-        context.ui.showToast("Bio statistics update triggered.");
-    },
 });
 
 Devvit.configure({
