@@ -14,6 +14,10 @@ export class RedisHelper {
      * @returns A promise that resolves to an object containing the field-value pairs.
      */
     public async hMGet (key: string, fields: string[]): Promise<Record<string, string>> {
+        if (!await this.redis.exists(key)) {
+            return {};
+        }
+
         const results: Record<string, string> = {};
 
         const values = await this.redis.hMGet(key, fields);
