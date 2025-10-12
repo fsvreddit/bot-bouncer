@@ -250,8 +250,6 @@ export async function generateBioStatisticsReport (event: ScheduledJobEvent<JSON
                 notCoveredByEvaluatorData.push(...currentContent);
             }
         }
-
-        console.log(`Bio Stats: Processed record with ${record.record.hits} hits`);
     }
 
     content.push({ h2: "Bio text not covered by Evaluator configuration and seen in the last week" });
