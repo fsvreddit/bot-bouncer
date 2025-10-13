@@ -139,6 +139,9 @@ export async function addExternalSubmissionToPostCreationQueue (item: ExternalSu
             // Need to send back initial status.
             await addUserToTempDeclineStore(item.username, context);
         }
+        if (currentStatus.userStatus !== UserStatus.Pending) {
+            await setCleanupForUser(item.username, context.redis, addSeconds(new Date(), 10));
+        }
         return false;
     }
 
