@@ -43,8 +43,11 @@ export async function updateBioStatistics (allEntries: StatsUserEntry[], context
 
     const usersWithBios = new Set(await context.redis.hKeys(BIO_TEXT_STORE));
 
-    await context.redis.zAdd(BIO_QUEUE, ...recentData.filter(item => usersWithBios.has(item.username)).map(item => ({ member: item.username, score: item.data.reportedAt ?? 0 })));
-    console.log(`Bio Stats: queued ${recentData.length} users for bio stats processing`);
+    const nonretrievableUsers = new Set(await getEvaluatorVariable<string[]>("biotext:nonretrievable", context) ?? []);
+
+    const itemsToProcess = recentData.filter(item => usersWithBios.has(item.username) && !nonretrievableUsers.has(item.username));
+    await context.redis.zAdd(BIO_QUEUE, ...itemsToProcess.map(item => ({ member: item.username, score: item.data.reportedAt ?? 0 })));
+    console.log(`Bio Stats: queued ${itemsToProcess.length} users for bio stats processing`);
 
     const configuredBioRegexes = await getEvaluatorVariable<string[]>("biotext:bantext", context) ?? [];
 
@@ -78,11 +81,17 @@ function decodedBio (input: string): string {
     return Buffer.from(input, "base64").toString("utf-8");
 }
 
+function getAttemptKey (username: string): string {
+    return `BioTextFailed:${username}`;
+}
+
 export async function updateBioStatisticsJob (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
     const redisHelper = new RedisHelper(context.redis);
     const configuredBioRegexes = event.data?.configuredBioRegexes as string[] | undefined ?? [];
 
-    const queueItems = await context.redis.zRange(BIO_QUEUE, 0, 999);
+    let batchSize = 1000;
+
+    const queueItems = await context.redis.zRange(BIO_QUEUE, 0, batchSize - 1);
     if (Object.keys(queueItems).length === 0) {
         console.log("Bio Stats: No users in queue, generating report");
 
@@ -113,9 +122,15 @@ export async function updateBioStatisticsJob (event: ScheduledJobEvent<JSONObjec
     } else {
         console.log("Bio Stats: No users in queue have recent successful retrievals");
     }
+
+    if (queuedUsersWithSuccessfulRetrievals.length < queueItems.length) {
+        batchSize = 100;
+    }
+
     const userBios = await redisHelper.hMGet(BIO_TEXT_STORE, queuedUsersWithSuccessfulRetrievals);
 
-    const recordsToStore: Record<string, string> = {};
+    // const recordsToStore: Record<string, string> = {};
+    const recordsToStore = await context.redis.hGetAll(BIO_STATS_TEMP_STORE);
 
     console.log("Bio Stats: Processing user bios");
 
@@ -124,7 +139,7 @@ export async function updateBioStatisticsJob (event: ScheduledJobEvent<JSONObjec
 
     const bioTextCounts: Record<string, number> = {};
 
-    while (queueItems.length > 0 && new Date() < runLimit) {
+    while (queueItems.length > 0 && new Date() < runLimit && processed.length < batchSize) {
         const firstEntry = queueItems.shift();
         if (!firstEntry) {
             break;
@@ -134,7 +149,18 @@ export async function updateBioStatisticsJob (event: ScheduledJobEvent<JSONObjec
         let bioText: string | undefined = userBios[username];
         if (!bioText) {
             console.log(`Bio Stats: Processing bio for user u/${username}`);
-            bioText = await context.redis.hGet(BIO_TEXT_STORE, username);
+            try {
+                const attempts = await context.redis.incrBy(getAttemptKey(username), 1);
+                if (attempts === 1) {
+                    bioText = await context.redis.hGet(BIO_TEXT_STORE, username);
+                    await context.redis.del(getAttemptKey(username));
+                } else {
+                    console.warn(`Bio Stats: Skipping bio retrieval for u/${username} after ${attempts} failed attempts`);
+                    await context.redis.expire(getAttemptKey(username), 60 * 60 * 24); // Keep the key for 24 hours to avoid retrying too often
+                }
+            } catch (error) {
+                console.error(`Bio Stats: Error retrieving bio for u/${username}: ${error}`);
+            }
         }
 
         if (!bioText) {
