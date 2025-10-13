@@ -81,10 +81,6 @@ function decodedBio (input: string): string {
     return Buffer.from(input, "base64").toString("utf-8");
 }
 
-function getAttemptKey (username: string): string {
-    return `BioTextFailed:${username}`;
-}
-
 export async function updateBioStatisticsJob (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
     const redisHelper = new RedisHelper(context.redis);
     const configuredBioRegexes = event.data?.configuredBioRegexes as string[] | undefined ?? [];
@@ -150,14 +146,7 @@ export async function updateBioStatisticsJob (event: ScheduledJobEvent<JSONObjec
         if (!bioText) {
             console.log(`Bio Stats: Processing bio for user u/${username}`);
             try {
-                const attempts = await context.redis.incrBy(getAttemptKey(username), 1);
-                if (attempts === 1) {
-                    bioText = await context.redis.hGet(BIO_TEXT_STORE, username);
-                    await context.redis.del(getAttemptKey(username));
-                } else {
-                    console.warn(`Bio Stats: Skipping bio retrieval for u/${username} after ${attempts} failed attempts`);
-                    await context.redis.expire(getAttemptKey(username), 60 * 60 * 24); // Keep the key for 24 hours to avoid retrying too often
-                }
+                bioText = await context.redis.hGet(BIO_TEXT_STORE, username);
             } catch (error) {
                 console.error(`Bio Stats: Error retrieving bio for u/${username}: ${error}`);
             }
