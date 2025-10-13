@@ -26,6 +26,7 @@ export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, contex
 
     // Remove legacy redis keys
     await context.redis.del("evaluatorVariables");
+    await context.redis.del("pendingUsersReportSent");
 }
 
 async function addControlSubredditJobs (context: TriggerContext) {
