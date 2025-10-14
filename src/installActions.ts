@@ -4,7 +4,7 @@ import { CLIENT_SUB_WIKI_UPDATE_CRON_KEY, ClientSubredditJob, CONTROL_SUB_CLEANU
 import { handleExternalSubmissionsPageUpdate } from "./externalSubmissions.js";
 import { removeRetiredEvaluatorsFromStats } from "./userEvaluation/evaluatorHelpers.js";
 import { getControlSubSettings } from "./settings.js";
-import { addSeconds } from "date-fns";
+import { addDays, addSeconds } from "date-fns";
 
 export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, context: TriggerContext) {
     console.log("App Install: Detected an app install or update event");
@@ -167,5 +167,34 @@ async function checkJobsAreApplicable (context: TriggerContext) {
 
     if (!allJobs.some(job => job.name === UniversalJob.Cleanup as string)) {
         console.error("App Install: Cleanup job is not configured on this subreddit!");
+    }
+}
+
+export async function ensureClientSubJobsExist (context: TriggerContext) {
+    const lastCheckKey = "clientJobCheckerLastCheck";
+    if (await context.redis.exists(lastCheckKey)) {
+        return;
+    }
+
+    await context.redis.set(lastCheckKey, "true", { expiration: addDays(new Date(), 1) });
+
+    const expectedJobs: string[] = [
+        ClientSubredditJob.UpdateDatastoreFromWiki,
+        ClientSubredditJob.UpgradeNotifier,
+        ClientSubredditJob.SendDailyDigest,
+        UniversalJob.UpdateEvaluatorVariables,
+        UniversalJob.Cleanup,
+    ];
+
+    const allJobs = await context.scheduler.listJobs();
+    const activeCronJobs = allJobs.filter(job => "cron" in job);
+    const missingJobs = expectedJobs.filter(expectedJob => !activeCronJobs.some(currentJob => currentJob.name === expectedJob));
+
+    if (missingJobs.length > 0) {
+        console.error(`Missing jobs detected - ${missingJobs.join(", ")}`);
+        await Promise.all(activeCronJobs.map(job => context.scheduler.cancelJob(job.id)));
+        await addClientSubredditJobs(context);
+    } else {
+        console.log("All client subreddit jobs are present.");
     }
 }
