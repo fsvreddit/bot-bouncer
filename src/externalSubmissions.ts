@@ -1,6 +1,6 @@
 import { JobContext, TriggerContext, User, WikiPage } from "@devvit/public-api";
 import { CONTROL_SUBREDDIT, INTERNAL_BOT } from "./constants.js";
-import { addUserToTempDeclineStore, getUserStatus, setUserStatus, UserStatus } from "./dataStore.js";
+import { addUserToTempDeclineStore, getUserStatus, setUserStatus, touchUserStatus, UserStatus } from "./dataStore.js";
 import { getControlSubSettings } from "./settings.js";
 import Ajv, { JSONSchemaType } from "ajv";
 import { addDays, addMinutes, addSeconds } from "date-fns";
@@ -14,7 +14,6 @@ import json2md from "json2md";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { queueKarmaFarmingAccounts } from "./karmaFarmingSubsCheck.js";
 import { userIsTrustedSubmitter } from "./trustedSubmitterHelpers.js";
-import { setCleanupForUser } from "./cleanup.js";
 
 const WIKI_PAGE = "externalsubmissions";
 
@@ -140,7 +139,7 @@ export async function addExternalSubmissionToPostCreationQueue (item: ExternalSu
             await addUserToTempDeclineStore(item.username, context);
         }
         if (currentStatus.userStatus !== UserStatus.Pending) {
-            await setCleanupForUser(item.username, context.redis, addSeconds(new Date(), 10));
+            await touchUserStatus(item.username, currentStatus, context);
         }
         return false;
     }
@@ -296,7 +295,7 @@ export async function handleExternalSubmissionsPageUpdate (context: TriggerConte
         const currentStatus = await getUserStatus(item.username, context);
         if (currentStatus) {
             if (currentStatus.userStatus === UserStatus.Purged || currentStatus.userStatus === UserStatus.Retired) {
-                await setCleanupForUser(item.username, context.redis, addSeconds(new Date(), 10));
+                await touchUserStatus(item.username, currentStatus, context);
             }
             console.log(`External Submissions: User ${item.username} already has a status of ${currentStatus.userStatus}, skipping.`);
             return false;

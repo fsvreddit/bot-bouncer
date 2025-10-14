@@ -235,6 +235,19 @@ export async function setUserStatus (username: string, details: UserDetails, con
     }
 }
 
+/**
+ * Touch the user status by updating the last update and most recent activity timestamps.
+ * @param username The username of the user to update.
+ * @param userDetails The user details to update.
+ * @param context The trigger context.
+ */
+export async function touchUserStatus (username: string, userDetails: UserDetails, context: TriggerContext) {
+    const newDetails = { ...userDetails };
+    newDetails.lastUpdate = Date.now();
+    newDetails.mostRecentActivity = Date.now();
+    await writeUserStatus(username, newDetails, context.redis);
+}
+
 export async function deleteUserStatus (username: string, trackingPostId: string | undefined, txn: TxClientLike) {
     await txn.hDel(USER_STORE, [username]);
     await txn.hDel(getStaleStoreKey(username), [username]);
