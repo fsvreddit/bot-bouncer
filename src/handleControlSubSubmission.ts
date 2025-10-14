@@ -83,7 +83,7 @@ export async function handleControlSubPostCreate (event: PostCreate, context: Tr
 
             if (currentStatus.userStatus === UserStatus.Organic) {
                 submissionResponse.push({ p: `If you have information about how this user is a bot that we may have missed, please [modmail us](https://www.reddit.com/message/compose?to=/r/BotBouncer&subject=More%20information%20about%20/u/${user.username}) with the details, so that we can review again.` });
-            } else if (currentStatus.userStatus === UserStatus.Purged || currentStatus.userStatus === UserStatus.Retired) {
+            } else if (currentStatus.userStatus !== UserStatus.Pending) {
                 await setCleanupForUser(user.username, context.redis, addSeconds(new Date(), 10));
             }
         } else {
