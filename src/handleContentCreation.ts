@@ -17,8 +17,8 @@ export async function handleCommentCreate (event: CommentCreate, context: Trigge
 export async function handlePostCreate (event: PostCreate, context: TriggerContext) {
     if (context.subredditName === CONTROL_SUBREDDIT) {
         await handleControlSubPostCreate(event, context);
-        await ensureClientSubJobsExist(context);
     } else {
         await handleClientPostCreate(event, context);
+        await ensureClientSubJobsExist(context);
     }
 }
