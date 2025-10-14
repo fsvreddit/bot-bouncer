@@ -215,7 +215,10 @@ export async function updateBioStatisticsJob (event: ScheduledJobEvent<JSONObjec
 export async function generateBioStatisticsReport (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
     console.log("Bio Stats: Generating bio statistics report");
 
-    const bioRecords = await context.redis.hGetAll(BIO_STATS_TEMP_STORE);
+    const redisHelper = new RedisHelper(context.redis);
+
+    const itemsWithMoreThanOne = await redisHelper.zRangeAsRecord(BIO_STATS_COUNTS, 2, "+inf", { by: "score" });
+    const bioRecords = await redisHelper.hMGet(BIO_STATS_TEMP_STORE, Object.keys(itemsWithMoreThanOne));
     console.log(`Bio Stats: Retrieved ${Object.keys(bioRecords).length} bio records for report generation`);
 
     const configuredBioRegexes = event.data?.configuredBioRegexes as string[] | undefined ?? [];
