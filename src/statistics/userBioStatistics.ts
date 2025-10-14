@@ -85,7 +85,7 @@ export async function updateBioStatisticsJob (event: ScheduledJobEvent<JSONObjec
     const redisHelper = new RedisHelper(context.redis);
     const configuredBioRegexes = event.data?.configuredBioRegexes as string[] | undefined ?? [];
 
-    let batchSize = 1000;
+    let batchSize = 500;
 
     const queueItems = await context.redis.zRange(BIO_QUEUE, 0, batchSize - 1);
     if (Object.keys(queueItems).length === 0) {
