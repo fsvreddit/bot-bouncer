@@ -246,6 +246,7 @@ export async function touchUserStatus (username: string, userDetails: UserDetail
     newDetails.lastUpdate = Date.now();
     newDetails.mostRecentActivity = Date.now();
     await writeUserStatus(username, newDetails, context.redis);
+    console.log(`Data Store: Touched status for ${username}`);
 }
 
 export async function deleteUserStatus (username: string, trackingPostId: string | undefined, txn: TxClientLike) {
