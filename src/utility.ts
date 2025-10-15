@@ -5,7 +5,7 @@ import { addMinutes } from "date-fns";
 export function getUsernameFromUrl (url: string) {
     const urlRegex = /reddit\.com\/u(?:ser)?\/([\w_-]+)\/?(?:[?/].+)?$/i;
     const matches = urlRegex.exec(url);
-    if (!matches || matches.length !== 2) {
+    if (matches?.length !== 2) {
         return;
     }
 
