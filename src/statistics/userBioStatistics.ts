@@ -1,12 +1,13 @@
 import { JobContext, JSONObject, ScheduledJobEvent, UpdateWikiPageOptions } from "@devvit/public-api";
 import { addSeconds, format, subDays, subWeeks } from "date-fns";
 import json2md from "json2md";
-import { BIO_TEXT_STORE, UserStatus } from "../dataStore.js";
+import { BIO_TEXT_STORE } from "../dataStore.js";
 import { getEvaluatorVariable } from "../userEvaluation/evaluatorVariables.js";
 import { StatsUserEntry } from "../sixHourlyJobs.js";
 import { ControlSubredditJob } from "../constants.js";
 import { RedisHelper } from "../redisHelper.js";
 import crypto from "crypto";
+import { userIsBanned } from "./statsHelpers.js";
 
 const BIO_QUEUE = "BioTextQueue";
 const BIO_STATS_TEMP_STORE = "BioTextStatsTempStore";
@@ -31,7 +32,7 @@ function appendedArray (existing: string[], newItem: string, limit = 5): string[
 export async function updateBioStatistics (allEntries: StatsUserEntry[], context: JobContext) {
     const recentData = allEntries
         .filter(item => item.data.reportedAt && new Date(item.data.reportedAt) >= subWeeks(new Date(), 2))
-        .filter(item => item.data.userStatus === UserStatus.Banned || item.data.lastStatus === UserStatus.Banned);
+        .filter(item => userIsBanned(item.data));
 
     await context.redis.del(BIO_QUEUE);
     await context.redis.del(BIO_STATS_TEMP_STORE);

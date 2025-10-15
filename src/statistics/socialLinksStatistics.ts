@@ -3,8 +3,9 @@ import { format, subWeeks } from "date-fns";
 import json2md from "json2md";
 import { max, min, uniq } from "lodash";
 import { getEvaluatorVariable } from "../userEvaluation/evaluatorVariables.js";
-import { SOCIAL_LINKS_STORE, UserDetails, UserStatus } from "../dataStore.js";
+import { SOCIAL_LINKS_STORE, UserDetails } from "../dataStore.js";
 import { StatsUserEntry } from "../sixHourlyJobs.js";
+import { userIsBanned } from "./statsHelpers.js";
 
 export function cleanLink (input: string): string {
     if (!input.includes("onlyfans.com") && !input.includes("fans.ly") && !input.includes("fans.ly")) {
@@ -46,7 +47,7 @@ export async function updateSocialLinksStatistics (allEntries: StatsUserEntry[],
     let recentData = allEntries
         .map(item => ({ username: item.username, data: item.data as UserDetailsWithSocialLink }))
         .filter(item => item.data.reportedAt && new Date(item.data.reportedAt) >= subWeeks(new Date(), 4))
-        .filter(item => item.data.userStatus === UserStatus.Banned || item.data.lastStatus === UserStatus.Banned);
+        .filter(item => userIsBanned(item.data));
 
     const socialLinks = await context.redis.hMGet(SOCIAL_LINKS_STORE, recentData.map(item => item.username));
 

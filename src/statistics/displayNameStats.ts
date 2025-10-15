@@ -4,6 +4,7 @@ import { subWeeks } from "date-fns";
 import { getEvaluatorVariable } from "../userEvaluation/evaluatorVariables.js";
 import json2md from "json2md";
 import { StatsUserEntry } from "../sixHourlyJobs.js";
+import { userIsBanned } from "./statsHelpers.js";
 
 type UserDetailsWithDisplayName = UserDetails & { displayName?: string };
 
@@ -19,7 +20,7 @@ export async function updateDisplayNameStatistics (allEntries: StatsUserEntry[],
     }
 
     recentData = recentData.filter(item => item.data.displayName);
-    const recentBanned = recentData.filter(item => item.data.userStatus === UserStatus.Banned || item.data.lastStatus === UserStatus.Banned);
+    const recentBanned = recentData.filter(item => userIsBanned(item.data));
 
     const displayNameRegexes = await getEvaluatorVariable<string[]>("baddisplayname:regexes", context) ?? [];
 
