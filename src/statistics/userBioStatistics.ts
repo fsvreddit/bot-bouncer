@@ -94,12 +94,6 @@ export async function updateBioStatisticsJob (event: ScheduledJobEvent<JSONObjec
     if (Object.keys(queueItems).length === 0) {
         console.log("Bio Stats: No users in queue, generating report");
 
-        const itemsAtOne = await redisHelper.zRangeAsRecord(BIO_STATS_COUNTS, 1, 1, { by: "score" });
-        if (Object.keys(itemsAtOne).length > 0) {
-            console.log(`Bio Stats: Removing ${Object.keys(itemsAtOne).length} bio texts with only single hits before report generation`);
-            await context.redis.hDel(BIO_STATS_TEMP_STORE, Object.keys(itemsAtOne));
-        }
-
         await context.scheduler.runJob({
             name: ControlSubredditJob.BioStatsGenerateReport,
             runAt: addSeconds(new Date(), 2),
@@ -227,10 +221,7 @@ export async function generateBioStatisticsReport (event: ScheduledJobEvent<JSON
     const configuredBioRegexes = event.data?.configuredBioRegexes as string[] | undefined ?? [];
 
     const reusedRecords = Object.entries(bioRecords)
-        .map(([bioText, record]) => ({ bioText: decodedBio(bioText), record: JSON.parse(record) as BioRecord }))
-        .filter(record => record.record.hits > 1);
-
-    console.log(`Bio Stats: Found ${reusedRecords.length} reused bio texts`);
+        .map(([bioText, record]) => ({ bioText: decodedBio(bioText), record: JSON.parse(record) as BioRecord }));
 
     if (reusedRecords.length === 0) {
         console.log("Bio Stats: No reused bio texts found, skipping report generation");
