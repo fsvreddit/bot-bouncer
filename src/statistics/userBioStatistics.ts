@@ -29,14 +29,18 @@ function appendedArray (existing: string[], newItem: string, limit = 5): string[
     return [...existing, newItem].slice(-limit);
 }
 
+async function clearDownTemporaryKeys (context: JobContext) {
+    await context.redis.del(BIO_QUEUE);
+    await context.redis.del(BIO_STATS_TEMP_STORE);
+    await context.redis.del(BIO_STATS_COUNTS);
+}
+
 export async function updateBioStatistics (allEntries: StatsUserEntry[], context: JobContext) {
     const recentData = allEntries
         .filter(item => item.data.reportedAt && new Date(item.data.reportedAt) >= subWeeks(new Date(), 2))
         .filter(item => userIsBanned(item.data));
 
-    await context.redis.del(BIO_QUEUE);
-    await context.redis.del(BIO_STATS_TEMP_STORE);
-    await context.redis.del(BIO_STATS_COUNTS);
+    await clearDownTemporaryKeys(context);
 
     const removedEntries = await context.redis.zRemRangeByScore(BIO_STATS_SUCCESSFUL_RETRIEVALS, 0, subDays(new Date(), 2).getTime());
     if (removedEntries > 0) {
@@ -77,7 +81,6 @@ function sha1hash (input: string): string {
 }
 
 function encodedBio (input: string): string {
-    // Convert input unicode string to base 64 to use as Redis key
     return Buffer.from(input, "utf-8").toString("base64");
 }
 
@@ -308,9 +311,7 @@ export async function generateBioStatisticsReport (event: ScheduledJobEvent<JSON
         runAt: new Date(),
     });
 
-    await context.redis.del(BIO_QUEUE);
-    await context.redis.del(BIO_STATS_TEMP_STORE);
-    await context.redis.del(BIO_STATS_COUNTS);
+    await clearDownTemporaryKeys(context);
 
     console.log("Bio Stats: Completed bio statistics report generation and cleanup");
 }
