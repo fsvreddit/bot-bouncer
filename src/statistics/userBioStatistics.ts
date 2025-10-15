@@ -37,7 +37,10 @@ export async function updateBioStatistics (allEntries: StatsUserEntry[], context
     await context.redis.del(BIO_STATS_TEMP_STORE);
     await context.redis.del(BIO_STATS_COUNTS);
 
-    await context.redis.zRemRangeByScore(BIO_STATS_SUCCESSFUL_RETRIEVALS, 0, subDays(new Date(), 2).getTime());
+    const removedEntries = await context.redis.zRemRangeByScore(BIO_STATS_SUCCESSFUL_RETRIEVALS, 0, subDays(new Date(), 2).getTime());
+    if (removedEntries > 0) {
+        console.log(`Bio Stats: Removed ${removedEntries} stale entries from successful retrievals`);
+    }
     const successfulRetrievalsEntries = await context.redis.zRange(BIO_STATS_SUCCESSFUL_RETRIEVALS, 0, -1);
     console.log(`Bio Stats: ${successfulRetrievalsEntries.length} users have successful bio retrievals recently.`);
 
