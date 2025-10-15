@@ -64,7 +64,7 @@ async function handleBulkItem (username: string, initialStatus: UserStatus, subm
     const currentStatus = await getUserStatus(username, context);
     if (currentStatus) {
         console.log(`Bulk submission: User ${username} already has a status of ${currentStatus.userStatus}.`);
-        if (currentStatus.userStatus === UserStatus.Purged || currentStatus.userStatus === UserStatus.Retired) {
+        if (currentStatus.userStatus !== UserStatus.Pending) {
             await touchUserStatus(user.username, currentStatus, context);
         }
         return false;

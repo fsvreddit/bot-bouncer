@@ -294,10 +294,10 @@ export async function handleExternalSubmissionsPageUpdate (context: TriggerConte
 
         const currentStatus = await getUserStatus(item.username, context);
         if (currentStatus) {
-            if (currentStatus.userStatus === UserStatus.Purged || currentStatus.userStatus === UserStatus.Retired) {
+            console.log(`External Submissions: User ${item.username} already has a status of ${currentStatus.userStatus}, skipping.`);
+            if (currentStatus.userStatus !== UserStatus.Pending) {
                 await touchUserStatus(item.username, currentStatus, context);
             }
-            console.log(`External Submissions: User ${item.username} already has a status of ${currentStatus.userStatus}, skipping.`);
             return false;
         }
 
