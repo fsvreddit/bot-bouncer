@@ -125,7 +125,7 @@ export async function addExternalSubmissionFromClientSub (data: ExternalSubmissi
     });
 }
 
-export async function addExternalSubmissionToPostCreationQueue (item: ExternalSubmission, immediate: boolean, context: TriggerContext): Promise<boolean> {
+export async function addExternalSubmissionToPostCreationQueue (item: ExternalSubmission, immediate: boolean, context: TriggerContext, enableTouch = true): Promise<boolean> {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
         throw new Error("This function can only be called from the control subreddit.");
     }
@@ -138,7 +138,7 @@ export async function addExternalSubmissionToPostCreationQueue (item: ExternalSu
             // Need to send back initial status.
             await addUserToTempDeclineStore(item.username, context);
         }
-        if (currentStatus.userStatus !== UserStatus.Pending) {
+        if (currentStatus.userStatus !== UserStatus.Pending && enableTouch) {
             await touchUserStatus(item.username, currentStatus, context);
         }
         return false;
@@ -387,7 +387,7 @@ export async function processExternalSubmissionsFromObserverSubreddits (_: unkno
         }
 
         for (const submission of currentSubmissionList) {
-            const postSubmitted = await addExternalSubmissionToPostCreationQueue(submission, false, context);
+            const postSubmitted = await addExternalSubmissionToPostCreationQueue(submission, false, context, false);
             if (postSubmitted) {
                 processed++;
             }
