@@ -39,21 +39,12 @@ export class RedisHelper {
      * @returns A promise that resolves to an object containing the field-value pairs.
      */
     public async hMGetAllChunked (key: string, chunkSize = 500): Promise<Record<string, string>> {
-        console.log(`RedisHelper: Fetching all fields from hash ${key} in chunks of ${chunkSize}`);
         const fields = await this.redis.hKeys(key);
-        console.log(`RedisHelper: Retrieved ${fields.length} fields from hash ${key}`);
         if (fields.length === 0) {
             return {};
         }
 
-        const results: Record<string, string>[] = [];
-
-        for (const c of chunk(fields, chunkSize)) {
-            console.log(`RedisHelper: Fetching chunk of ${c.length} fields from hash ${key}`);
-            const chunkResult = await this.hMGet(key, c);
-            results.push(chunkResult);
-            console.log(`RedisHelper: Retrieved ${Object.keys(chunkResult).length} fields in current chunk from hash ${key}`);
-        }
+        const results = await Promise.all(chunk(fields, chunkSize).map(c => this.hMGet(key, c)));
 
         return Object.assign({}, ...results) as Record<string, string>;
     }

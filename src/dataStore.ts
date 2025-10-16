@@ -1,5 +1,5 @@
 import { JobContext, TriggerContext, WikiPage, CreateModNoteOptions, UserSocialLink, TxClientLike, RedisClient } from "@devvit/public-api";
-import { chunk, compact, fromPairs, max, toPairs, uniq } from "lodash";
+import { compact, fromPairs, max, toPairs, uniq } from "lodash";
 import pako from "pako";
 import { setCleanupForSubmittersAndMods, setCleanupForUser } from "./cleanup.js";
 import { ClientSubredditJob, CONTROL_SUBREDDIT } from "./constants.js";
@@ -14,6 +14,7 @@ import { getUserExtended } from "./extendedDevvit.js";
 import { storeClassificationEvent } from "./statistics/classificationStatistics.js";
 import { queueReclassifications } from "./handleClientSubredditWikiUpdate.js";
 import { USER_DEFINED_HANDLES_POSTS } from "./statistics/definedHandlesStatistics.js";
+import { RedisHelper } from "./redisHelper.js";
 
 const USER_STORE = "UserStore";
 const TEMP_DECLINE_STORE = "TempDeclineStore";
@@ -83,21 +84,8 @@ function getStaleStoreKey (username: string): string {
 }
 
 export async function getActiveDataStore (context: TriggerContext): Promise<Record<string, string>> {
-    const results: Record<string, string> = {};
-    const activeKeys = await context.redis.hKeys(USER_STORE);
-    const chunkedKeys = chunk(activeKeys, 10000);
-    console.log(`Data Store: Fetching ${activeKeys.length} active user records in ${chunkedKeys.length} chunks.`);
-    await Promise.all(chunkedKeys.map(async (keys) => {
-        const data = await context.redis.hMGet(USER_STORE, keys);
-        for (let i = 0; i < keys.length; i++) {
-            const key = keys[i];
-            const record = data[i];
-            if (record) {
-                results[key] = record;
-            }
-        }
-    }));
-    return results;
+    const redisHelper = new RedisHelper(context.redis);
+    return redisHelper.hMGetAllChunked(USER_STORE, 10000);
 }
 
 export async function getFullDataStore (context: TriggerContext): Promise<Record<string, string>> {
