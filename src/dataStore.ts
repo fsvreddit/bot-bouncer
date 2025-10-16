@@ -242,6 +242,10 @@ export async function setUserStatus (username: string, details: UserDetails, con
  * @param context The trigger context.
  */
 export async function touchUserStatus (username: string, userDetails: UserDetails, context: TriggerContext) {
+    const entryFromMainStore = await context.redis.hGet(USER_STORE, username);
+    if (entryFromMainStore) {
+        return;
+    }
     const newDetails = { ...userDetails };
     newDetails.lastUpdate = Date.now();
     newDetails.mostRecentActivity = Date.now();
