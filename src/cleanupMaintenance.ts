@@ -17,9 +17,20 @@ export async function performCleanupMaintenance (event: ScheduledJobEvent<JSONOb
     if (event.data?.firstRun) {
         const lastRun = await context.redis.get(cleanupMaintenanceRunKey);
         if (lastRun && new Date(parseInt(lastRun)) > subDays(new Date(), 14)) {
-            console.log(`Cleanup Maintenance: Skipping first run as it was recently run on ${format(parseInt(lastRun), "yyyy-MM-dd")}.`);
+            console.log(`Cleanup Maintenance: Recently run on ${format(parseInt(lastRun), "yyyy-MM-dd")}.`);
+
+            const usersQueued = await context.redis.zCard(storeKey);
+            console.log(`Cleanup Maintenance: ${usersQueued} users still queued for processing after last run, may have timed out.`);
+            await context.scheduler.runJob({
+                name: ControlSubredditJob.PerformCleanupMaintenance,
+                runAt: addSeconds(new Date(), 5),
+                data: { firstRun: false },
+            });
+
             return;
         }
+
+        await context.redis.del(storeKey);
 
         const allUsers = await getAllKnownUsers(context);
         console.log(`Cleanup Maintenance: Found ${allUsers.length} known users.`);
@@ -33,14 +44,15 @@ export async function performCleanupMaintenance (event: ScheduledJobEvent<JSONOb
             runAt: addSeconds(new Date(), 5),
             data: { firstRun: false },
         });
+
+        await context.redis.set(cleanupMaintenanceRunKey, Date.now().toString(), { expiration: addDays(new Date(), 14) });
+
         return;
     }
 
-    await context.redis.set(cleanupMaintenanceRunKey, Date.now().toString(), { expiration: addDays(new Date(), 14) });
-
-    const runLimit = addSeconds(new Date(), 20);
+    const runLimit = addSeconds(new Date(), 15);
     const handledUsers: string[] = [];
-    const queued = await context.redis.zRange(storeKey, 0, 200);
+    const queued = await context.redis.zRange(storeKey, 0, 1999);
 
     if (queued.length === 0) {
         console.log("Cleanup Maintenance: No users to process.");

@@ -17,6 +17,7 @@ export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, contex
     console.log(`App Install: Cancelled ${currentJobs.length} existing jobs.`);
 
     if (context.subredditName === CONTROL_SUBREDDIT) {
+        await context.redis.del("CleanupMaintenanceLastRun");
         await addControlSubredditJobs(context);
     } else {
         await addClientSubredditJobs(context);
