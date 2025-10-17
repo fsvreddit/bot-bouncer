@@ -21,7 +21,6 @@ import { perform6HourlyJobs, perform6HourlyJobsPart2 } from "./sixHourlyJobs.js"
 import { checkUptimeAndMessages } from "./uptimeMonitor.js";
 import { analyseBioText } from "./similarBioTextFinder/bioTextFinder.js";
 import { handleRapidJob } from "./handleRapidJob.js";
-import { cleanupPostStore } from "./cleanupPostStore.js";
 import { buildEvaluatorAccuracyStatistics } from "./statistics/evaluatorAccuracyStatistics.js";
 import { processExternalSubmissionsFromObserverSubreddits } from "./externalSubmissions.js";
 import { performCleanupMaintenance } from "./cleanupMaintenance.js";
@@ -164,11 +163,6 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: ControlSubredditJob.BioTextAnalyser,
     onRun: analyseBioText,
-});
-
-Devvit.addSchedulerJob({
-    name: ControlSubredditJob.CleanupPostStore,
-    onRun: cleanupPostStore,
 });
 
 Devvit.addSchedulerJob({

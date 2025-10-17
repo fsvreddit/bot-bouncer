@@ -198,7 +198,7 @@ export async function deleteRecordsForRemovedUsers (_: unknown, context: JobCont
         const txn = await context.redis.watch();
         await txn.multi();
         await updateAggregate(UserStatus.Declined, -1, txn);
-        await deleteUserStatus(username, userStatus.trackingPostId, txn);
+        await deleteUserStatus(username, txn);
         await txn.zRem(CLEANUP_LOG_KEY, [username]);
         await txn.exec();
 

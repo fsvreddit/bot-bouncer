@@ -9,7 +9,7 @@ import { getControlSubSettings } from "./settings.js";
 import { isCommentId, isLinkId } from "@devvit/public-api/types/tid.js";
 import { deleteAccountInitialEvaluationResults } from "./handleControlSubAccountEvaluation.js";
 import json2md from "json2md";
-import { getUserSocialLinks, sendMessageToWebhook } from "./utility.js";
+import { getUsernameFromUrl, getUserSocialLinks, sendMessageToWebhook } from "./utility.js";
 import { getUserExtended } from "./extendedDevvit.js";
 import { storeClassificationEvent } from "./statistics/classificationStatistics.js";
 import { queueReclassifications } from "./handleClientSubredditWikiUpdate.js";
@@ -25,7 +25,6 @@ export const SOCIAL_LINKS_STORE = "SocialLinksStore";
 
 export const AGGREGATE_STORE = "AggregateStore";
 
-export const POST_STORE = "PostStore";
 const WIKI_UPDATE_DUE = "WikiUpdateDue";
 const WIKI_PAGE = "botbouncer";
 const MAX_WIKI_PAGE_SIZE = 512 * 1024;
@@ -182,7 +181,6 @@ export async function setUserStatus (username: string, details: UserDetails, con
     const txn = await context.redis.watch();
     await txn.multi();
     await writeUserStatus(username, details, txn);
-    await txn.hSet(POST_STORE, { [details.trackingPostId]: username });
 
     if (details.userStatus !== UserStatus.Purged && details.userStatus !== UserStatus.Retired && context.subredditName === CONTROL_SUBREDDIT) {
         await txn.set(WIKI_UPDATE_DUE, "true");
@@ -241,7 +239,7 @@ export async function touchUserStatus (username: string, userDetails: UserDetail
     console.log(`Data Store: Touched status for ${username}`);
 }
 
-export async function deleteUserStatus (username: string, trackingPostId: string | undefined, txn: TxClientLike) {
+export async function deleteUserStatus (username: string, txn: TxClientLike) {
     await txn.hDel(USER_STORE, [username]);
     await txn.hDel(getStaleStoreKey(username), [username]);
     await deleteAccountInitialEvaluationResults(username, txn);
@@ -249,15 +247,11 @@ export async function deleteUserStatus (username: string, trackingPostId: string
     await txn.hDel(DISPLAY_NAME_STORE, [username]);
     await txn.hDel(SOCIAL_LINKS_STORE, [username]);
     await txn.hDel(USER_DEFINED_HANDLES_POSTS, [username]);
-
-    if (trackingPostId) {
-        await txn.hDel(POST_STORE, [trackingPostId]);
-    }
 }
 
 export async function getUsernameFromPostId (postId: string, context: TriggerContext): Promise<string | undefined> {
-    const username = await context.redis.hGet(POST_STORE, postId);
-    return username;
+    const post = await context.reddit.getPostById(postId);
+    return getUsernameFromUrl(post.url);
 }
 
 export async function updateAggregate (type: UserStatus, incrBy: number, redis: TxClientLike | RedisClient) {

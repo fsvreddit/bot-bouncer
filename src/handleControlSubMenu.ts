@@ -251,7 +251,7 @@ async function handleRemoveRecordForUser (username: string, post: Post, context:
     const txn = await context.redis.watch();
     await txn.multi();
 
-    await deleteUserStatus(username, currentStatus?.trackingPostId, txn);
+    await deleteUserStatus(username, txn);
     if (currentStatus && currentStatus.userStatus !== UserStatus.Purged && currentStatus.userStatus !== UserStatus.Retired) {
         await updateAggregate(currentStatus.userStatus, -1, txn);
     }

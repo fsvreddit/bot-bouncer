@@ -53,12 +53,6 @@ export async function perform6HourlyJobs (_: unknown, context: JobContext) {
         }),
 
         context.scheduler.runJob({
-            name: ControlSubredditJob.CleanupPostStore,
-            runAt: addMinutes(new Date(), 1),
-            data: { firstRun: true },
-        }),
-
-        context.scheduler.runJob({
             name: ControlSubredditJob.PerformCleanupMaintenance,
             runAt: new Date(),
             data: { firstRun: true },

@@ -306,7 +306,7 @@ async function handleDeletedAccountControlSub (username: string, context: Trigge
         await txn.zRem(SUB_OR_MOD_LOG_KEY, [username]);
     }
 
-    await deleteUserStatus(username, status?.trackingPostId, txn);
+    await deleteUserStatus(username, txn);
     await txn.exec();
 }
 
