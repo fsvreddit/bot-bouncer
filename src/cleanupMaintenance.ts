@@ -20,12 +20,14 @@ export async function performCleanupMaintenance (event: ScheduledJobEvent<JSONOb
             console.log(`Cleanup Maintenance: Recently run on ${format(parseInt(lastRun), "yyyy-MM-dd")}.`);
 
             const usersQueued = await context.redis.zCard(storeKey);
-            console.log(`Cleanup Maintenance: ${usersQueued} users still queued for processing after last run, may have timed out.`);
-            await context.scheduler.runJob({
-                name: ControlSubredditJob.PerformCleanupMaintenance,
-                runAt: addSeconds(new Date(), 5),
-                data: { firstRun: false },
-            });
+            if (usersQueued > 0) {
+                console.log(`Cleanup Maintenance: ${usersQueued} users still queued for processing after last run, may have timed out.`);
+                await context.scheduler.runJob({
+                    name: ControlSubredditJob.PerformCleanupMaintenance,
+                    runAt: addSeconds(new Date(), 5),
+                    data: { firstRun: false },
+                });
+            }
 
             return;
         }
