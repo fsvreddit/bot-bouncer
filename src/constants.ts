@@ -43,7 +43,6 @@ export enum ControlSubredditJob {
     DefinedHandlesStatistics = "definedHandlesStatistics",
     DefinedHandlesPostStore = "definedHandlesPostStore",
     HandleObserverSubredditSubmissions = "handleObserverSubredditSubmissions",
-    PerformCleanupMaintenance = "performCleanupMaintenance",
     EvaluatorReversals = "evaluatorReversals",
     DeleteRecordsForRemovedUsers = "deleteRecordsForRemovedUsers",
     HandleConfigWikiChange = "handleConfigWikiChange",

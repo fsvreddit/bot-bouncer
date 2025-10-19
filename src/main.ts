@@ -23,7 +23,6 @@ import { analyseBioText } from "./similarBioTextFinder/bioTextFinder.js";
 import { handleRapidJob } from "./handleRapidJob.js";
 import { buildEvaluatorAccuracyStatistics } from "./statistics/evaluatorAccuracyStatistics.js";
 import { processExternalSubmissionsFromObserverSubreddits } from "./externalSubmissions.js";
-import { performCleanupMaintenance } from "./cleanupMaintenance.js";
 import { gatherDefinedHandlesStats, storeDefinedHandlesDataJob } from "./statistics/definedHandlesStatistics.js";
 import { deleteRecordsForRemovedUsers, evaluatorReversalsJob } from "./evaluatorReversals.js";
 import { handleCommentCreate, handlePostCreate } from "./handleContentCreation.js";
@@ -173,11 +172,6 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: ControlSubredditJob.HandleObserverSubredditSubmissions,
     onRun: processExternalSubmissionsFromObserverSubreddits,
-});
-
-Devvit.addSchedulerJob({
-    name: ControlSubredditJob.PerformCleanupMaintenance,
-    onRun: performCleanupMaintenance,
 });
 
 Devvit.addSchedulerJob({
