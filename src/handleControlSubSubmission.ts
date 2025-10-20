@@ -108,6 +108,7 @@ export async function handleControlSubPostCreate (event: PostCreate, context: Tr
                     ]),
                 },
                 immediate: true,
+                evaluatorsChecked: false,
             };
 
             const result = await queuePostCreation(submission, context);

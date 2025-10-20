@@ -222,6 +222,7 @@ export async function addExternalSubmissionToPostCreationQueue (item: ExternalSu
         immediate,
         commentToAdd,
         removeComment: item.publicContext === false,
+        evaluatorsChecked: item.evaluatorName !== undefined || (item.evaluationResults !== undefined && item.evaluationResults.length > 0),
     };
 
     const result = await queuePostCreation(submission, context);

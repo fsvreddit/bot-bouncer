@@ -31,6 +31,7 @@ export interface AsyncSubmission {
         comment: string;
     };
     immediate: boolean;
+    evaluatorsChecked: boolean;
 }
 
 export async function isUserAlreadyQueued (username: string, context: JobContext): Promise<boolean> {
@@ -84,7 +85,7 @@ async function createNewSubmission (submission: AsyncSubmission, context: Trigge
         }
     }
 
-    if (submission.details.userStatus === UserStatus.Pending) {
+    if (submission.details.userStatus === UserStatus.Pending || !submission.evaluatorsChecked) {
         const controlSubSettings = await getControlSubSettings(context);
         if (!controlSubSettings.evaluationDisabled) {
             await context.scheduler.runJob({

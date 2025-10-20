@@ -97,6 +97,7 @@ async function handleBulkItem (username: string, initialStatus: UserStatus, subm
         },
         commentToAdd,
         immediate: false,
+        evaluatorsChecked: false,
     };
 
     await queuePostCreation(submission, context);

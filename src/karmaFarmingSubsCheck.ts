@@ -135,6 +135,7 @@ async function evaluateAndHandleUser (username: string, variables: Record<string
             { p: `*I am a bot, and this action was performed automatically. Please [contact the moderators of this subreddit](/message/compose/?to=/r/${CONTROL_SUBREDDIT}) if you have any questions or concerns.*` },
         ]),
         immediate: false,
+        evaluatorsChecked: evaluationResults.length > 0,
     };
 
     const result = await queuePostCreation(submission, context);

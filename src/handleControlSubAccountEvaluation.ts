@@ -139,14 +139,17 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
         return;
     }
 
+    const variables = await getEvaluatorVariables(context);
+    const evaluationResults = await evaluateUserAccount(username, variables, context, true);
+
+    const evaluationResultsToStore = evaluationResults.filter(result => result.canAutoBan);
+    await storeAccountInitialEvaluationResults(username, evaluationResultsToStore, context);
+
     const currentStatus = await getUserStatus(username, context);
     if (currentStatus && currentStatus.userStatus !== UserStatus.Pending) {
         console.log(`Evaluation: ${username} has already been classified`);
         return;
     }
-
-    const variables = await getEvaluatorVariables(context);
-    const evaluationResults = await evaluateUserAccount(username, variables, context, true);
 
     let reportReason: string | undefined;
 
@@ -181,9 +184,6 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
         postId,
         flairTemplateId: PostFlairTemplate.Banned,
     });
-
-    const evaluationResultsToStore = evaluationResults.filter(result => result.canAutoBan);
-    await storeAccountInitialEvaluationResults(username, evaluationResultsToStore, context);
 
     console.log(`Evaluator: Post flair changed for ${username}`);
 }
