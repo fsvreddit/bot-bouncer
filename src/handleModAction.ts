@@ -1,13 +1,14 @@
 import { JobContext, JSONObject, ScheduledJobEvent, TriggerContext } from "@devvit/public-api";
 import { ModAction } from "@devvit/protos";
-import { CONTROL_SUBREDDIT, ControlSubredditJob, INTERNAL_BOT, UniversalJob } from "./constants.js";
+import { ClientSubredditJob, CONTROL_SUBREDDIT, ControlSubredditJob, INTERNAL_BOT, UniversalJob } from "./constants.js";
 import { recordWhitelistUnban, removeRecordOfBan } from "./handleClientSubredditWikiUpdate.js";
 import { handleExternalSubmissionsPageUpdate } from "./externalSubmissions.js";
-import { validateControlSubConfigChange } from "./settings.js";
+import { getControlSubSettings, validateControlSubConfigChange } from "./settings.js";
 import { addDays, addMinutes, addSeconds } from "date-fns";
 import { validateAndSaveAppealConfig } from "./modmail/autoAppealHandling.js";
 import { checkIfStatsNeedUpdating } from "./sixHourlyJobs.js";
 import { handleBannedSubredditsModAction } from "./statistics/bannedSubreddits.js";
+import { replaceAll } from "./utility.js";
 
 export async function handleModAction (event: ModAction, context: TriggerContext) {
     if (context.subredditName === CONTROL_SUBREDDIT) {
@@ -48,6 +49,18 @@ async function handleModActionClientSub (event: ModAction, context: TriggerConte
             await context.redis.hDel(`removedItems:${event.targetUser.name}`, [targetId]);
             await context.redis.set(`removedbymod:${targetId}`, "true", { expiration: addDays(new Date(), 28) });
         }
+    }
+
+    if (event.action === "removemoderator" && event.targetUser?.name === context.appName) {
+        // Bot Bouncer has been demodded - notify the mod team after one minute.
+        // This delay allows for intentional uninstalls to proceed without the notification.
+        await context.scheduler.runJob({
+            name: ClientSubredditJob.NotifyModTeamOnDemod,
+            runAt: addMinutes(new Date(), 1),
+            data: { modName: event.moderator?.name ? `u/${event.moderator.name}` : "A moderator" },
+        });
+
+        console.warn(`handleModActionClientSub: Bot Bouncer has been removed as a moderator from r/${context.subredditName} by u/${event.moderator?.name}`);
     }
 
     // Special action for observer subreddits
@@ -126,4 +139,48 @@ export async function handleConfigWikiChange (event: ScheduledJobEvent<JSONObjec
     }
 
     await context.redis.del(redisKey);
+}
+
+export async function notifyModTeamOnDemod (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
+    const notificationDoneKey = "demodNotificationSent";
+    const alreadyNotified = await context.redis.exists(notificationDoneKey);
+    if (alreadyNotified) {
+        console.log("notifyModTeamOnDemod: Notification already sent, skipping.");
+        return;
+    }
+
+    const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
+
+    const moderators = await context.reddit.getModerators({
+        subredditName,
+        username: context.appName,
+    }).all();
+
+    if (moderators.length > 0) {
+        console.log(`notifyModTeamOnDemod: Still a moderator of r/${subredditName}, no notification sent.`);
+        return; // Still a mod, no action needed
+    }
+
+    const modName = event.data?.modName as string | undefined ?? "A moderator";
+    const controlSubSettings = await getControlSubSettings(context);
+
+    let message = controlSubSettings.appRemovedMessage;
+    if (!message) {
+        console.log(`notifyModTeamOnDemod: No app removed message configured for r/${subredditName}, no notification sent.`);
+        return;
+    }
+
+    message = replaceAll(message, "{modName}", modName);
+    message = replaceAll(message, "{subredditName}", subredditName);
+
+    message += "\n\n*This message was sent automatically, replies will not be read.*";
+
+    await context.reddit.sendPrivateMessage({
+        to: `/r/${subredditName}`,
+        subject: "Bot Bouncer has been removed as a moderator",
+        text: message,
+    });
+
+    console.log(`notifyModTeamOnDemod: Notified r/${subredditName} mod team of Bot Bouncer removal.`);
+    await context.redis.set(notificationDoneKey, "true");
 }

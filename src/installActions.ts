@@ -6,6 +6,13 @@ import { removeRetiredEvaluatorsFromStats } from "./userEvaluation/evaluatorHelp
 import { getControlSubSettings } from "./settings.js";
 import { addDays, addSeconds } from "date-fns";
 
+export async function handleInstall (_: AppInstall, context: TriggerContext) {
+    // Mark one-off re-affirmation flag as done. No need on brand new installs.
+    if (context.subredditName !== CONTROL_SUBREDDIT) {
+        await context.redis.set("oneOffReaffirmation", "true");
+    }
+}
+
 export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, context: TriggerContext) {
     console.log("App Install: Detected an app install or update event");
 

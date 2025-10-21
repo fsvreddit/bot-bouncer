@@ -1,11 +1,11 @@
 import { Devvit, FormField } from "@devvit/public-api";
 import { updateLocalStoreFromWiki, updateWikiPage } from "./dataStore.js";
 import { ClientSubredditJob, CONTROL_SUBREDDIT, ControlSubredditJob, UniversalJob } from "./constants.js";
-import { handleInstallOrUpgrade } from "./installActions.js";
+import { handleInstall, handleInstallOrUpgrade } from "./installActions.js";
 import { handleControlSubFlairUpdate } from "./handleControlSubFlairUpdate.js";
 import { appSettings } from "./settings.js";
 import { cleanupDeletedAccounts } from "./cleanup.js";
-import { handleConfigWikiChange, handleModAction } from "./handleModAction.js";
+import { handleConfigWikiChange, handleModAction, notifyModTeamOnDemod } from "./handleModAction.js";
 import { handleModmail } from "./modmail/modmail.js";
 import { handleControlSubAccountEvaluation } from "./handleControlSubAccountEvaluation.js";
 import { handleReportUser, queryFormDefinition, queryFormHandler, reportFormDefinition, reportFormHandler } from "./handleReportUser.js";
@@ -31,6 +31,11 @@ import { asyncWikiUpdate } from "./statistics/asyncWikiUpdate.js";
 import { generateBioStatisticsReport, updateBioStatisticsJob } from "./statistics/userBioStatistics.js";
 
 Devvit.addSettings(appSettings);
+
+Devvit.addTrigger({
+    event: "AppInstall",
+    onEvent: handleInstall,
+});
 
 Devvit.addTrigger({
     events: ["AppInstall", "AppUpgrade"],
@@ -241,6 +246,11 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: ClientSubredditJob.SendDailyDigest,
     onRun: sendDailyDigest,
+});
+
+Devvit.addSchedulerJob({
+    name: ClientSubredditJob.NotifyModTeamOnDemod,
+    onRun: notifyModTeamOnDemod,
 });
 
 Devvit.configure({
