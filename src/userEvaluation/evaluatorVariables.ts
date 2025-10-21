@@ -1,7 +1,7 @@
 import { JobContext, JSONObject, JSONValue, ScheduledJobEvent, TriggerContext, WikiPage } from "@devvit/public-api";
 import { ALL_EVALUATORS, yamlToVariables } from "@fsvreddit/bot-bouncer-evaluation";
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "../constants.js";
-import { uniq } from "lodash";
+import { fromPairs, uniq } from "lodash";
 import { sendMessageToWebhook } from "../utility.js";
 import json2md from "json2md";
 import { getControlSubSettings } from "../settings.js";
@@ -9,20 +9,25 @@ import { EvaluateBotGroupAdvanced } from "@fsvreddit/bot-bouncer-evaluation/dist
 import { getUserExtended } from "../extendedDevvit.js";
 import { addSeconds } from "date-fns";
 
-const EVALUATOR_VARIABLES_KEY = "evaluatorVariables";
+const EVALUATOR_VARIABLES_KEY = "evaluatorVariablesHash";
 const EVALUATOR_VARIABLES_YAML_PAGE = "evaluator-config";
 const EVALUATOR_VARIABLES_WIKI_PAGE = "evaluatorvars";
 const EVALUATOR_VARIABLES_LAST_REVISION_KEY = "evaluatorVariablesLastRevision";
 
 export async function getEvaluatorVariables (context: TriggerContext | JobContext): Promise<Record<string, JSONValue>> {
-    const allVariables = await context.redis.get(EVALUATOR_VARIABLES_KEY);
-    if (!allVariables) {
-        console.warn("Evaluator Variables: No variables found in Redis, returning empty object.");
-        return {};
+    const allVariables = await context.redis.hGetAll(EVALUATOR_VARIABLES_KEY);
+
+    return fromPairs(Object.entries(allVariables).map(([key, value]) => [key, JSON.parse(value)]));
+}
+
+export async function getEvaluatorVariable<T> (variableName: string, context: TriggerContext | JobContext): Promise<T | undefined> {
+    const variable = await context.redis.hGet(EVALUATOR_VARIABLES_KEY, variableName);
+    if (!variable) {
+        console.warn(`Evaluator Variables: Variable ${variableName} not found.`);
+        return;
     }
 
-    const variables = JSON.parse(allVariables) as Record<string, JSONValue>;
-    return variables;
+    return JSON.parse(variable) as T;
 }
 
 async function updateEvaluatorVariablesClientSub (context: JobContext) {
@@ -34,7 +39,15 @@ async function updateEvaluatorVariablesClientSub (context: JobContext) {
         return;
     }
 
-    await context.redis.set(EVALUATOR_VARIABLES_KEY, wikiPage.content);
+    const parsed = JSON.parse(wikiPage.content) as Record<string, unknown>;
+    const converted = fromPairs(Object.entries(parsed).map(([key, value]) => [key, JSON.stringify(value)]));
+
+    const txn = await context.redis.watch();
+    await txn.multi();
+    await txn.del(EVALUATOR_VARIABLES_KEY);
+    await txn.hSet(EVALUATOR_VARIABLES_KEY, converted);
+    await txn.exec();
+
     console.log("Evaluator Variables: Updated from wiki for client subreddit");
 }
 
@@ -137,10 +150,17 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
         }
     }
 
-    await context.redis.set(EVALUATOR_VARIABLES_KEY, JSON.stringify(variables));
-    await context.redis.set(EVALUATOR_VARIABLES_LAST_REVISION_KEY, wikiPage.revisionId);
+    const converted = fromPairs(Object.entries(variables).map(([key, value]) => [key, JSON.stringify(value)]));
 
-    console.log("Evaluator Variables: Updated from wiki");
+    const txn = await context.redis.watch();
+    await txn.multi();
+    await txn.del(EVALUATOR_VARIABLES_KEY);
+    await txn.hSet(EVALUATOR_VARIABLES_KEY, converted);
+    await txn.set(EVALUATOR_VARIABLES_LAST_REVISION_KEY, wikiPage.revisionId);
+    await txn.exec();
+
+    const variablesCount = await context.redis.hLen(EVALUATOR_VARIABLES_KEY);
+    console.log(`Evaluator Variables: Updated ${variablesCount} variables from wiki revision ${wikiPage.revisionId}`);
 
     // Write back to parsed wiki page for client subreddits and observer subreddits
     await context.reddit.updateWikiPage({

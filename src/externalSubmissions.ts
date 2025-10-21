@@ -1,6 +1,6 @@
 import { JobContext, TriggerContext, User, WikiPage } from "@devvit/public-api";
 import { CONTROL_SUBREDDIT, INTERNAL_BOT } from "./constants.js";
-import { addUserToTempDeclineStore, getUserStatus, setUserStatus, UserStatus } from "./dataStore.js";
+import { addUserToTempDeclineStore, getUserStatus, setUserStatus, touchUserStatus, UserStatus } from "./dataStore.js";
 import { getControlSubSettings } from "./settings.js";
 import Ajv, { JSONSchemaType } from "ajv";
 import { addDays, addMinutes, addSeconds } from "date-fns";
@@ -14,7 +14,6 @@ import json2md from "json2md";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { queueKarmaFarmingAccounts } from "./karmaFarmingSubsCheck.js";
 import { userIsTrustedSubmitter } from "./trustedSubmitterHelpers.js";
-import { setCleanupForUser } from "./cleanup.js";
 
 const WIKI_PAGE = "externalsubmissions";
 
@@ -122,11 +121,11 @@ export async function addExternalSubmissionFromClientSub (data: ExternalSubmissi
         subredditName: CONTROL_SUBREDDIT,
         page: WIKI_PAGE,
         content: JSON.stringify(currentUserList),
-        reason: `Added a user via ${context.subredditName ? `/r/${context.subredditName}` : "an unknown subreddit"}. Type: ${submissionType}`,
+        reason: `Added a user via ${context.subredditName ? `/r/${context.subredditName}` : "an unknown subreddit"} v${context.appVersion}. Type: ${submissionType}`,
     });
 }
 
-export async function addExternalSubmissionToPostCreationQueue (item: ExternalSubmission, immediate: boolean, context: TriggerContext): Promise<boolean> {
+export async function addExternalSubmissionToPostCreationQueue (item: ExternalSubmission, immediate: boolean, context: TriggerContext, enableTouch = true): Promise<boolean> {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
         throw new Error("This function can only be called from the control subreddit.");
     }
@@ -138,6 +137,9 @@ export async function addExternalSubmissionToPostCreationQueue (item: ExternalSu
             // Submitted automatically, but in the database already.
             // Need to send back initial status.
             await addUserToTempDeclineStore(item.username, context);
+        }
+        if (currentStatus.userStatus !== UserStatus.Pending && enableTouch) {
+            await touchUserStatus(item.username, currentStatus, context);
         }
         return false;
     }
@@ -220,6 +222,7 @@ export async function addExternalSubmissionToPostCreationQueue (item: ExternalSu
         immediate,
         commentToAdd,
         removeComment: item.publicContext === false,
+        evaluatorsChecked: item.evaluatorName !== undefined || (item.evaluationResults !== undefined && item.evaluationResults.length > 0),
     };
 
     const result = await queuePostCreation(submission, context);
@@ -292,10 +295,10 @@ export async function handleExternalSubmissionsPageUpdate (context: TriggerConte
 
         const currentStatus = await getUserStatus(item.username, context);
         if (currentStatus) {
-            if (currentStatus.userStatus === UserStatus.Purged || currentStatus.userStatus === UserStatus.Retired) {
-                await setCleanupForUser(item.username, context.redis, addSeconds(new Date(), 10));
-            }
             console.log(`External Submissions: User ${item.username} already has a status of ${currentStatus.userStatus}, skipping.`);
+            if (currentStatus.userStatus !== UserStatus.Pending) {
+                await touchUserStatus(item.username, currentStatus, context);
+            }
             return false;
         }
 
@@ -385,7 +388,7 @@ export async function processExternalSubmissionsFromObserverSubreddits (_: unkno
         }
 
         for (const submission of currentSubmissionList) {
-            const postSubmitted = await addExternalSubmissionToPostCreationQueue(submission, false, context);
+            const postSubmitted = await addExternalSubmissionToPostCreationQueue(submission, false, context, false);
             if (postSubmitted) {
                 processed++;
             }

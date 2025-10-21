@@ -209,6 +209,7 @@ export async function addAllUsersFromModmail (conversationId: string, submitter:
                 reportedAt: new Date().getTime(),
             },
             immediate: false,
+            evaluatorsChecked: false,
         };
 
         const result = await queuePostCreation(submission, context);

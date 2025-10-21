@@ -1,11 +1,11 @@
 import { Devvit, FormField } from "@devvit/public-api";
 import { updateLocalStoreFromWiki, updateWikiPage } from "./dataStore.js";
 import { ClientSubredditJob, CONTROL_SUBREDDIT, ControlSubredditJob, UniversalJob } from "./constants.js";
-import { handleInstallOrUpgrade } from "./installActions.js";
+import { handleInstall, handleInstallOrUpgrade } from "./installActions.js";
 import { handleControlSubFlairUpdate } from "./handleControlSubFlairUpdate.js";
 import { appSettings } from "./settings.js";
 import { cleanupDeletedAccounts } from "./cleanup.js";
-import { handleConfigWikiChange, handleModAction } from "./handleModAction.js";
+import { handleConfigWikiChange, handleModAction, notifyModTeamOnDemod } from "./handleModAction.js";
 import { handleModmail } from "./modmail/modmail.js";
 import { handleControlSubAccountEvaluation } from "./handleControlSubAccountEvaluation.js";
 import { handleReportUser, queryFormDefinition, queryFormHandler, reportFormDefinition, reportFormHandler } from "./handleReportUser.js";
@@ -21,17 +21,21 @@ import { perform6HourlyJobs, perform6HourlyJobsPart2 } from "./sixHourlyJobs.js"
 import { checkUptimeAndMessages } from "./uptimeMonitor.js";
 import { analyseBioText } from "./similarBioTextFinder/bioTextFinder.js";
 import { handleRapidJob } from "./handleRapidJob.js";
-import { cleanupPostStore } from "./cleanupPostStore.js";
 import { buildEvaluatorAccuracyStatistics } from "./statistics/evaluatorAccuracyStatistics.js";
 import { processExternalSubmissionsFromObserverSubreddits } from "./externalSubmissions.js";
-import { performCleanupMaintenance } from "./cleanupMaintenance.js";
 import { gatherDefinedHandlesStats, storeDefinedHandlesDataJob } from "./statistics/definedHandlesStatistics.js";
 import { deleteRecordsForRemovedUsers, evaluatorReversalsJob } from "./evaluatorReversals.js";
 import { handleCommentCreate, handlePostCreate } from "./handleContentCreation.js";
 import { conditionalStatsUpdate } from "./statistics/conditionalStatsUpdate.js";
 import { asyncWikiUpdate } from "./statistics/asyncWikiUpdate.js";
+import { generateBioStatisticsReport, updateBioStatisticsJob } from "./statistics/userBioStatistics.js";
 
 Devvit.addSettings(appSettings);
+
+Devvit.addTrigger({
+    event: "AppInstall",
+    onEvent: handleInstall,
+});
 
 Devvit.addTrigger({
     events: ["AppInstall", "AppUpgrade"],
@@ -166,11 +170,6 @@ Devvit.addSchedulerJob({
 });
 
 Devvit.addSchedulerJob({
-    name: ControlSubredditJob.CleanupPostStore,
-    onRun: cleanupPostStore,
-});
-
-Devvit.addSchedulerJob({
     name: ControlSubredditJob.EvaluatorAccuracyStatistics,
     onRun: buildEvaluatorAccuracyStatistics,
 });
@@ -178,11 +177,6 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: ControlSubredditJob.HandleObserverSubredditSubmissions,
     onRun: processExternalSubmissionsFromObserverSubreddits,
-});
-
-Devvit.addSchedulerJob({
-    name: ControlSubredditJob.PerformCleanupMaintenance,
-    onRun: performCleanupMaintenance,
 });
 
 Devvit.addSchedulerJob({
@@ -220,6 +214,16 @@ Devvit.addSchedulerJob({
     onRun: asyncWikiUpdate,
 });
 
+Devvit.addSchedulerJob({
+    name: ControlSubredditJob.BioStatsUpdate,
+    onRun: updateBioStatisticsJob,
+});
+
+Devvit.addSchedulerJob({
+    name: ControlSubredditJob.BioStatsGenerateReport,
+    onRun: generateBioStatisticsReport,
+});
+
 /**
  * Jobs that run on client subreddits only
  */
@@ -242,6 +246,11 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: ClientSubredditJob.SendDailyDigest,
     onRun: sendDailyDigest,
+});
+
+Devvit.addSchedulerJob({
+    name: ClientSubredditJob.NotifyModTeamOnDemod,
+    onRun: notifyModTeamOnDemod,
 });
 
 Devvit.configure({

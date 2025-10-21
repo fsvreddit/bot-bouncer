@@ -1,5 +1,5 @@
 import { JobContext, TriggerContext } from "@devvit/public-api";
-import { getUserStatus, setUserStatus, storeInitialAccountProperties, UserDetails, UserStatus } from "./dataStore.js";
+import { getUserStatus, setUserStatus, storeInitialAccountProperties, touchUserStatus, UserDetails, UserStatus } from "./dataStore.js";
 import { CONTROL_SUBREDDIT, ControlSubredditJob, PostFlairTemplate } from "./constants.js";
 import { UserExtended } from "./extendedDevvit.js";
 import { addHours, addSeconds } from "date-fns";
@@ -31,6 +31,7 @@ export interface AsyncSubmission {
         comment: string;
     };
     immediate: boolean;
+    evaluatorsChecked: boolean;
 }
 
 export async function isUserAlreadyQueued (username: string, context: JobContext): Promise<boolean> {
@@ -47,6 +48,9 @@ async function createNewSubmission (submission: AsyncSubmission, context: Trigge
     const currentStatus = await getUserStatus(submission.user.username, context);
     if (currentStatus) {
         console.log(`Post Creation: User ${submission.user.username} already has a status of ${currentStatus.userStatus}.`);
+        if (currentStatus.userStatus !== UserStatus.Pending) {
+            await touchUserStatus(submission.user.username, currentStatus, context);
+        }
         return;
     }
 
@@ -81,7 +85,7 @@ async function createNewSubmission (submission: AsyncSubmission, context: Trigge
         }
     }
 
-    if (submission.details.userStatus === UserStatus.Pending) {
+    if (submission.details.userStatus === UserStatus.Pending || !submission.evaluatorsChecked) {
         const controlSubSettings = await getControlSubSettings(context);
         if (!controlSubSettings.evaluationDisabled) {
             await context.scheduler.runJob({
@@ -136,6 +140,9 @@ export async function queuePostCreation (submission: AsyncSubmission, context: T
     const currentStatus = await getUserStatus(submission.user.username, context);
     if (currentStatus) {
         console.log(`Post Creation: User ${submission.user.username} already has a status of ${currentStatus.userStatus}.`);
+        if (currentStatus.userStatus !== UserStatus.Pending) {
+            await touchUserStatus(submission.user.username, currentStatus, context);
+        }
         return PostCreationQueueResult.AlreadyInDatabase;
     }
 

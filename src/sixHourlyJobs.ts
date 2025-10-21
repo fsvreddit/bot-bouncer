@@ -7,7 +7,7 @@ import { getFullDataStore, UserDetails, UserFlag } from "./dataStore.js";
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "./constants.js";
 import { updateClassificationStatistics } from "./statistics/classificationStatistics.js";
 import { updateAppealStatistics } from "./statistics/appealStatistics.js";
-import { addMinutes, addSeconds } from "date-fns";
+import { addMinutes } from "date-fns";
 import { updateUsernameStatistics } from "./statistics/usernameStatistics.js";
 import { updateDisplayNameStatistics } from "./statistics/displayNameStats.js";
 import { updateSocialLinksStatistics } from "./statistics/socialLinksStatistics.js";
@@ -53,25 +53,13 @@ export async function perform6HourlyJobs (_: unknown, context: JobContext) {
         }),
 
         context.scheduler.runJob({
-            name: ControlSubredditJob.CleanupPostStore,
-            runAt: addMinutes(new Date(), 1),
-            data: { firstRun: true },
-        }),
-
-        context.scheduler.runJob({
-            name: ControlSubredditJob.PerformCleanupMaintenance,
-            runAt: new Date(),
-            data: { firstRun: true },
-        }),
-
-        context.scheduler.runJob({
             name: ControlSubredditJob.DeleteRecordsForRemovedUsers,
-            runAt: addSeconds(new Date(), 60),
+            runAt: addMinutes(new Date(), 2),
         }),
 
         context.scheduler.runJob({
             name: ControlSubredditJob.Perform6HourlyJobsPart2,
-            runAt: addMinutes(new Date(), 2),
+            runAt: addMinutes(new Date(), 1),
         }),
     ]);
 

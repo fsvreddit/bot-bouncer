@@ -1,5 +1,12 @@
 # Changelog for Bot Bouncer
 
+## v1.20.0
+
+* Reduce false positives on two evaluator types
+* Flexible rules-based evaluator can now act on comment edits
+* Notify mod teams via Modmail if /u/bot-bouncer is removed from the mod list without properly uninstalling
+* Internal changes to support operations on /r/BotBouncer
+
 ## v1.19.1
 
 * Fix typo on default appeal message that users are prompted to send

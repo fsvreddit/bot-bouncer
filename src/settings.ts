@@ -33,6 +33,15 @@ Your initial appeal will be reviewed shortly by a moderator. If accepted, the re
 
 *This is an automated message.*`,
 
+    appRemovedMessage: `Hi,
+
+{modName} has removed Bot Bouncer from r/{subredditName}. As a result, Bot Bouncer will no longer be able to perform moderation tasks or provide its services on this subreddit.
+
+As Bot Bouncer is a developer platform app, it needs to be removed properly from the list of installed apps, which you can find [here](https://developers.reddit.com/r/{subredditName}/apps).
+
+If you did not mean to remove Bot Bouncer, you must first uninstall it from the link above, and then you can re-add it from the app listing [here](https://developers.reddit.com/apps/bot-bouncer). Please don't invite this user account to the mod list manually - it won't be able to accept the invite.
+
+If you are removing Bot Bouncer because of concerns about how it works, we would love to hear from you. Please modmail r/BotBouncer with any feedback you may have.`,
 };
 
 export enum AppSetting {
@@ -210,6 +219,7 @@ export interface ControlSubSettings {
     observerSubreddits?: string[];
     postCreationQueueProcessingEnabled?: boolean;
     allowClassificationQueries?: boolean;
+    appRemovedMessage?: string;
 }
 
 const CONTROL_SUB_SETTINGS_WIKI_PAGE = "control-sub-settings";
@@ -233,6 +243,7 @@ const schema: JSONSchemaType<ControlSubSettings> = {
         observerSubreddits: { type: "array", items: { type: "string" }, nullable: true },
         postCreationQueueProcessingEnabled: { type: "boolean", nullable: true },
         allowClassificationQueries: { type: "boolean", nullable: true },
+        appRemovedMessage: { type: "string", nullable: true },
     },
     required: ["evaluationDisabled", "trustedSubmitters", "reporterBlacklist"],
 };
@@ -255,6 +266,7 @@ export async function getControlSubSettings (context: TriggerContext): Promise<C
         reporterBlacklist: [],
         numberOfWikiPages: 1,
         cleanupDisabled: true,
+        appRemovedMessage: CONFIGURATION_DEFAULTS.appRemovedMessage,
     };
 
     let wikiPage: WikiPage | undefined;

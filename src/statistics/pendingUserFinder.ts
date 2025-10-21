@@ -1,17 +1,28 @@
 import { JobContext } from "@devvit/public-api";
 import { UserStatus } from "../dataStore.js";
-import { format, subDays } from "date-fns";
+import { addDays, format, subDays } from "date-fns";
 import json2md from "json2md";
 import { StatsUserEntry } from "../sixHourlyJobs.js";
 
 export async function pendingUserFinder (allEntries: StatsUserEntry[], context: JobContext) {
     const cutoff = subDays(new Date(), 2).getTime();
-    const pendingUsersOverOneDay = allEntries.filter(item => item.data.userStatus === UserStatus.Pending && (item.data.reportedAt ?? 0 < cutoff));
+    const pendingUsersOverOneDay = allEntries.filter((item) => {
+        if (item.data.userStatus !== UserStatus.Pending) {
+            return false;
+        }
+
+        if (item.data.reportedAt && item.data.reportedAt >= cutoff) {
+            return false; // Reported within the last 2 days
+        }
+
+        return item.data.lastUpdate < cutoff; // Last updated over 2 days ago
+    });
+
     if (pendingUsersOverOneDay.length === 0) {
         return;
     }
 
-    const lastReportSentKey = "pendingUsersReportSent";
+    const lastReportSentKey = "pendingUsersReportSentRecently";
     const lastReportVal = await context.redis.get(lastReportSentKey);
     if (lastReportVal && parseInt(lastReportVal, 10) > subDays(new Date(), 1).getTime()) {
         return; // Report already sent in the last 24 hours
@@ -39,5 +50,5 @@ export async function pendingUserFinder (allEntries: StatsUserEntry[], context: 
         subredditId: context.subredditId,
     });
 
-    await context.redis.set(lastReportSentKey, Date.now().toString());
+    await context.redis.set(lastReportSentKey, Date.now().toString(), { expiration: addDays(new Date(), 7) });
 }

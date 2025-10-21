@@ -2,14 +2,13 @@ import { TriggerContext, User } from "@devvit/public-api";
 import { PostCreate } from "@devvit/protos";
 import { CONTROL_SUBREDDIT } from "./constants.js";
 import { getUsernameFromUrl, getUserOrUndefined, isModerator } from "./utility.js";
-import { getUserStatus, UserDetails, UserStatus } from "./dataStore.js";
-import { addSeconds, subMonths } from "date-fns";
+import { getUserStatus, touchUserStatus, UserDetails, UserStatus } from "./dataStore.js";
+import { subMonths } from "date-fns";
 import { getControlSubSettings } from "./settings.js";
 import { AsyncSubmission, PostCreationQueueResult, queuePostCreation } from "./postCreation.js";
 import { getUserExtendedFromUser } from "./extendedDevvit.js";
 import json2md from "json2md";
 import { userIsTrustedSubmitter } from "./trustedSubmitterHelpers.js";
-import { setCleanupForUser } from "./cleanup.js";
 
 export async function handleControlSubPostCreate (event: PostCreate, context: TriggerContext) {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
@@ -64,14 +63,18 @@ export async function handleControlSubPostCreate (event: PostCreate, context: Tr
     }
 
     if (user) {
-        const userContent = await context.reddit.getCommentsAndPostsByUser({
-            username: user.username,
-            limit: 100,
-            sort: "new",
-        }).all();
+        try {
+            const userContent = await context.reddit.getCommentsAndPostsByUser({
+                username: user.username,
+                limit: 100,
+                sort: "new",
+            }).all();
 
-        if (userContent.filter(item => item.createdAt > subMonths(new Date(), controlSubSettings.maxInactivityMonths ?? 3)).length === 0) {
-            submissionResponse.push({ p: `${username} has no recent content on their history, so may be retired. Submissions can only be made for active users.` });
+            if (userContent.filter(item => item.createdAt > subMonths(new Date(), controlSubSettings.maxInactivityMonths ?? 3)).length === 0) {
+                submissionResponse.push({ p: `${username} has no recent content on their history, so may be retired. Submissions can only be made for active users.` });
+            }
+        } catch (error) {
+            console.error(`Error retrieving content for user ${username}:`, error);
         }
     }
 
@@ -83,8 +86,8 @@ export async function handleControlSubPostCreate (event: PostCreate, context: Tr
 
             if (currentStatus.userStatus === UserStatus.Organic) {
                 submissionResponse.push({ p: `If you have information about how this user is a bot that we may have missed, please [modmail us](https://www.reddit.com/message/compose?to=/r/BotBouncer&subject=More%20information%20about%20/u/${user.username}) with the details, so that we can review again.` });
-            } else if (currentStatus.userStatus === UserStatus.Purged || currentStatus.userStatus === UserStatus.Retired) {
-                await setCleanupForUser(user.username, context.redis, addSeconds(new Date(), 10));
+            } else if (currentStatus.userStatus !== UserStatus.Pending) {
+                await touchUserStatus(user.username, currentStatus, context);
             }
         } else {
             const newStatus = await userIsTrustedSubmitter(event.author.name, context) ? UserStatus.Banned : UserStatus.Pending;
@@ -97,23 +100,30 @@ export async function handleControlSubPostCreate (event: PostCreate, context: Tr
                 trackingPostId: "",
             };
 
-            const submission: AsyncSubmission = {
-                user: await getUserExtendedFromUser(user, context),
-                details: newDetails,
-                callback: {
-                    postId: event.post.id,
-                    comment: json2md([
-                        { p: "Hi, thanks for your submission." },
-                        { p: `The post tracking ${user.username} can be found [here]({{permalink}}).` },
-                        { p: `Your post has been removed, and can be deleted. Consider reporting the account for Spam->Bots, as this may result in the account being suspended or shadowbanned.` },
-                    ]),
-                },
-                immediate: true,
-            };
+            let submissionResult: PostCreationQueueResult;
 
-            const result = await queuePostCreation(submission, context);
+            try {
+                const submission: AsyncSubmission = {
+                    user: await getUserExtendedFromUser(user, context),
+                    details: newDetails,
+                    callback: {
+                        postId: event.post.id,
+                        comment: json2md([
+                            { p: "Hi, thanks for your submission." },
+                            { p: `The post tracking ${user.username} can be found [here]({{permalink}}).` },
+                            { p: `Your post has been removed, and can be deleted. Consider reporting the account for Spam->Bots, as this may result in the account being suspended or shadowbanned.` },
+                        ]),
+                    },
+                    immediate: true,
+                    evaluatorsChecked: false,
+                };
 
-            switch (result) {
+                submissionResult = await queuePostCreation(submission, context);
+            } catch {
+                submissionResult = PostCreationQueueResult.Error;
+            }
+
+            switch (submissionResult) {
                 case PostCreationQueueResult.Queued:
                     console.log(`Queued post creation for ${username} via post by ${event.author.name}`);
                     break;
@@ -126,7 +136,8 @@ export async function handleControlSubPostCreate (event: PostCreate, context: Tr
                     submissionResponse.push({ p: "This user is already in the queue to be processed having been submitted by someone else, a tracking post will appear shortly." });
                     break;
                 case PostCreationQueueResult.Error:
-                    console.error(`Failed to queue post creation for ${username} via post by ${event.author.name}. Reason: ${result}`);
+                    console.error(`Failed to queue post creation for ${username} via post by ${event.author.name}. Reason: ${submissionResult}`);
+                    submissionResponse.push({ p: "An error occurred while processing your submission, please try again later." });
                     break;
             }
         }

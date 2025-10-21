@@ -39,17 +39,17 @@ export enum ControlSubredditJob {
     UptimeAndMessageCheck = "uptimeAndMessageCheck",
     BioTextAnalyser = "bioTextAnalyser",
     RapidJob = "rapidJob",
-    CleanupPostStore = "cleanupPostStore",
     EvaluatorAccuracyStatistics = "evaluatorAccuracyStatistics",
     DefinedHandlesStatistics = "definedHandlesStatistics",
     DefinedHandlesPostStore = "definedHandlesPostStore",
     HandleObserverSubredditSubmissions = "handleObserverSubredditSubmissions",
-    PerformCleanupMaintenance = "performCleanupMaintenance",
     EvaluatorReversals = "evaluatorReversals",
     DeleteRecordsForRemovedUsers = "deleteRecordsForRemovedUsers",
     HandleConfigWikiChange = "handleConfigWikiChange",
     ConditionalStatsUpdate = "conditionalStatsUpdate",
     AsyncWikiUpdate = "asyncWikiUpdate",
+    BioStatsUpdate = "bioStatsUpdate",
+    BioStatsGenerateReport = "bioStatsGenerateReport",
 }
 
 /**
@@ -61,6 +61,7 @@ export enum ClientSubredditJob {
     HandleClassificationChanges = "handleClassificationChanges",
     UpgradeNotifier = "upgradeNotifier",
     SendDailyDigest = "sendDailyDigest",
+    NotifyModTeamOnDemod = "notifyModTeamOnDemod",
 }
 
 /**

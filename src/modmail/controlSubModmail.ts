@@ -1,10 +1,10 @@
-import { TriggerContext } from "@devvit/public-api";
+import { Comment, TriggerContext } from "@devvit/public-api";
 import { isLinkId } from "@devvit/public-api/types/tid.js";
 import { getUserStatus, UserStatus } from "../dataStore.js";
 import { getSummaryForUser } from "../UserSummary/userSummary.js";
 import { getUserOrUndefined, isBanned, isModerator } from "../utility.js";
 import { CONFIGURATION_DEFAULTS, getControlSubSettings } from "../settings.js";
-import { addDays, addHours, subMinutes } from "date-fns";
+import { addDays, addHours, format, subMinutes } from "date-fns";
 import json2md from "json2md";
 import { ModmailMessage } from "./modmail.js";
 import { dataExtract } from "./dataExtract.js";
@@ -49,7 +49,7 @@ export async function handleControlSubredditModmail (modmail: ModmailMessage, co
 
     const setDateRegex = /^!setdate ([A-Za-z0-9_-]+) (\d{4}-\d{2}-\d{2})/;
     const setDateMatch = setDateRegex.exec(modmail.bodyMarkdown);
-    if (setDateMatch && setDateMatch.length === 3) {
+    if (setDateMatch?.length === 3) {
         const subredditName = setDateMatch[1];
         const dateString = setDateMatch[2];
         const date = new Date(dateString);
@@ -63,7 +63,7 @@ export async function handleControlSubredditModmail (modmail: ModmailMessage, co
 
     const addAllRegex = /^!addall(?: (banned))?/;
     const addAllMatches = addAllRegex.exec(modmail.bodyMarkdown);
-    if (addAllMatches && addAllMatches.length === 2) {
+    if (addAllMatches?.length === 2) {
         const status = addAllMatches[1] === "banned" ? UserStatus.Banned : UserStatus.Pending;
         await addAllUsersFromModmail(modmail.conversationId, modmail.messageAuthor, status, context);
         return;
@@ -88,10 +88,15 @@ export async function handleControlSubredditModmail (modmail: ModmailMessage, co
         return;
     }
 
+    if (modmail.bodyMarkdown.startsWith("!history ")) {
+        await showUserHistory(modmail, context);
+        return;
+    }
+
     if (modmail.participant && modmail.participant !== context.appName) {
         const statusChangeRegex = new RegExp(`!setstatus (${getPossibleSetStatusValues().join("|")})`);
         const statusChangeMatch = statusChangeRegex.exec(modmail.bodyMarkdown);
-        if (statusChangeMatch && statusChangeMatch.length === 2) {
+        if (statusChangeMatch?.length === 2) {
             const newStatus = statusChangeMatch[1] as UserStatus;
             const currentStatus = await getUserStatus(modmail.participant, context);
             if (currentStatus && isLinkId(currentStatus.trackingPostId) && currentStatus.userStatus !== newStatus) {
@@ -292,6 +297,7 @@ async function addSummaryForUser (conversationId: string, username: string, cont
 async function checkBanOnSub (modmail: ModmailMessage, context: TriggerContext) {
     const checkBanRegex = /^!checkban ([A-Za-z0-9_]+)/;
     const checkBanMatch = checkBanRegex.exec(modmail.bodyMarkdown);
+    // eslint-disable-next-line @typescript-eslint/prefer-optional-chain
     if (!modmail.participant || !checkBanMatch || checkBanMatch.length !== 2) {
         await context.reddit.modMail.reply({
             body: "Invalid command format. Use `!checkban <subreddit>`.",
@@ -315,6 +321,48 @@ async function checkBanOnSub (modmail: ModmailMessage, context: TriggerContext) 
             message.push({ blockquote: error instanceof Error ? error.message : String(error) });
         }
     }
+    await context.reddit.modMail.reply({
+        body: json2md(message),
+        conversationId: modmail.conversationId,
+        isInternal: true,
+    });
+}
+
+async function showUserHistory (modmail: ModmailMessage, context: TriggerContext) {
+    const regex = /^!history (\d+)/;
+    const match = regex.exec(modmail.bodyMarkdown);
+    // eslint-disable-next-line @typescript-eslint/prefer-optional-chain
+    if (!modmail.participant || !match || match.length !== 2) {
+        await context.reddit.modMail.reply({
+            body: "Invalid command format. Use `!history <number_of_items>`.",
+            conversationId: modmail.conversationId,
+            isInternal: true,
+        });
+        return;
+    }
+
+    const numberOfItems = parseInt(match[1], 10);
+    const userHistory = await context.reddit.getCommentsAndPostsByUser({
+        username: modmail.participant,
+        limit: numberOfItems,
+        sort: "new",
+    }).all();
+
+    const message: json2md.DataObject[] = [];
+
+    if (userHistory.length === 0) {
+        message.push({ p: `No recent posts or comments found for /u/${modmail.participant}.` });
+    } else {
+        message.push({ p: `Showing the ${numberOfItems} most recent posts and comments by /u/${modmail.participant}:` });
+
+        for (const item of userHistory) {
+            message.push({ p: `[${item instanceof Comment ? "Comment" : "Post"}](${item.permalink}) in /r/${item.subredditName} on ${format(item.createdAt, "yyyy-MM-dd hh:mm")}` });
+            if (item instanceof Comment) {
+                message.push({ blockquote: item.body });
+            }
+        }
+    }
+
     await context.reddit.modMail.reply({
         body: json2md(message),
         conversationId: modmail.conversationId,

@@ -1,6 +1,6 @@
 import { JobContext } from "@devvit/public-api";
 import { UserStatus } from "../dataStore.js";
-import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
+import { getEvaluatorVariable } from "../userEvaluation/evaluatorVariables.js";
 import { subWeeks } from "date-fns";
 import json2md from "json2md";
 import { replaceAll } from "../utility.js";
@@ -10,15 +10,12 @@ export async function updateUsernameStatistics (allEntries: StatsUserEntry[], co
     const recentData = allEntries
         .filter(item => item.data.reportedAt && new Date(item.data.reportedAt) >= subWeeks(new Date(), 2));
 
-    const evaluatorVariables = await getEvaluatorVariables(context);
-
     const columns = ["Regex", "Count", "False Positive %", "Example Organics"];
     const rows: string[][] = [];
 
-    const regexes = evaluatorVariables["badusername:regexes"] as string[] | undefined ?? [];
-    const badUsernameYoungRegexes = evaluatorVariables["badusernameyoung:regexes"] as string[] | undefined ?? [];
+    const regexes = await getEvaluatorVariable<string[]>("badusername:regexes", context) ?? [];
 
-    for (const regex of [...regexes, ...badUsernameYoungRegexes]) {
+    for (const regex of regexes) {
         const entriesMatchingRegex = recentData.filter(item => new RegExp(regex).test(item.username));
         let regexForRow = replaceAll(regex, "|", "¦");
 

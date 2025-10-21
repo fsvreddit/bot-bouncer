@@ -1,12 +1,13 @@
 /* eslint-disable @stylistic/quote-props */
 import { TriggerContext, UserSocialLink, WikiPage, WikiPagePermissionLevel } from "@devvit/public-api";
-import { BIO_TEXT_STORE, getFullDataStore, SOCIAL_LINKS_STORE, UserDetails, UserFlag, UserStatus } from "../dataStore.js";
+import { BIO_TEXT_STORE, DISPLAY_NAME_STORE, getFullDataStore, SOCIAL_LINKS_STORE, UserDetails, UserFlag, UserStatus } from "../dataStore.js";
 import Ajv, { JSONSchemaType } from "ajv";
 import pluralize from "pluralize";
 import json2md from "json2md";
 import { addSeconds, format } from "date-fns";
 import { setCleanupForUser } from "../cleanup.js";
 import { EvaluationResult, getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
+import { RedisHelper } from "../redisHelper.js";
 
 interface ModmailDataExtract {
     status?: UserStatus[];
@@ -14,6 +15,7 @@ interface ModmailDataExtract {
     operator?: string;
     usernameRegex?: string;
     bioRegex?: string;
+    displayNameRegex?: string;
     socialLinkStartsWith?: string;
     evaluator?: string;
     hitReason?: string;
@@ -47,6 +49,10 @@ const schema: JSONSchemaType<ModmailDataExtract> = {
             nullable: true,
         },
         bioRegex: {
+            type: "string",
+            nullable: true,
+        },
+        displayNameRegex: {
             type: "string",
             nullable: true,
         },
@@ -91,7 +97,7 @@ const schema: JSONSchemaType<ModmailDataExtract> = {
     additionalProperties: false,
 };
 
-type UserDetailsWithBioAndSocialLinks = UserDetails & { bioText?: string; socialLinks?: string };
+type UserDetailsWithBioAndSocialLinks = UserDetails & { bioText?: string; displayName?: string; socialLinks?: string };
 
 export async function dataExtract (message: string | undefined, conversationId: string, context: TriggerContext) {
     if (!message?.startsWith("!extract {")) {
@@ -203,6 +209,8 @@ export async function dataExtract (message: string | undefined, conversationId: 
 
     console.log(`Filtered data: ${data.length} entries match the criteria.`);
 
+    const redisHelper = new RedisHelper(context.redis);
+
     if (request.bioRegex) {
         let regex: RegExp;
         try {
@@ -215,16 +223,40 @@ export async function dataExtract (message: string | undefined, conversationId: 
             });
             return;
         }
-        const bioTexts = await context.redis.hMGet(BIO_TEXT_STORE, data.map(entry => entry.username));
-        for (let i = 0; i < data.length; i++) {
-            const userBioText = bioTexts[i];
-            if (userBioText && regex.test(userBioText)) {
-                data[i].data.bioText = userBioText; // Store the bio text for the user
+        const bioTexts = await redisHelper.hMGet(BIO_TEXT_STORE, data.map(entry => entry.username));
+
+        for (const entry of data) {
+            if (bioTexts[entry.username] && regex.test(bioTexts[entry.username])) {
+                entry.data.bioText = bioTexts[entry.username];
             }
         }
 
         data = data.filter(entry => entry.data.bioText);
         console.log(`Filtered data by bioRegex: ${request.bioRegex}, remaining entries: ${data.length}`);
+    }
+
+    if (request.displayNameRegex) {
+        let regex: RegExp;
+        try {
+            regex = new RegExp(request.displayNameRegex);
+        } catch {
+            await context.reddit.modMail.reply({
+                conversationId,
+                body: "Invalid regex provided for `displayNameRegex`.",
+                isAuthorHidden: false,
+            });
+            return;
+        }
+
+        const displayNames = await redisHelper.hMGet(DISPLAY_NAME_STORE, data.map(entry => entry.username));
+        for (const entry of data) {
+            if (displayNames[entry.username] && regex.test(displayNames[entry.username])) {
+                entry.data.displayName = displayNames[entry.username];
+            }
+        }
+
+        data = data.filter(entry => entry.data.displayName);
+        console.log(`Filtered data by displayNameRegex: ${request.displayNameRegex}, remaining entries: ${data.length}`);
     }
 
     if (request.socialLinkStartsWith) {
@@ -319,6 +351,9 @@ export async function dataExtract (message: string | undefined, conversationId: 
     }
     if (request.bioRegex) {
         criteriaBullets.push(`Bio Regex: \`${request.bioRegex}\``);
+    }
+    if (request.displayNameRegex) {
+        criteriaBullets.push(`Display Name Regex: \`${request.displayNameRegex}\``);
     }
     if (request.socialLinkStartsWith) {
         criteriaBullets.push(`Social Link Starts With: ${request.socialLinkStartsWith}`);
