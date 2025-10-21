@@ -55,6 +55,13 @@ While you can unban the user yourself, this only affects the user on your subred
 
 # Change History
 
+## v1.20.0
+
+* Reduce false positives on two evaluator types
+* Flexible rules-based evaluator can now act on comment edits
+* Notify mod teams via Modmail if /u/bot-bouncer is removed from the mod list without properly uninstalling
+* Internal changes to support operations on /r/BotBouncer
+
 ## v1.19.1
 
 * Fix typo on default appeal message that users are prompted to send
@@ -67,43 +74,6 @@ While you can unban the user yourself, this only affects the user on your subred
 * Add option to add a mod note on accounts banned by Bot Bouncer
 * Pre-populate appeal message with a placeholder message (thanks, /u/Drunken_Economist!)
 * Enhance Bad Social Links evaluator to look at links on posts, not just social links in profile
-* Internal changes to support operations on /r/BotBouncer
-
-## v1.17.15
-
-* Fix issues that could result in allowlisted users being reported/banned in some situations
-* Internal changes to support operations on /r/BotBouncer
-
-## v1.17.2
-
-* Fix issues that could result in allowlisted users being reported/banned in some situations
-* Disable "receive feedback" checkbox on report form if Bot Bouncer has failed to send messages several times, with user feedback to check settings.
-* Remove five obsolete evaluators
-* Improve efficiency of account evaluation code
-* Performance improvements to reduce Dev Platform resource usage
-* Internal changes to support operations on /r/BotBouncer
-
-## v1.16.1
-
-* Refresh evaluator configuration more frequently to improve detection accuracy
-* Fixed a bug that could cause errors banning newly detected users
-* Remove disabled features including one redundant evaluator
-* Add configuration setting to file daily digests in the Mod Notifications section of modmail if preferred
-* Prevent "this user is listed on /r/BotBouncer" modmail notes on bans from other bots such as Hive Protector or SafestBot
-* Internal changes to support operations on /r/BotBouncer
-
-## v1.15.50
-
-* Fix typo on settings screen
-* Bug fixes to new flexible evaluator to improve accuracy
-* Internal changes to support operations on /r/BotBouncer
-
-## v1.15.3
-
-* Don't reinstate content that had reports at the point of ban if a user is marked as human on appeal
-* Reduce false positives on Inconsistent Age evaluator
-* Introduces new flexible evaluator type to catch more styles of bots without redeploying app
-* Retire two evaluator types for bot types not seen in a long while
 * Internal changes to support operations on /r/BotBouncer
 
 For older versions, please see the [full changelog](https://github.com/fsvreddit/bot-bouncer/blob/main/changelog.md).
