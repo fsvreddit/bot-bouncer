@@ -121,7 +121,7 @@ export async function addExternalSubmissionFromClientSub (data: ExternalSubmissi
         subredditName: CONTROL_SUBREDDIT,
         page: WIKI_PAGE,
         content: JSON.stringify(currentUserList),
-        reason: `Added a user via ${context.subredditName ? `/r/${context.subredditName}` : "an unknown subreddit"}. Type: ${submissionType}`,
+        reason: `Added a user via ${context.subredditName ? `/r/${context.subredditName}` : "an unknown subreddit"} v${context.appVersion}. Type: ${submissionType}`,
     });
 }
 
