@@ -1,5 +1,5 @@
-import { Comment, JobContext, Post, RedisClient, TriggerContext, TxClientLike } from "@devvit/public-api";
-import { addDays, addHours, addSeconds, subDays, subSeconds } from "date-fns";
+import { Comment, JobContext, JSONObject, Post, RedisClient, ScheduledJobEvent, TriggerContext, TxClientLike } from "@devvit/public-api";
+import { addDays, addHours, addSeconds, format, subDays, subMinutes, subSeconds } from "date-fns";
 import { CONTROL_SUB_CLEANUP_CRON, CONTROL_SUBREDDIT, PostFlairTemplate, UniversalJob } from "./constants.js";
 import { deleteUserStatus, getUserStatus, removeRecordOfSubmitterOrMod, updateAggregate, UserStatus, writeUserStatus } from "./dataStore.js";
 import { getUserOrUndefined } from "./utility.js";
@@ -74,7 +74,7 @@ async function userActive (username: string, context: TriggerContext): Promise<U
     }
 }
 
-export async function cleanupDeletedAccounts (_: unknown, context: JobContext) {
+export async function cleanupDeletedAccounts (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
     const controlSubSettings = await getControlSubSettings(context);
     if (controlSubSettings.cleanupDisabled && context.subredditName === CONTROL_SUBREDDIT) {
         console.log("Cleanup: Cleanup is disabled, skipping.");
@@ -89,6 +89,13 @@ export async function cleanupDeletedAccounts (_: unknown, context: JobContext) {
     }
 
     const runLimit = addSeconds(new Date(), 15);
+
+    if (event.data?.firstRun) {
+        const firstCleanupDate = new Date(items[0].score);
+        if (firstCleanupDate < subMinutes(new Date(), 30)) {
+            console.log(`Cleanup: Backlogged. First cleanup date is ${format(firstCleanupDate, "yyyy-MM-dd HH:mm:ss")} UTC`);
+        }
+    }
 
     // Check platform is up.
     await context.reddit.getAppUser();

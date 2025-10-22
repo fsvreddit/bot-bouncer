@@ -87,6 +87,7 @@ async function addControlSubredditJobs (context: TriggerContext) {
         context.scheduler.runJob({
             name: UniversalJob.Cleanup,
             cron: CONTROL_SUB_CLEANUP_CRON, // every 5 minutes
+            data: { firstRun: true },
         }),
 
         context.scheduler.runJob({
@@ -149,6 +150,7 @@ async function addClientSubredditJobs (context: TriggerContext) {
     await context.scheduler.runJob({
         name: UniversalJob.Cleanup,
         cron: `${randomMinute} 0/2 * * *`, // Every two hours
+        data: { firstRun: true },
     });
 
     console.log("App Install: Client subreddit jobs added");
