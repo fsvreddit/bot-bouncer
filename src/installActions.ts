@@ -66,7 +66,7 @@ async function addControlSubredditJobs (context: TriggerContext) {
 
         context.scheduler.runJob({
             name: ControlSubredditJob.RapidJob,
-            cron: "*/30 * * * * *",
+            cron: "*/20 * * * * *",
         }),
 
         context.scheduler.runJob({
