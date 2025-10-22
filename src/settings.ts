@@ -264,7 +264,7 @@ export async function getControlSubSettings (context: TriggerContext): Promise<C
         maxInactivityMonths: 3,
         trustedSubmitters: [],
         reporterBlacklist: [],
-        numberOfWikiPages: 1,
+        numberOfWikiPages: 2,
         cleanupDisabled: true,
         appRemovedMessage: CONFIGURATION_DEFAULTS.appRemovedMessage,
     };
