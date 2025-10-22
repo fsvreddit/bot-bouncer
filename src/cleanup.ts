@@ -1,11 +1,10 @@
 import { Comment, JobContext, JSONObject, Post, RedisClient, ScheduledJobEvent, TriggerContext, TxClientLike } from "@devvit/public-api";
-import { addDays, addHours, addSeconds, format, subDays, subMinutes, subSeconds } from "date-fns";
-import { CONTROL_SUB_CLEANUP_CRON, CONTROL_SUBREDDIT, PostFlairTemplate, UniversalJob } from "./constants.js";
+import { addDays, addHours, addSeconds, format, subDays, subSeconds } from "date-fns";
+import { CONTROL_SUBREDDIT, PostFlairTemplate, UniversalJob } from "./constants.js";
 import { deleteUserStatus, getUserStatus, removeRecordOfSubmitterOrMod, updateAggregate, UserStatus, writeUserStatus } from "./dataStore.js";
 import { getUserOrUndefined } from "./utility.js";
 import { removeRecordOfBan, removeWhitelistUnban } from "./handleClientSubredditWikiUpdate.js";
 import { max } from "lodash";
-import { CronExpressionParser } from "cron-parser";
 import { getControlSubSettings } from "./settings.js";
 
 export const CLEANUP_LOG_KEY = "CleanupLog";
@@ -83,19 +82,20 @@ export async function cleanupDeletedAccounts (event: ScheduledJobEvent<JSONObjec
 
     const items = await context.redis.zRange(CLEANUP_LOG_KEY, 0, new Date().getTime(), { by: "score" });
     if (items.length === 0) {
-        // No user accounts need to be checked.
-        console.log("Cleanup: No users to check.");
         return;
     }
 
     const runLimit = addSeconds(new Date(), 15);
 
-    if (event.data?.firstRun) {
-        const firstCleanupDate = new Date(items[0].score);
-        if (firstCleanupDate < subMinutes(new Date(), 30)) {
-            console.log(`Cleanup: Backlogged. First cleanup date is ${format(firstCleanupDate, "yyyy-MM-dd HH:mm:ss")} UTC`);
-        }
+    const recentlyRunKey = "CleanupRecentlyRun";
+
+    if (event.data?.firstRun && await context.redis.exists(recentlyRunKey)) {
+        return;
     }
+
+    const firstCleanupDate = new Date(items[0].score);
+
+    await context.redis.set(recentlyRunKey, "true", { expiration: addSeconds(new Date(), 30) });
 
     // Check platform is up.
     await context.reddit.getAppUser();
@@ -224,19 +224,9 @@ export async function cleanupDeletedAccounts (event: ScheduledJobEvent<JSONObjec
         }
     }
 
-    console.log(`Cleanup: Active ${activeCount}, Deleted ${deletedCount}, Suspended ${suspendedCount}`);
+    console.log(`Cleanup: Active ${activeCount}, Deleted ${deletedCount}, Suspended ${suspendedCount}. First: ${format(firstCleanupDate, "MMM dd HH:mm:ss")}`);
 
     if (usersToCheck.length > 0) {
-        // In a backlog.
-        // If in control subreddit, check to see if next run is imminent.
-        if (context.subredditName === CONTROL_SUBREDDIT) {
-            const nextRun = CronExpressionParser.parse(CONTROL_SUB_CLEANUP_CRON).next().toDate();
-            if (nextRun < addSeconds(new Date(), 30)) {
-                console.log(`Cleanup: Next run is imminent, skip next ad-hoc run.`);
-                return;
-            }
-        }
-
         await context.scheduler.runJob({
             name: UniversalJob.Cleanup,
             runAt: addSeconds(new Date(), 2),

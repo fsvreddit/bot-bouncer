@@ -68,7 +68,4 @@ export enum ClientSubredditJob {
  * Job Crons
  */
 
-export const EVALUATE_KARMA_FARMING_SUBS_CRON = "* * * * *"; // Every 5 minutes
-export const CONTROL_SUB_CLEANUP_CRON = "1/5 * * * *"; // Every 5 minutes
-
 export const CLIENT_SUB_WIKI_UPDATE_CRON_KEY = "clientSubWikiUpdateCron";
