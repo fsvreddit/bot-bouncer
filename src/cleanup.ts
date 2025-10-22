@@ -1,5 +1,5 @@
 import { Comment, JobContext, JSONObject, Post, RedisClient, ScheduledJobEvent, TriggerContext, TxClientLike } from "@devvit/public-api";
-import { addDays, addHours, addSeconds, format, subDays, subSeconds } from "date-fns";
+import { addDays, addHours, addSeconds, formatDuration, intervalToDuration, subDays, subMinutes, subSeconds } from "date-fns";
 import { CONTROL_SUBREDDIT, PostFlairTemplate, UniversalJob } from "./constants.js";
 import { deleteUserStatus, getUserStatus, removeRecordOfSubmitterOrMod, updateAggregate, UserStatus, writeUserStatus } from "./dataStore.js";
 import { getUserOrUndefined } from "./utility.js";
@@ -224,7 +224,13 @@ export async function cleanupDeletedAccounts (event: ScheduledJobEvent<JSONObjec
         }
     }
 
-    console.log(`Cleanup: Active ${activeCount}, Deleted ${deletedCount}, Suspended ${suspendedCount}. First: ${format(firstCleanupDate, "MMM dd HH:mm:ss")}`);
+    let message = `Cleanup: Active ${activeCount}, Deleted ${deletedCount}, Suspended ${suspendedCount}.`;
+    if (firstCleanupDate < subMinutes(new Date(), 2)) {
+        const interval = intervalToDuration({ start: firstCleanupDate, end: new Date() });
+        message += ` Backlogged: ${formatDuration(interval, { format: ["days", "hours", "minutes"] })}.`;
+    }
+
+    console.log(message);
 
     if (usersToCheck.length > 0) {
         await context.scheduler.runJob({
