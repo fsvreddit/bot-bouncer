@@ -12,7 +12,7 @@ import { addAllUsersFromModmail } from "../similarBioTextFinder/bioTextFinder.js
 import { markAppealAsHandled } from "../statistics/appealStatistics.js";
 import { statusToFlair } from "../postCreation.js";
 import { CONTROL_SUBREDDIT, INTERNAL_BOT } from "../constants.js";
-import { handleBulkSubmission } from "./bulkSubmission.js";
+import { handleBulkSubmission, retryBulkSubmission } from "./bulkSubmission.js";
 import { handleAppeal } from "./autoAppealHandling.js";
 import { FLAIR_MAPPINGS } from "../handleControlSubFlairUpdate.js";
 import { uniq } from "lodash";
@@ -90,6 +90,11 @@ export async function handleControlSubredditModmail (modmail: ModmailMessage, co
 
     if (modmail.bodyMarkdown.startsWith("!history ")) {
         await showUserHistory(modmail, context);
+        return;
+    }
+
+    if (modmail.bodyMarkdown.startsWith("!retrybulk")) {
+        await retryBulkSubmission(modmail, context);
         return;
     }
 
