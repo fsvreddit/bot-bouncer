@@ -231,6 +231,8 @@ export async function cleanupDeletedAccounts (event: ScheduledJobEvent<JSONObjec
             name: UniversalJob.Cleanup,
             runAt: addSeconds(new Date(), 2),
         });
+    } else {
+        await context.redis.del(recentlyRunKey);
     }
 }
 
