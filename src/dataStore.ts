@@ -3,7 +3,7 @@ import { compact, fromPairs, max, toPairs, uniq } from "lodash";
 import pako from "pako";
 import { setCleanupForSubmittersAndMods, setCleanupForUser } from "./cleanup.js";
 import { ClientSubredditJob, CONTROL_SUBREDDIT } from "./constants.js";
-import { addHours, addMinutes, addSeconds, addWeeks, startOfSecond, subDays, subHours, subWeeks } from "date-fns";
+import { addHours, addMinutes, addSeconds, addWeeks, startOfSecond, subDays, subHours, subMinutes, subSeconds, subWeeks } from "date-fns";
 import pluralize from "pluralize";
 import { getControlSubSettings } from "./settings.js";
 import { isCommentId, isLinkId } from "@devvit/public-api/types/tid.js";
@@ -311,6 +311,17 @@ export async function updateWikiPage (_: unknown, context: JobContext) {
         return;
     }
 
+    const controlSubSettings = await getControlSubSettings(context);
+
+    const lastUpdateDoneKey = "lastWikiUpdateDone";
+    const lastUpdateDoneValue = await context.redis.get(lastUpdateDoneKey);
+    if (lastUpdateDoneValue) {
+        const lastUpdateDone = new Date(parseInt(lastUpdateDoneValue));
+        if (lastUpdateDone > subSeconds(subMinutes(new Date(), controlSubSettings.legacyWikiPageUpdateFrequencyMinutes), 30)) {
+            return;
+        }
+    }
+
     const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
 
     const data = await getActiveDataStore(context);
@@ -364,7 +375,6 @@ export async function updateWikiPage (_: unknown, context: JobContext) {
         chunk.push(content.slice(i, i + MAX_WIKI_PAGE_SIZE));
     }
 
-    const controlSubSettings = await getControlSubSettings(context);
     const numberOfPages = controlSubSettings.numberOfWikiPages ?? 1;
     if (numberOfPages > 1) {
         for (let i = 2; i <= numberOfPages; i++) {
@@ -410,6 +420,8 @@ export async function updateWikiPage (_: unknown, context: JobContext) {
     const aggregateStore = await context.redis.zRange(AGGREGATE_STORE, 0, -1);
     const aggregateData = fromPairs(aggregateStore.map(item => ([item.member, item.score])));
     console.log(`Status: Banned ${aggregateData[UserStatus.Banned] ?? 0}, Organic ${aggregateData[UserStatus.Organic] ?? 0}, Pending ${aggregateData[UserStatus.Pending] ?? 0}`);
+
+    await context.redis.set(lastUpdateDoneKey, new Date().getTime().toString());
 }
 
 function decompressData (blob: string): Record<string, string> {

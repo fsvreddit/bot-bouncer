@@ -219,6 +219,7 @@ export interface ControlSubSettings {
     observerSubreddits?: string[];
     postCreationQueueProcessingEnabled?: boolean;
     allowClassificationQueries?: boolean;
+    legacyWikiPageUpdateFrequencyMinutes: number;
     appRemovedMessage?: string;
 }
 
@@ -243,6 +244,7 @@ const schema: JSONSchemaType<ControlSubSettings> = {
         observerSubreddits: { type: "array", items: { type: "string" }, nullable: true },
         postCreationQueueProcessingEnabled: { type: "boolean", nullable: true },
         allowClassificationQueries: { type: "boolean", nullable: true },
+        legacyWikiPageUpdateFrequencyMinutes: { type: "number" },
         appRemovedMessage: { type: "string", nullable: true },
     },
     required: ["evaluationDisabled", "trustedSubmitters", "reporterBlacklist"],
@@ -266,6 +268,7 @@ export async function getControlSubSettings (context: TriggerContext): Promise<C
         reporterBlacklist: [],
         numberOfWikiPages: 2,
         cleanupDisabled: true,
+        legacyWikiPageUpdateFrequencyMinutes: 5,
         appRemovedMessage: CONFIGURATION_DEFAULTS.appRemovedMessage,
     };
 

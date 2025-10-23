@@ -40,7 +40,7 @@ async function addControlSubredditJobs (context: TriggerContext) {
     await Promise.all([
         context.scheduler.runJob({
             name: ControlSubredditJob.UpdateWikiPage,
-            cron: "0/5 * * * *",
+            cron: "* * * * *",
         }),
 
         context.scheduler.runJob({
