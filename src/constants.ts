@@ -50,6 +50,7 @@ export enum ControlSubredditJob {
     AsyncWikiUpdate = "asyncWikiUpdate",
     BioStatsUpdate = "bioStatsUpdate",
     BioStatsGenerateReport = "bioStatsGenerateReport",
+    DataExtractJob = "dataExtractJob",
 }
 
 /**

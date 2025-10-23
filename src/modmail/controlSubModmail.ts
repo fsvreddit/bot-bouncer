@@ -43,7 +43,7 @@ export async function handleControlSubredditModmail (modmail: ModmailMessage, co
     }
 
     if (modmail.bodyMarkdown.startsWith("!extract")) {
-        await dataExtract(modmail.bodyMarkdown, modmail.conversationId, context);
+        await dataExtract(modmail, modmail.conversationId, context);
         return;
     }
 

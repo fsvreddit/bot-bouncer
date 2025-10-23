@@ -29,6 +29,7 @@ import { handleCommentCreate, handlePostCreate } from "./handleContentCreation.j
 import { conditionalStatsUpdate } from "./statistics/conditionalStatsUpdate.js";
 import { asyncWikiUpdate } from "./statistics/asyncWikiUpdate.js";
 import { generateBioStatisticsReport, updateBioStatisticsJob } from "./statistics/userBioStatistics.js";
+import { continueDataExtract } from "./modmail/dataExtract.js";
 
 Devvit.addSettings(appSettings);
 
@@ -222,6 +223,11 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: ControlSubredditJob.BioStatsGenerateReport,
     onRun: generateBioStatisticsReport,
+});
+
+Devvit.addSchedulerJob({
+    name: ControlSubredditJob.DataExtractJob,
+    onRun: continueDataExtract,
 });
 
 /**
