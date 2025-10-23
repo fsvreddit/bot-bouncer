@@ -1,5 +1,5 @@
 import { Comment, JSONValue, Post, TriggerContext } from "@devvit/public-api";
-import { domainFromUrl, getUserSocialLinks, median, replaceAll } from "../utility.js";
+import { getUserSocialLinks, median, replaceAll } from "../utility.js";
 import { addMilliseconds, differenceInDays, differenceInHours, differenceInMilliseconds, differenceInMinutes, Duration, format, formatDuration, intervalToDuration, startOfDecade } from "date-fns";
 import { compact, countBy, mean, uniq } from "lodash";
 import { count } from "@wordpress/wordcount";
@@ -205,9 +205,13 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
     }
 
     const socialLinks = await getUserSocialLinks(username, context);
-    const uniqueSocialDomains = compact(uniq(socialLinks.map(link => domainFromUrl(link.outboundUrl))));
-    if (uniqueSocialDomains.length > 0) {
-        accountPropsBullets.push(`Social links: ${uniqueSocialDomains.length}`);
+    const uniqueSocialLinks = compact(uniq(socialLinks.map(link => link.outboundUrl)));
+    if (uniqueSocialLinks.length > 0) {
+        if (source === "modmail") {
+            accountPropsBullets.push(`Social links: ${uniqueSocialLinks.join(", ")}`);
+        } else {
+            accountPropsBullets.push(`Social links: ${uniqueSocialLinks.length}`);
+        }
     }
 
     const userHasGold = extendedUser.isGold;
