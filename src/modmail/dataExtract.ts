@@ -269,6 +269,20 @@ export async function dataExtract (message: ModmailMessage, conversationId: stri
             firstRun: true,
         },
     });
+
+    let complicatedExtract = false;
+    if (request.bioRegex || request.displayNameRegex || request.socialLinkStartsWith || request.evaluator || request.hitReason) {
+        complicatedExtract = true;
+    }
+
+    if (complicatedExtract && data.length > 5000) {
+        await context.reddit.modMail.reply({
+            conversationId,
+            body: `This data extract uses filters that require additional processing. {${data.length.toLocaleString()}} users match the initial "simple" criteria, which means that the extract will take some time to process. Please wait for a follow-up message once the extract is complete.`,
+            isAuthorHidden: false,
+        });
+        return;
+    }
 }
 
 export async function continueDataExtract (event: ScheduledJobEvent<JSONObject | undefined>, context: TriggerContext) {
@@ -391,7 +405,7 @@ export async function continueDataExtract (event: ScheduledJobEvent<JSONObject |
 
     await context.scheduler.runJob({
         name: ControlSubredditJob.DataExtractJob,
-        runAt: addSeconds(new Date(), 2),
+        runAt: addSeconds(new Date(), 1),
         data: {
             extractId,
             conversationId,
