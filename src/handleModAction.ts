@@ -8,7 +8,7 @@ import { addDays, addMinutes, addSeconds } from "date-fns";
 import { validateAndSaveAppealConfig } from "./modmail/autoAppealHandling.js";
 import { checkIfStatsNeedUpdating } from "./sixHourlyJobs.js";
 import { handleBannedSubredditsModAction } from "./statistics/bannedSubreddits.js";
-import { replaceAll } from "./utility.js";
+import { isModerator, replaceAll, sendMessageToWebhook } from "./utility.js";
 
 export async function handleModAction (event: ModAction, context: TriggerContext) {
     if (context.subredditName === CONTROL_SUBREDDIT) {
@@ -103,6 +103,27 @@ async function handleModActionControlSub (event: ModAction, context: TriggerCont
                 queueConfigWikiCheck(ConfigWikiPage.ControlSubSettings, 10, context),
             ]);
         }
+    }
+
+    /**
+     * When a link is approved on the control subreddit, check to see if it's a post from a non-mod.
+     * If so, alert on Discord.
+     */
+    if (event.action === "approvelink" && event.moderator?.name !== context.appName && event.targetPost) {
+        const post = await context.reddit.getPostById(event.targetPost.id);
+        if (await isModerator(post.authorName, context)) {
+            return;
+        }
+
+        const controlSubSettings = await getControlSubSettings(context);
+        if (!controlSubSettings.monitoringWebhook) {
+            return;
+        }
+
+        const message = `A post by a non-mod has been approved on r/${CONTROL_SUBREDDIT}. This may be a mistake.\n\n`
+            + `[${post.title}](https://www.reddit.com${post.permalink}) by u/${post.authorName}`;
+
+        await sendMessageToWebhook(controlSubSettings.monitoringWebhook, message);
     }
 }
 
