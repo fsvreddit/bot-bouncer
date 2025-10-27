@@ -87,6 +87,7 @@ export async function addExternalSubmissionFromClientSub (data: ExternalSubmissi
 
     await context.redis.global.zAdd(EXTERNAL_SUBMISSION_QUEUE_KEY, { member: data.username, score: new Date().getTime() });
     await context.redis.global.set(getExternalSubmissionDataKey(data.username), JSON.stringify(data), { expiration: addDays(new Date(), 7) });
+    console.log(`External Submissions: Added external submission for ${data.username} to the queue.`);
 }
 
 export async function addExternalSubmissionToPostCreationQueue (item: ExternalSubmission, immediate: boolean, context: TriggerContext, enableTouch = true): Promise<boolean> {
