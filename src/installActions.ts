@@ -1,17 +1,11 @@
 import { AppInstall, AppUpgrade } from "@devvit/protos";
 import { TriggerContext } from "@devvit/public-api";
-import { CLIENT_SUB_WIKI_UPDATE_CRON_KEY, ClientSubredditJob, CONTROL_SUBREDDIT, ControlSubredditJob, UniversalJob } from "./constants.js";
+import { ClientSubredditJob, CONTROL_SUBREDDIT, ControlSubredditJob, UniversalJob } from "./constants.js";
 import { handleExternalSubmissionsPageUpdate } from "./externalSubmissions.js";
 import { removeRetiredEvaluatorsFromStats } from "./userEvaluation/evaluatorHelpers.js";
 import { getControlSubSettings } from "./settings.js";
 import { addDays, addSeconds } from "date-fns";
-
-export async function handleInstall (_: AppInstall, context: TriggerContext) {
-    // Mark one-off re-affirmation flag as done. No need on brand new installs.
-    if (context.subredditName !== CONTROL_SUBREDDIT) {
-        await context.redis.set("oneOffReaffirmation", "true");
-    }
-}
+import { migrationToGlobalRedis } from "./dataStore.js";
 
 export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, context: TriggerContext) {
     console.log("App Install: Detected an app install or update event");
@@ -22,6 +16,8 @@ export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, contex
     const currentJobs = await context.scheduler.listJobs();
     await Promise.all(currentJobs.map(job => context.scheduler.cancelJob(job.id)));
     console.log(`App Install: Cancelled ${currentJobs.length} existing jobs.`);
+
+    await migrationToGlobalRedis(context);
 
     if (context.subredditName === CONTROL_SUBREDDIT) {
         await context.redis.del("CleanupMaintenanceLastRun");
@@ -34,6 +30,9 @@ export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, contex
 
     // Remove legacy redis keys
     await context.redis.del("evaluatorVariables");
+    await context.redis.del("clientSubWikiUpdateCron");
+    await context.redis.del("ReclassificationQueue");
+    await context.redis.del("oneOffReaffirmation");
 }
 
 async function addControlSubredditJobs (context: TriggerContext) {
@@ -113,16 +112,12 @@ async function addClientSubredditJobs (context: TriggerContext) {
         return;
     }
 
-    let randomMinute = Math.floor(Math.random() * 5);
-    const clientSubReclassificationCron = `${randomMinute}/5 * * * *`; // Every 5 minutes with a random minute offset
     await context.scheduler.runJob({
-        name: ClientSubredditJob.UpdateDatastoreFromWiki,
-        cron: clientSubReclassificationCron,
+        name: ClientSubredditJob.QueueReclassificationChanges,
+        cron: "* * * * *",
     });
 
-    await context.redis.set(CLIENT_SUB_WIKI_UPDATE_CRON_KEY, clientSubReclassificationCron);
-
-    randomMinute = Math.floor(Math.random() * 60);
+    let randomMinute = Math.floor(Math.random() * 60);
     await context.scheduler.runJob({
         name: UniversalJob.UpdateEvaluatorVariables,
         cron: `${randomMinute} * * * *`,
@@ -189,7 +184,7 @@ export async function ensureClientSubJobsExist (context: TriggerContext) {
     await context.redis.set(lastCheckKey, "true", { expiration: addDays(new Date(), 1) });
 
     const expectedJobs: string[] = [
-        ClientSubredditJob.UpdateDatastoreFromWiki,
+        ClientSubredditJob.QueueReclassificationChanges,
         ClientSubredditJob.UpgradeNotifier,
         ClientSubredditJob.SendDailyDigest,
         UniversalJob.UpdateEvaluatorVariables,

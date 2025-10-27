@@ -29,13 +29,13 @@ export async function setCleanupForUser (username: string, redis: RedisClient | 
     await redis.zAdd(CLEANUP_LOG_KEY, ({ member: username, score: cleanupTime.getTime() }));
 }
 
-export async function setCleanupForSubmittersAndMods (usernames: string[], txn: TxClientLike) {
+export async function setCleanupForSubmittersAndMods (usernames: string[], context: JobContext | TriggerContext) {
     if (usernames.length === 0) {
         return;
     }
 
-    await txn.zAdd(SUB_OR_MOD_LOG_KEY, ...usernames.map(username => ({ member: username, score: new Date().getTime() })));
-    await Promise.all(usernames.map(username => setCleanupForUser(username, txn)));
+    await context.redis.zAdd(SUB_OR_MOD_LOG_KEY, ...usernames.map(username => ({ member: username, score: new Date().getTime() })));
+    await Promise.all(usernames.map(username => setCleanupForUser(username, context.redis)));
 }
 
 enum UserActiveStatus {
@@ -181,7 +181,7 @@ export async function cleanupDeletedAccounts (event: ScheduledJobEvent<JSONObjec
             if (latestActivity) {
                 // Store the latest activity date.
                 currentStatus.mostRecentActivity = latestActivity;
-                await writeUserStatus(username, currentStatus, context.redis);
+                await writeUserStatus(username, currentStatus, context);
 
                 if (latestContent && new Date(latestContent) > subDays(new Date(), 14) && currentStatus.userStatus === UserStatus.Inactive) {
                     // User flagged as "Inactive", but with recent activity. Set to "Pending".
@@ -201,7 +201,7 @@ export async function cleanupDeletedAccounts (event: ScheduledJobEvent<JSONObjec
                 // Change the post flair to Purged.
                 newFlair = PostFlairTemplate.Purged;
             } else {
-                await writeUserStatus(username, currentStatus, context.redis);
+                await writeUserStatus(username, currentStatus, context);
             }
 
             // Recheck suspended users every day for the first week
@@ -311,8 +311,8 @@ async function handleDeletedAccountControlSub (username: string, context: Trigge
         await txn.zRem(SUB_OR_MOD_LOG_KEY, [username]);
     }
 
-    await deleteUserStatus(username, txn);
     await txn.exec();
+    await deleteUserStatus(username, context);
 }
 
 async function handleDeletedAccountClientSub (username: string, redis: RedisClient) {

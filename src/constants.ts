@@ -58,15 +58,9 @@ export enum ControlSubredditJob {
  */
 
 export enum ClientSubredditJob {
-    UpdateDatastoreFromWiki = "updateDatastoreFromWiki",
+    QueueReclassificationChanges = "queueReclassificationChanges",
     HandleClassificationChanges = "handleClassificationChanges",
     UpgradeNotifier = "upgradeNotifier",
     SendDailyDigest = "sendDailyDigest",
     NotifyModTeamOnDemod = "notifyModTeamOnDemod",
 }
-
-/**
- * Job Crons
- */
-
-export const CLIENT_SUB_WIKI_UPDATE_CRON_KEY = "clientSubWikiUpdateCron";

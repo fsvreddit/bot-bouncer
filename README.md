@@ -55,6 +55,11 @@ While you can unban the user yourself, this only affects the user on your subred
 
 # Change History
 
+## v1.21.0 (Coming soon!)
+
+* Faster response to bot classification changes, down from up to ten minutes to up to one minute
+* Internal changes to support operations on /r/BotBouncer
+
 ## v1.20.0
 
 * Reduce false positives on two evaluator types

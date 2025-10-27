@@ -142,12 +142,13 @@ export async function reportFormHandler (event: FormOnSubmitEvent<JSONObject>, c
     await Promise.all([
         addExternalSubmissionFromClientSub({
             username: target.authorName,
+            subreddit: context.subredditName,
             submitter: currentUser?.username,
             reportContext,
             publicContext,
             targetId: target.id,
             sendFeedback: event.values[ReportFormField.SendFeedback] as boolean | undefined,
-        }, "manual", context),
+        }, context),
         recordReportForDigest(target.authorName, "manually", context.redis),
     ]);
 

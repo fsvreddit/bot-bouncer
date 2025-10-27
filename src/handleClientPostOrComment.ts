@@ -368,9 +368,10 @@ async function checkAndReportPotentialBot (username: string, target: Post | Comm
     promises.push(
         addExternalSubmissionFromClientSub({
             username: user.username,
+            subreddit: context.subredditName,
             submitter: currentUser?.username,
             reportContext,
-        }, "automatic", context),
+        }, context),
         recordReportForDigest(user.username, "automatically", context.redis),
     );
 

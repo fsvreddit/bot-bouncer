@@ -1,7 +1,7 @@
 import { Devvit, FormField } from "@devvit/public-api";
-import { updateLocalStoreFromWiki, updateWikiPage } from "./dataStore.js";
+import { updateWikiPage } from "./dataStore.js";
 import { ClientSubredditJob, CONTROL_SUBREDDIT, ControlSubredditJob, UniversalJob } from "./constants.js";
-import { handleInstall, handleInstallOrUpgrade } from "./installActions.js";
+import { handleInstallOrUpgrade } from "./installActions.js";
 import { handleControlSubFlairUpdate } from "./handleControlSubFlairUpdate.js";
 import { appSettings } from "./settings.js";
 import { cleanupDeletedAccounts } from "./cleanup.js";
@@ -10,7 +10,7 @@ import { handleModmail } from "./modmail/modmail.js";
 import { handleControlSubAccountEvaluation } from "./handleControlSubAccountEvaluation.js";
 import { handleReportUser, queryFormDefinition, queryFormHandler, reportFormDefinition, reportFormHandler } from "./handleReportUser.js";
 import { handleClientCommentUpdate } from "./handleClientPostOrComment.js";
-import { handleClassificationChanges } from "./handleClientSubredditWikiUpdate.js";
+import { handleClassificationChanges, queueRecentReclassifications } from "./handleClientSubredditWikiUpdate.js";
 import { handleControlSubPostDelete } from "./handleControlSubPostDelete.js";
 import { updateEvaluatorVariablesFromWikiHandler } from "./userEvaluation/evaluatorVariables.js";
 import { evaluateKarmaFarmingSubs, queueKarmaFarmingSubs } from "./karmaFarmingSubsCheck.js";
@@ -32,11 +32,6 @@ import { generateBioStatisticsReport, updateBioStatisticsJob } from "./statistic
 import { continueDataExtract } from "./modmail/dataExtract.js";
 
 Devvit.addSettings(appSettings);
-
-Devvit.addTrigger({
-    event: "AppInstall",
-    onEvent: handleInstall,
-});
 
 Devvit.addTrigger({
     events: ["AppInstall", "AppUpgrade"],
@@ -235,8 +230,8 @@ Devvit.addSchedulerJob({
  */
 
 Devvit.addSchedulerJob({
-    name: ClientSubredditJob.UpdateDatastoreFromWiki,
-    onRun: updateLocalStoreFromWiki,
+    name: ClientSubredditJob.QueueReclassificationChanges,
+    onRun: queueRecentReclassifications,
 });
 
 Devvit.addSchedulerJob({
