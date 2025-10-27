@@ -6,6 +6,7 @@ import { removeRetiredEvaluatorsFromStats } from "./userEvaluation/evaluatorHelp
 import { getControlSubSettings } from "./settings.js";
 import { addDays, addSeconds } from "date-fns";
 import { migrationToGlobalRedis } from "./dataStore.js";
+import { forceEvaluatorVariablesRefresh } from "./userEvaluation/evaluatorVariables.js";
 
 export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, context: TriggerContext) {
     console.log("App Install: Detected an app install or update event");
@@ -118,17 +119,6 @@ async function addClientSubredditJobs (context: TriggerContext) {
     });
 
     let randomMinute = Math.floor(Math.random() * 60);
-    await context.scheduler.runJob({
-        name: UniversalJob.UpdateEvaluatorVariables,
-        cron: `${randomMinute} * * * *`,
-    });
-
-    await context.scheduler.runJob({
-        name: UniversalJob.UpdateEvaluatorVariables,
-        runAt: new Date(),
-    });
-
-    randomMinute = Math.floor(Math.random() * 60);
     const randomHour = Math.floor(Math.random() * 24);
     await context.scheduler.runJob({
         name: ClientSubredditJob.UpgradeNotifier,
@@ -149,6 +139,8 @@ async function addClientSubredditJobs (context: TriggerContext) {
     });
 
     console.log("App Install: Client subreddit jobs added");
+
+    await forceEvaluatorVariablesRefresh(context);
 }
 
 async function checkJobsAreApplicable (context: TriggerContext) {
@@ -187,7 +179,6 @@ export async function ensureClientSubJobsExist (context: TriggerContext) {
         ClientSubredditJob.QueueReclassificationChanges,
         ClientSubredditJob.UpgradeNotifier,
         ClientSubredditJob.SendDailyDigest,
-        UniversalJob.UpdateEvaluatorVariables,
         UniversalJob.Cleanup,
     ];
 

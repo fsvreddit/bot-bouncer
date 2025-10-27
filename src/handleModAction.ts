@@ -1,6 +1,6 @@
 import { JobContext, JSONObject, ScheduledJobEvent, TriggerContext } from "@devvit/public-api";
 import { ModAction } from "@devvit/protos";
-import { ClientSubredditJob, CONTROL_SUBREDDIT, ControlSubredditJob, INTERNAL_BOT, UniversalJob } from "./constants.js";
+import { ClientSubredditJob, CONTROL_SUBREDDIT, ControlSubredditJob, INTERNAL_BOT } from "./constants.js";
 import { recordWhitelistUnban, removeRecordOfBan } from "./handleClientSubredditWikiUpdate.js";
 import { handleExternalSubmissionsPageUpdate } from "./externalSubmissions.js";
 import { getControlSubSettings, validateControlSubConfigChange } from "./settings.js";
@@ -94,7 +94,7 @@ async function handleModActionControlSub (event: ModAction, context: TriggerCont
         if (event.moderator.name !== context.appName && event.moderator.name !== INTERNAL_BOT) {
             await Promise.all([
                 context.scheduler.runJob({
-                    name: UniversalJob.UpdateEvaluatorVariables,
+                    name: ControlSubredditJob.UpdateEvaluatorVariables,
                     runAt: new Date(),
                     data: { username: event.moderator.name },
                 }),

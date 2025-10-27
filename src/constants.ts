@@ -22,7 +22,6 @@ export enum PostFlairTemplate {
 export enum UniversalJob {
     Cleanup = "cleanupJob",
     AdhocCleanup = "adhocCleanup",
-    UpdateEvaluatorVariables = "updateEvaluatorVariables",
 }
 
 /**
@@ -51,6 +50,7 @@ export enum ControlSubredditJob {
     BioStatsUpdate = "bioStatsUpdate",
     BioStatsGenerateReport = "bioStatsGenerateReport",
     DataExtractJob = "dataExtractJob",
+    UpdateEvaluatorVariables = "updateEvaluatorVariables",
 }
 
 /**

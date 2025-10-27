@@ -151,7 +151,7 @@ Devvit.addSchedulerJob({
 });
 
 Devvit.addSchedulerJob({
-    name: UniversalJob.UpdateEvaluatorVariables,
+    name: ControlSubredditJob.UpdateEvaluatorVariables,
     onRun: updateEvaluatorVariablesFromWikiHandler,
 });
 

@@ -15,13 +15,38 @@ const EVALUATOR_VARIABLES_WIKI_PAGE = "evaluatorvars";
 const EVALUATOR_VARIABLES_LAST_REVISION_KEY = "evaluatorVariablesLastRevision";
 
 export async function getEvaluatorVariables (context: TriggerContext | JobContext): Promise<Record<string, JSONValue>> {
-    const allVariables = await context.redis.hGetAll(EVALUATOR_VARIABLES_KEY);
+    let allVariables: Record<string, string>;
+
+    if (context.subredditName === CONTROL_SUBREDDIT) {
+        allVariables = await context.redis.global.hGetAll(EVALUATOR_VARIABLES_KEY);
+    } else {
+        allVariables = await context.redis.hGetAll(EVALUATOR_VARIABLES_KEY);
+
+        if (Object.keys(allVariables).length === 0) {
+            allVariables = await context.redis.global.hGetAll(EVALUATOR_VARIABLES_KEY);
+            await context.redis.hSet(EVALUATOR_VARIABLES_KEY, allVariables);
+            await context.redis.expire(EVALUATOR_VARIABLES_KEY, 300); // 5 minutes
+            console.log(`Evaluator Variables: Refreshed ${Object.keys(allVariables).length} evaluator variables to subreddit ${context.subredditName} from global store.`);
+        }
+    }
 
     return fromPairs(Object.entries(allVariables).map(([key, value]) => [key, JSON.parse(value)]));
 }
 
+export async function forceEvaluatorVariablesRefresh (context: TriggerContext | JobContext) {
+    if (context.subredditName === CONTROL_SUBREDDIT) {
+        throw new Error("Evaluator Variables: forceEvaluatorVariablesRefresh must not be called in the control subreddit.");
+    }
+
+    await context.redis.del(EVALUATOR_VARIABLES_KEY);
+}
+
 export async function getEvaluatorVariable<T> (variableName: string, context: TriggerContext | JobContext): Promise<T | undefined> {
-    const variable = await context.redis.hGet(EVALUATOR_VARIABLES_KEY, variableName);
+    if (context.subredditName !== CONTROL_SUBREDDIT) {
+        throw new Error("Evaluator Variables: getEvaluatorVariable should only be called in the control subreddit.");
+    }
+
+    const variable = await context.redis.global.hGet(EVALUATOR_VARIABLES_KEY, variableName);
     if (!variable) {
         console.warn(`Evaluator Variables: Variable ${variableName} not found.`);
         return;
@@ -30,31 +55,9 @@ export async function getEvaluatorVariable<T> (variableName: string, context: Tr
     return JSON.parse(variable) as T;
 }
 
-async function updateEvaluatorVariablesClientSub (context: JobContext) {
-    let wikiPage: WikiPage;
-    try {
-        wikiPage = await context.reddit.getWikiPage(CONTROL_SUBREDDIT, EVALUATOR_VARIABLES_WIKI_PAGE);
-    } catch (error) {
-        console.error("Error fetching wiki page:", error);
-        return;
-    }
-
-    const parsed = JSON.parse(wikiPage.content) as Record<string, unknown>;
-    const converted = fromPairs(Object.entries(parsed).map(([key, value]) => [key, JSON.stringify(value)]));
-
-    const txn = await context.redis.watch();
-    await txn.multi();
-    await txn.del(EVALUATOR_VARIABLES_KEY);
-    await txn.hSet(EVALUATOR_VARIABLES_KEY, converted);
-    await txn.exec();
-
-    console.log("Evaluator Variables: Updated from wiki for client subreddit");
-}
-
 export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
-        await updateEvaluatorVariablesClientSub(context);
-        return;
+        throw new Error("Evaluator Variables: This job should only be run in the control subreddit.");
     }
 
     let wikiPage: WikiPage | undefined;
@@ -152,17 +155,20 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
 
     const converted = fromPairs(Object.entries(variables).map(([key, value]) => [key, JSON.stringify(value)]));
 
-    const txn = await context.redis.watch();
-    await txn.multi();
-    await txn.del(EVALUATOR_VARIABLES_KEY);
-    await txn.hSet(EVALUATOR_VARIABLES_KEY, converted);
-    await txn.set(EVALUATOR_VARIABLES_LAST_REVISION_KEY, wikiPage.revisionId);
-    await txn.exec();
+    const existingVariables = await context.redis.global.hGetAll(EVALUATOR_VARIABLES_KEY);
+    const keysToRemove = Object.keys(existingVariables).filter(key => !(key in converted));
 
-    const variablesCount = await context.redis.hLen(EVALUATOR_VARIABLES_KEY);
-    console.log(`Evaluator Variables: Updated ${variablesCount} variables from wiki revision ${wikiPage.revisionId}`);
+    await context.redis.del(EVALUATOR_VARIABLES_KEY);
+    await context.redis.global.hSet(EVALUATOR_VARIABLES_KEY, converted);
+    if (keysToRemove.length > 0) {
+        await context.redis.global.hDel(EVALUATOR_VARIABLES_KEY, keysToRemove);
+    }
+    await context.redis.set(EVALUATOR_VARIABLES_LAST_REVISION_KEY, wikiPage.revisionId);
 
-    // Write back to parsed wiki page for client subreddits and observer subreddits
+    const variablesCount = Object.keys(converted).length;
+    console.log(`Evaluator Variables: Updated ${variablesCount} variables and removed ${keysToRemove.length} from wiki revision ${wikiPage.revisionId}`);
+
+    // Write back to parsed wiki page for older client subreddits and observer subreddits
     await context.reddit.updateWikiPage({
         subredditName: CONTROL_SUBREDDIT,
         page: EVALUATOR_VARIABLES_WIKI_PAGE,
