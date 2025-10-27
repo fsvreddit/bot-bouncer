@@ -11,9 +11,6 @@ import { forceEvaluatorVariablesRefresh } from "./userEvaluation/evaluatorVariab
 export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, context: TriggerContext) {
     console.log("App Install: Detected an app install or update event");
 
-    // Delete cached control sub settings
-    await context.redis.del("controlSubSettings");
-
     const currentJobs = await context.scheduler.listJobs();
     await Promise.all(currentJobs.map(job => context.scheduler.cancelJob(job.id)));
     console.log(`App Install: Cancelled ${currentJobs.length} existing jobs.`);
@@ -21,9 +18,10 @@ export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, contex
     await migrationToGlobalRedis(context);
 
     if (context.subredditName === CONTROL_SUBREDDIT) {
-        await context.redis.del("CleanupMaintenanceLastRun");
         await addControlSubredditJobs(context);
     } else {
+        // Delete cached control sub settings
+        await context.redis.del("controlSubSettings");
         await addClientSubredditJobs(context);
     }
 

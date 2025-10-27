@@ -1,7 +1,7 @@
 import { SettingsFormField, TriggerContext, WikiPage } from "@devvit/public-api";
 import { CONTROL_SUBREDDIT } from "./constants.js";
 import Ajv, { JSONSchemaType } from "ajv";
-import { addHours } from "date-fns";
+import { addMinutes } from "date-fns";
 import json2md from "json2md";
 
 export const CONFIGURATION_DEFAULTS = {
@@ -250,59 +250,29 @@ const schema: JSONSchemaType<ControlSubSettings> = {
     required: ["evaluationDisabled", "trustedSubmitters", "reporterBlacklist"],
 };
 
+const CONTROL_SUB_SETTINGS_CACHE_KEY = "controlSubSettings";
+
 export async function getControlSubSettings (context: TriggerContext): Promise<ControlSubSettings> {
-    const redisKey = "controlSubSettings";
+    let cachedSettings: string | undefined;
     if (context.subredditName !== CONTROL_SUBREDDIT) {
-        const cachedSettings = await context.redis.get(redisKey);
+        cachedSettings = await context.redis.get(CONTROL_SUB_SETTINGS_CACHE_KEY);
         if (cachedSettings) {
             return JSON.parse(cachedSettings) as ControlSubSettings;
         }
     }
 
-    const defaultConfig: ControlSubSettings = {
-        evaluationDisabled: false,
-        proactiveEvaluationEnabled: false,
-        postCreationQueueProcessingEnabled: false,
-        maxInactivityMonths: 3,
-        trustedSubmitters: [],
-        reporterBlacklist: [],
-        numberOfWikiPages: 2,
-        cleanupDisabled: true,
-        legacyWikiPageUpdateFrequencyMinutes: 5,
-        appRemovedMessage: CONFIGURATION_DEFAULTS.appRemovedMessage,
-    };
+    cachedSettings = await context.redis.global.get(CONTROL_SUB_SETTINGS_CACHE_KEY);
 
-    let wikiPage: WikiPage | undefined;
-    try {
-        wikiPage = await context.reddit.getWikiPage(CONTROL_SUBREDDIT, CONTROL_SUB_SETTINGS_WIKI_PAGE);
-    } catch {
-        //
+    if (!cachedSettings) {
+        throw new Error("Control sub settings not found in global redis");
     }
 
-    if (wikiPage) {
-        const ajv = new Ajv.default();
-        const validate = ajv.compile(schema);
-
-        let json: ControlSubSettings | undefined;
-        try {
-            json = JSON.parse(wikiPage.content) as ControlSubSettings;
-        } catch (error) {
-            console.error("Control sub settings are invalid. Default values will be returned.", error);
-            return defaultConfig;
-        }
-
-        if (!validate(json)) {
-            console.error("Control sub settings are invalid. Default values will be returned.", ajv.errorsText(validate.errors));
-            return defaultConfig;
-        } else {
-            if (context.subredditName !== CONTROL_SUBREDDIT) {
-                await context.redis.set(redisKey, wikiPage.content, { expiration: addHours(new Date(), 1) });
-            }
-            return JSON.parse(wikiPage.content) as ControlSubSettings;
-        }
+    if (context.subredditName !== CONTROL_SUBREDDIT) {
+        await context.redis.set(CONTROL_SUB_SETTINGS_CACHE_KEY, cachedSettings, { expiration: addMinutes(new Date(), 15) });
+        console.log("Control sub settings refreshed for client subreddit");
     }
 
-    return defaultConfig;
+    return JSON.parse(cachedSettings) as ControlSubSettings;
 }
 
 async function reportControlSubValidationError (username: string, message: string, context: TriggerContext) {
@@ -321,6 +291,10 @@ async function reportControlSubValidationError (username: string, message: strin
 }
 
 export async function validateControlSubConfigChange (username: string, context: TriggerContext) {
+    if (context.subredditName !== CONTROL_SUBREDDIT) {
+        throw new Error("validateControlSubConfigChange can only be called in the control subreddit");
+    }
+
     const redisKey = "lastControlSubRevision";
     const lastRevision = await context.redis.get(redisKey);
 
@@ -351,5 +325,6 @@ export async function validateControlSubConfigChange (username: string, context:
     }
 
     await context.redis.set(redisKey, wikiPage.revisionId);
+    await context.redis.global.set(CONTROL_SUB_SETTINGS_CACHE_KEY, wikiPage.content);
     console.log("Control sub settings validated successfully");
 }
