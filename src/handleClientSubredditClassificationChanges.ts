@@ -82,7 +82,7 @@ async function handleSetOrganic (username: string, subredditName: string, settin
     if (contentToReinstate.length > 0) {
         await Promise.all(contentToReinstate.map(id => approveIfNotRemovedByMod(id, context)));
         await context.redis.del(`removedItems:${username}`);
-        console.log(`Wiki Update: Reinstated ${contentToReinstate.length} ${pluralize("item", contentToReinstate.length)} for ${username}`);
+        console.log(`Classification Update: Reinstated ${contentToReinstate.length} ${pluralize("item", contentToReinstate.length)} for ${username}`);
     }
 
     const userBannedByApp = await wasUserBannedByApp(username, context);
@@ -92,7 +92,7 @@ async function handleSetOrganic (username: string, subredditName: string, settin
 
     if (await isBanned(username, context)) {
         await context.reddit.unbanUser(username, subredditName);
-        console.log(`Wiki Update: Unbanned ${username}`);
+        console.log(`Classification Update: Unbanned ${username}`);
     }
 
     await removeRecordOfBan(username, context.redis);
@@ -109,7 +109,7 @@ async function handleSetOrganic (username: string, subredditName: string, settin
 async function handleSetBanned (username: string, subredditName: string, settings: SettingsValues, context: TriggerContext) {
     const isCurrentlyBanned = await isBanned(username, context);
     if (isCurrentlyBanned) {
-        console.log(`Wiki Update: ${username} is already banned on ${subredditName}.`);
+        console.log(`Classification Update: ${username} is already banned on ${subredditName}.`);
         return;
     }
 
@@ -132,7 +132,7 @@ async function handleSetBanned (username: string, subredditName: string, setting
     }
 
     if (recentLocalContent.some(item => item.distinguishedBy)) {
-        console.log(`Wiki Update: ${username} has distinguished content on ${subredditName}. Skipping.`);
+        console.log(`Classification Update: ${username} has distinguished content on ${subredditName}. Skipping.`);
         return;
     }
 
@@ -140,18 +140,18 @@ async function handleSetBanned (username: string, subredditName: string, setting
     if (user) {
         const flair = await user.getUserFlairBySubreddit(subredditName);
         if (flair?.flairCssClass?.toLowerCase().endsWith("proof")) {
-            console.log(`Wiki Update: ${user.username} is allowlisted via flair`);
+            console.log(`Classification Update: ${user.username} is allowlisted via flair`);
             return;
         }
     }
 
     if (await isApproved(username, context)) {
-        console.log(`Wiki Update: ${username} is allowlisted as an approved user`);
+        console.log(`Classification Update: ${username} is allowlisted as an approved user`);
         return;
     }
 
     if (await isModerator(username, context)) {
-        console.log(`Wiki Update: ${username} is allowlisted as a moderator`);
+        console.log(`Classification Update: ${username} is allowlisted as a moderator`);
         return;
     }
 
@@ -190,10 +190,10 @@ async function handleSetBanned (username: string, subredditName: string, setting
 
         const failedPromises = results.filter(result => result.status === "rejected");
         if (failedPromises.length > 0) {
-            console.error(`Wiki Update: Some errors occurred banning ${username} on ${subredditName}.`);
+            console.error(`Classification Update: Some errors occurred banning ${username} on ${subredditName}.`);
             console.log(failedPromises);
         } else {
-            console.log(`Wiki Update: ${username} has been banned following wiki update. ${removableContent.length} ${pluralize("item", removableContent.length)} removed.`);
+            console.log(`Classification Update: ${username} has been banned following classification update. ${removableContent.length} ${pluralize("item", removableContent.length)} removed.`);
         }
 
         if (settings[AppSetting.AddModNoteOnClassificationChange]) {
@@ -224,7 +224,7 @@ export async function queueRecentReclassifications (_: unknown, context: JobCont
     const recentlyChangedUsers = await getRecentlyChangedUsers(lastCheckDate, now, context);
     if (recentlyChangedUsers.length > 0) {
         await context.redis.zAdd(RECLASSIFICATION_QUEUE, ...recentlyChangedUsers);
-        console.log(`Wiki Update: Queued ${recentlyChangedUsers.length} ${pluralize("user", recentlyChangedUsers.length)} for reclassification.`);
+        console.log(`Classification Update: Queued ${recentlyChangedUsers.length} ${pluralize("user", recentlyChangedUsers.length)} for reclassification.`);
     }
 
     await context.redis.set(lastCheckKey, now.getTime().toString());
@@ -266,7 +266,7 @@ function effectiveStatus (userDetails: UserDetails): "human" | "bot" | undefined
 export async function handleClassificationChanges (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
     const recentlyRunKey = "classificationChangesLastRun";
     if (event.data?.firstRun && await context.redis.exists(recentlyRunKey)) {
-        console.log("Wiki Update: Classification changes job ran recently, skipping this run.");
+        console.log("Classification Update: Classification changes job ran recently, skipping this run.");
         return;
     }
 
@@ -279,7 +279,7 @@ export async function handleClassificationChanges (event: ScheduledJobEvent<JSON
     if (items.length === 0) {
         return;
     } else {
-        console.log(`Wiki Update: Processing ${items.length} ${pluralize("user", items.length)} in reclassification queue for ${subredditName}.`);
+        console.log(`Classification Update: Processing ${items.length} ${pluralize("user", items.length)} in reclassification queue for ${subredditName}.`);
     }
 
     const settings = await context.settings.getAll();
@@ -296,7 +296,7 @@ export async function handleClassificationChanges (event: ScheduledJobEvent<JSON
         const currentStatus = await getUserStatus(username, context);
 
         if (!currentStatus) {
-            console.log(`Wiki Update: No user status found for ${username}. Skipping.`);
+            console.log(`Classification Update: No user status found for ${username}. Skipping.`);
         } else {
             const status = effectiveStatus(currentStatus);
             if (status === "human") {
@@ -316,7 +316,7 @@ export async function handleClassificationChanges (event: ScheduledJobEvent<JSON
             runAt: addSeconds(new Date(), 5),
         });
     } else {
-        console.log("Wiki Update: All users in reclassification queue processed.");
+        console.log("Classification Update: All users in reclassification queue processed.");
         await context.redis.del(recentlyRunKey);
     }
 }

@@ -1,7 +1,7 @@
 import { JobContext, JSONObject, ScheduledJobEvent, TriggerContext } from "@devvit/public-api";
 import { ModAction } from "@devvit/protos";
 import { ClientSubredditJob, CONTROL_SUBREDDIT, ControlSubredditJob, INTERNAL_BOT } from "./constants.js";
-import { recordWhitelistUnban, removeRecordOfBan } from "./handleClientSubredditWikiUpdate.js";
+import { recordWhitelistUnban, removeRecordOfBan } from "./handleClientSubredditClassificationChanges.js";
 import { handleExternalSubmissionsPageUpdate } from "./externalSubmissions.js";
 import { getControlSubSettings, validateControlSubConfigChange } from "./settings.js";
 import { addDays, addMinutes, addSeconds } from "date-fns";

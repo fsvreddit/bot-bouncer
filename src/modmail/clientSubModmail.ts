@@ -1,6 +1,6 @@
 import { TriggerContext } from "@devvit/public-api";
 import { getUserStatus, UserStatus } from "../dataStore.js";
-import { wasUserBannedByApp } from "../handleClientSubredditWikiUpdate.js";
+import { wasUserBannedByApp } from "../handleClientSubredditClassificationChanges.js";
 import { isBanned, replaceAll } from "../utility.js";
 import { CONFIGURATION_DEFAULTS } from "../settings.js";
 import { ModmailMessage } from "./modmail.js";

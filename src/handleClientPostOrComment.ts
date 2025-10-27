@@ -3,7 +3,7 @@ import { CommentCreate, CommentUpdate, PostCreate } from "@devvit/protos";
 import { ALL_EVALUATORS } from "@fsvreddit/bot-bouncer-evaluation";
 import { addDays, addWeeks, formatDate, subMinutes } from "date-fns";
 import { getUserStatus, UserDetails, UserStatus } from "./dataStore.js";
-import { isUserWhitelisted, recordBan } from "./handleClientSubredditWikiUpdate.js";
+import { isUserWhitelisted, recordBan } from "./handleClientSubredditClassificationChanges.js";
 import { CONTROL_SUBREDDIT } from "./constants.js";
 import { getPostOrCommentById, getUserOrUndefined, isApproved, isBanned, isModerator, replaceAll } from "./utility.js";
 import { ActionType, AppSetting, CONFIGURATION_DEFAULTS, getControlSubSettings } from "./settings.js";

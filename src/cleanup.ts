@@ -3,7 +3,7 @@ import { addDays, addHours, addSeconds, formatDuration, intervalToDuration, subD
 import { CONTROL_SUBREDDIT, PostFlairTemplate, UniversalJob } from "./constants.js";
 import { deleteUserStatus, getUserStatus, removeRecordOfSubmitterOrMod, updateAggregate, UserStatus, writeUserStatus } from "./dataStore.js";
 import { getUserOrUndefined } from "./utility.js";
-import { removeRecordOfBan, removeWhitelistUnban } from "./handleClientSubredditWikiUpdate.js";
+import { removeRecordOfBan, removeWhitelistUnban } from "./handleClientSubredditClassificationChanges.js";
 import { max } from "lodash";
 import { getControlSubSettings } from "./settings.js";
 

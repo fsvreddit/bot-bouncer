@@ -10,7 +10,7 @@ import { handleModmail } from "./modmail/modmail.js";
 import { handleControlSubAccountEvaluation } from "./handleControlSubAccountEvaluation.js";
 import { handleReportUser, queryFormDefinition, queryFormHandler, reportFormDefinition, reportFormHandler } from "./handleReportUser.js";
 import { handleClientCommentUpdate } from "./handleClientPostOrComment.js";
-import { handleClassificationChanges, queueRecentReclassifications } from "./handleClientSubredditWikiUpdate.js";
+import { handleClassificationChanges, queueRecentReclassifications } from "./handleClientSubredditClassificationChanges.js";
 import { handleControlSubPostDelete } from "./handleControlSubPostDelete.js";
 import { updateEvaluatorVariablesFromWikiHandler } from "./userEvaluation/evaluatorVariables.js";
 import { evaluateKarmaFarmingSubs, queueKarmaFarmingSubs } from "./karmaFarmingSubsCheck.js";
