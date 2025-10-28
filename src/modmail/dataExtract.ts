@@ -20,6 +20,8 @@ interface ModmailDataExtract {
     bioRegex?: string;
     displayNameRegex?: string;
     socialLinkStartsWith?: string;
+    socialLinkUrlRegex?: string;
+    socialLinkTitleRegex?: string;
     evaluator?: string;
     hitReason?: string;
     flags?: UserFlag[];
@@ -60,6 +62,14 @@ const schema: JSONSchemaType<ModmailDataExtract> = {
             nullable: true,
         },
         socialLinkStartsWith: {
+            type: "string",
+            nullable: true,
+        },
+        socialLinkUrlRegex: {
+            type: "string",
+            nullable: true,
+        },
+        socialLinkTitleRegex: {
             type: "string",
             nullable: true,
         },
@@ -349,14 +359,29 @@ export async function continueDataExtract (event: ScheduledJobEvent<JSONObject |
         }
     }
 
-    if (request.socialLinkStartsWith) {
-        const socialLinkPrefix = request.socialLinkStartsWith.toLowerCase();
+    if (request.socialLinkStartsWith || request.socialLinkUrlRegex || request.socialLinkTitleRegex) {
         const socialLinks = await redisHelper.hMGet(SOCIAL_LINKS_STORE, processingQueue);
+
+        const socialLinkPrefix = request.socialLinkStartsWith?.toLowerCase();
+        const socialLinkUrlRegex = request.socialLinkUrlRegex ? new RegExp(request.socialLinkUrlRegex) : undefined;
+        const socialLinkTitleRegex = request.socialLinkTitleRegex ? new RegExp(request.socialLinkTitleRegex) : undefined;
+
         for (const username of processingQueue) {
             const userSocialLinks = socialLinks[username];
             if (userSocialLinks) {
                 const link = JSON.parse(userSocialLinks) as UserSocialLink[];
-                const matchingLink = link.find(l => l.outboundUrl.startsWith(socialLinkPrefix));
+                const matchingLink = link.find((l) => {
+                    if (socialLinkPrefix && !l.outboundUrl.startsWith(socialLinkPrefix)) {
+                        return false;
+                    }
+                    if (socialLinkUrlRegex && !l.outboundUrl.match(socialLinkUrlRegex)) {
+                        return false;
+                    }
+                    if (socialLinkTitleRegex && !l.title.match(socialLinkTitleRegex)) {
+                        return false;
+                    }
+                    return true;
+                });
                 if (matchingLink) {
                     data[username].socialLinks = matchingLink.outboundUrl;
                     entriesToRewrite.add(username);
