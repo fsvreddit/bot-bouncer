@@ -253,6 +253,8 @@ export async function deleteUserStatus (username: string, context: TriggerContex
     await context.redis.hDel(DISPLAY_NAME_STORE, [username]);
     await context.redis.hDel(SOCIAL_LINKS_STORE, [username]);
     await context.redis.hDel(USER_DEFINED_HANDLES_POSTS, [username]);
+
+    await context.redis.global.zRem(TEMP_DECLINE_STORE, [username]);
 }
 
 export async function getUsernameFromPostId (postId: string, context: TriggerContext): Promise<string | undefined> {
@@ -493,10 +495,16 @@ export async function getInitialAccountProperties (username: string, context: Tr
 
 export async function addUserToTempDeclineStore (username: string, context: TriggerContext) {
     await context.redis.global.zAdd(TEMP_DECLINE_STORE, { member: username, score: new Date().getTime() });
+    await context.redis.global.zAdd(RECENT_CHANGES_STORE, { member: username, score: new Date().getTime() });
     await context.redis.set(WIKI_UPDATE_DUE, "true");
 
     // Remove stale entries.
     await context.redis.global.zRemRangeByScore(TEMP_DECLINE_STORE, 0, subHours(new Date(), 1).getTime());
+}
+
+export async function isUserInTempDeclineStore (username: string, context: TriggerContext): Promise<boolean> {
+    const exists = await context.redis.global.zScore(TEMP_DECLINE_STORE, username);
+    return exists !== undefined;
 }
 
 export async function getRecentlyChangedUsers (since: Date, now: Date, context: TriggerContext): Promise<ZMember[]> {

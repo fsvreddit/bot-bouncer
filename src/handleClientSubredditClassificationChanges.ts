@@ -1,7 +1,7 @@
 import { Comment, JobContext, JSONObject, Post, RedisClient, ScheduledJobEvent, SettingsValues, TriggerContext } from "@devvit/public-api";
 import { addSeconds, formatDate, subWeeks } from "date-fns";
 import pluralize from "pluralize";
-import { getRecentlyChangedUsers, getUserStatus, UserDetails, UserStatus } from "./dataStore.js";
+import { getRecentlyChangedUsers, getUserStatus, isUserInTempDeclineStore, UserDetails, UserStatus } from "./dataStore.js";
 import { setCleanupForUser } from "./cleanup.js";
 import { ActionType, AppSetting, CONFIGURATION_DEFAULTS } from "./settings.js";
 import { getUserOrUndefined, isApproved, isBanned, isModerator, replaceAll } from "./utility.js";
@@ -303,6 +303,8 @@ export async function handleClassificationChanges (event: ScheduledJobEvent<JSON
                 await handleSetOrganic(username, subredditName, settings, context);
             } else if (status === "bot") {
                 await handleSetBanned(username, subredditName, settings, context);
+            } else if (await isUserInTempDeclineStore(username, context)) {
+                await handleSetOrganic(username, subredditName, settings, context);
             }
         }
 
