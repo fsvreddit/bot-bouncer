@@ -169,6 +169,13 @@ export function markdownToText (markdown: json2md.DataObject[], limit = 9500): s
 async function handleModmailFromUser (modmail: ModmailMessage, context: TriggerContext) {
     const username = modmail.messageAuthor;
 
+    const conversationHandledKey = `conversationHandled~${modmail.conversationId}`;
+    if (await context.redis.exists(conversationHandledKey)) {
+        return;
+    }
+
+    await context.redis.set(conversationHandledKey, "true", { expiration: addDays(new Date(), 28) });
+
     if (username === INTERNAL_BOT || username.startsWith(context.appName)) {
         return;
     }
@@ -210,8 +217,7 @@ async function handleModmailFromUser (modmail: ModmailMessage, context: TriggerC
         return;
     }
 
-    const recentAppealKey = `recentAppeal~${username}`;
-    const recentAppealMade = await context.redis.get(recentAppealKey);
+    const recentAppealMade = await context.redis.get(getKeyForAppeal(username));
 
     if (recentAppealMade) {
         // User has already made an appeal recently, so we should tell the user it's already being handled.
@@ -258,8 +264,6 @@ async function handleModmailFromUser (modmail: ModmailMessage, context: TriggerC
     }
 
     await handleAppeal(modmail, currentStatus, context);
-
-    await context.redis.set(recentAppealKey, new Date().getTime().toString(), { expiration: addDays(new Date(), 1) });
 }
 
 function getKeyForAppeal (conversationId: string): string {
