@@ -3,7 +3,7 @@ import { updateMainStatisticsPage } from "./statistics/mainStatistics.js";
 import { updateSubmitterStatistics } from "./statistics/submitterStatistics.js";
 import { updateEvaluatorHitsWikiPage } from "./statistics/evaluatorHitsStatistics.js";
 import { createTimeOfSubmissionStatistics } from "./statistics/timeOfSubmissionStatistics.js";
-import { getFullDataStore, removeStaleRecentChangesEntries, UserDetails, UserFlag } from "./dataStore.js";
+import { checkDataStoreIntegrity, getFullDataStore, removeStaleRecentChangesEntries, UserDetails, UserFlag } from "./dataStore.js";
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "./constants.js";
 import { updateClassificationStatistics } from "./statistics/classificationStatistics.js";
 import { updateAppealStatistics } from "./statistics/appealStatistics.js";
@@ -73,6 +73,7 @@ export async function perform6HourlyJobs (_: unknown, context: JobContext) {
         updateClassificationStatistics(context),
         updateAppealStatistics(context),
         updateFailedFeedbackStorage(context),
+        checkDataStoreIntegrity(context),
     ]);
 
     console.log("Statistics updated successfully.");

@@ -526,3 +526,46 @@ export async function migrationToGlobalRedis (context: TriggerContext) {
     console.log("One-off data migration completed.");
     await context.redis.set(migrationDoneKey, "true");
 }
+
+export async function checkDataStoreIntegrity (context: TriggerContext) {
+    const misplacedEntries: { username: string; actualPrefix: string; inCorrectStore: boolean }[] = [];
+
+    for (const prefix of ALL_POTENTIAL_USER_PREFIXES) {
+        const storeKey = getStoreKey(prefix);
+        const keys = await context.redis.global.hKeys(storeKey);
+
+        for (const key of keys.filter(key => !key.startsWith(prefix))) {
+            const entryFromCorrectStore = await context.redis.global.hGet(getStoreKey(key[0]), key);
+            misplacedEntries.push({ username: key, actualPrefix: key[0], inCorrectStore: !!entryFromCorrectStore });
+        }
+    }
+
+    if (misplacedEntries.length === 0) {
+        return;
+    }
+
+    console.warn("Data Store: Found misplaced entries:", JSON.stringify(misplacedEntries, null, 2));
+
+    const controlSubSettings = await getControlSubSettings(context);
+    const webhook = controlSubSettings.monitoringWebhook;
+    if (!webhook) {
+        console.warn("Data Store: No monitoring webhook configured, cannot send alert.");
+        return;
+    }
+
+    const message: json2md.DataObject[] = [
+        { p: `Found ${misplacedEntries.length} misplaced ${pluralize("entry", misplacedEntries.length)} in the data store.` },
+        {
+            table: {
+                headers: ["Username", "Actual Prefix", "In Correct Store"],
+                rows: misplacedEntries.map(entry => [
+                    entry.username,
+                    entry.actualPrefix,
+                    entry.inCorrectStore ? "Yes" : "No",
+                ]),
+            },
+        },
+    ];
+
+    await sendMessageToWebhook(webhook, json2md(message));
+}
