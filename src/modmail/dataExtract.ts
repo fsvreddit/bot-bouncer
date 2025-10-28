@@ -305,7 +305,7 @@ export async function continueDataExtract (event: ScheduledJobEvent<JSONObject |
         return;
     }
 
-    if (!request.bioRegex && !request.displayNameRegex && !request.socialLinkStartsWith && !request.evaluator && !request.hitReason) {
+    if (!request.bioRegex && !request.displayNameRegex && !request.socialLinkStartsWith && !request.evaluator && !request.hitReason && !request.socialLinkUrlRegex && !request.socialLinkTitleRegex) {
         await createDataExtract(extractId, request, conversationId, context);
         return;
     }

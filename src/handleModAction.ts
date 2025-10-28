@@ -125,6 +125,23 @@ async function handleModActionControlSub (event: ModAction, context: TriggerCont
 
         await sendMessageToWebhook(controlSubSettings.monitoringWebhook, message);
     }
+
+    if (event.action === "removelink" && event.moderator?.name !== context.appName && event.targetPost) {
+        const post = await context.reddit.getPostById(event.targetPost.id);
+        if (post.authorName !== context.appName) {
+            return;
+        }
+
+        const controlSubSettings = await getControlSubSettings(context);
+        if (!controlSubSettings.monitoringWebhook) {
+            return;
+        }
+
+        const message = `A post by Bot Bouncer has been removed on r/${CONTROL_SUBREDDIT}. This may be a mistake.\n\n`
+            + `[${post.title}](https://www.reddit.com${post.permalink})`;
+
+        await sendMessageToWebhook(controlSubSettings.monitoringWebhook, message);
+    }
 }
 
 async function queueConfigWikiCheck (configWikiPage: ConfigWikiPage, delay: number, context: JobContext) {
