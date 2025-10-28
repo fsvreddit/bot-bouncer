@@ -148,6 +148,7 @@ export async function reportFormHandler (event: FormOnSubmitEvent<JSONObject>, c
             publicContext,
             targetId: target.id,
             sendFeedback: event.values[ReportFormField.SendFeedback] as boolean | undefined,
+            immediate: true,
         }, context),
         recordReportForDigest(target.authorName, "manually", context.redis),
     ]);

@@ -371,6 +371,7 @@ async function checkAndReportPotentialBot (username: string, target: Post | Comm
             subreddit: context.subredditName,
             submitter: currentUser?.username,
             reportContext,
+            immediate: true,
         }, context),
         recordReportForDigest(user.username, "automatically", context.redis),
     );
