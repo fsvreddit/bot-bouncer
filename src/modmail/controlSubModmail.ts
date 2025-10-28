@@ -217,7 +217,8 @@ async function handleModmailFromUser (modmail: ModmailMessage, context: TriggerC
         return;
     }
 
-    const recentAppealMade = await context.redis.get(getKeyForAppeal(username));
+    const recentAppealKey = `recentAppeal~${username}`;
+    const recentAppealMade = await context.redis.get(recentAppealKey);
 
     if (recentAppealMade) {
         // User has already made an appeal recently, so we should tell the user it's already being handled.
@@ -264,6 +265,8 @@ async function handleModmailFromUser (modmail: ModmailMessage, context: TriggerC
     }
 
     await handleAppeal(modmail, currentStatus, context);
+
+    await context.redis.set(recentAppealKey, new Date().getTime().toString(), { expiration: addDays(new Date(), 1) });
 }
 
 function getKeyForAppeal (conversationId: string): string {
