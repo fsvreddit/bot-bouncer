@@ -278,7 +278,7 @@ export async function handleClassificationChanges (event: ScheduledJobEvent<JSON
     const items = await context.redis.zRange(RECLASSIFICATION_QUEUE, 0, Date.now(), { by: "score" });
     if (items.length === 0) {
         return;
-    } else {
+    } else if (!event.data?.firstRun) {
         console.log(`Classification Update: Processing ${items.length} ${pluralize("user", items.length)} in reclassification queue for ${subredditName}.`);
     }
 
