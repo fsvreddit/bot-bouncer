@@ -1,6 +1,6 @@
 import { JobContext, TriggerContext, User, WikiPage } from "@devvit/public-api";
 import { CONTROL_SUBREDDIT, INTERNAL_BOT } from "./constants.js";
-import { addUserToTempDeclineStore, getUserStatus, setUserStatus, touchUserStatus, UserStatus } from "./dataStore.js";
+import { addUserToTempDeclineStore, getUserStatus, touchUserStatus, UserStatus } from "./dataStore.js";
 import { getControlSubSettings } from "./settings.js";
 import Ajv, { JSONSchemaType } from "ajv";
 import { addDays, addMinutes, addSeconds } from "date-fns";
@@ -26,6 +26,7 @@ function getExternalSubmissionDataKey (username: string): string {
 export interface ExternalSubmission {
     username: string;
     submitter?: string;
+    subreddit?: string;
     reportContext?: string;
     publicContext?: boolean;
     targetId?: string;
@@ -45,6 +46,7 @@ const externalSubmissionSchema: JSONSchemaType<ExternalSubmission[]> = {
         properties: {
             username: { type: "string" },
             submitter: { type: "string", nullable: true },
+            subreddit: { type: "string", nullable: true },
             reportContext: { type: "string", nullable: true },
             publicContext: { type: "boolean", nullable: true },
             targetId: { type: "string", nullable: true },
@@ -73,56 +75,19 @@ const externalSubmissionSchema: JSONSchemaType<ExternalSubmission[]> = {
     },
 };
 
-export async function addExternalSubmissionFromClientSub (data: ExternalSubmission, submissionType: "automatic" | "manual", context: TriggerContext) {
+export async function addExternalSubmissionFromClientSub (data: ExternalSubmission, context: TriggerContext) {
     if (context.subredditName === CONTROL_SUBREDDIT) {
+        throw new Error("This function must be called from a client subreddit, not the control subreddit.");
+    }
+
+    if (await context.redis.global.zScore(EXTERNAL_SUBMISSION_QUEUE_KEY, data.username)) {
+        console.log(`External Submissions: User ${data.username} is already in the external submissions queue.`);
         return;
     }
 
-    const redisKey = `externalSubmission:${data.username}`;
-    const alreadyDone = await context.redis.exists(redisKey);
-    if (alreadyDone) {
-        return;
-    }
-
-    await context.redis.set(redisKey, new Date().getTime().toString(), { expiration: addMinutes(new Date(), 5) });
-
-    // Set local status
-    await setUserStatus(data.username, {
-        userStatus: UserStatus.Pending,
-        lastUpdate: new Date().getTime(),
-        submitter: data.submitter,
-        operator: context.appName,
-        trackingPostId: "",
-    }, context);
-
-    let wikiPage: WikiPage | undefined;
-    try {
-        wikiPage = await context.reddit.getWikiPage(CONTROL_SUBREDDIT, WIKI_PAGE);
-    } catch {
-        //
-    }
-
-    const currentUserList = JSON.parse(wikiPage?.content ?? "[]") as ExternalSubmission[];
-
-    const ajv = new Ajv.default();
-    const validate = ajv.compile(externalSubmissionSchema);
-    if (!validate(currentUserList)) {
-        console.error("External submission list is invalid.", ajv.errorsText(validate.errors));
-        return;
-    }
-
-    if (currentUserList.some(item => item.username === data.username)) {
-        return;
-    }
-
-    currentUserList.push(data);
-
-    await context.reddit.updateWikiPage({
-        subredditName: CONTROL_SUBREDDIT,
-        page: WIKI_PAGE,
-        content: JSON.stringify(currentUserList),
-        reason: `Added a user via ${context.subredditName ? `/r/${context.subredditName}` : "an unknown subreddit"} v${context.appVersion}. Type: ${submissionType}`,
-    });
+    await context.redis.global.zAdd(EXTERNAL_SUBMISSION_QUEUE_KEY, { member: data.username, score: new Date().getTime() });
+    await context.redis.global.set(getExternalSubmissionDataKey(data.username), JSON.stringify(data), { expiration: addDays(new Date(), 7) });
+    console.log(`External Submissions: Added external submission for ${data.username} to the queue.`);
 }
 
 export async function addExternalSubmissionToPostCreationQueue (item: ExternalSubmission, immediate: boolean, context: TriggerContext, enableTouch = true): Promise<boolean> {
@@ -227,7 +192,15 @@ export async function addExternalSubmissionToPostCreationQueue (item: ExternalSu
 
     const result = await queuePostCreation(submission, context);
     if (result === PostCreationQueueResult.Queued) {
-        console.log(`External Submissions: Queued post creation for ${item.username}`);
+        let message = `External Submissions: Queued post creation for ${item.username}`;
+        if (item.submitter) {
+            message += ` submitted by ${item.submitter}`;
+        }
+        if (item.subreddit) {
+            message += ` from /r/${item.subreddit}`;
+        }
+        console.log(message);
+
         if (item.sendFeedback) {
             await context.redis.set(`sendFeedback:${item.username}`, "true", { expiration: addDays(new Date(), 7) });
         }
@@ -288,7 +261,7 @@ export async function handleExternalSubmissionsPageUpdate (context: TriggerConte
     const immediate = currentSubmissionList.length === 1;
 
     const results = await Promise.all(currentSubmissionList.map(async (item) => {
-        const alreadyQueued = await context.redis.zScore(EXTERNAL_SUBMISSION_QUEUE_KEY, item.username);
+        const alreadyQueued = await context.redis.global.zScore(EXTERNAL_SUBMISSION_QUEUE_KEY, item.username);
         if (alreadyQueued) {
             return false;
         }
@@ -304,8 +277,8 @@ export async function handleExternalSubmissionsPageUpdate (context: TriggerConte
 
         item.immediate = immediate;
 
-        await context.redis.set(getExternalSubmissionDataKey(item.username), JSON.stringify(item), { expiration: addDays(new Date(), 7) });
-        await context.redis.zAdd(EXTERNAL_SUBMISSION_QUEUE_KEY, { score: new Date().getTime(), member: item.username });
+        await context.redis.global.set(getExternalSubmissionDataKey(item.username), JSON.stringify(item), { expiration: addDays(new Date(), 7) });
+        await context.redis.global.zAdd(EXTERNAL_SUBMISSION_QUEUE_KEY, { score: new Date().getTime(), member: item.username });
         return true;
     }));
 
@@ -329,7 +302,7 @@ export async function processExternalSubmissionsQueue (context: JobContext): Pro
         throw new Error("This function can only be called from the control subreddit.");
     }
 
-    const submissionQueue = await context.redis.zRange(EXTERNAL_SUBMISSION_QUEUE_KEY, 0, -1);
+    const submissionQueue = await context.redis.global.zRange(EXTERNAL_SUBMISSION_QUEUE_KEY, 0, -1);
     if (submissionQueue.length === 0) {
         return 0;
     }
@@ -344,9 +317,9 @@ export async function processExternalSubmissionsQueue (context: JobContext): Pro
             break;
         }
 
-        await context.redis.zRem(EXTERNAL_SUBMISSION_QUEUE_KEY, [username]);
+        await context.redis.global.zRem(EXTERNAL_SUBMISSION_QUEUE_KEY, [username]);
 
-        const submissionDataRaw = await context.redis.get(getExternalSubmissionDataKey(username));
+        const submissionDataRaw = await context.redis.global.get(getExternalSubmissionDataKey(username));
         if (!submissionDataRaw) {
             console.error(`External Submissions: No data found for ${username}, skipping.`);
             continue;

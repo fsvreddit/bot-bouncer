@@ -9,6 +9,8 @@ import { getUserExtended, UserExtended } from "../extendedDevvit.js";
 import { CONTROL_SUBREDDIT } from "../constants.js";
 import pluralize from "pluralize";
 import { EvaluationResult, storeAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
+import { ModmailMessage } from "./modmail.js";
+import { getControlSubSettings } from "../settings.js";
 
 interface UserWithDetails {
     username: string;
@@ -204,4 +206,29 @@ async function trustedSubmitterInitialStatus (user: UserExtended, context: Trigg
     }
 
     return UserStatus.Banned;
+}
+
+export async function retryBulkSubmission (modmail: ModmailMessage, context: TriggerContext) {
+    const conversation = await context.reddit.modMail.getConversation({ conversationId: modmail.conversationId });
+    if (!conversation.conversation) {
+        console.log(`Retry bulk submission: Conversation ${modmail.conversationId} not found`);
+        return;
+    }
+
+    const commandMessage = Object.values(conversation.conversation.messages).find(message => message.bodyMarkdown?.startsWith("{"));
+    if (!commandMessage?.bodyMarkdown) {
+        console.log(`Retry bulk submission: Command message not found in conversation ${modmail.conversationId}`);
+        return;
+    }
+
+    if (!commandMessage.author?.name) {
+        console.log(`Retry bulk submission: Command message author not found in conversation ${modmail.conversationId}`);
+        return;
+    }
+
+    const controlSubSettings = await getControlSubSettings(context);
+    const isTrusted = controlSubSettings.trustedSubmitters.includes(commandMessage.author.name);
+
+    await handleBulkSubmission(commandMessage.author.name, isTrusted, modmail.conversationId, commandMessage.bodyMarkdown, context);
+    console.log(`Retry bulk submission: Retried bulk submission for conversation ${modmail.conversationId}`);
 }

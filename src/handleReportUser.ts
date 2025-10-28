@@ -9,8 +9,8 @@ import { getControlSubSettings } from "./settings.js";
 import { handleControlSubReportUser } from "./handleControlSubMenu.js";
 import { recordReportForDigest } from "./modmail/dailyDigest.js";
 import { canUserReceiveFeedback } from "./submissionFeedback.js";
-import json2md from "json2md";
 import { isLinkId } from "@devvit/public-api/types/tid.js";
+import { addClassificationQueryToQueue } from "./modmail/classificationQuery.js";
 
 enum ReportFormField {
     ReportContext = "reportContext",
@@ -142,12 +142,14 @@ export async function reportFormHandler (event: FormOnSubmitEvent<JSONObject>, c
     await Promise.all([
         addExternalSubmissionFromClientSub({
             username: target.authorName,
+            subreddit: context.subredditName,
             submitter: currentUser?.username,
             reportContext,
             publicContext,
             targetId: target.id,
             sendFeedback: event.values[ReportFormField.SendFeedback] as boolean | undefined,
-        }, "manual", context),
+            immediate: true,
+        }, context),
         recordReportForDigest(target.authorName, "manually", context.redis),
     ]);
 
@@ -185,25 +187,15 @@ export async function queryFormHandler (event: FormOnSubmitEvent<JSONObject>, co
 
     const queryReason = event.values.queryReason as string | undefined;
     if (!queryReason || queryReason.trim().length < 10) {
-        context.ui.showToast("Please provide a more detailed reason for your query (at least 10 characters).");
+        context.ui.showToast("Please provide a more detailed reason for your query.");
         return;
     }
 
-    const message: json2md.DataObject[] = [
-        { p: `User /u/${currentUser} has queried the status of /u/${target.authorName} who is currently marked as human. They have given the following reason:` },
-        { blockquote: queryReason.trim() },
-    ];
+    await addClassificationQueryToQueue({
+        username: target.authorName,
+        message: queryReason,
+        submittingUser: currentUser,
+    }, context);
 
-    const subredditInfo = await context.reddit.getSubredditInfoByName(CONTROL_SUBREDDIT);
-    if (!subredditInfo.id) {
-        context.ui.showToast("Sorry, could not report user.");
-        console.log("Error finding control subreddit", context);
-        return;
-    }
-
-    await context.reddit.modMail.createModInboxConversation({
-        subredditId: subredditInfo.id,
-        subject: `Classification status query about /u/${target.authorName}`,
-        bodyMarkdown: json2md(message),
-    });
+    context.ui.showToast(`Your query about ${target.authorName} has been submitted to the Bot Bouncer team.`);
 }

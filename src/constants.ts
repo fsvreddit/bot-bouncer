@@ -22,7 +22,6 @@ export enum PostFlairTemplate {
 export enum UniversalJob {
     Cleanup = "cleanupJob",
     AdhocCleanup = "adhocCleanup",
-    UpdateEvaluatorVariables = "updateEvaluatorVariables",
 }
 
 /**
@@ -50,6 +49,8 @@ export enum ControlSubredditJob {
     AsyncWikiUpdate = "asyncWikiUpdate",
     BioStatsUpdate = "bioStatsUpdate",
     BioStatsGenerateReport = "bioStatsGenerateReport",
+    DataExtractJob = "dataExtractJob",
+    UpdateEvaluatorVariables = "updateEvaluatorVariables",
 }
 
 /**
@@ -57,18 +58,9 @@ export enum ControlSubredditJob {
  */
 
 export enum ClientSubredditJob {
-    UpdateDatastoreFromWiki = "updateDatastoreFromWiki",
+    QueueReclassificationChanges = "queueReclassificationChanges",
     HandleClassificationChanges = "handleClassificationChanges",
     UpgradeNotifier = "upgradeNotifier",
     SendDailyDigest = "sendDailyDigest",
     NotifyModTeamOnDemod = "notifyModTeamOnDemod",
 }
-
-/**
- * Job Crons
- */
-
-export const EVALUATE_KARMA_FARMING_SUBS_CRON = "* * * * *"; // Every 5 minutes
-export const CONTROL_SUB_CLEANUP_CRON = "1/5 * * * *"; // Every 5 minutes
-
-export const CLIENT_SUB_WIKI_UPDATE_CRON_KEY = "clientSubWikiUpdateCron";

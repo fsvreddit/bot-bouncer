@@ -12,7 +12,7 @@ import { addAllUsersFromModmail } from "../similarBioTextFinder/bioTextFinder.js
 import { markAppealAsHandled } from "../statistics/appealStatistics.js";
 import { statusToFlair } from "../postCreation.js";
 import { CONTROL_SUBREDDIT, INTERNAL_BOT } from "../constants.js";
-import { handleBulkSubmission } from "./bulkSubmission.js";
+import { handleBulkSubmission, retryBulkSubmission } from "./bulkSubmission.js";
 import { handleAppeal } from "./autoAppealHandling.js";
 import { FLAIR_MAPPINGS } from "../handleControlSubFlairUpdate.js";
 import { uniq } from "lodash";
@@ -43,7 +43,7 @@ export async function handleControlSubredditModmail (modmail: ModmailMessage, co
     }
 
     if (modmail.bodyMarkdown.startsWith("!extract")) {
-        await dataExtract(modmail.bodyMarkdown, modmail.conversationId, context);
+        await dataExtract(modmail, modmail.conversationId, context);
         return;
     }
 
@@ -90,6 +90,11 @@ export async function handleControlSubredditModmail (modmail: ModmailMessage, co
 
     if (modmail.bodyMarkdown.startsWith("!history ")) {
         await showUserHistory(modmail, context);
+        return;
+    }
+
+    if (modmail.bodyMarkdown.startsWith("!retrybulk")) {
+        await retryBulkSubmission(modmail, context);
         return;
     }
 
@@ -164,6 +169,13 @@ export function markdownToText (markdown: json2md.DataObject[], limit = 9500): s
 async function handleModmailFromUser (modmail: ModmailMessage, context: TriggerContext) {
     const username = modmail.messageAuthor;
 
+    const conversationHandledKey = `conversationHandled~${modmail.conversationId}`;
+    if (await context.redis.exists(conversationHandledKey)) {
+        return;
+    }
+
+    await context.redis.set(conversationHandledKey, "true", { expiration: addDays(new Date(), 28) });
+
     if (username === INTERNAL_BOT || username.startsWith(context.appName)) {
         return;
     }
@@ -205,8 +217,7 @@ async function handleModmailFromUser (modmail: ModmailMessage, context: TriggerC
         return;
     }
 
-    const recentAppealKey = `recentAppeal~${username}`;
-    const recentAppealMade = await context.redis.get(recentAppealKey);
+    const recentAppealMade = await context.redis.get(getKeyForAppeal(username));
 
     if (recentAppealMade) {
         // User has already made an appeal recently, so we should tell the user it's already being handled.
@@ -253,8 +264,6 @@ async function handleModmailFromUser (modmail: ModmailMessage, context: TriggerC
     }
 
     await handleAppeal(modmail, currentStatus, context);
-
-    await context.redis.set(recentAppealKey, new Date().getTime().toString(), { expiration: addDays(new Date(), 1) });
 }
 
 function getKeyForAppeal (conversationId: string): string {

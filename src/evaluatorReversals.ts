@@ -1,5 +1,5 @@
 import { JobContext, JSONObject, ScheduledJobEvent, TriggerContext } from "@devvit/public-api";
-import { deleteUserStatus, getActiveDataStore, getUserStatus, updateAggregate, UserDetails, UserStatus } from "./dataStore.js";
+import { deleteUserStatus, getFullDataStore, getUserStatus, updateAggregate, UserDetails, UserStatus } from "./dataStore.js";
 import { addDays, addSeconds, subDays } from "date-fns";
 import { CONTROL_SUBREDDIT, ControlSubredditJob, PostFlairTemplate } from "./constants.js";
 import { deleteAccountInitialEvaluationResults, getAccountInitialEvaluationResults } from "./handleControlSubAccountEvaluation.js";
@@ -35,9 +35,9 @@ export async function evaluatorReversalsJob (event: ScheduledJobEvent<JSONObject
     }
 
     if (event.data?.firstRun) {
-        const allActiveData = await getActiveDataStore(context);
+        const allData = await getFullDataStore(context);
         const cutoff = subDays(new Date(), 1).getTime();
-        const recentBannedUsers = Object.entries(allActiveData).filter(([, userData]) => {
+        const recentBannedUsers = Object.entries(allData).filter(([, userData]) => {
             const parsed = JSON.parse(userData) as UserDetails;
             return parsed.userStatus === UserStatus.Banned && parsed.reportedAt && parsed.reportedAt > cutoff;
         }).map(([username]) => username);
@@ -153,8 +153,8 @@ async function reversePostCreationQueue (context: JobContext) {
             await txn.multi();
             await txn.zRem(SUBMISSION_QUEUE, [username]);
             await txn.hDel(SUBMISSION_DETAILS, [username]);
-            await deleteAccountInitialEvaluationResults(username, txn);
             await txn.exec();
+            await deleteAccountInitialEvaluationResults(username, context);
             console.log(`Evaluator Reversals: Removed ${username} from the post creation queue.`);
             reversedCount++;
         }
@@ -198,9 +198,10 @@ export async function deleteRecordsForRemovedUsers (_: unknown, context: JobCont
         const txn = await context.redis.watch();
         await txn.multi();
         await updateAggregate(UserStatus.Declined, -1, txn);
-        await deleteUserStatus(username, txn);
         await txn.zRem(CLEANUP_LOG_KEY, [username]);
         await txn.exec();
+
+        await deleteUserStatus(username, context);
 
         const post = await context.reddit.getPostById(userStatus.trackingPostId);
         await post.delete();

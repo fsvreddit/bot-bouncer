@@ -251,7 +251,6 @@ async function handleRemoveRecordForUser (username: string, post: Post, context:
     const txn = await context.redis.watch();
     await txn.multi();
 
-    await deleteUserStatus(username, txn);
     if (currentStatus && currentStatus.userStatus !== UserStatus.Purged && currentStatus.userStatus !== UserStatus.Retired) {
         await updateAggregate(currentStatus.userStatus, -1, txn);
     }
@@ -264,6 +263,8 @@ async function handleRemoveRecordForUser (username: string, post: Post, context:
     } else {
         await post.remove();
     }
+
+    await deleteUserStatus(username, context);
 
     context.ui.showToast(`Removed all data and deleted post for u/${username}.`);
 }

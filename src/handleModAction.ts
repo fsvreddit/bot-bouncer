@@ -1,14 +1,14 @@
 import { JobContext, JSONObject, ScheduledJobEvent, TriggerContext } from "@devvit/public-api";
 import { ModAction } from "@devvit/protos";
-import { ClientSubredditJob, CONTROL_SUBREDDIT, ControlSubredditJob, INTERNAL_BOT, UniversalJob } from "./constants.js";
-import { recordWhitelistUnban, removeRecordOfBan } from "./handleClientSubredditWikiUpdate.js";
+import { ClientSubredditJob, CONTROL_SUBREDDIT, ControlSubredditJob, INTERNAL_BOT } from "./constants.js";
+import { recordWhitelistUnban, removeRecordOfBan } from "./handleClientSubredditClassificationChanges.js";
 import { handleExternalSubmissionsPageUpdate } from "./externalSubmissions.js";
 import { getControlSubSettings, validateControlSubConfigChange } from "./settings.js";
 import { addDays, addMinutes, addSeconds } from "date-fns";
 import { validateAndSaveAppealConfig } from "./modmail/autoAppealHandling.js";
 import { checkIfStatsNeedUpdating } from "./sixHourlyJobs.js";
 import { handleBannedSubredditsModAction } from "./statistics/bannedSubreddits.js";
-import { replaceAll } from "./utility.js";
+import { isModerator, replaceAll, sendMessageToWebhook } from "./utility.js";
 
 export async function handleModAction (event: ModAction, context: TriggerContext) {
     if (context.subredditName === CONTROL_SUBREDDIT) {
@@ -94,7 +94,7 @@ async function handleModActionControlSub (event: ModAction, context: TriggerCont
         if (event.moderator.name !== context.appName && event.moderator.name !== INTERNAL_BOT) {
             await Promise.all([
                 context.scheduler.runJob({
-                    name: UniversalJob.UpdateEvaluatorVariables,
+                    name: ControlSubredditJob.UpdateEvaluatorVariables,
                     runAt: new Date(),
                     data: { username: event.moderator.name },
                 }),
@@ -103,6 +103,44 @@ async function handleModActionControlSub (event: ModAction, context: TriggerCont
                 queueConfigWikiCheck(ConfigWikiPage.ControlSubSettings, 10, context),
             ]);
         }
+    }
+
+    /**
+     * When a link is approved on the control subreddit, check to see if it's a post from a non-mod.
+     * If so, alert on Discord.
+     */
+    if (event.action === "approvelink" && event.moderator?.name !== context.appName && event.targetPost) {
+        const post = await context.reddit.getPostById(event.targetPost.id);
+        if (await isModerator(post.authorName, context)) {
+            return;
+        }
+
+        const controlSubSettings = await getControlSubSettings(context);
+        if (!controlSubSettings.monitoringWebhook) {
+            return;
+        }
+
+        const message = `A post by a non-mod has been approved on r/${CONTROL_SUBREDDIT}. This may be a mistake.\n\n`
+            + `[${post.title}](https://www.reddit.com${post.permalink}) by u/${post.authorName}`;
+
+        await sendMessageToWebhook(controlSubSettings.monitoringWebhook, message);
+    }
+
+    if (event.action === "removelink" && event.moderator?.name !== context.appName && event.targetPost) {
+        const post = await context.reddit.getPostById(event.targetPost.id);
+        if (post.authorName !== context.appName) {
+            return;
+        }
+
+        const controlSubSettings = await getControlSubSettings(context);
+        if (!controlSubSettings.monitoringWebhook) {
+            return;
+        }
+
+        const message = `A post by Bot Bouncer has been removed on r/${CONTROL_SUBREDDIT}. This may be a mistake.\n\n`
+            + `[${post.title}](https://www.reddit.com${post.permalink})`;
+
+        await sendMessageToWebhook(controlSubSettings.monitoringWebhook, message);
     }
 }
 

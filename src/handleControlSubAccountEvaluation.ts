@@ -1,4 +1,4 @@
-import { Comment, JobContext, JSONObject, JSONValue, Post, ScheduledJobEvent, SubredditInfo, TriggerContext, TxClientLike, UserSocialLink } from "@devvit/public-api";
+import { Comment, JobContext, JSONObject, JSONValue, Post, ScheduledJobEvent, SubredditInfo, TriggerContext, UserSocialLink } from "@devvit/public-api";
 import { ALL_EVALUATORS, UserEvaluatorBase } from "@fsvreddit/bot-bouncer-evaluation";
 import { getUserStatus, UserStatus } from "./dataStore.js";
 import { CONTROL_SUBREDDIT, PostFlairTemplate } from "./constants.js";
@@ -199,7 +199,7 @@ export async function storeAccountInitialEvaluationResults (username: string, re
 
     const resultsToStore: EvaluationResult[] = results.map(result => ({
         botName: result.botName,
-        hitReason: result.hitReason && result.hitReason.length > 1000 ? `${result.hitReason.substring(0, 1000)}...` : result.hitReason,
+        hitReason: result.hitReason && result.hitReason.length > 500 ? `${result.hitReason.substring(0, 500)}...` : result.hitReason,
         canAutoBan: result.canAutoBan,
         metThreshold: result.metThreshold,
     }));
@@ -218,8 +218,8 @@ export async function getAccountInitialEvaluationResults (username: string, cont
     return JSON.parse(results) as EvaluationResult[];
 }
 
-export async function deleteAccountInitialEvaluationResults (username: string, txn: TxClientLike) {
-    await txn.del(getEvaluationResultsKey(username));
+export async function deleteAccountInitialEvaluationResults (username: string, context: TriggerContext) {
+    await context.redis.del(getEvaluationResultsKey(username));
 }
 
 async function subIsNSFW (subredditName: string, context: TriggerContext): Promise<boolean> {

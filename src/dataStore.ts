@@ -1,9 +1,9 @@
-import { JobContext, TriggerContext, WikiPage, CreateModNoteOptions, UserSocialLink, TxClientLike, RedisClient } from "@devvit/public-api";
-import { compact, fromPairs, max, toPairs, uniq } from "lodash";
+import { JobContext, TriggerContext, CreateModNoteOptions, UserSocialLink, TxClientLike, RedisClient } from "@devvit/public-api";
+import { compact, fromPairs, uniq } from "lodash";
 import pako from "pako";
 import { setCleanupForSubmittersAndMods, setCleanupForUser } from "./cleanup.js";
-import { ClientSubredditJob, CONTROL_SUBREDDIT } from "./constants.js";
-import { addHours, addMinutes, addSeconds, addWeeks, startOfSecond, subDays, subHours, subWeeks } from "date-fns";
+import { CONTROL_SUBREDDIT } from "./constants.js";
+import { addHours, addMinutes, addSeconds, addWeeks, startOfSecond, subDays, subHours, subMinutes, subSeconds, subWeeks } from "date-fns";
 import pluralize from "pluralize";
 import { getControlSubSettings } from "./settings.js";
 import { isCommentId, isLinkId } from "@devvit/public-api/types/tid.js";
@@ -12,12 +12,13 @@ import json2md from "json2md";
 import { getUsernameFromUrl, getUserSocialLinks, sendMessageToWebhook } from "./utility.js";
 import { getUserExtended } from "./extendedDevvit.js";
 import { storeClassificationEvent } from "./statistics/classificationStatistics.js";
-import { queueReclassifications } from "./handleClientSubredditWikiUpdate.js";
 import { USER_DEFINED_HANDLES_POSTS } from "./statistics/definedHandlesStatistics.js";
 import { RedisHelper } from "./redisHelper.js";
+import { ZMember } from "@devvit/protos";
 
-const USER_STORE = "UserStore";
+const ACTIVE_USER_STORE = "UserStore";
 const TEMP_DECLINE_STORE = "TempDeclineStore";
+const RECENT_CHANGES_STORE = "RecentChangesStore";
 
 export const BIO_TEXT_STORE = "BioTextStore";
 export const DISPLAY_NAME_STORE = "DisplayNameStore";
@@ -78,40 +79,35 @@ interface UserDetailsForWiki {
 
 const ALL_POTENTIAL_USER_PREFIXES = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_".split("");
 
-function getStaleStoreKey (username: string): string {
-    return `StaleUserStore~${username[0]}`;
+function getStoreKey (username: string): string {
+    if (username.length === 0) {
+        throw new Error("Empty username provided to getStoreKey");
+    }
+    return `UserStore~${username[0]}`;
 }
 
-export async function getActiveDataStore (context: TriggerContext): Promise<Record<string, string>> {
+async function getActiveDataStore (context: TriggerContext): Promise<Record<string, string>> {
     const redisHelper = new RedisHelper(context.redis);
-    return redisHelper.hMGetAllChunked(USER_STORE, 10000);
+    return redisHelper.hMGetAllChunked(ACTIVE_USER_STORE, 10000);
 }
 
 export async function getFullDataStore (context: TriggerContext): Promise<Record<string, string>> {
-    const activeData = await getActiveDataStore(context);
-    const staleDataArray = await Promise.all(ALL_POTENTIAL_USER_PREFIXES.map(prefix => context.redis.hGetAll(getStaleStoreKey(prefix))));
-    const staleData = Object.assign({}, ...staleDataArray) as Record<string, string>;
+    const dataArray = await Promise.all(ALL_POTENTIAL_USER_PREFIXES.map(prefix => context.redis.global.hGetAll(getStoreKey(prefix))));
+    const data = Object.assign({}, ...dataArray) as Record<string, string>;
 
-    return { ...activeData, ...staleData };
+    return { ...data };
 }
 
 export async function getAllKnownUsers (context: TriggerContext): Promise<string[]> {
-    const activeUsers = await context.redis.hKeys(USER_STORE);
-    const staleUsers = await Promise.all(ALL_POTENTIAL_USER_PREFIXES.map(prefix => context.redis.hKeys(getStaleStoreKey(prefix))));
+    const users = await Promise.all(ALL_POTENTIAL_USER_PREFIXES.map(prefix => context.redis.global.hKeys(getStoreKey(prefix))));
 
-    return uniq([...activeUsers, ...staleUsers.flat()]);
+    return uniq([...users.flat()]);
 }
 
 export async function getUserStatus (username: string, context: TriggerContext) {
-    const value = await context.redis.hGet(USER_STORE, username);
-
+    const value = await context.redis.global.hGet(getStoreKey(username), username);
     if (value) {
         return JSON.parse(value) as UserDetails;
-    }
-
-    const staleValue = await context.redis.hGet(getStaleStoreKey(username), username);
-    if (staleValue) {
-        return JSON.parse(staleValue) as UserDetails;
     }
 }
 
@@ -123,7 +119,7 @@ async function addModNote (options: CreateModNoteOptions, context: TriggerContex
     }
 }
 
-export async function writeUserStatus (username: string, details: UserDetails, redis: TxClientLike | RedisClient) {
+export async function writeUserStatus (username: string, details: UserDetails, context: TriggerContext) {
     let isStale = false;
     if (details.mostRecentActivity && new Date(details.mostRecentActivity) < subWeeks(new Date(), 3)) {
         isStale = true;
@@ -133,12 +129,13 @@ export async function writeUserStatus (username: string, details: UserDetails, r
         isStale = true;
     }
 
-    const keyToSet = isStale ? getStaleStoreKey(username) : USER_STORE;
-    const keyToDelete = isStale ? USER_STORE : getStaleStoreKey(username);
-
     try {
-        await redis.hSet(keyToSet, { [username]: JSON.stringify(details) });
-        await redis.hDel(keyToDelete, [username]);
+        await context.redis.global.hSet(getStoreKey(username), { [username]: JSON.stringify(details) });
+        if (isStale) {
+            await context.redis.hDel(ACTIVE_USER_STORE, [username]);
+        } else {
+            await context.redis.hSet(ACTIVE_USER_STORE, { [username]: JSON.stringify(details) });
+        }
     } catch (error) {
         console.error(`Failed to write user status of ${details.userStatus} for ${username}:`, error);
         throw new Error(`Failed to write user status for ${username}`);
@@ -178,35 +175,31 @@ export async function setUserStatus (username: string, details: UserDetails, con
         }
     }
 
-    const txn = await context.redis.watch();
-    await txn.multi();
-    await writeUserStatus(username, details, txn);
+    await writeUserStatus(username, details, context);
 
     if (details.userStatus !== UserStatus.Purged && details.userStatus !== UserStatus.Retired && context.subredditName === CONTROL_SUBREDDIT) {
-        await txn.set(WIKI_UPDATE_DUE, "true");
+        await context.redis.set(WIKI_UPDATE_DUE, "true");
     }
 
     if (context.subredditName === CONTROL_SUBREDDIT) {
         if (details.userStatus === UserStatus.Pending && !currentStatus) {
-            await setCleanupForUser(username, txn, addMinutes(new Date(), 2));
+            await setCleanupForUser(username, context.redis, addMinutes(new Date(), 2));
         } else if (details.userStatus === UserStatus.Pending || details.userStatus === UserStatus.Purged || details.userStatus === UserStatus.Retired) {
-            await setCleanupForUser(username, txn, addHours(new Date(), 1));
+            await setCleanupForUser(username, context.redis, addHours(new Date(), 1));
         } else {
-            await setCleanupForUser(username, txn);
+            await setCleanupForUser(username, context.redis);
         }
 
         const submittersAndMods = uniq(compact([details.submitter, details.operator]));
-        await setCleanupForSubmittersAndMods(submittersAndMods, txn);
+        await setCleanupForSubmittersAndMods(submittersAndMods, context);
 
         if (details.userStatus !== currentStatus?.userStatus) {
-            await updateAggregate(details.userStatus, 1, txn);
+            await updateAggregate(details.userStatus, 1, context.redis);
             if (currentStatus) {
-                await updateAggregate(currentStatus.userStatus, -1, txn);
+                await updateAggregate(currentStatus.userStatus, -1, context.redis);
             }
         }
     }
-
-    await txn.exec();
 
     if (context.subredditName === CONTROL_SUBREDDIT && currentStatus?.userStatus !== details.userStatus && details.userStatus !== UserStatus.Pending) {
         await addModNote({
@@ -219,6 +212,13 @@ export async function setUserStatus (username: string, details: UserDetails, con
     if (currentStatus?.userStatus === UserStatus.Pending && details.userStatus !== UserStatus.Pending && details.operator && details.operator !== context.appName) {
         await storeClassificationEvent(details.operator, context);
     }
+
+    await context.redis.global.zAdd(RECENT_CHANGES_STORE, { member: username, score: new Date().getTime() });
+}
+
+export async function removeStaleRecentChangesEntries (context: TriggerContext) {
+    const removedEntries = await context.redis.global.zRemRangeByScore(RECENT_CHANGES_STORE, 0, subDays(new Date(), 7).getTime());
+    console.log(`Data Store: Cleaned up ${removedEntries} entries from the recent changes store.`);
 }
 
 /**
@@ -228,25 +228,33 @@ export async function setUserStatus (username: string, details: UserDetails, con
  * @param context The trigger context.
  */
 export async function touchUserStatus (username: string, userDetails: UserDetails, context: TriggerContext) {
-    const entryFromMainStore = await context.redis.hGet(USER_STORE, username);
-    if (entryFromMainStore) {
+    const currentEntry = await getUserStatus(username, context);
+    if (currentEntry && currentEntry.lastUpdate > subWeeks(new Date(), 1).getTime()) {
         return;
     }
     const newDetails = { ...userDetails };
     newDetails.lastUpdate = Date.now();
     newDetails.mostRecentActivity = Date.now();
-    await writeUserStatus(username, newDetails, context.redis);
+    await writeUserStatus(username, newDetails, context);
     console.log(`Data Store: Touched status for ${username}`);
 }
 
-export async function deleteUserStatus (username: string, txn: TxClientLike) {
-    await txn.hDel(USER_STORE, [username]);
-    await txn.hDel(getStaleStoreKey(username), [username]);
-    await deleteAccountInitialEvaluationResults(username, txn);
-    await txn.hDel(BIO_TEXT_STORE, [username]);
-    await txn.hDel(DISPLAY_NAME_STORE, [username]);
-    await txn.hDel(SOCIAL_LINKS_STORE, [username]);
-    await txn.hDel(USER_DEFINED_HANDLES_POSTS, [username]);
+export async function deleteUserStatus (username: string, context: TriggerContext) {
+    if (context.subredditName !== CONTROL_SUBREDDIT) {
+        throw new Error("deleteUserStatus can only be called from the control subreddit.");
+    }
+
+    await context.redis.global.hDel(getStoreKey(username), [username]);
+    await context.redis.hDel(ACTIVE_USER_STORE, [username]);
+    await context.redis.global.zRem(RECENT_CHANGES_STORE, [username]);
+
+    await deleteAccountInitialEvaluationResults(username, context);
+    await context.redis.hDel(BIO_TEXT_STORE, [username]);
+    await context.redis.hDel(DISPLAY_NAME_STORE, [username]);
+    await context.redis.hDel(SOCIAL_LINKS_STORE, [username]);
+    await context.redis.hDel(USER_DEFINED_HANDLES_POSTS, [username]);
+
+    await context.redis.global.zRem(TEMP_DECLINE_STORE, [username]);
 }
 
 export async function getUsernameFromPostId (postId: string, context: TriggerContext): Promise<string | undefined> {
@@ -311,6 +319,17 @@ export async function updateWikiPage (_: unknown, context: JobContext) {
         return;
     }
 
+    const controlSubSettings = await getControlSubSettings(context);
+
+    const lastUpdateDoneKey = "lastWikiUpdateDone";
+    const lastUpdateDoneValue = await context.redis.get(lastUpdateDoneKey);
+    if (lastUpdateDoneValue) {
+        const lastUpdateDone = new Date(parseInt(lastUpdateDoneValue));
+        if (lastUpdateDone > subSeconds(subMinutes(new Date(), controlSubSettings.legacyWikiPageUpdateFrequencyMinutes), 30)) {
+            return;
+        }
+    }
+
     const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
 
     const data = await getActiveDataStore(context);
@@ -329,7 +348,7 @@ export async function updateWikiPage (_: unknown, context: JobContext) {
     }
 
     // Add in entries from temp decline store.
-    const tempDeclineEntries = await context.redis.zRange(TEMP_DECLINE_STORE, 0, -1);
+    const tempDeclineEntries = await context.redis.global.zRange(TEMP_DECLINE_STORE, 0, -1);
     console.log(`Found ${tempDeclineEntries.length} ${pluralize("entry", tempDeclineEntries.length)} in the temp decline store`);
     for (const entry of tempDeclineEntries) {
         if (dataToWrite[entry.member]) {
@@ -364,7 +383,6 @@ export async function updateWikiPage (_: unknown, context: JobContext) {
         chunk.push(content.slice(i, i + MAX_WIKI_PAGE_SIZE));
     }
 
-    const controlSubSettings = await getControlSubSettings(context);
     const numberOfPages = controlSubSettings.numberOfWikiPages ?? 1;
     if (numberOfPages > 1) {
         for (let i = 2; i <= numberOfPages; i++) {
@@ -410,102 +428,8 @@ export async function updateWikiPage (_: unknown, context: JobContext) {
     const aggregateStore = await context.redis.zRange(AGGREGATE_STORE, 0, -1);
     const aggregateData = fromPairs(aggregateStore.map(item => ([item.member, item.score])));
     console.log(`Status: Banned ${aggregateData[UserStatus.Banned] ?? 0}, Organic ${aggregateData[UserStatus.Organic] ?? 0}, Pending ${aggregateData[UserStatus.Pending] ?? 0}`);
-}
 
-function decompressData (blob: string): Record<string, string> {
-    const json = Buffer.from(pako.inflate(Buffer.from(blob, "base64"))).toString();
-    return JSON.parse(json) as Record<string, string>;
-}
-
-export async function updateLocalStoreFromWiki (_: unknown, context: JobContext) {
-    if (context.subredditName === CONTROL_SUBREDDIT) {
-        return;
-    }
-
-    const lastUpdateKey = "lastUpdateFromWiki";
-    const lastUpdateDateKey = "lastUpdateDateKey";
-
-    const lastUpdateDateValue = await context.redis.get(lastUpdateDateKey);
-    const lastUpdateDate = lastUpdateDateValue ? new Date(parseInt(lastUpdateDateValue)) : subHours(new Date(), 6);
-
-    let wikiContent: string;
-
-    let wikiPage: WikiPage;
-    try {
-        wikiPage = await context.reddit.getWikiPage(CONTROL_SUBREDDIT, WIKI_PAGE);
-        wikiContent = wikiPage.content;
-    } catch {
-        console.error("Wiki Update: Failed to read wiki page from control subreddit");
-        return;
-    }
-
-    const lastUpdate = await context.redis.get(lastUpdateKey);
-    if (lastUpdate === wikiPage.revisionId) {
-        return;
-    }
-
-    const controlSubSettings = await getControlSubSettings(context);
-    const numberOfPages = controlSubSettings.numberOfWikiPages ?? 1;
-    if (numberOfPages > 1) {
-        for (let i = 2; i <= numberOfPages; i++) {
-            try {
-                console.log(`Wiki Update: Reading wiki page ${i} from control subreddit`);
-                const page = await context.reddit.getWikiPage(CONTROL_SUBREDDIT, `${WIKI_PAGE}/${i}`);
-                wikiContent += page.content;
-            } catch {
-                console.error(`Wiki Update: Failed to read wiki page ${i} from control subreddit. Page may not yet exist.`);
-                break;
-            }
-        }
-    }
-
-    const incomingData = decompressData(wikiContent);
-    await context.redis.del(USER_STORE);
-
-    if (Object.keys(incomingData).length === 0) {
-        console.log("Wiki Update: Control subreddit wiki page is empty");
-        return;
-    }
-
-    const usersAdded = await context.redis.hSet(USER_STORE, incomingData);
-
-    console.log(`Wiki Update: Records for ${usersAdded} ${pluralize("user", usersAdded)} have been added`);
-
-    const usersWithStatus = toPairs(incomingData)
-        .map(([username, userdata]) => ({ username, data: JSON.parse(userdata) as UserDetails }));
-
-    const oneOffReaffirmationKey = "oneOffReaffirmation";
-    const reaffirmationDone = await context.redis.exists(oneOffReaffirmationKey);
-    if (!reaffirmationDone) {
-        const usersToReaffirm = usersWithStatus.filter(item => item.data.userStatus === UserStatus.Organic || item.data.userStatus === UserStatus.Declined || item.data.userStatus === UserStatus.Service);
-        await queueReclassifications(usersToReaffirm.map(item => ({ member: item.username, score: item.data.lastUpdate })), context);
-        await context.redis.set(oneOffReaffirmationKey, "true");
-        console.log(`Wiki Update: One-off reaffirmation for ${usersToReaffirm.length} ${pluralize("user", usersToReaffirm.length)} has been queued.`);
-    }
-
-    const recentUsersWithStatus = usersWithStatus.filter(item => new Date(item.data.lastUpdate) > lastUpdateDate);
-
-    if (recentUsersWithStatus.length > 0) {
-        const newUpdateDate = max(recentUsersWithStatus.map(item => item.data.lastUpdate)) ?? new Date().getTime();
-
-        const recentItems = recentUsersWithStatus.filter(item => new Date(item.data.lastUpdate) > lastUpdateDate);
-
-        if (recentItems.length > 0) {
-            await queueReclassifications(recentItems.map(item => ({ member: item.username, score: item.data.lastUpdate })), context);
-            await context.scheduler.runJob({
-                name: ClientSubredditJob.HandleClassificationChanges,
-                runAt: new Date(),
-            });
-
-            console.log(`Wiki Update: ${recentItems.length} ${pluralize("user", recentItems.length)} ${pluralize("has", recentItems.length)} been reclassified. Job scheduled to update local store.`);
-        }
-
-        await context.redis.set(lastUpdateDateKey, newUpdateDate.toString());
-    } else {
-        console.log("Wiki Update: Finished processing.");
-    }
-
-    await context.redis.set(lastUpdateKey, wikiPage.revisionId);
+    await context.redis.set(lastUpdateDoneKey, new Date().getTime().toString());
 }
 
 export async function removeRecordOfSubmitterOrMod (username: string, context: TriggerContext) {
@@ -570,9 +494,35 @@ export async function getInitialAccountProperties (username: string, context: Tr
 }
 
 export async function addUserToTempDeclineStore (username: string, context: TriggerContext) {
-    await context.redis.zAdd(TEMP_DECLINE_STORE, { member: username, score: new Date().getTime() });
+    await context.redis.global.zAdd(TEMP_DECLINE_STORE, { member: username, score: new Date().getTime() });
+    await context.redis.global.zAdd(RECENT_CHANGES_STORE, { member: username, score: new Date().getTime() });
     await context.redis.set(WIKI_UPDATE_DUE, "true");
 
     // Remove stale entries.
-    await context.redis.zRemRangeByScore(TEMP_DECLINE_STORE, 0, subHours(new Date(), 1).getTime());
+    await context.redis.global.zRemRangeByScore(TEMP_DECLINE_STORE, 0, subHours(new Date(), 1).getTime());
+}
+
+export async function isUserInTempDeclineStore (username: string, context: TriggerContext): Promise<boolean> {
+    const exists = await context.redis.global.zScore(TEMP_DECLINE_STORE, username);
+    return exists !== undefined;
+}
+
+export async function getRecentlyChangedUsers (since: Date, now: Date, context: TriggerContext): Promise<ZMember[]> {
+    return await context.redis.global.zRange(RECENT_CHANGES_STORE, since.getTime(), now.getTime(), { by: "score" });
+}
+
+export async function migrationToGlobalRedis (context: TriggerContext) {
+    const migrationDoneKey = "oneOffDataMigrationDone";
+    if (await context.redis.exists(migrationDoneKey)) {
+        console.log("Data Store: One-off data migration already completed.");
+        return;
+    }
+
+    if (context.subredditName !== CONTROL_SUBREDDIT) {
+        // For non-control subreddits, just clear out the old data store.
+        await context.redis.del("UserStore");
+    }
+
+    console.log("One-off data migration completed.");
+    await context.redis.set(migrationDoneKey, "true");
 }

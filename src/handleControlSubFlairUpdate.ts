@@ -71,7 +71,7 @@ export async function handleControlSubFlairUpdate (event: PostFlairUpdate, conte
             const flags = currentStatus.flags ?? [];
             flags.push(mapping.flagToSet);
             currentStatus.flags = uniq(flags);
-            await writeUserStatus(username, currentStatus, context.redis);
+            await writeUserStatus(username, currentStatus, context);
         }
 
         if (event.author.name !== context.appName) {

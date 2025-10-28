@@ -1,11 +1,10 @@
-import { Comment, JobContext, Post, RedisClient, TriggerContext, TxClientLike } from "@devvit/public-api";
-import { addDays, addHours, addSeconds, subDays, subSeconds } from "date-fns";
-import { CONTROL_SUB_CLEANUP_CRON, CONTROL_SUBREDDIT, PostFlairTemplate, UniversalJob } from "./constants.js";
+import { Comment, JobContext, JSONObject, Post, RedisClient, ScheduledJobEvent, TriggerContext, TxClientLike } from "@devvit/public-api";
+import { addDays, addHours, addSeconds, formatDuration, intervalToDuration, subDays, subMinutes, subSeconds } from "date-fns";
+import { CONTROL_SUBREDDIT, PostFlairTemplate, UniversalJob } from "./constants.js";
 import { deleteUserStatus, getUserStatus, removeRecordOfSubmitterOrMod, updateAggregate, UserStatus, writeUserStatus } from "./dataStore.js";
 import { getUserOrUndefined } from "./utility.js";
-import { removeRecordOfBan, removeWhitelistUnban } from "./handleClientSubredditWikiUpdate.js";
+import { removeRecordOfBan, removeWhitelistUnban } from "./handleClientSubredditClassificationChanges.js";
 import { max } from "lodash";
-import { CronExpressionParser } from "cron-parser";
 import { getControlSubSettings } from "./settings.js";
 
 export const CLEANUP_LOG_KEY = "CleanupLog";
@@ -30,13 +29,13 @@ export async function setCleanupForUser (username: string, redis: RedisClient | 
     await redis.zAdd(CLEANUP_LOG_KEY, ({ member: username, score: cleanupTime.getTime() }));
 }
 
-export async function setCleanupForSubmittersAndMods (usernames: string[], txn: TxClientLike) {
+export async function setCleanupForSubmittersAndMods (usernames: string[], context: JobContext | TriggerContext) {
     if (usernames.length === 0) {
         return;
     }
 
-    await txn.zAdd(SUB_OR_MOD_LOG_KEY, ...usernames.map(username => ({ member: username, score: new Date().getTime() })));
-    await Promise.all(usernames.map(username => setCleanupForUser(username, txn)));
+    await context.redis.zAdd(SUB_OR_MOD_LOG_KEY, ...usernames.map(username => ({ member: username, score: new Date().getTime() })));
+    await Promise.all(usernames.map(username => setCleanupForUser(username, context.redis)));
 }
 
 enum UserActiveStatus {
@@ -74,7 +73,7 @@ async function userActive (username: string, context: TriggerContext): Promise<U
     }
 }
 
-export async function cleanupDeletedAccounts (_: unknown, context: JobContext) {
+export async function cleanupDeletedAccounts (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
     const controlSubSettings = await getControlSubSettings(context);
     if (controlSubSettings.cleanupDisabled && context.subredditName === CONTROL_SUBREDDIT) {
         console.log("Cleanup: Cleanup is disabled, skipping.");
@@ -83,12 +82,20 @@ export async function cleanupDeletedAccounts (_: unknown, context: JobContext) {
 
     const items = await context.redis.zRange(CLEANUP_LOG_KEY, 0, new Date().getTime(), { by: "score" });
     if (items.length === 0) {
-        // No user accounts need to be checked.
-        console.log("Cleanup: No users to check.");
         return;
     }
 
     const runLimit = addSeconds(new Date(), 15);
+
+    const recentlyRunKey = "CleanupRecentlyRun";
+
+    if (event.data?.firstRun && await context.redis.exists(recentlyRunKey)) {
+        return;
+    }
+
+    const firstCleanupDate = new Date(items[0].score);
+
+    await context.redis.set(recentlyRunKey, "true", { expiration: addSeconds(new Date(), 30) });
 
     // Check platform is up.
     await context.reddit.getAppUser();
@@ -174,7 +181,7 @@ export async function cleanupDeletedAccounts (_: unknown, context: JobContext) {
             if (latestActivity) {
                 // Store the latest activity date.
                 currentStatus.mostRecentActivity = latestActivity;
-                await writeUserStatus(username, currentStatus, context.redis);
+                await writeUserStatus(username, currentStatus, context);
 
                 if (latestContent && new Date(latestContent) > subDays(new Date(), 14) && currentStatus.userStatus === UserStatus.Inactive) {
                     // User flagged as "Inactive", but with recent activity. Set to "Pending".
@@ -194,7 +201,7 @@ export async function cleanupDeletedAccounts (_: unknown, context: JobContext) {
                 // Change the post flair to Purged.
                 newFlair = PostFlairTemplate.Purged;
             } else {
-                await writeUserStatus(username, currentStatus, context.redis);
+                await writeUserStatus(username, currentStatus, context);
             }
 
             // Recheck suspended users every day for the first week
@@ -217,23 +224,21 @@ export async function cleanupDeletedAccounts (_: unknown, context: JobContext) {
         }
     }
 
-    console.log(`Cleanup: Active ${activeCount}, Deleted ${deletedCount}, Suspended ${suspendedCount}`);
+    let message = `Cleanup: Active ${activeCount}, Deleted ${deletedCount}, Suspended ${suspendedCount}.`;
+    if (firstCleanupDate < subMinutes(new Date(), 2)) {
+        const interval = intervalToDuration({ start: firstCleanupDate, end: new Date() });
+        message += ` Backlogged: ${formatDuration(interval, { format: ["days", "hours", "minutes"] })}.`;
+    }
+
+    console.log(message);
 
     if (usersToCheck.length > 0) {
-        // In a backlog.
-        // If in control subreddit, check to see if next run is imminent.
-        if (context.subredditName === CONTROL_SUBREDDIT) {
-            const nextRun = CronExpressionParser.parse(CONTROL_SUB_CLEANUP_CRON).next().toDate();
-            if (nextRun < addSeconds(new Date(), 30)) {
-                console.log(`Cleanup: Next run is imminent, skip next ad-hoc run.`);
-                return;
-            }
-        }
-
         await context.scheduler.runJob({
             name: UniversalJob.Cleanup,
             runAt: addSeconds(new Date(), 2),
         });
+    } else {
+        await context.redis.del(recentlyRunKey);
     }
 }
 
@@ -306,8 +311,8 @@ async function handleDeletedAccountControlSub (username: string, context: Trigge
         await txn.zRem(SUB_OR_MOD_LOG_KEY, [username]);
     }
 
-    await deleteUserStatus(username, txn);
     await txn.exec();
+    await deleteUserStatus(username, context);
 }
 
 async function handleDeletedAccountClientSub (username: string, redis: RedisClient) {

@@ -1,13 +1,16 @@
 /* eslint-disable @stylistic/quote-props */
-import { TriggerContext, UserSocialLink, WikiPage, WikiPagePermissionLevel } from "@devvit/public-api";
+import { JobContext, JSONObject, ScheduledJobEvent, TriggerContext, UserSocialLink, WikiPage, WikiPagePermissionLevel } from "@devvit/public-api";
 import { BIO_TEXT_STORE, DISPLAY_NAME_STORE, getFullDataStore, SOCIAL_LINKS_STORE, UserDetails, UserFlag, UserStatus } from "../dataStore.js";
 import Ajv, { JSONSchemaType } from "ajv";
 import pluralize from "pluralize";
 import json2md from "json2md";
 import { addSeconds, format } from "date-fns";
 import { setCleanupForUser } from "../cleanup.js";
-import { EvaluationResult, getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
+import { getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
 import { RedisHelper } from "../redisHelper.js";
+import { ModmailMessage } from "./modmail.js";
+import { chunk, fromPairs } from "lodash";
+import { ControlSubredditJob } from "../constants.js";
 
 interface ModmailDataExtract {
     status?: UserStatus[];
@@ -17,6 +20,8 @@ interface ModmailDataExtract {
     bioRegex?: string;
     displayNameRegex?: string;
     socialLinkStartsWith?: string;
+    socialLinkUrlRegex?: string;
+    socialLinkTitleRegex?: string;
     evaluator?: string;
     hitReason?: string;
     flags?: UserFlag[];
@@ -60,6 +65,14 @@ const schema: JSONSchemaType<ModmailDataExtract> = {
             type: "string",
             nullable: true,
         },
+        socialLinkUrlRegex: {
+            type: "string",
+            nullable: true,
+        },
+        socialLinkTitleRegex: {
+            type: "string",
+            nullable: true,
+        },
         evaluator: {
             type: "string",
             nullable: true,
@@ -99,14 +112,22 @@ const schema: JSONSchemaType<ModmailDataExtract> = {
 
 type UserDetailsWithBioAndSocialLinks = UserDetails & { bioText?: string; displayName?: string; socialLinks?: string };
 
-export async function dataExtract (message: string | undefined, conversationId: string, context: TriggerContext) {
-    if (!message?.startsWith("!extract {")) {
+function getExtractTempStoreKey (extractId: string) {
+    return `ModmailDataExtract~${extractId}`;
+}
+
+function getExtractTempQueueKey (extractId: string) {
+    return `ModmailDataExtractQueue~${extractId}`;
+}
+
+export async function dataExtract (message: ModmailMessage, conversationId: string, context: TriggerContext) {
+    if (!message.bodyMarkdown.startsWith("!extract {")) {
         return;
     }
 
-    console.log("Extracting data");
+    console.log("Data Extract: Starting extract process.");
 
-    const requestData = message.slice(9);
+    const requestData = message.bodyMarkdown.slice(9);
 
     let request: ModmailDataExtract;
     try {
@@ -162,9 +183,35 @@ export async function dataExtract (message: string | undefined, conversationId: 
         }
     }
 
+    if (request.bioRegex) {
+        try {
+            new RegExp(request.bioRegex);
+        } catch {
+            await context.reddit.modMail.reply({
+                conversationId,
+                body: "Invalid regex provided for `bioRegex`.",
+                isAuthorHidden: false,
+            });
+            return;
+        }
+    }
+
+    if (request.displayNameRegex) {
+        try {
+            new RegExp(request.displayNameRegex);
+        } catch {
+            await context.reddit.modMail.reply({
+                conversationId,
+                body: "Invalid regex provided for `displayNameRegex`.",
+                isAuthorHidden: false,
+            });
+            return;
+        }
+    }
+
     // Get all data from database.
     const allData = await getFullDataStore(context);
-    let data = Object.entries(allData)
+    const data = Object.entries(allData)
         .map(([username, data]) => ({ username, data: JSON.parse(data) as UserDetailsWithBioAndSocialLinks }))
         .filter((entry) => {
             if (request.status && !request.status.includes(entry.data.userStatus)) {
@@ -207,100 +254,214 @@ export async function dataExtract (message: string | undefined, conversationId: 
             return true; // Keep the entry if it passes all filters
         });
 
-    console.log(`Filtered data: ${data.length} entries match the criteria.`);
+    console.log(`Data Extract: Filtered data: ${data.length} entries match the criteria.`);
+
+    const extractId = Date.now().toString();
+
+    await Promise.all(chunk(data, 10000).map(async (dataChunk) => {
+        const dataToStore = fromPairs(dataChunk.map(entry => [entry.username, JSON.stringify(entry.data)]));
+        await context.redis.hSet(getExtractTempStoreKey(extractId), dataToStore);
+        await context.redis.zAdd(getExtractTempQueueKey(extractId), ...dataChunk.map(entry => ({ score: 0, member: entry.username })));
+    }));
+
+    await context.redis.expire(getExtractTempStoreKey(extractId), 3600); // 1 hour expiry
+    await context.redis.expire(getExtractTempQueueKey(extractId), 3600); // 1 hour expiry
+
+    console.log("Data Extract: Queuing data extract continuation job.");
+
+    await context.scheduler.runJob({
+        name: ControlSubredditJob.DataExtractJob,
+        runAt: new Date(),
+        data: {
+            extractId,
+            conversationId,
+            request: JSON.stringify(request),
+            firstRun: true,
+        },
+    });
+
+    let complicatedExtract = false;
+    if (request.bioRegex || request.displayNameRegex || request.socialLinkStartsWith || request.evaluator || request.hitReason) {
+        complicatedExtract = true;
+    }
+
+    if (complicatedExtract && data.length > 5000) {
+        await context.reddit.modMail.reply({
+            conversationId,
+            body: `This data extract uses filters that require additional processing. {${data.length.toLocaleString()}} users match the initial "simple" criteria, which means that the extract will take some time to process. Please wait for a follow-up message once the extract is complete.`,
+            isAuthorHidden: false,
+        });
+        return;
+    }
+}
+
+export async function continueDataExtract (event: ScheduledJobEvent<JSONObject | undefined>, context: TriggerContext) {
+    const extractId = event.data?.extractId as string | undefined;
+    const conversationId = event.data?.conversationId as string | undefined;
+    const request = event.data?.request ? JSON.parse(event.data.request as string) as ModmailDataExtract : undefined;
+
+    if (!extractId || !conversationId || !request) {
+        console.error("Data Extract: Missing extractId, conversationId, or request data extract job");
+        return;
+    }
+
+    if (!request.bioRegex && !request.displayNameRegex && !request.socialLinkStartsWith && !request.evaluator && !request.hitReason && !request.socialLinkUrlRegex && !request.socialLinkTitleRegex) {
+        await createDataExtract(extractId, request, conversationId, context);
+        return;
+    }
+
+    const entriesToRemove = new Set<string>();
+    const entriesToRewrite = new Set<string>();
+    const batchSize = request.evaluator || request.hitReason ? 400 : 2000;
+    const processingQueueData = await context.redis.zRange(getExtractTempQueueKey(extractId), 0, batchSize - 1);
+    const processingQueue = processingQueueData.map(entry => entry.member);
+
+    if (processingQueue.length === 0) {
+        console.log("Data Extract: No more entries to process, finalizing extract.");
+        await createDataExtract(extractId, request, conversationId, context);
+        return;
+    }
 
     const redisHelper = new RedisHelper(context.redis);
 
-    if (request.bioRegex) {
-        let regex: RegExp;
-        try {
-            regex = new RegExp(request.bioRegex);
-        } catch {
-            await context.reddit.modMail.reply({
-                conversationId,
-                body: "Invalid regex provided for `bioRegex`.",
-                isAuthorHidden: false,
-            });
-            return;
-        }
-        const bioTexts = await redisHelper.hMGet(BIO_TEXT_STORE, data.map(entry => entry.username));
+    const rawData = await redisHelper.hMGet(getExtractTempStoreKey(extractId), processingQueue);
+    const dataMapped = Object.entries(rawData)
+        .map(([username, data]) => ({ username, data: JSON.parse(data) as UserDetailsWithBioAndSocialLinks }));
 
-        for (const entry of data) {
-            if (bioTexts[entry.username] && regex.test(bioTexts[entry.username])) {
-                entry.data.bioText = bioTexts[entry.username];
+    const data = fromPairs(dataMapped.map(entry => [entry.username, entry.data]));
+
+    console.log(`Data Extract: Processing batch of ${processingQueue.length} entries.`);
+
+    if (request.bioRegex) {
+        const regex = new RegExp(request.bioRegex);
+        const bioTexts = await redisHelper.hMGet(BIO_TEXT_STORE, processingQueue);
+
+        for (const username of processingQueue) {
+            if (bioTexts[username] && regex.test(bioTexts[username])) {
+                data[username].bioText = bioTexts[username];
+                entriesToRewrite.add(username);
+            } else {
+                entriesToRemove.add(username);
             }
         }
-
-        data = data.filter(entry => entry.data.bioText);
-        console.log(`Filtered data by bioRegex: ${request.bioRegex}, remaining entries: ${data.length}`);
     }
 
     if (request.displayNameRegex) {
-        let regex: RegExp;
-        try {
-            regex = new RegExp(request.displayNameRegex);
-        } catch {
-            await context.reddit.modMail.reply({
-                conversationId,
-                body: "Invalid regex provided for `displayNameRegex`.",
-                isAuthorHidden: false,
-            });
-            return;
-        }
-
-        const displayNames = await redisHelper.hMGet(DISPLAY_NAME_STORE, data.map(entry => entry.username));
-        for (const entry of data) {
-            if (displayNames[entry.username] && regex.test(displayNames[entry.username])) {
-                entry.data.displayName = displayNames[entry.username];
+        const regex = new RegExp(request.displayNameRegex);
+        const displayNames = await redisHelper.hMGet(DISPLAY_NAME_STORE, processingQueue);
+        for (const username of processingQueue) {
+            if (displayNames[username] && regex.test(displayNames[username])) {
+                data[username].displayName = displayNames[username];
+                entriesToRewrite.add(username);
+            } else {
+                entriesToRemove.add(username);
             }
         }
-
-        data = data.filter(entry => entry.data.displayName);
-        console.log(`Filtered data by displayNameRegex: ${request.displayNameRegex}, remaining entries: ${data.length}`);
     }
 
-    if (request.socialLinkStartsWith) {
-        const socialLinkPrefix = request.socialLinkStartsWith.toLowerCase();
-        const socialLinks = await context.redis.hMGet(SOCIAL_LINKS_STORE, data.map(entry => entry.username));
-        for (let i = 0; i < data.length; i++) {
-            const userSocialLinks = socialLinks[i];
+    if (request.socialLinkStartsWith || request.socialLinkUrlRegex || request.socialLinkTitleRegex) {
+        const socialLinks = await redisHelper.hMGet(SOCIAL_LINKS_STORE, processingQueue);
+
+        const socialLinkPrefix = request.socialLinkStartsWith?.toLowerCase();
+        const socialLinkUrlRegex = request.socialLinkUrlRegex ? new RegExp(request.socialLinkUrlRegex) : undefined;
+        const socialLinkTitleRegex = request.socialLinkTitleRegex ? new RegExp(request.socialLinkTitleRegex) : undefined;
+
+        for (const username of processingQueue) {
+            const userSocialLinks = socialLinks[username];
             if (userSocialLinks) {
                 const link = JSON.parse(userSocialLinks) as UserSocialLink[];
-                const matchingLink = link.find(l => l.outboundUrl.startsWith(socialLinkPrefix));
+                const matchingLink = link.find((l) => {
+                    if (socialLinkPrefix && !l.outboundUrl.startsWith(socialLinkPrefix)) {
+                        return false;
+                    }
+                    if (socialLinkUrlRegex && !l.outboundUrl.match(socialLinkUrlRegex)) {
+                        return false;
+                    }
+                    if (socialLinkTitleRegex && !l.title.match(socialLinkTitleRegex)) {
+                        return false;
+                    }
+                    return true;
+                });
                 if (matchingLink) {
-                    data[i].data.socialLinks = matchingLink.outboundUrl;
+                    data[username].socialLinks = matchingLink.outboundUrl;
+                    entriesToRewrite.add(username);
+                } else {
+                    entriesToRemove.add(username);
                 }
+            } else {
+                entriesToRemove.add(username);
             }
         }
-
-        data = data.filter(entry => entry.data.socialLinks);
-        console.log(`Filtered data by socialLinkStartsWith: ${request.socialLinkStartsWith}, remaining entries: ${data.length}`);
     }
 
     if (request.evaluator || request.hitReason) {
-        console.log(`Filtering data for ${data.length} entries by evaluator: ${request.evaluator}`);
-        const evaluationResults: Record<string, EvaluationResult[]> = {};
-        await Promise.all(data.map(async (entry) => {
-            const results = await getAccountInitialEvaluationResults(entry.username, context);
-            if (results.length > 0) {
-                evaluationResults[entry.username] = await getAccountInitialEvaluationResults(entry.username, context);
-            } else {
-                evaluationResults[entry.username] = [];
-            }
-        }));
-
-        data = data.filter(entry => evaluationResults[entry.username].some((result) => {
-            if (request.evaluator && !result.botName.toLowerCase().includes(request.evaluator.toLowerCase())) {
-                return false;
+        await Promise.all(processingQueue.map(async (username) => {
+            const results = await getAccountInitialEvaluationResults(username, context);
+            if (results.length === 0) {
+                entriesToRemove.add(username);
+                return;
             }
 
-            if (request.hitReason && !result.hitReason?.toLowerCase().includes(request.hitReason.toLowerCase())) {
-                return false;
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+            if (request.evaluator && !results.some(result => result.botName.toLowerCase().includes(request.evaluator!.toLowerCase()))) {
+                entriesToRemove.add(username);
+                return;
             }
 
-            return true;
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+            if (request.hitReason && !results.some(result => result.hitReason?.toLowerCase().includes(request.hitReason!.toLowerCase()))) {
+                entriesToRemove.add(username);
+                return;
+            }
         }));
     }
+
+    if (entriesToRemove.size > 0) {
+        console.log(`Data Extract: Removing ${entriesToRemove.size} entries that did not match additional criteria.`);
+        await context.redis.hDel(getExtractTempStoreKey(extractId), Array.from(entriesToRemove));
+    }
+
+    if (entriesToRewrite.size > 0) {
+        const rewrittenData = fromPairs(Array.from(entriesToRewrite).map(username => [username, JSON.stringify(data[username])]));
+        await context.redis.hSet(getExtractTempStoreKey(extractId), rewrittenData);
+    }
+
+    await context.redis.zRem(getExtractTempQueueKey(extractId), processingQueue);
+
+    await context.scheduler.runJob({
+        name: ControlSubredditJob.DataExtractJob,
+        runAt: addSeconds(new Date(), 1),
+        data: {
+            extractId,
+            conversationId,
+            request: JSON.stringify(request),
+        },
+    });
+}
+
+async function createDataExtract (
+    extractId: string,
+    request: ModmailDataExtract,
+    conversationId: string,
+    context: JobContext,
+) {
+    const keys = await context.redis.hKeys(getExtractTempStoreKey(extractId));
+    if (keys.length > 5000) {
+        await context.reddit.modMail.reply({
+            conversationId,
+            body: `The data to export includes ${keys.length} records which exceeds the maximum of 5000. Detailed data cannot be shown.`,
+        });
+
+        await context.redis.del(getExtractTempStoreKey(extractId));
+        await context.redis.del(getExtractTempQueueKey(extractId));
+    }
+
+    const rawData = await context.redis.hGetAll(getExtractTempStoreKey(extractId));
+    const data = Object.entries(rawData)
+        .map(([username, data]) => ({ username, data: JSON.parse(data) as UserDetailsWithBioAndSocialLinks }));
+
+    await context.redis.del(getExtractTempStoreKey(extractId));
+    await context.redis.del(getExtractTempQueueKey(extractId));
 
     if (data.length === 0) {
         await context.reddit.modMail.reply({
