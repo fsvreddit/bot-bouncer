@@ -2,6 +2,7 @@ import { JobContext } from "@devvit/public-api";
 import { processExternalSubmissionsQueue } from "./externalSubmissions.js";
 import { processQueuedSubmission } from "./postCreation.js";
 import { processFeedbackQueue } from "./submissionFeedback.js";
+import { handleClassificationQueryQueue } from "./modmail/classificationQuery.js";
 
 export async function handleRapidJob (_: unknown, context: JobContext) {
     const startTime = Date.now();
@@ -18,4 +19,10 @@ export async function handleRapidJob (_: unknown, context: JobContext) {
         return;
     }
     await processFeedbackQueue(context);
+
+    if (Date.now() - startTime > 8000) {
+        return;
+    }
+
+    await handleClassificationQueryQueue(context);
 }
