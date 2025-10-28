@@ -199,7 +199,7 @@ export async function storeAccountInitialEvaluationResults (username: string, re
 
     const resultsToStore: EvaluationResult[] = results.map(result => ({
         botName: result.botName,
-        hitReason: result.hitReason && result.hitReason.length > 1000 ? `${result.hitReason.substring(0, 1000)}...` : result.hitReason,
+        hitReason: result.hitReason && result.hitReason.length > 500 ? `${result.hitReason.substring(0, 500)}...` : result.hitReason,
         canAutoBan: result.canAutoBan,
         metThreshold: result.metThreshold,
     }));
