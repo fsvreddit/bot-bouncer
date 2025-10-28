@@ -8,9 +8,9 @@ export const CONFIGURATION_DEFAULTS = {
     banMessage: `Bots and bot-like accounts are not welcome on /r/{subreddit}.
 
 [I am a bot, and this action was performed automatically](/r/${CONTROL_SUBREDDIT}/wiki/index).
-If you wish to appeal the classification of the /u/{account} account, please
+**If you wish to appeal the classification of the /u/{account} account, please
 [message /r/${CONTROL_SUBREDDIT}](https://www.reddit.com/message/compose?to=/r/${CONTROL_SUBREDDIT}&subject=Ban%20dispute%20for%20/u/{account}%20on%20/r/{subreddit}&message=bot%20classification%20appeal)
-rather than replying to this message.`,
+rather than replying to this message.**`,
 
     banNote: "Banned by /u/{me} at {date}",
 
