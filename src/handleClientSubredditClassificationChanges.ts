@@ -236,7 +236,11 @@ export async function queueRecentReclassifications (_: unknown, context: JobCont
     });
 }
 
-function effectiveStatus (userDetails: UserDetails): "human" | "bot" | undefined {
+function effectiveStatus (userDetails?: UserDetails): "human" | "bot" | undefined {
+    if (!userDetails) {
+        return;
+    }
+
     if (userDetails.userStatus === UserStatus.Pending) {
         return;
     }
@@ -295,17 +299,13 @@ export async function handleClassificationChanges (event: ScheduledJobEvent<JSON
         const username = item.member;
         const currentStatus = await getUserStatus(username, context);
 
-        if (!currentStatus) {
-            console.log(`Classification Update: No user status found for ${username}. Skipping.`);
-        } else {
-            const status = effectiveStatus(currentStatus);
-            if (status === "human") {
-                await handleSetOrganic(username, subredditName, settings, context);
-            } else if (status === "bot") {
-                await handleSetBanned(username, subredditName, settings, context);
-            } else if (await isUserInTempDeclineStore(username, context)) {
-                await handleSetOrganic(username, subredditName, settings, context);
-            }
+        const status = effectiveStatus(currentStatus);
+        if (status === "human") {
+            await handleSetOrganic(username, subredditName, settings, context);
+        } else if (status === "bot") {
+            await handleSetBanned(username, subredditName, settings, context);
+        } else if (await isUserInTempDeclineStore(username, context)) {
+            await handleSetOrganic(username, subredditName, settings, context);
         }
 
         await context.redis.zRem(RECLASSIFICATION_QUEUE, [username]);
