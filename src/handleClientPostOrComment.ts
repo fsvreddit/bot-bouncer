@@ -92,7 +92,7 @@ export async function handleClientCommentCreate (event: CommentCreate, context: 
             continue;
         }
 
-        if (evaluator.preEvaluateComment(event)) {
+        if (await Promise.resolve(evaluator.preEvaluateComment(event))) {
             possibleBot = true;
             break;
         }
@@ -297,7 +297,7 @@ async function checkAndReportPotentialBot (username: string, target: Post | Comm
                 continue;
             }
         } else {
-            if (!evaluator.preEvaluateComment(target)) {
+            if (!await Promise.resolve(evaluator.preEvaluateComment(target))) {
                 continue;
             }
         }
