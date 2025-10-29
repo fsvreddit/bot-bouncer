@@ -1,12 +1,12 @@
 import { Comment, JSONValue, Post, TriggerContext } from "@devvit/public-api";
-import { getUserSocialLinks, median, replaceAll } from "../utility.js";
+import { median, replaceAll } from "../utility.js";
 import { addMilliseconds, differenceInDays, differenceInHours, differenceInMilliseconds, differenceInMinutes, Duration, format, formatDuration, intervalToDuration, startOfDecade } from "date-fns";
 import { compact, countBy, mean, uniq } from "lodash";
 import { count } from "@wordpress/wordcount";
 import { isUserPotentiallyBlockingBot } from "./blockChecker.js";
 import pluralize from "pluralize";
 import { isLinkId } from "@devvit/public-api/types/tid.js";
-import { getUserExtended, UserExtended } from "../extendedDevvit.js";
+import { getUserExtended, getUserSocialLinks, UserExtended } from "../extendedDevvit.js";
 import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
 import { getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
 import json2md from "json2md";

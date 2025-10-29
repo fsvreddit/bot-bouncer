@@ -1,6 +1,5 @@
-import { Comment, Post, TriggerContext, User, UserSocialLink } from "@devvit/public-api";
+import { Comment, Post, TriggerContext, User } from "@devvit/public-api";
 import { isCommentId, isLinkId } from "@devvit/public-api/types/tid.js";
-import { addMinutes } from "date-fns";
 
 export function getUsernameFromUrl (url: string) {
     const urlRegex = /reddit\.com\/u(?:ser)?\/([\w_-]+)\/?(?:[?/].+)?$/i;
@@ -100,21 +99,4 @@ export async function sendMessageToWebhook (webhookUrl: string, message: string)
             body: JSON.stringify(params),
         },
     );
-}
-
-export async function getUserSocialLinks (username: string, context: TriggerContext): Promise<UserSocialLink[]> {
-    const socialLinksCacheKey = `userSocialLinks~${username}`;
-    const cachedLinks = await context.redis.get(socialLinksCacheKey);
-    if (cachedLinks) {
-        return JSON.parse(cachedLinks) as UserSocialLink[];
-    }
-
-    const user = await getUserOrUndefined(username, context);
-    if (!user) {
-        return [];
-    }
-
-    const socialLinks = await user.getSocialLinks();
-    await context.redis.set(socialLinksCacheKey, JSON.stringify(socialLinks), { expiration: addMinutes(new Date(), 20) });
-    return socialLinks;
 }
