@@ -63,9 +63,10 @@ async function handleModActionClientSub (event: ModAction, context: TriggerConte
         console.warn(`handleModActionClientSub: Bot Bouncer has been removed as a moderator from r/${context.subredditName} by u/${event.moderator?.name}`);
     }
 
-    // Special action for observer subreddits
+    // Special actions for observer subreddits
     if (event.action === "wikirevise" && event.moderator?.name.startsWith(context.appName) && event.moderator.name !== context.appName && event.moderator.name !== INTERNAL_BOT) {
         await handleBannedSubredditsModAction(event, context);
+        await handleExternalSubmissionsPageUpdate(context);
     }
 }
 

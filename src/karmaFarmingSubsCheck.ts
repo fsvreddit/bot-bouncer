@@ -157,7 +157,7 @@ async function isEvaluationDisabled (context: JobContext): Promise<boolean> {
 }
 
 export async function queueKarmaFarmingAccounts (accounts: string[], context: TriggerContext | JobContext) {
-    await context.redis.zAdd(ACCOUNTS_QUEUED_KEY, ...accounts.map(username => ({ member: username, score: new Date().getTime() })));
+    await context.redis.global.zAdd(ACCOUNTS_QUEUED_KEY, ...accounts.map(username => ({ member: username, score: new Date().getTime() })));
 }
 
 export async function queueKarmaFarmingSubs (_: unknown, context: JobContext) {
@@ -188,13 +188,13 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
     const runLimit = addSeconds(new Date(), 10);
     const batchSize = 10;
 
-    const totalQueued = await context.redis.zCard(ACCOUNTS_QUEUED_KEY);
+    const totalQueued = await context.redis.global.zCard(ACCOUNTS_QUEUED_KEY);
 
     if (event.data?.firstRun) {
         console.log(`Karma Farming Subs: First run in this batch, total queued: ${totalQueued}`);
     }
 
-    const accounts = (await context.redis.zRange(ACCOUNTS_QUEUED_KEY, 0, batchSize - 1)).map(item => item.member);
+    const accounts = (await context.redis.global.zRange(ACCOUNTS_QUEUED_KEY, 0, batchSize - 1)).map(item => item.member);
     if (accounts.length === 0) {
         console.log("Karma Farming Subs: No accounts to evaluate.");
         return;
@@ -210,7 +210,7 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
             break;
         }
 
-        await context.redis.zRem(ACCOUNTS_QUEUED_KEY, [account]);
+        await context.redis.global.zRem(ACCOUNTS_QUEUED_KEY, [account]);
 
         try {
             await evaluateAndHandleUser(account, variables, context);

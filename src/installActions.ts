@@ -78,11 +78,6 @@ async function addControlSubredditJobs (context: TriggerContext) {
         }),
 
         context.scheduler.runJob({
-            name: ControlSubredditJob.HandleObserverSubredditSubmissions,
-            cron: "1/5 * * * *", // Every 5 minutes
-        }),
-
-        context.scheduler.runJob({
             name: UniversalJob.Cleanup,
             cron: "* * * * *",
             data: { firstRun: true },
