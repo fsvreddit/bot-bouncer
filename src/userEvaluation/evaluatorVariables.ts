@@ -192,6 +192,11 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
         name: ControlSubredditJob.ConditionalStatsUpdate,
         runAt: addSeconds(new Date(), 10),
     });
+
+    if (controlSubSettings.monitoringWebhook) {
+        const username = event.data?.username as string | undefined ?? "unknown";
+        await sendMessageToWebhook(controlSubSettings.monitoringWebhook, `✅ Successfully updated evaluator variables from wiki edit by /u/${username}.`);
+    }
 }
 
 export function invalidEvaluatorVariableCondition (variables: Record<string, JSONValue>): string[] {
