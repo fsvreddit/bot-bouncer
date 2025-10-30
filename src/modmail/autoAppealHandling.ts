@@ -1,7 +1,7 @@
 /* eslint-disable @stylistic/quote-props */
-import { TriggerContext } from "@devvit/public-api";
+import { TriggerContext, UserSocialLink } from "@devvit/public-api";
 import Ajv, { JSONSchemaType } from "ajv";
-import { UserDetails, UserFlag, UserStatus } from "../dataStore.js";
+import { BIO_TEXT_STORE, SOCIAL_LINKS_STORE, UserDetails, UserFlag, UserStatus } from "../dataStore.js";
 import { getControlSubSettings } from "../settings.js";
 import { CONTROL_SUBREDDIT } from "../constants.js";
 import { parseAllDocuments } from "yaml";
@@ -31,8 +31,10 @@ interface AppealConfig {
     evaluatorHitReasonRegex?: string[];
     bioRegex?: string[];
     "~bioRegex"?: string[];
+    originalBioRegex?: string[];
     socialLinkRegex?: string[];
     "~socialLinkRegex"?: string[];
+    originalSocialLinkRegex?: string[];
     flags?: UserFlag[];
     "~flags"?: UserFlag[];
     setStatus?: string;
@@ -61,8 +63,10 @@ const appealConfigSchema: JSONSchemaType<AppealConfig[]> = {
             evaluatorHitReasonRegex: { type: "array", items: { type: "string" }, nullable: true },
             bioRegex: { type: "array", items: { type: "string" }, nullable: true },
             "~bioRegex": { type: "array", items: { type: "string" }, nullable: true },
+            originalBioRegex: { type: "array", items: { type: "string" }, nullable: true },
             socialLinkRegex: { type: "array", items: { type: "string" }, nullable: true },
             "~socialLinkRegex": { type: "array", items: { type: "string" }, nullable: true },
+            originalSocialLinkRegex: { type: "array", items: { type: "string" }, nullable: true },
             flags: { type: "array", items: { type: "string", enum: Object.values(UserFlag) }, nullable: true },
             "~flags": { type: "array", items: { type: "string", enum: Object.values(UserFlag) }, nullable: true },
             setStatus: { type: "string", enum: getPossibleSetStatusValues(), nullable: true },
@@ -212,6 +216,10 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
     // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
     const socialLinks = appealConfig.some(config => config.socialLinkRegex || config["~socialLinkRegex"]) ? await getUserSocialLinks(username, context) : [];
 
+    const originalBio = await context.redis.hGet(BIO_TEXT_STORE, username.toLowerCase());
+    const originalSocialLinks = await context.redis.hGet(SOCIAL_LINKS_STORE, username.toLowerCase())
+        .then(data => data ? JSON.parse(data) as UserSocialLink[] : []);
+
     const matchedAppealConfig = appealConfig.find((config) => {
         if (config.usernameRegex && !config.usernameRegex.some(regex => new RegExp(regex, "i").test(username))) {
             return;
@@ -260,13 +268,23 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
                 return;
             }
 
-            if (!config.bioRegex.some(regex => new RegExp(regex, "i").test(user.userDescription ?? ""))) {
+            if (!config.bioRegex.some(regex => new RegExp(regex, "iu").test(user.userDescription ?? ""))) {
                 return;
             }
         }
 
         if (config["~bioRegex"] && user?.userDescription) {
-            if (config["~bioRegex"].some(regex => new RegExp(regex, "i").test(user.userDescription ?? ""))) {
+            if (config["~bioRegex"].some(regex => new RegExp(regex, "iu").test(user.userDescription ?? ""))) {
+                return;
+            }
+        }
+
+        if (config.originalBioRegex) {
+            if (!originalBio) {
+                return;
+            }
+
+            if (!config.originalBioRegex.some(regex => new RegExp(regex, "iu").test(originalBio))) {
                 return;
             }
         }
@@ -283,6 +301,16 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
 
         if (config["~socialLinkRegex"] && socialLinks.length > 0) {
             if (config["~socialLinkRegex"].some(regex => socialLinks.some(link => new RegExp(regex, "i").test(link.outboundUrl)))) {
+                return;
+            }
+        }
+
+        if (config.originalSocialLinkRegex) {
+            if (originalSocialLinks.length === 0) {
+                return;
+            }
+
+            if (!config.originalSocialLinkRegex.some(regex => originalSocialLinks.some(link => new RegExp(regex, "i").test(link.outboundUrl)))) {
                 return;
             }
         }
