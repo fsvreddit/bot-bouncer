@@ -196,6 +196,8 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
     if (controlSubSettings.monitoringWebhook) {
         const username = event.data?.username as string | undefined ?? "unknown";
         await sendMessageToWebhook(controlSubSettings.monitoringWebhook, `✅ Successfully updated evaluator variables from wiki edit by /u/${username}.`);
+    } else {
+        console.log("Evaluator Variables: No monitoring webhook configured, skipping notification.");
     }
 }
 
