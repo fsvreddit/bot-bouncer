@@ -4,7 +4,7 @@ import { getUserStatus, UserStatus } from "../dataStore.js";
 import { getSummaryForUser } from "../UserSummary/userSummary.js";
 import { getUserOrUndefined, isBanned, isModerator } from "../utility.js";
 import { CONFIGURATION_DEFAULTS, getControlSubSettings } from "../settings.js";
-import { addDays, addHours, format, subMinutes } from "date-fns";
+import { addDays, addHours, addWeeks, format, subMinutes } from "date-fns";
 import json2md from "json2md";
 import { ModmailMessage } from "./modmail.js";
 import { dataExtract } from "./dataExtract.js";
@@ -103,9 +103,12 @@ export async function handleControlSubredditModmail (modmail: ModmailMessage, co
         const statusChangeMatch = statusChangeRegex.exec(modmail.bodyMarkdown);
         if (statusChangeMatch?.length === 2) {
             const newStatus = statusChangeMatch[1] as UserStatus;
+
+            const username = await getOverrideForSetStatusCommand(modmail.conversationId, context) ?? modmail.participant;
+
             const currentStatus = await getUserStatus(modmail.participant, context);
             if (currentStatus && isLinkId(currentStatus.trackingPostId) && currentStatus.userStatus !== newStatus) {
-                await context.redis.set(`userStatusOverride~${modmail.participant}`, modmail.messageAuthor, { expiration: addHours(new Date(), 2) });
+                await context.redis.set(`userStatusOverride~${username}`, modmail.messageAuthor, { expiration: addHours(new Date(), 2) });
 
                 const newFlairTemplate = statusToFlair[newStatus];
                 let newFlairText: string | undefined;
@@ -122,7 +125,13 @@ export async function handleControlSubredditModmail (modmail: ModmailMessage, co
 
                 await context.reddit.modMail.reply({
                     conversationId: modmail.conversationId,
-                    body: `User status changed to ${newStatus}.`,
+                    body: `User status for ${username} changed to ${newStatus}.`,
+                    isInternal: true,
+                });
+            } else {
+                await context.reddit.modMail.reply({
+                    conversationId: modmail.conversationId,
+                    body: `Did not set status for ${username}, either no existing status or they are already marked as ${newStatus}.`,
                     isInternal: true,
                 });
             }
@@ -380,4 +389,18 @@ async function showUserHistory (modmail: ModmailMessage, context: TriggerContext
         conversationId: modmail.conversationId,
         isInternal: true,
     });
+}
+
+function getOverrideKeyForSetStatusCommand (conversationId: string): string {
+    return `setStatusOverride~${conversationId}`;
+}
+
+export async function setOverrideForSetStatusCommand (conversationId: string, username: string, context: TriggerContext) {
+    const overrideKey = getOverrideKeyForSetStatusCommand(conversationId);
+    await context.redis.set(overrideKey, username, { expiration: addWeeks(new Date(), 4) });
+}
+
+async function getOverrideForSetStatusCommand (conversationId: string, context: TriggerContext): Promise<string | undefined> {
+    const overrideKey = getOverrideKeyForSetStatusCommand(conversationId);
+    return context.redis.get(overrideKey);
 }
