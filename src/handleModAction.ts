@@ -100,8 +100,8 @@ async function handleModActionControlSub (event: ModAction, context: TriggerCont
                     data: { username: event.moderator.name },
                 }),
 
-                queueConfigWikiCheck(ConfigWikiPage.AutoAppealHandling, 5, context),
                 queueConfigWikiCheck(ConfigWikiPage.ControlSubSettings, 10, context),
+                queueConfigWikiCheck(ConfigWikiPage.AutoAppealHandling, 20, context),
             ]);
         }
     }

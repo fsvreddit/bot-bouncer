@@ -89,14 +89,19 @@ export async function sendMessageToWebhook (webhookUrl: string, message: string)
         content: replaceAll(replaceAll(message, "\n\n\n", "\n\n"), "\n\n", "\n"),
     };
 
-    await fetch(
-        webhookUrl,
-        {
-            method: "post",
-            headers: {
-                "Content-Type": "application/json",
+    try {
+        const result = await fetch(
+            webhookUrl,
+            {
+                method: "post",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(params),
             },
-            body: JSON.stringify(params),
-        },
-    );
+        );
+        console.log("Webhook message sent, status:", result.status);
+    } catch (error) {
+        console.error("Error sending message to webhook:", error);
+    }
 }
