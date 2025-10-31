@@ -106,7 +106,9 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
         }
     }
 
+    const failedEvaluatorVariablesKey = "failedEvaluatorVariables";
     if (invalidEntries.length > 0) {
+        await context.redis.set(failedEvaluatorVariablesKey, "true");
         if (!event.data?.username) {
             console.error("Evaluator Variables: Evaluator variables contains issues. Will fall back to cached values.");
             return;
@@ -193,7 +195,9 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
         runAt: addSeconds(new Date(), 10),
     });
 
-    if (controlSubSettings.monitoringWebhook) {
+    const previouslyFailed = await context.redis.exists(failedEvaluatorVariablesKey);
+    await context.redis.del(failedEvaluatorVariablesKey);
+    if (previouslyFailed && controlSubSettings.monitoringWebhook) {
         const username = event.data?.username as string | undefined ?? "unknown";
         await sendMessageToWebhook(controlSubSettings.monitoringWebhook, `✅ Successfully updated evaluator variables from wiki edit by /u/${username}.`);
     } else {
