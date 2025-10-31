@@ -5,6 +5,7 @@
   "license": "BSD-3-Clause",
   "type": "module",
   "scripts": {
+    "deploy": "devvit upload && devvit publish && devvit install botbouncer",
     "logs": "devvit logs botbouncer --verbose --since 5m",
     "test": "npm run test:unit",
     "test:unit": "vitest --run"
