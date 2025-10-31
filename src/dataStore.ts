@@ -437,19 +437,21 @@ export async function removeRecordOfSubmitterOrMod (username: string, context: T
     const data = await getFullDataStore(context);
     const entries = Object.entries(data).map(([key, value]) => ({ username: key, details: JSON.parse(value) as UserDetails }));
 
+    let entriesUpdated = 0;
     for (const entry of entries.filter(item => item.details.operator === username || item.details.submitter === username)) {
         const updatedDetails = { ...entry.details };
         if (updatedDetails.operator === username) {
-            updatedDetails.operator = "";
+            delete updatedDetails.operator;
         }
         if (updatedDetails.submitter === username) {
             delete updatedDetails.submitter;
         }
 
-        await setUserStatus(entry.username, updatedDetails, context);
+        await writeUserStatus(entry.username, updatedDetails, context);
+        entriesUpdated++;
     }
 
-    console.log(`Cleanup: Removed records of ${username} as submitter or operator`);
+    console.log(`Cleanup: Removed ${entriesUpdated} ${pluralize("record", entriesUpdated)} of ${username} as submitter or operator`);
 }
 
 export async function storeInitialAccountProperties (username: string, context: TriggerContext) {
