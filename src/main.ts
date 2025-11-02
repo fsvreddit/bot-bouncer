@@ -29,6 +29,7 @@ import { conditionalStatsUpdate } from "./statistics/conditionalStatsUpdate.js";
 import { asyncWikiUpdate } from "./statistics/asyncWikiUpdate.js";
 import { generateBioStatisticsReport, updateBioStatisticsJob } from "./statistics/userBioStatistics.js";
 import { continueDataExtract } from "./modmail/dataExtract.js";
+import { redosChecker } from "./userEvaluation/redosChecker.js";
 
 Devvit.addSettings(appSettings);
 
@@ -217,6 +218,11 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: ControlSubredditJob.DataExtractJob,
     onRun: continueDataExtract,
+});
+
+Devvit.addSchedulerJob({
+    name: ControlSubredditJob.EvaluatorReDoSChecker,
+    onRun: redosChecker,
 });
 
 /**

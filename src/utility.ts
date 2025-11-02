@@ -105,3 +105,11 @@ export async function sendMessageToWebhook (webhookUrl: string, message: string)
         console.error("Error sending message to webhook:", error);
     }
 }
+
+export function encodedText (input: string): string {
+    return Buffer.from(input, "utf-8").toString("base64");
+}
+
+export function decodedText (input: string): string {
+    return Buffer.from(input, "base64").toString("utf-8");
+}

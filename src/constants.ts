@@ -50,6 +50,7 @@ export enum ControlSubredditJob {
     BioStatsGenerateReport = "bioStatsGenerateReport",
     DataExtractJob = "dataExtractJob",
     UpdateEvaluatorVariables = "updateEvaluatorVariables",
+    EvaluatorReDoSChecker = "evaluatorReDoSChecker",
 }
 
 /**

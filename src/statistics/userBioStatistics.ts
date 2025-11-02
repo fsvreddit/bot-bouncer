@@ -8,6 +8,7 @@ import { ControlSubredditJob } from "../constants.js";
 import { RedisHelper } from "../redisHelper.js";
 import crypto from "crypto";
 import { userIsBanned } from "./statsHelpers.js";
+import { decodedText, encodedText } from "../utility.js";
 
 const BIO_QUEUE = "BioTextQueue";
 const BIO_STATS_TEMP_STORE = "BioTextStatsTempStore";
@@ -78,14 +79,6 @@ function anyRegexMatches (text: string, regexes: string[]): boolean {
 
 function sha1hash (input: string): string {
     return crypto.createHash("sha256").update(input).digest("hex");
-}
-
-function encodedText (input: string): string {
-    return Buffer.from(input, "utf-8").toString("base64");
-}
-
-function decodedText (input: string): string {
-    return Buffer.from(input, "base64").toString("utf-8");
 }
 
 export async function updateBioStatisticsJob (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
