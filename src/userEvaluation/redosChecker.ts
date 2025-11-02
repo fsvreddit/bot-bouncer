@@ -2,7 +2,6 @@ import { JobContext, JSONObject, ScheduledJobEvent } from "@devvit/public-api";
 import { ControlSubredditJob } from "../constants.js";
 import { ALL_EVALUATORS, EvaluatorRegex } from "@fsvreddit/bot-bouncer-evaluation";
 import { getEvaluatorVariables } from "./evaluatorVariables.js";
-import { getControlSubSettings } from "../settings.js";
 import { addMinutes, addSeconds } from "date-fns";
 import { isSafe } from "redos-detector";
 import { decodedText, encodedText, replaceAll } from "../utility.js";
@@ -78,8 +77,6 @@ export async function redosChecker (event: ScheduledJobEvent<JSONObject | undefi
 
         const regexEntry = JSON.parse(decodedText(entry)) as EvaluatorRegex;
 
-        await getControlSubSettings(context);
-
         let regex: RegExp | undefined;
         try {
             regex = new RegExp(regexEntry.regex, regexEntry.flags);
@@ -107,7 +104,7 @@ export async function redosChecker (event: ScheduledJobEvent<JSONObject | undefi
         await context.redis.zRem(REDOS_QUEUE_KEY, processed);
     }
 
-    console.log(`ReDoS Checker: Processed ${processed.length} entries, ${redosQueue.length} remaining, batch #${batchNumber} complete.`);
+    console.log(`ReDoS Checker: Processed ${processed.length} entries, ${remainingEntries - processed.length} remaining, batch #${batchNumber} complete.`);
 
     if (remainingEntries > processed.length) {
         await context.scheduler.runJob({
