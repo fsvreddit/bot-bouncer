@@ -135,11 +135,15 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
                 await sendMessageToWebhook(controlSubSettings.monitoringWebhook, json2md(discordMessage));
             }
 
-            await context.reddit.sendPrivateMessage({
-                subject: "Problem with evaluator variables config after edit",
-                to: username,
-                text: messageBody,
-            });
+            try {
+                await context.reddit.sendPrivateMessage({
+                    subject: "Problem with evaluator variables config after edit",
+                    to: username,
+                    text: messageBody,
+                });
+            } catch (error) {
+                console.error(`Evaluator Variables: Failed to send PM to ${username} about invalid evaluator variables.`, error);
+            }
 
             return;
         }
