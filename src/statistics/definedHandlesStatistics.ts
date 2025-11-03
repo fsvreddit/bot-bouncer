@@ -8,6 +8,7 @@ import json2md from "json2md";
 import { replaceAll } from "../utility.js";
 import { StatsUserEntry } from "../sixHourlyJobs.js";
 import { userIsBanned } from "./statsHelpers.js";
+import { parse } from "regjsparser";
 
 const DEFINED_HANDLES_QUEUE = "definedHandlesQueue";
 const DEFINED_HANDLES_DATA = "definedHandlesData";
@@ -117,7 +118,7 @@ export async function gatherDefinedHandlesStats (event: ScheduledJobEvent<JSONOb
         const userDefinedHandles = userDefinedHandlesPostsData[username] ?? [];
 
         const handlesFound = handles.map((handle) => {
-            const regex = new RegExp(`\\b${handle}\\b`);
+            const regex = new RegExp(`\\b${handle}\\b`, "u");
             return {
                 handle,
                 foundInBio: regex.test(userBioText),
@@ -230,34 +231,16 @@ async function buildDefinedHandlesWikiPage (context: JobContext) {
 
 async function getDefinedHandles (context: JobContext): Promise<string[]> {
     const definedHandles = await getEvaluatorVariable<string>("substitutions:definedhandles", context) ?? "";
-    return getHandlesFromRegex(definedHandles);
-}
+    if (definedHandles.length === 0) {
+        return [];
+    }
 
-export function getHandlesFromRegex (input: string): string[] {
-    // Split only on top-level pipes, not inside parentheses
-    const result: string[] = [];
-    let current = "";
-    let depth = 0;
-    // eslint-disable-next-line @typescript-eslint/prefer-for-of
-    for (let i = 0; i < input.length; i++) {
-        const char = input[i];
-        if (char === "(") {
-            depth++;
-            current += char;
-        } else if (char === ")") {
-            depth = Math.max(0, depth - 1);
-            current += char;
-        } else if (char === "|" && depth === 0) {
-            result.push(current.trim());
-            current = "";
-        } else {
-            current += char;
-        }
+    const parsedHandles = parse(definedHandles, "u");
+    if (parsedHandles.type !== "disjunction") {
+        return [];
     }
-    if (current.length > 0) {
-        result.push(current.trim());
-    }
-    return result;
+
+    return parsedHandles.body.map(node => node.raw);
 }
 
 async function storeDefinedHandlesData (username: string, context: JobContext) {
@@ -281,7 +264,7 @@ async function storeDefinedHandlesData (username: string, context: JobContext) {
     const foundHandles: UserDefinedHandlePost[] = [];
 
     for (const handle of handles) {
-        const regex = new RegExp(`\\b${handle}\\b`);
+        const regex = new RegExp(`\\b${handle}\\b`, "u");
         const foundPost = postHistory.find(post => regex.test(post.title));
         if (foundPost) {
             foundHandles.push({

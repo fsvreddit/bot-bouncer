@@ -30,6 +30,7 @@
     "pako": "^2.1.0",
     "pluralize": "^8.0.0",
     "redos-detector": "^6.1.2",
+    "regjsparser": "^0.13.0",
     "semver": "^7.7.1",
     "yaml": "^2.8.1"
   },
