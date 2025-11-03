@@ -14,6 +14,7 @@ const BIO_QUEUE = "BioTextQueue";
 const BIO_STATS_TEMP_STORE = "BioTextStatsTempStore";
 const BIO_STATS_COUNTS = "BioTextStatsCounts";
 const BIO_STATS_SUCCESSFUL_RETRIEVALS = "BioTextStatsSuccessfulRetrievals";
+const BIO_STATS_UPDATE_IN_PROGRESS = "BioTextStatsUpdateInProgress";
 
 interface BioRecord {
     bioText: string;
@@ -34,9 +35,15 @@ async function clearDownTemporaryKeys (context: JobContext) {
     await context.redis.del(BIO_QUEUE);
     await context.redis.del(BIO_STATS_TEMP_STORE);
     await context.redis.del(BIO_STATS_COUNTS);
+    await context.redis.del(BIO_STATS_UPDATE_IN_PROGRESS);
 }
 
 export async function updateBioStatistics (allEntries: StatsUserEntry[], context: JobContext) {
+    if (await context.redis.exists(BIO_STATS_UPDATE_IN_PROGRESS)) {
+        console.log("Bio Stats: Update already in progress, skipping this run");
+        return;
+    }
+
     const recentData = allEntries
         .filter(item => item.data.reportedAt && new Date(item.data.reportedAt) >= subWeeks(new Date(), 2))
         .filter(item => userIsBanned(item.data));
@@ -82,6 +89,7 @@ function sha1hash (input: string): string {
 }
 
 export async function updateBioStatisticsJob (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
+    await context.redis.set(BIO_STATS_UPDATE_IN_PROGRESS, "true", { expiration: addSeconds(new Date(), 30) });
     const redisHelper = new RedisHelper(context.redis);
     const configuredBioRegexes = event.data?.configuredBioRegexes as string[] | undefined ?? [];
 
