@@ -87,7 +87,7 @@ export async function redosChecker (event: ScheduledJobEvent<JSONObject | undefi
         }
 
         try {
-            const safeResult = isSafe(regex, { maxScore: 500, timeout: 1000 });
+            const safeResult = isSafe(regex, { maxScore: 500, timeout: 500 });
             if (!safeResult.safe) {
                 await context.redis.zAdd(REDOS_HITS_KEY, ({ member: entry, score: Date.now() }));
 
