@@ -1,6 +1,6 @@
 import { JobContext, TriggerContext } from "@devvit/public-api";
 import { getUserStatus, setUserStatus, storeInitialAccountProperties, touchUserStatus, UserDetails, UserStatus } from "./dataStore.js";
-import { CONTROL_SUBREDDIT, ControlSubredditJob, PostFlairTemplate } from "./constants.js";
+import { CONTROL_SUBREDDIT, ControlSubredditJob, INTERNAL_BOT, PostFlairTemplate } from "./constants.js";
 import { UserExtended } from "./extendedDevvit.js";
 import { addHours, addSeconds } from "date-fns";
 import { getControlSubSettings } from "./settings.js";
@@ -146,7 +146,12 @@ export async function queuePostCreation (submission: AsyncSubmission, context: T
         return PostCreationQueueResult.AlreadyInDatabase;
     }
 
-    const score = submission.immediate ? new Date().getTime() / 1000 : new Date().getTime();
+    let score = submission.immediate ? new Date().getTime() / 1000 : new Date().getTime();
+
+    // Hacky workaround to promote private bot submissions
+    if (submission.details.submitter?.startsWith(`${context.appName}-`) && submission.details.submitter !== INTERNAL_BOT) {
+        score /= 2;
+    }
 
     const txn = await context.redis.watch();
     await txn.multi();
