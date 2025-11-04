@@ -220,6 +220,7 @@ export interface ControlSubSettings {
     postCreationQueueProcessingEnabled?: boolean;
     allowClassificationQueries?: boolean;
     legacyWikiPageUpdateFrequencyMinutes: number;
+    redosCheckerEnabled?: boolean;
     appRemovedMessage?: string;
 }
 
@@ -245,6 +246,7 @@ const schema: JSONSchemaType<ControlSubSettings> = {
         postCreationQueueProcessingEnabled: { type: "boolean", nullable: true },
         allowClassificationQueries: { type: "boolean", nullable: true },
         legacyWikiPageUpdateFrequencyMinutes: { type: "number" },
+        redosCheckerEnabled: { type: "boolean", nullable: true },
         appRemovedMessage: { type: "string", nullable: true },
     },
     required: ["evaluationDisabled", "trustedSubmitters", "reporterBlacklist"],

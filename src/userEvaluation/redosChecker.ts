@@ -7,6 +7,7 @@ import { isSafe } from "redos-detector";
 import { decodedText, encodedText, replaceAll } from "../utility.js";
 import { RedisHelper } from "../redisHelper.js";
 import json2md from "json2md";
+import { getControlSubSettings } from "../settings.js";
 
 const REDOS_QUEUE_KEY = "evaluatorRedosQueue";
 const REDOS_HITS_KEY = "evaluatorRedosHits";
@@ -34,6 +35,12 @@ export async function redosChecker (event: ScheduledJobEvent<JSONObject | undefi
     if (event.data?.firstRun) {
         if (await context.redis.exists(inProgressKey)) {
             console.log("ReDoS Checker: Previous run still in progress, skipping this run.");
+            return;
+        }
+
+        const controlSubSettings = await getControlSubSettings(context);
+        if (!controlSubSettings.redosCheckerEnabled) {
+            console.log("ReDoS Checker: ReDoS checker is disabled in control sub settings, skipping this run.");
             return;
         }
 
