@@ -35,8 +35,7 @@ export interface AsyncSubmission {
 }
 
 export async function isUserAlreadyQueued (username: string, context: JobContext): Promise<boolean> {
-    const score = await context.redis.zScore(SUBMISSION_QUEUE, username);
-    return score !== undefined;
+    return await context.redis.zScore(SUBMISSION_QUEUE, username).then(score => score !== undefined);
 }
 
 async function createNewSubmission (submission: AsyncSubmission, context: TriggerContext) {

@@ -35,77 +35,31 @@ const schema: JSONSchemaType<ModmailDataExtract> = {
     properties: {
         status: {
             type: "array",
-            items: {
-                type: "string",
-                enum: Object.values(UserStatus),
-            },
+            items: { type: "string", enum: Object.values(UserStatus) },
             nullable: true,
         },
-        submitter: {
-            type: "string",
-            nullable: true,
-        },
-        operator: {
-            type: "string",
-            nullable: true,
-        },
-        usernameRegex: {
-            type: "string",
-            nullable: true,
-        },
-        bioRegex: {
-            type: "string",
-            nullable: true,
-        },
-        displayNameRegex: {
-            type: "string",
-            nullable: true,
-        },
-        socialLinkStartsWith: {
-            type: "string",
-            nullable: true,
-        },
-        socialLinkUrlRegex: {
-            type: "string",
-            nullable: true,
-        },
-        socialLinkTitleRegex: {
-            type: "string",
-            nullable: true,
-        },
-        evaluator: {
-            type: "string",
-            nullable: true,
-        },
-        hitReason: {
-            type: "string",
-            nullable: true,
-        },
+        submitter: { type: "string", nullable: true },
+        operator: { type: "string", nullable: true },
+        usernameRegex: { type: "string", nullable: true },
+        bioRegex: { type: "string", nullable: true },
+        displayNameRegex: { type: "string", nullable: true },
+        socialLinkStartsWith: { type: "string", nullable: true },
+        socialLinkUrlRegex: { type: "string", nullable: true },
+        socialLinkTitleRegex: { type: "string", nullable: true },
+        evaluator: { type: "string", nullable: true },
+        hitReason: { type: "string", nullable: true },
         flags: {
             type: "array",
-            items: {
-                type: "string",
-                enum: Object.values(UserFlag),
-            },
+            items: { type: "string", enum: Object.values(UserFlag) },
             nullable: true,
         },
         "~flags": {
             type: "array",
-            items: {
-                type: "string",
-                enum: Object.values(UserFlag),
-            },
+            items: { type: "string", enum: Object.values(UserFlag) },
             nullable: true,
         },
-        since: {
-            type: "string",
-            nullable: true,
-            pattern: "^\\d{4}-\\d{2}-\\d{2}$", // YYYY-MM-DD format
-        },
-        recheck: {
-            type: "boolean",
-            nullable: true,
-        },
+        since: { type: "string", nullable: true, pattern: "^\\d{4}-\\d{2}-\\d{2}$" },
+        recheck: { type: "boolean", nullable: true },
     },
     additionalProperties: false,
 };

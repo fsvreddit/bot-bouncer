@@ -505,8 +505,7 @@ export async function addUserToTempDeclineStore (username: string, context: Trig
 }
 
 export async function isUserInTempDeclineStore (username: string, context: TriggerContext): Promise<boolean> {
-    const exists = await context.redis.global.zScore(TEMP_DECLINE_STORE, username);
-    return exists !== undefined;
+    return await context.redis.global.zScore(TEMP_DECLINE_STORE, username).then(exists => exists !== undefined);
 }
 
 export async function getRecentlyChangedUsers (since: Date, now: Date, context: TriggerContext): Promise<ZMember[]> {

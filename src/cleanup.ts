@@ -12,8 +12,7 @@ const SUB_OR_MOD_LOG_KEY = "SubOrModLog";
 const DAYS_BETWEEN_CHECKS = 7;
 
 export async function userHasCleanupEntry (username: string, context: JobContext | TriggerContext): Promise<boolean> {
-    const score = await context.redis.zScore(CLEANUP_LOG_KEY, username);
-    return !!score;
+    return await context.redis.zScore(CLEANUP_LOG_KEY, username).then(score => score !== undefined);
 }
 
 export async function setCleanupForUser (username: string, redis: RedisClient | TxClientLike, overrideDate?: Date) {

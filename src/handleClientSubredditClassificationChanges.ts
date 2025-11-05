@@ -27,8 +27,7 @@ export async function removeRecordOfBan (username: string, redis: RedisClient) {
 }
 
 export async function wasUserBannedByApp (username: string, context: TriggerContext): Promise<boolean> {
-    const score = await context.redis.zScore(BAN_STORE, username);
-    return score !== undefined;
+    return await context.redis.zScore(BAN_STORE, username).then(score => score !== undefined);
 }
 
 export async function recordWhitelistUnban (username: string, context: TriggerContext) {
@@ -54,8 +53,7 @@ export async function removeWhitelistUnban (username: string, redis: RedisClient
 }
 
 export async function isUserWhitelisted (username: string, context: TriggerContext) {
-    const score = await context.redis.zScore(UNBAN_WHITELIST, username);
-    return score !== undefined;
+    return await context.redis.zScore(UNBAN_WHITELIST, username).then(score => score !== undefined);
 }
 
 async function approveIfNotRemovedByMod (targetId: string, context: TriggerContext) {
