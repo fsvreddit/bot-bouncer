@@ -157,7 +157,12 @@ async function isEvaluationDisabled (context: JobContext): Promise<boolean> {
 }
 
 export async function queueKarmaFarmingAccounts (accounts: string[], context: TriggerContext | JobContext) {
-    await context.redis.global.zAdd(ACCOUNTS_QUEUED_KEY, ...accounts.map(username => ({ member: username, score: new Date().getTime() })));
+    const entriesToAdd: ZMember[] = [];
+    const baseline = Date.now();
+    accounts.forEach((username, index) => {
+        entriesToAdd.push({ member: username, score: baseline + index });
+    });
+    await context.redis.global.zAdd(ACCOUNTS_QUEUED_KEY, ...entriesToAdd);
 }
 
 export async function queueKarmaFarmingSubs (_: unknown, context: JobContext) {
@@ -179,33 +184,56 @@ export async function queueKarmaFarmingSubs (_: unknown, context: JobContext) {
 }
 
 export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
-    const inProgressKey = "KarmaFarmingSubsInProgress";
-    if (event.data?.firstRun && await context.redis.exists(inProgressKey)) {
+    if (event.data?.firstRun && !event.data.cohort) {
+        await Promise.all([
+            context.scheduler.runJob({
+                name: ControlSubredditJob.EvaluateKarmaFarmingSubs,
+                runAt: new Date(),
+                data: { firstRun: false, cohort: "evens" },
+            }),
+            context.scheduler.runJob({
+                name: ControlSubredditJob.EvaluateKarmaFarmingSubs,
+                runAt: new Date(),
+                data: { firstRun: false, cohort: "odds" },
+            }),
+        ]);
         return;
     }
+
+    const cohort = event.data?.cohort;
+    if (!cohort || (cohort !== "evens" && cohort !== "odds")) {
+        console.error("Karma Farming Subs: Invalid or missing cohort.");
+        return;
+    }
+
+    const inProgressKey = `KarmaFarmingSubsInProgress:${cohort}`;
+
     await context.redis.set(inProgressKey, "true", { expiration: addSeconds(new Date(), 30) });
 
     const runLimit = addSeconds(new Date(), 10);
     const batchSize = 10;
 
-    const totalQueued = await context.redis.global.zCard(ACCOUNTS_QUEUED_KEY);
+    const accounts = await context.redis.global.zRange(ACCOUNTS_QUEUED_KEY, 0, -1)
+        .then((allAccounts) => {
+            if (cohort === "evens") {
+                return allAccounts.filter((_, index) => index % 2 === 0);
+            } else {
+                return allAccounts.filter((_, index) => index % 2 !== 0);
+            }
+        });
 
-    if (event.data?.firstRun) {
-        console.log(`Karma Farming Subs: First run in this batch, total queued: ${totalQueued}`);
-    }
-
-    const accounts = await context.redis.global.zRange(ACCOUNTS_QUEUED_KEY, 0, batchSize - 1);
     if (accounts.length === 0) {
         console.log("Karma Farming Subs: No accounts to evaluate.");
         return;
     }
 
     let processed = 0;
+    const totalQueued = accounts.length;
     const firstDate = new Date(accounts[0].score);
 
     const variables = await getEvaluatorVariables(context);
 
-    while (new Date() < runLimit) {
+    while (processed < batchSize && new Date() < runLimit) {
         const account = accounts.shift()?.member;
         if (!account) {
             break;
@@ -224,7 +252,7 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
 
     const remaining = totalQueued - processed;
     if (remaining > 0) {
-        let message = `Karma Farming Subs: ${processed} checked, ${remaining} ${pluralize("account", remaining)} remaining to evaluate`;
+        let message = `Karma Farming Subs: ${processed} checked, ${remaining} ${pluralize("account", remaining)} remaining, ${cohort}`;
         const backlog = differenceInMinutes(new Date(), firstDate);
         if (backlog > 5) {
             message += `, backlog: ${backlog} ${pluralize("minute", backlog)}`;
@@ -234,6 +262,7 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
         await context.scheduler.runJob({
             name: ControlSubredditJob.EvaluateKarmaFarmingSubs,
             runAt: new Date(),
+            data: { firstRun: false, cohort },
         });
     } else {
         console.log(`Karma Farming Subs: Finished checking remaining ${processed} ${pluralize("account", processed)}.`);
