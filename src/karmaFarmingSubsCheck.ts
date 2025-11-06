@@ -5,7 +5,7 @@ import { CONTROL_SUBREDDIT, ControlSubredditJob } from "./constants.js";
 import { getAllKnownUsers, getUserStatus, UserDetails, UserStatus } from "./dataStore.js";
 import { evaluateUserAccount, storeAccountInitialEvaluationResults, userHasContinuousNSFWHistory } from "./handleControlSubAccountEvaluation.js";
 import { getControlSubSettings } from "./settings.js";
-import { addSeconds, subMinutes, subWeeks } from "date-fns";
+import { addSeconds, differenceInMinutes, subMinutes, subWeeks } from "date-fns";
 import { getUserExtended } from "./extendedDevvit.js";
 import { AsyncSubmission, PostCreationQueueResult, queuePostCreation } from "./postCreation.js";
 import pluralize from "pluralize";
@@ -194,18 +194,19 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
         console.log(`Karma Farming Subs: First run in this batch, total queued: ${totalQueued}`);
     }
 
-    const accounts = (await context.redis.global.zRange(ACCOUNTS_QUEUED_KEY, 0, batchSize - 1)).map(item => item.member);
+    const accounts = await context.redis.global.zRange(ACCOUNTS_QUEUED_KEY, 0, batchSize - 1);
     if (accounts.length === 0) {
         console.log("Karma Farming Subs: No accounts to evaluate.");
         return;
     }
 
     let processed = 0;
+    const firstDate = new Date(accounts[0].score);
 
     const variables = await getEvaluatorVariables(context);
 
     while (new Date() < runLimit) {
-        const account = accounts.shift();
+        const account = accounts.shift()?.member;
         if (!account) {
             break;
         }
@@ -223,7 +224,12 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
 
     const remaining = totalQueued - processed;
     if (remaining > 0) {
-        console.log(`Karma Farming Subs: ${processed} checked, ${remaining} ${pluralize("account", remaining)} remaining to evaluate`);
+        let message = `Karma Farming Subs: ${processed} checked, ${remaining} ${pluralize("account", remaining)} remaining to evaluate`;
+        const backlog = differenceInMinutes(new Date(), firstDate);
+        if (backlog > 5) {
+            message += `, backlog: ${backlog} ${pluralize("minute", backlog)}`;
+        }
+        console.log(message);
 
         await context.scheduler.runJob({
             name: ControlSubredditJob.EvaluateKarmaFarmingSubs,
