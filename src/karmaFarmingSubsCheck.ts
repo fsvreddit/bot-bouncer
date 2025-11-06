@@ -207,6 +207,9 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
     }
 
     const inProgressKey = `KarmaFarmingSubsInProgress:${cohort}`;
+    if (event.data?.firstRun && await context.redis.exists(inProgressKey)) {
+        return;
+    }
 
     await context.redis.set(inProgressKey, "true", { expiration: addSeconds(new Date(), 30) });
 
