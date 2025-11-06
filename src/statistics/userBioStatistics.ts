@@ -137,7 +137,9 @@ export async function updateBioStatisticsJob (event: ScheduledJobEvent<JSONObjec
 
     const bioTextCounts: Record<string, number> = {};
 
-    await context.redis.zRem(BIO_STATS_SUCCESSFUL_RETRIEVALS, queuedUsersWithSuccessfulRetrievals);
+    if (queuedUsersWithSuccessfulRetrievals.length > 0) {
+        await context.redis.zRem(BIO_STATS_SUCCESSFUL_RETRIEVALS, queuedUsersWithSuccessfulRetrievals);
+    }
 
     while (queueItems.length > 0 && new Date() < runLimit && processed.length < batchSize) {
         const firstEntry = queueItems.shift();
