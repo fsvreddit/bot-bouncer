@@ -189,12 +189,12 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
             context.scheduler.runJob({
                 name: ControlSubredditJob.EvaluateKarmaFarmingSubs,
                 runAt: new Date(),
-                data: { firstRun: false, cohort: "evens" },
+                data: { firstRun: true, cohort: "evens" },
             }),
             context.scheduler.runJob({
                 name: ControlSubredditJob.EvaluateKarmaFarmingSubs,
                 runAt: new Date(),
-                data: { firstRun: false, cohort: "odds" },
+                data: { firstRun: true, cohort: "odds" },
             }),
         ]);
         return;
@@ -219,9 +219,9 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
     const accounts = await context.redis.global.zRange(ACCOUNTS_QUEUED_KEY, 0, -1)
         .then((allAccounts) => {
             if (cohort === "evens") {
-                return allAccounts.filter((_, index) => index % 2 === 0);
+                return allAccounts.filter(item => item.score % 2 === 0);
             } else {
-                return allAccounts.filter((_, index) => index % 2 !== 0);
+                return allAccounts.filter(item => item.score % 2 !== 0);
             }
         });
 
