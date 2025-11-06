@@ -183,8 +183,30 @@ export async function queueKarmaFarmingSubs (_: unknown, context: JobContext) {
     console.log(`Karma Farming Subs: Queued ${accounts.length} ${pluralize("account", accounts.length)} to evaluate, filtered ${filteredCount} ${pluralize("account", filteredCount)} already known to Bot Bouncer`);
 }
 
+async function rebalanceCohorts (context: JobContext) {
+    const allAccounts = await context.redis.global.zRange(ACCOUNTS_QUEUED_KEY, 0, -1);
+    const evenAccounts = allAccounts.filter(item => item.score % 2 === 0);
+    const oddAccounts = allAccounts.filter(item => item.score % 2 !== 0);
+
+    const difference = evenAccounts.length - oddAccounts.length;
+    if (Math.abs(difference) <= 50) {
+        return;
+    }
+
+    let accountsToMove: ZMember[];
+    if (difference > 0) {
+        accountsToMove = evenAccounts.slice(0, Math.floor(difference / 2));
+    } else {
+        accountsToMove = oddAccounts.slice(0, Math.floor(-difference / 2));
+    }
+
+    await context.redis.zAdd(ACCOUNTS_QUEUED_KEY, ...accountsToMove.map(item => ({ member: item.member, score: item.score + 1 })));
+    console.log(`Karma Farming Subs: Rebalanced cohorts by moving ${accountsToMove.length} ${pluralize("account", accountsToMove.length)}`);
+}
+
 export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
     if (event.data?.firstRun && !event.data.cohort) {
+        await rebalanceCohorts(context);
         await Promise.all([
             context.scheduler.runJob({
                 name: ControlSubredditJob.EvaluateKarmaFarmingSubs,
