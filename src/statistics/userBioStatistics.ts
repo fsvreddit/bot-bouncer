@@ -65,13 +65,11 @@ export async function updateBioStatistics (allEntries: StatsUserEntry[], context
     await context.redis.zAdd(BIO_QUEUE, ...itemsToProcess.map(item => ({ member: item.username, score: item.data.reportedAt ?? 0 })));
     console.log(`Bio Stats: queued ${itemsToProcess.length} users for bio stats processing`);
 
-    const configuredBioRegexes = await getEvaluatorVariable<string[]>("biotext:bantext", context) ?? [];
-
     console.log("Bio Stats: Queueing first bio stats update job");
     await context.scheduler.runJob({
         name: ControlSubredditJob.BioStatsUpdate,
         runAt: addSeconds(new Date(), 5),
-        data: { configuredBioRegexes, successfulRetrievalsEntries: successfulRetrievalsEntries.map(item => item.member) },
+        data: { successfulRetrievalsEntries: successfulRetrievalsEntries.map(item => item.member) },
     });
 }
 
@@ -91,7 +89,6 @@ function sha1hash (input: string): string {
 export async function updateBioStatisticsJob (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
     await context.redis.set(BIO_STATS_UPDATE_IN_PROGRESS, "true", { expiration: addSeconds(new Date(), 30) });
     const redisHelper = new RedisHelper(context.redis);
-    const configuredBioRegexes = event.data?.configuredBioRegexes as string[] | undefined ?? [];
 
     let batchSize = 500;
 
@@ -102,7 +99,6 @@ export async function updateBioStatisticsJob (event: ScheduledJobEvent<JSONObjec
         await context.scheduler.runJob({
             name: ControlSubredditJob.BioStatsGenerateReport,
             runAt: addSeconds(new Date(), 2),
-            data: { configuredBioRegexes },
         });
         return;
     }
@@ -110,7 +106,9 @@ export async function updateBioStatisticsJob (event: ScheduledJobEvent<JSONObjec
     const batch = event.data?.batch as number | undefined ?? 1;
     console.log(`Bio Stats: Running bio statistics gather job (batch ${batch})`);
 
-    const runLimit = addSeconds(new Date(), 15);
+    const runLimit = addSeconds(new Date(), 10);
+
+    const configuredBioRegexes = await getEvaluatorVariable<string[]>("biotext:bantext", context) ?? [];
 
     const successfulRetrievalsUsers = event.data?.successfulRetrievalsEntries as string [] | undefined ?? [];
     const usersWithSuccessfulRetrievals = new Set(successfulRetrievalsUsers);
@@ -210,7 +208,6 @@ export async function updateBioStatisticsJob (event: ScheduledJobEvent<JSONObjec
         name: ControlSubredditJob.BioStatsUpdate,
         runAt: addSeconds(new Date(), 2),
         data: {
-            configuredBioRegexes,
             successfulRetrievalsEntries: successfulRetrievalsUsers,
             batch: batch + 1,
         },
@@ -226,7 +223,7 @@ export async function generateBioStatisticsReport (event: ScheduledJobEvent<JSON
     const bioRecords = await redisHelper.hMGet(BIO_STATS_TEMP_STORE, Object.keys(itemsWithMoreThanOne));
     console.log(`Bio Stats: Retrieved ${Object.keys(bioRecords).length} bio records for report generation`);
 
-    const configuredBioRegexes = event.data?.configuredBioRegexes as string[] | undefined ?? [];
+    const configuredBioRegexes = await getEvaluatorVariable<string[]>("biotext:bantext", context) ?? [];
 
     const reusedRecords = Object.entries(bioRecords)
         .map(([bioText, record]) => ({ bioText: decodedText(bioText), record: JSON.parse(record) as BioRecord }));
