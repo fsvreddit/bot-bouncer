@@ -186,7 +186,7 @@ export async function queueKarmaFarmingSubs (_: unknown, context: JobContext) {
 async function rebalanceCohorts (context: JobContext) {
     const allAccounts = await context.redis.global.zRange(ACCOUNTS_QUEUED_KEY, 0, -1);
     const evenAccounts = allAccounts.filter(item => item.score % 2 === 0);
-    const oddAccounts = allAccounts.filter(item => item.score % 2 !== 0);
+    const oddAccounts = allAccounts.filter(item => item.score % 2 === 1);
 
     const difference = evenAccounts.length - oddAccounts.length;
     if (Math.abs(difference) <= 50 || allAccounts.length < 100) {
@@ -196,14 +196,14 @@ async function rebalanceCohorts (context: JobContext) {
     let accountsToMove: ZMember[];
     if (difference > 0) {
         // Move from evens to odds
-        accountsToMove = evenAccounts.slice(Math.floor(difference / 2));
+        accountsToMove = evenAccounts.slice(0, Math.floor(difference / 2));
     } else {
         // Move from odds to evens
-        accountsToMove = oddAccounts.slice(Math.floor(-difference / 2));
+        accountsToMove = oddAccounts.slice(0, Math.floor(-difference / 2));
     }
 
     await context.redis.global.zAdd(ACCOUNTS_QUEUED_KEY, ...accountsToMove.map(item => ({ member: item.member, score: item.score + 1 })));
-    console.log(`Karma Farming Subs: Rebalanced cohorts by moving ${accountsToMove.length} ${pluralize("account", accountsToMove.length)}`);
+    console.log(`Karma Farming Subs: Rebalanced cohorts by moving ${accountsToMove.length} ${pluralize("account", accountsToMove.length)} of ${allAccounts.length} total queued accounts.`);
 }
 
 export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
