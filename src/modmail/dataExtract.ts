@@ -242,7 +242,7 @@ export async function dataExtract (message: ModmailMessage, conversationId: stri
     if (complicatedExtract && data.length > 5000) {
         await context.reddit.modMail.reply({
             conversationId,
-            body: `This data extract uses filters that require additional processing. {${data.length.toLocaleString()}} users match the initial "simple" criteria, which means that the extract will take some time to process. Please wait for a follow-up message once the extract is complete.`,
+            body: `This data extract uses filters that require additional processing. ${data.length.toLocaleString()} users match the initial "simple" criteria, which means that the extract will take some time to process. Please wait for a follow-up message once the extract is complete.`,
             isAuthorHidden: false,
         });
         return;
