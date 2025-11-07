@@ -5,7 +5,7 @@ import { CONTROL_SUBREDDIT, ControlSubredditJob } from "./constants.js";
 import { getAllKnownUsers, getUserStatus, UserDetails, UserStatus } from "./dataStore.js";
 import { evaluateUserAccount, storeAccountInitialEvaluationResults, userHasContinuousNSFWHistory } from "./handleControlSubAccountEvaluation.js";
 import { getControlSubSettings } from "./settings.js";
-import { addSeconds, differenceInMinutes, subMinutes, subWeeks } from "date-fns";
+import { addMinutes, addSeconds, differenceInMinutes, subMinutes, subWeeks } from "date-fns";
 import { getUserExtended } from "./extendedDevvit.js";
 import { AsyncSubmission, PostCreationQueueResult, queuePostCreation } from "./postCreation.js";
 import pluralize from "pluralize";
@@ -184,6 +184,12 @@ export async function queueKarmaFarmingSubs (_: unknown, context: JobContext) {
 }
 
 async function rebalanceCohorts (context: JobContext) {
+    const rebalanceDoneKey = "KarmaFarmingSubsCohortRebalanceDone";
+    if (await context.redis.exists(rebalanceDoneKey)) {
+        return;
+    }
+    await context.redis.set(rebalanceDoneKey, "true", { expiration: addMinutes(new Date(), 10) });
+
     const allAccounts = await context.redis.global.zRange(ACCOUNTS_QUEUED_KEY, 0, -1);
     const evenAccounts = allAccounts.filter(item => item.score % 2 === 0);
     const oddAccounts = allAccounts.filter(item => item.score % 2 !== 0);
