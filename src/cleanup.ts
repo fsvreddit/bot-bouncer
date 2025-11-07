@@ -84,7 +84,7 @@ export async function cleanupDeletedAccounts (event: ScheduledJobEvent<JSONObjec
         return;
     }
 
-    const runLimit = addSeconds(new Date(), 15);
+    const runLimit = addSeconds(new Date(), 10);
 
     const recentlyRunKey = "CleanupRecentlyRun";
 
