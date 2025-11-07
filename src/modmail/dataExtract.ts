@@ -235,7 +235,7 @@ export async function dataExtract (message: ModmailMessage, conversationId: stri
     });
 
     let complicatedExtract = false;
-    if (request.bioRegex || request.displayNameRegex || request.socialLinkStartsWith || request.evaluator || request.hitReason) {
+    if (request.bioRegex || request.displayNameRegex || request.socialLinkStartsWith || request.socialLinkTitleRegex || request.socialLinkUrlRegex || request.evaluator || request.hitReason) {
         complicatedExtract = true;
     }
 
