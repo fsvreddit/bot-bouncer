@@ -1,5 +1,6 @@
 import { Comment, Post, TriggerContext, User } from "@devvit/public-api";
 import { isCommentId, isLinkId } from "@devvit/public-api/types/tid.js";
+import { addHours } from "date-fns";
 
 export function getUsernameFromUrl (url: string) {
     const urlRegex = /reddit\.com\/u(?:ser)?\/([\w_-]+)\/?(?:[?/].+)?$/i;
@@ -19,8 +20,17 @@ export async function isModerator (username: string, context: TriggerContext, su
         return true;
     }
 
-    const modList = await context.reddit.getModerators({ subredditName, username }).all();
-    return modList.length > 0;
+    const cacheKey = `modStatus:${subredditName}:${username}`;
+    const cachedValue = await context.redis.get(cacheKey);
+    if (cachedValue !== undefined) {
+        return JSON.parse(cachedValue) as boolean;
+    }
+
+    const isAMod = await context.reddit.getModerators({ subredditName }).all()
+        .then(modList => modList.some(mod => mod.username === username));
+
+    await context.redis.set(cacheKey, JSON.stringify(isAMod), { expiration: addHours(new Date(), 1) });
+    return isAMod;
 }
 
 export async function isApproved (username: string, context: TriggerContext) {
