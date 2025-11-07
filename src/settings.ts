@@ -49,7 +49,6 @@ export enum AppSetting {
     BanMessage = "banMessage",
     AutoWhitelist = "autoWhitelist",
     ModmailNote = "clientModmailNote",
-    RemoveRecentContent = "removeRecentContent",
     ReportPotentialBots = "reportPotentialBots",
     RemoveContentWhenReporting = "removeContentWhenReporting",
     AddModNoteOnClassificationChange = "addModNoteOnClassificationChange",
@@ -110,13 +109,6 @@ export const appSettings: SettingsFormField[] = [
                 label: "Template for private moderator note that will be added if banned users write in",
                 helpText: `Supports placeholders {account}, {subreddit} and {link} (which links to the submission on /r/${CONTROL_SUBREDDIT})`,
                 defaultValue: CONFIGURATION_DEFAULTS.noteClient,
-            },
-            {
-                type: "boolean",
-                name: AppSetting.RemoveRecentContent,
-                label: "Ban newly classified accounts if they have recent interactions on your sub, and remove the last week's posts and comments",
-                helpText: "If this is turned off, accounts banned on r/BotBouncer will only be actioned if they comment or post in the future.",
-                defaultValue: true,
             },
             {
                 type: "boolean",
