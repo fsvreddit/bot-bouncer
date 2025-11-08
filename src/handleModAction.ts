@@ -96,12 +96,12 @@ async function handleModActionControlSub (event: ModAction, context: TriggerCont
             await Promise.all([
                 context.scheduler.runJob({
                     name: ControlSubredditJob.UpdateEvaluatorVariables,
-                    runAt: addSeconds(new Date(), 5),
+                    runAt: new Date(),
                     data: { username: event.moderator.name },
                 }),
 
-                queueConfigWikiCheck(ConfigWikiPage.AutoAppealHandling, 15, context),
-                queueConfigWikiCheck(ConfigWikiPage.ControlSubSettings, 25, context),
+                queueConfigWikiCheck(ConfigWikiPage.AutoAppealHandling, 5, context),
+                queueConfigWikiCheck(ConfigWikiPage.ControlSubSettings, 5, context),
             ]);
         }
     }
