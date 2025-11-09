@@ -1,5 +1,5 @@
 import { Comment, JobContext, JSONObject, Post, RedisClient, ScheduledJobEvent, SettingsValues, TriggerContext } from "@devvit/public-api";
-import { addSeconds, formatDate, subWeeks } from "date-fns";
+import { addSeconds, formatDate, subDays, subWeeks } from "date-fns";
 import pluralize from "pluralize";
 import { getRecentlyChangedUsers, getUserStatus, isUserInTempDeclineStore, UserDetails, UserStatus } from "./dataStore.js";
 import { setCleanupForUser } from "./cleanup.js";
@@ -217,7 +217,7 @@ export async function queueRecentReclassifications (_: unknown, context: JobCont
     const now = new Date();
     const lastCheckKey = "lastUpdateDateKey";
     const lastCheckData = await context.redis.get(lastCheckKey);
-    const lastCheckDate = lastCheckData ? new Date(parseInt(lastCheckData, 10)) : subWeeks(now, 1);
+    const lastCheckDate = lastCheckData ? new Date(parseInt(lastCheckData, 10)) : subDays(now, 1);
 
     const recentlyChangedUsers = await getRecentlyChangedUsers(lastCheckDate, now, context);
     if (recentlyChangedUsers.length > 0) {
