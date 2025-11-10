@@ -10,6 +10,7 @@ import { getUserExtended } from "./extendedDevvit.js";
 import { AsyncSubmission, PostCreationQueueResult, queuePostCreation } from "./postCreation.js";
 import pluralize from "pluralize";
 import json2md from "json2md";
+import { queueItemsForSocialLinksCaching } from "./socialLinksCacher.js";
 
 export const CHECK_DATE_KEY = "KarmaFarmingSubsCheckDates";
 
@@ -163,6 +164,7 @@ export async function queueKarmaFarmingAccounts (accounts: string[], context: Tr
         entriesToAdd.push({ member: username, score: baseline + index });
     });
     await context.redis.global.zAdd(ACCOUNTS_QUEUED_KEY, ...entriesToAdd);
+    await queueItemsForSocialLinksCaching(entriesToAdd, context);
 }
 
 export async function queueKarmaFarmingSubs (_: unknown, context: JobContext) {
