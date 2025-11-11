@@ -240,7 +240,6 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
     await context.redis.set(inProgressKey, "true", { expiration: addSeconds(new Date(), 30) });
 
     const runLimit = addSeconds(new Date(), 10);
-    const batchSize = 10;
 
     const accounts = await context.redis.global.zRange(ACCOUNTS_QUEUED_KEY, 0, -1)
         .then((allAccounts) => {
@@ -262,21 +261,28 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
 
     const variables = await getEvaluatorVariables(context);
 
-    while (processed < batchSize && new Date() < runLimit) {
-        const account = accounts.shift()?.member;
-        if (!account) {
+    const chunkedAccounts = [
+        accounts.slice(0, 4).map(item => item.member),
+        ...accounts.slice(4, 14).map(item => [item.member]),
+    ];
+
+    while (new Date() < runLimit && chunkedAccounts.length > 0) {
+        const firstChunk = chunkedAccounts.shift();
+        if (!firstChunk) {
             break;
         }
 
-        await context.redis.global.zRem(ACCOUNTS_QUEUED_KEY, [account]);
+        await Promise.all(firstChunk.map(async (username) => {
+            await context.redis.global.zRem(ACCOUNTS_QUEUED_KEY, [username]);
 
-        try {
-            await evaluateAndHandleUser(account, variables, context);
-        } catch (error) {
-            console.error(`Karma Farming Subs: Error evaluating ${account}: ${error}`);
-        }
+            try {
+                await evaluateAndHandleUser(username, variables, context);
+            } catch (error) {
+                console.error(`Karma Farming Subs: Error evaluating ${username}: ${error}`);
+            }
 
-        processed += 1;
+            processed += 1;
+        }));
     }
 
     const remaining = totalQueued - processed;
