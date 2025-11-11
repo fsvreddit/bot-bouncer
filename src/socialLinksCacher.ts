@@ -34,7 +34,7 @@ export async function processSocialLinksCacheQueue (context: TriggerContext) {
             continue;
         }
 
-        await getSocialLinksWithCache(username, context, 6);
+        await getSocialLinksWithCache(username, context, 1);
         await context.redis.global.zRem(SOCIAL_LINKS_CACHE_QUEUE, [username]);
         processed++;
     }
