@@ -8,19 +8,19 @@ export async function queueUsersForSocialLinksCaching (usernames: string[], cont
     if (usernames.length === 0) {
         return;
     }
-    await context.redis.zAdd(SOCIAL_LINKS_CACHE_QUEUE, ...usernames.map(username => ({ member: username, score: Date.now() })));
+    await context.redis.global.zAdd(SOCIAL_LINKS_CACHE_QUEUE, ...usernames.map(username => ({ member: username, score: Date.now() })));
 }
 
 export async function queueItemsForSocialLinksCaching (items: ZMember[], context: TriggerContext) {
     if (items.length === 0) {
         return;
     }
-    await context.redis.zAdd(SOCIAL_LINKS_CACHE_QUEUE, ...items);
+    await context.redis.global.zAdd(SOCIAL_LINKS_CACHE_QUEUE, ...items);
 }
 
 export async function processSocialLinksCacheQueue (context: TriggerContext) {
     const runLimit = addSeconds(new Date(), 10);
-    const queue = await context.redis.zRange(SOCIAL_LINKS_CACHE_QUEUE, 0, -1);
+    const queue = await context.redis.global.zRange(SOCIAL_LINKS_CACHE_QUEUE, 0, -1);
 
     if (queue.length === 0) {
         return;
@@ -35,7 +35,7 @@ export async function processSocialLinksCacheQueue (context: TriggerContext) {
         }
 
         await getSocialLinksWithCache(username, context, 6);
-        await context.redis.zRem(SOCIAL_LINKS_CACHE_QUEUE, [username]);
+        await context.redis.global.zRem(SOCIAL_LINKS_CACHE_QUEUE, [username]);
         processed++;
     }
 
