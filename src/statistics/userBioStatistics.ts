@@ -156,7 +156,7 @@ export async function updateBioStatisticsJob (event: ScheduledJobEvent<JSONObjec
             }
         }
 
-        if (!bioText || bioText.trim().length === 0) {
+        if (!bioText || bioText.trim().length < 4) {
             processed.push(username);
             continue;
         }
