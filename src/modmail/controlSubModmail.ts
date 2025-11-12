@@ -70,7 +70,10 @@ export async function handleControlSubredditModmail (modmail: ModmailMessage, co
     }
 
     if (modmail.bodyMarkdown.startsWith("!summary") && modmail.participant) {
-        await addSummaryForUser(modmail.conversationId, modmail.participant, context);
+        const regex = /^!summary(?: ([\w\d_-]+))?/;
+        const match = regex.exec(modmail.bodyMarkdown);
+        const username = match?.[1] ?? modmail.participant;
+        await addSummaryForUser(modmail.conversationId, username, context);
         return;
     }
 
