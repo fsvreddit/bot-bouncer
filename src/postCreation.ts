@@ -208,6 +208,7 @@ export async function processQueuedSubmission (context: JobContext) {
     await createNewSubmission(JSON.parse(submissionDetails) as AsyncSubmission, context);
 
     if (queuedSubmissions.length > 1) {
-        console.log(`Post Creation: ${queuedSubmissions.length - 1} ${pluralize("submission", queuedSubmissions.length - 1)} still in the queue.`);
+        const message = `Post Creation: ${queuedSubmissions.length - 1} ${pluralize("submission", queuedSubmissions.length - 1)} still in the queue.`;
+        console.log(message);
     }
 }
