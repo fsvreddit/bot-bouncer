@@ -3,7 +3,6 @@ import { processExternalSubmissionsQueue } from "./externalSubmissions.js";
 import { processQueuedSubmission } from "./postCreation.js";
 import { processFeedbackQueue } from "./submissionFeedback.js";
 import { handleClassificationQueryQueue } from "./modmail/classificationQuery.js";
-import { processSocialLinksCacheQueue } from "./socialLinksCacher.js";
 
 export async function handleRapidJob (_: unknown, context: JobContext) {
     await Promise.allSettled([
@@ -11,6 +10,5 @@ export async function handleRapidJob (_: unknown, context: JobContext) {
         processQueuedSubmission(context),
         processFeedbackQueue(context),
         handleClassificationQueryQueue(context),
-        processSocialLinksCacheQueue(context),
     ]);
 }
