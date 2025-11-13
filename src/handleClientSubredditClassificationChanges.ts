@@ -1,5 +1,5 @@
 import { Comment, JobContext, JSONObject, Post, RedisClient, ScheduledJobEvent, SettingsValues, TriggerContext } from "@devvit/public-api";
-import { addSeconds, formatDate, subDays, subWeeks } from "date-fns";
+import { addDays, addSeconds, formatDate, subDays, subWeeks } from "date-fns";
 import pluralize from "pluralize";
 import { getRecentlyChangedUsers, getUserStatus, isUserInTempDeclineStore, UserDetails, UserStatus } from "./dataStore.js";
 import { setCleanupForUser } from "./cleanup.js";
@@ -8,7 +8,7 @@ import { getUserOrUndefined, isModeratorWithCache } from "./utility.js";
 import { ClientSubredditJob } from "./constants.js";
 import { fromPairs } from "lodash";
 import { recordBanForSummary, recordUnbanForSummary, removeRecordOfBanForSummary } from "./modmail/actionSummary.js";
-import { isBanned, isContributor } from "devvit-helpers";
+import { hasPermissions, isBanned, isContributor } from "devvit-helpers";
 
 const UNBAN_WHITELIST = "UnbanWhitelist";
 const BAN_STORE = "BanStore";
@@ -284,6 +284,11 @@ export async function handleClassificationChanges (event: ScheduledJobEvent<JSON
         console.log(`Classification Update: Processing ${items.length} ${pluralize("user", items.length)} in reclassification queue for ${subredditName}.`);
     }
 
+    if (!await appAccountHasPermissions(context)) {
+        console.warn(`Classification Update: Bot Bouncer does not have sufficient permissions on r/${subredditName} to process classification changes.`);
+        return;
+    }
+
     const settings = await context.settings.getAll();
 
     let processed = 0;
@@ -319,4 +324,26 @@ export async function handleClassificationChanges (event: ScheduledJobEvent<JSON
         console.log("Classification Update: All users in reclassification queue processed.");
         await context.redis.del(recentlyRunKey);
     }
+}
+
+const APP_PERMISSIONS_CACHE_KEY = "AppPermissionsCache";
+
+async function appAccountHasPermissions (context: TriggerContext): Promise<boolean> {
+    const cachedResult = await context.redis.get(APP_PERMISSIONS_CACHE_KEY);
+    if (cachedResult !== undefined) {
+        return JSON.parse(cachedResult) as boolean;
+    }
+
+    const hasPerms = await hasPermissions(context.reddit, {
+        subredditName: context.subredditName ?? await context.reddit.getCurrentSubredditName(),
+        username: context.appName,
+        requiredPerms: ["access", "posts"],
+    });
+
+    await context.redis.set(APP_PERMISSIONS_CACHE_KEY, JSON.stringify(hasPerms), { expiration: addDays(new Date(), 1) });
+    return hasPerms;
+}
+
+export async function clearAppPermissionsCache (context: TriggerContext) {
+    await context.redis.del(APP_PERMISSIONS_CACHE_KEY);
 }

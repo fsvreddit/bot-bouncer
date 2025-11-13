@@ -1,7 +1,7 @@
 import { JobContext, JSONObject, ScheduledJobEvent, TriggerContext } from "@devvit/public-api";
 import { ModAction } from "@devvit/protos";
 import { ClientSubredditJob, CONTROL_SUBREDDIT, ControlSubredditJob, INTERNAL_BOT } from "./constants.js";
-import { recordWhitelistUnban, removeRecordOfBan } from "./handleClientSubredditClassificationChanges.js";
+import { clearAppPermissionsCache, recordWhitelistUnban, removeRecordOfBan } from "./handleClientSubredditClassificationChanges.js";
 import { handleExternalSubmissionsPageUpdate } from "./externalSubmissions.js";
 import { getControlSubSettings, validateControlSubConfigChange } from "./settings.js";
 import { addDays, addMinutes, addSeconds } from "date-fns";
@@ -61,6 +61,11 @@ async function handleModActionClientSub (event: ModAction, context: TriggerConte
         });
 
         console.warn(`handleModActionClientSub: Bot Bouncer has been removed as a moderator from r/${context.subredditName} by u/${event.moderator?.name}`);
+    }
+
+    if (event.action === "setpermissions" && event.targetUser?.name === context.appName) {
+        await clearAppPermissionsCache(context);
+        console.log(`handleModActionClientSub: Bot Bouncer's moderator permissions have been changed on r/${context.subredditName} by u/${event.moderator?.name}`);
     }
 
     // Special actions for observer subreddits

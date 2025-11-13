@@ -396,5 +396,5 @@ async function checkAndReportPotentialBot (username: string, target: Post | Comm
         }
     }
 
-    await Promise.all(promises);
+    await Promise.allSettled(promises);
 }
