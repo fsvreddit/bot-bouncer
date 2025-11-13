@@ -7,7 +7,7 @@ import { CONTROL_SUBREDDIT } from "../constants.js";
 import { parseAllDocuments } from "yaml";
 import { compact } from "lodash";
 import json2md from "json2md";
-import { replaceAll, sendMessageToWebhook } from "../utility.js";
+import { sendMessageToWebhook } from "../utility.js";
 import { ModmailMessage } from "./modmail.js";
 import { getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
 import { getUserExtended, getUserSocialLinks } from "../extendedDevvit.js";
@@ -136,7 +136,7 @@ export async function validateAndSaveAppealConfig (username: string, context: Tr
     let pageToParse = wikiPage.content;
     for (const [key, value] of Object.entries(substitutions)) {
         const valueToSubstitute = typeof value === "string" ? value : JSON.stringify(value);
-        pageToParse = replaceAll(pageToParse, `{{${key}}}`, valueToSubstitute);
+        pageToParse = pageToParse.replaceAll(`{{${key}}}`, valueToSubstitute);
     }
 
     const documents = parseAllDocuments(pageToParse);
@@ -199,7 +199,7 @@ function formatPlaceholders (input: string, userDetails: UserDetails): string {
         dateFormat = "MMMM do";
     }
 
-    output = replaceAll(output, "{{classificationdate}}", format(new Date(userDetails.reportedAt ?? userDetails.lastUpdate), dateFormat));
+    output = output.replaceAll("{{classificationdate}}", format(new Date(userDetails.reportedAt ?? userDetails.lastUpdate), dateFormat));
     return output;
 }
 

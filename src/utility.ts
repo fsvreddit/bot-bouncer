@@ -1,6 +1,7 @@
 import { Comment, Post, TriggerContext, User } from "@devvit/public-api";
 import { isCommentId, isLinkId } from "@devvit/public-api/types/tid.js";
 import { addHours } from "date-fns";
+import { isModerator } from "devvit-helpers";
 
 export function getUsernameFromUrl (url: string) {
     const urlRegex = /reddit\.com\/u(?:ser)?\/([\w_-]+)\/?(?:[?/].+)?$/i;
@@ -13,7 +14,7 @@ export function getUsernameFromUrl (url: string) {
     return username;
 }
 
-export async function isModerator (username: string, context: TriggerContext, subreddit?: string): Promise<boolean> {
+export async function isModeratorWithCache (username: string, context: TriggerContext, subreddit?: string): Promise<boolean> {
     const subredditName = subreddit ?? context.subredditName ?? await context.reddit.getCurrentSubredditName();
 
     if (username === "AutoModerator" || username === `${subredditName}-ModTeam`) {
@@ -26,27 +27,10 @@ export async function isModerator (username: string, context: TriggerContext, su
         return JSON.parse(cachedValue) as boolean;
     }
 
-    const isAMod = await context.reddit.getModerators({ subredditName }).all()
-        .then(modList => modList.some(mod => mod.username === username));
+    const isAMod = await isModerator(context.reddit, subredditName, username);
 
     await context.redis.set(cacheKey, JSON.stringify(isAMod), { expiration: addHours(new Date(), 1) });
     return isAMod;
-}
-
-export async function isApproved (username: string, context: TriggerContext) {
-    const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
-    const approvedList = await context.reddit.getApprovedUsers({ subredditName, username }).all();
-    return approvedList.length > 0;
-}
-
-export async function isBanned (username: string, context: TriggerContext, subreddit?: string): Promise<boolean> {
-    const subredditName = subreddit ?? context.subredditName ?? await context.reddit.getCurrentSubredditName();
-    const bannedList = await context.reddit.getBannedUsers({ subredditName, username }).all();
-    return bannedList.length > 0;
-}
-
-export function replaceAll (input: string, pattern: string, replacement: string): string {
-    return input.split(pattern).join(replacement);
 }
 
 export function getPostOrCommentById (thingId: string, context: TriggerContext): Promise<Post | Comment> {
@@ -96,7 +80,7 @@ export function median (numbers: number[]): number {
 
 export async function sendMessageToWebhook (webhookUrl: string, message: string) {
     const params = {
-        content: replaceAll(replaceAll(message, "\n\n\n", "\n\n"), "\n\n", "\n"),
+        content: message.replaceAll("\n\n\n", "\n\n").replaceAll("\n\n", "\n"),
     };
 
     try {

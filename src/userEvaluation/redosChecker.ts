@@ -4,7 +4,7 @@ import { ALL_EVALUATORS, EvaluatorRegex } from "@fsvreddit/bot-bouncer-evaluatio
 import { getEvaluatorVariables } from "./evaluatorVariables.js";
 import { addMinutes, addSeconds } from "date-fns";
 import { isSafe } from "redos-detector";
-import { decodedText, encodedText, replaceAll } from "../utility.js";
+import { decodedText, encodedText } from "../utility.js";
 import { RedisHelper } from "../redisHelper.js";
 import json2md from "json2md";
 import { getControlSubSettings } from "../settings.js";
@@ -146,11 +146,14 @@ async function finaliseReDosReport (context: JobContext) {
     ];
 
     if (redosHits.length > 0) {
-        const tableRows = redosHits.map(hit => ([
-            hit.evaluatorName,
-            hit.subName ?? "",
-            `\`${replaceAll(hit.regex.length > 100 ? hit.regex.slice(0, 100) + "…" : hit.regex, "|", "¦")}\``,
-        ]));
+        const tableRows = redosHits.map((hit) => {
+            const regex = hit.regex.length > 100 ? hit.regex.slice(0, 100) + "…" : hit.regex;
+            return [
+                hit.evaluatorName,
+                hit.subName ?? "",
+                `\`${regex.replaceAll("|", "¦")}\``,
+            ];
+        });
 
         wikiContent.push({
             table: {

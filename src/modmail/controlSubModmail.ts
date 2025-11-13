@@ -2,7 +2,7 @@ import { Comment, TriggerContext } from "@devvit/public-api";
 import { isLinkId } from "@devvit/public-api/types/tid.js";
 import { getUserStatus, UserStatus } from "../dataStore.js";
 import { getSummaryForUser } from "../UserSummary/userSummary.js";
-import { getUserOrUndefined, isBanned, isModerator } from "../utility.js";
+import { getUserOrUndefined, isModeratorWithCache } from "../utility.js";
 import { CONFIGURATION_DEFAULTS, getControlSubSettings } from "../settings.js";
 import { addDays, addHours, addWeeks, format, subMinutes } from "date-fns";
 import json2md from "json2md";
@@ -18,6 +18,7 @@ import { FLAIR_MAPPINGS } from "../handleControlSubFlairUpdate.js";
 import { uniq } from "lodash";
 import { CHECK_DATE_KEY } from "../karmaFarmingSubsCheck.js";
 import { evaluateAccountFromModmail } from "./modmailEvaluaton.js";
+import { isBanned } from "devvit-helpers";
 
 export function getPossibleSetStatusValues (): string[] {
     return uniq([...FLAIR_MAPPINGS.map(entry => entry.postFlair), ...Object.values(UserStatus)]);
@@ -334,10 +335,10 @@ async function checkBanOnSub (modmail: ModmailMessage, context: TriggerContext) 
     const subredditName = checkBanMatch[1];
     const message: json2md.DataObject[] = [];
     try {
-        const isBannedOnSub = await isBanned(modmail.participant, context, subredditName);
+        const isBannedOnSub = await isBanned(context.reddit, subredditName, modmail.participant);
         message.push({ p: `User /u/${modmail.participant} is currently ${isBannedOnSub ? "banned" : "not banned"} on /r/${subredditName}.` });
     } catch (error) {
-        const isMod = await isModerator(context.appName, context, subredditName);
+        const isMod = await isModeratorWithCache(context.appName, context, subredditName);
         if (!isMod) {
             message.push({ p: `Bot Bouncer is not a moderator of /r/${subredditName}, so it cannot check the ban status of /u/${modmail.participant}.` });
         } else {

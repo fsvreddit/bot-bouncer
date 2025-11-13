@@ -1,6 +1,6 @@
 import { Context, MenuItemOnPressEvent, JSONObject, FormOnSubmitEvent, FormFunction } from "@devvit/public-api";
 import { CONTROL_SUBREDDIT } from "./constants.js";
-import { getPostOrCommentById, getUserOrUndefined, isModerator } from "./utility.js";
+import { getPostOrCommentById, getUserOrUndefined, isModeratorWithCache } from "./utility.js";
 import { getUserStatus, UserStatus } from "./dataStore.js";
 import { addExternalSubmissionFromClientSub } from "./externalSubmissions.js";
 import { queryForm, reportForm } from "./main.js";
@@ -91,7 +91,7 @@ export async function handleReportUser (event: MenuItemOnPressEvent, context: Co
         return;
     }
 
-    if (await isModerator(target.authorName, context)) {
+    if (await isModeratorWithCache(target.authorName, context)) {
         context.ui.showToast("You cannot report a moderator of this subreddit.");
         return;
     }

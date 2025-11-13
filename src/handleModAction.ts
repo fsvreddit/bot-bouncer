@@ -8,7 +8,7 @@ import { addDays, addMinutes, addSeconds } from "date-fns";
 import { validateAndSaveAppealConfig } from "./modmail/autoAppealHandling.js";
 import { checkIfStatsNeedUpdating } from "./sixHourlyJobs.js";
 import { handleBannedSubredditsModAction } from "./statistics/bannedSubreddits.js";
-import { isModerator, replaceAll, sendMessageToWebhook } from "./utility.js";
+import { isModeratorWithCache, sendMessageToWebhook } from "./utility.js";
 
 export async function handleModAction (event: ModAction, context: TriggerContext) {
     if (context.subredditName === CONTROL_SUBREDDIT) {
@@ -112,7 +112,7 @@ async function handleModActionControlSub (event: ModAction, context: TriggerCont
      */
     if (event.action === "approvelink" && event.moderator?.name !== context.appName && event.targetPost) {
         const post = await context.reddit.getPostById(event.targetPost.id);
-        if (await isModerator(post.authorName, context)) {
+        if (await isModeratorWithCache(post.authorName, context)) {
             return;
         }
 
@@ -209,8 +209,8 @@ export async function notifyModTeamOnDemod (event: ScheduledJobEvent<JSONObject 
         return;
     }
 
-    message = replaceAll(message, "{modName}", modName);
-    message = replaceAll(message, "{subredditName}", subredditName);
+    message = message.replaceAll("{modName}", modName);
+    message = message.replaceAll("{subredditName}", subredditName);
 
     message += "\n\n*This message was sent automatically, replies will not be read.*";
 

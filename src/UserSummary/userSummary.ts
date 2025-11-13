@@ -1,5 +1,5 @@
 import { Comment, JSONValue, Post, TriggerContext } from "@devvit/public-api";
-import { median, replaceAll } from "../utility.js";
+import { median } from "../utility.js";
 import { addMilliseconds, differenceInDays, differenceInHours, differenceInMilliseconds, differenceInMinutes, Duration, format, formatDuration, intervalToDuration, startOfDecade } from "date-fns";
 import { compact, countBy, mean, uniq } from "lodash";
 import { count } from "@wordpress/wordcount";
@@ -144,7 +144,7 @@ function activityByTimeOfDay (history: (Post | Comment)[]): json2md.DataObject[]
 function cleanedBio (bio: string, bannedDomains: string[]): string {
     let result = bio;
     for (const domain of bannedDomains) {
-        result = replaceAll(result, domain, "[redacted]");
+        result = result.replaceAll(domain, "[redacted]");
     }
     return result;
 }

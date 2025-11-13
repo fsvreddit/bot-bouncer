@@ -4,10 +4,11 @@ import pluralize from "pluralize";
 import { getRecentlyChangedUsers, getUserStatus, isUserInTempDeclineStore, UserDetails, UserStatus } from "./dataStore.js";
 import { setCleanupForUser } from "./cleanup.js";
 import { ActionType, AppSetting, CONFIGURATION_DEFAULTS } from "./settings.js";
-import { getUserOrUndefined, isApproved, isBanned, isModerator, replaceAll } from "./utility.js";
+import { getUserOrUndefined, isModeratorWithCache } from "./utility.js";
 import { ClientSubredditJob } from "./constants.js";
 import { fromPairs } from "lodash";
 import { recordBanForDigest, recordUnbanForDigest, removeRecordOfBanForDigest } from "./modmail/dailyDigest.js";
+import { isBanned, isContributor } from "devvit-helpers";
 
 const UNBAN_WHITELIST = "UnbanWhitelist";
 const BAN_STORE = "BanStore";
@@ -88,7 +89,7 @@ async function handleSetOrganic (username: string, subredditName: string, settin
         return;
     }
 
-    if (await isBanned(username, context)) {
+    if (await isBanned(context.reddit, subredditName, username)) {
         await context.reddit.unbanUser(username, subredditName);
         console.log(`Classification Update: Unbanned ${username}`);
     }
@@ -105,7 +106,7 @@ async function handleSetOrganic (username: string, subredditName: string, settin
 }
 
 async function handleSetBanned (username: string, subredditName: string, settings: SettingsValues, context: TriggerContext) {
-    const isCurrentlyBanned = await isBanned(username, context);
+    const isCurrentlyBanned = await isBanned(context.reddit, subredditName, username);
     if (isCurrentlyBanned) {
         console.log(`Classification Update: ${username} is already banned on ${subredditName}.`);
         return;
@@ -143,12 +144,12 @@ async function handleSetBanned (username: string, subredditName: string, setting
         }
     }
 
-    if (await isApproved(username, context)) {
+    if (await isContributor(context.reddit, subredditName, username)) {
         console.log(`Classification Update: ${username} is allowlisted as an approved user`);
         return;
     }
 
-    if (await isModerator(username, context)) {
+    if (await isModeratorWithCache(username, context)) {
         console.log(`Classification Update: ${username} is allowlisted as a moderator`);
         return;
     }
@@ -158,13 +159,12 @@ async function handleSetBanned (username: string, subredditName: string, setting
     const [actionToTake] = settings[AppSetting.Action] as ActionType[] | undefined ?? [ActionType.Ban];
     if (actionToTake === ActionType.Ban) {
         let message = settings[AppSetting.BanMessage] as string | undefined ?? CONFIGURATION_DEFAULTS.banMessage;
-        message = replaceAll(message, "{subreddit}", subredditName);
-        message = replaceAll(message, "{account}", username);
-        message = replaceAll(message, "{link}", username);
+        message = message.replaceAll("{subreddit}", subredditName)
+            .replaceAll("{account}", username);
 
-        let banNote = CONFIGURATION_DEFAULTS.banNote;
-        banNote = replaceAll(banNote, "{me}", context.appName);
-        banNote = replaceAll(banNote, "{date}", formatDate(new Date(), "yyyy-MM-dd"));
+        const banNote = CONFIGURATION_DEFAULTS.banNote
+            .replaceAll("{me}", context.appName)
+            .replaceAll("{date}", formatDate(new Date(), "yyyy-MM-dd"));
 
         const results = await Promise.allSettled([
             context.reddit.banUser({

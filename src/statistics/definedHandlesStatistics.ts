@@ -5,7 +5,6 @@ import { getEvaluatorVariable } from "../userEvaluation/evaluatorVariables.js";
 import { fromPairs } from "lodash";
 import { ControlSubredditJob } from "../constants.js";
 import json2md from "json2md";
-import { replaceAll } from "../utility.js";
 import { StatsUserEntry } from "../sixHourlyJobs.js";
 import { userIsBanned } from "./statsHelpers.js";
 import { parse } from "regjsparser";
@@ -154,7 +153,7 @@ export async function gatherDefinedHandlesStats (event: ScheduledJobEvent<JSONOb
 }
 
 function cleanHandleForSort (input: string): string {
-    return replaceAll(replaceAll(replaceAll(replaceAll(input, "\\b", ""), "[", ""), "(?:", ""), "(", "").toLowerCase();
+    return input.replaceAll("\\b", "").replaceAll("[", "").replaceAll("(?:", "").replaceAll("(", "").toLowerCase();
 }
 
 async function buildDefinedHandlesWikiPage (context: JobContext) {
@@ -187,7 +186,7 @@ async function buildDefinedHandlesWikiPage (context: JobContext) {
         }
 
         tableRows.push([
-            `\`${replaceAll(handle, "|", "¦")}\``,
+            `\`${handle.replaceAll("|", "¦")}\``,
             data.count.toLocaleString(),
             data.lastSeen > 0 ? format(new Date(data.lastSeen), "yyyy-MM-dd") : "",
             foundInText.join(", "),
