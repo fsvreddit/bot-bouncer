@@ -23,7 +23,6 @@ export async function recordBan (username: string, redis: RedisClient) {
 export async function removeRecordOfBan (username: string, redis: RedisClient) {
     await redis.zRem(BAN_STORE, [username]);
     await removeRecordOfBanForDigest(username, redis);
-    await recordUnbanForDigest(username, redis);
     console.log(`Removed record of ban for ${username}`);
 }
 
@@ -95,6 +94,7 @@ async function handleSetOrganic (username: string, subredditName: string, settin
     }
 
     await removeRecordOfBan(username, context.redis);
+    await recordUnbanForDigest(username, context.redis);
 
     if (settings[AppSetting.AddModNoteOnClassificationChange]) {
         await context.reddit.addModNote({

@@ -55,6 +55,11 @@ While you can unban the user yourself, this only affects the user on your subred
 
 # Change History
 
+## v1.22.0 (coming soon)
+
+* Daily digest no longer incorrectly shows deleted users as if they have been unbanned by Bot Bouncer
+* Internal changes to support operations on /r/BotBouncer
+
 ## v1.21.0
 
 * Faster response to bot classification changes, down from up to ten minutes to up to one minute
