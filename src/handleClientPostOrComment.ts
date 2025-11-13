@@ -10,7 +10,7 @@ import { ActionType, AppSetting, CONFIGURATION_DEFAULTS, getControlSubSettings }
 import { addExternalSubmissionFromClientSub } from "./externalSubmissions.js";
 import { isLinkId } from "@devvit/public-api/types/tid.js";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
-import { recordBanForDigest, recordReportForDigest } from "./modmail/dailyDigest.js";
+import { recordBanForSummary, recordReportForSummary } from "./modmail/actionSummary.js";
 import { getUserExtended } from "./extendedDevvit.js";
 import { isBanned, isContributor } from "devvit-helpers";
 
@@ -258,7 +258,7 @@ async function handleContentCreation (username: string, currentStatus: UserDetai
             }));
 
             promises.push(recordBan(username, context.redis));
-            promises.push(recordBanForDigest(username, context.redis));
+            promises.push(recordBanForSummary(username, context.redis));
             console.log(`Content Create: ${user.username} banned from ${subredditName}`);
         }
     } else {
@@ -374,7 +374,7 @@ async function checkAndReportPotentialBot (username: string, target: Post | Comm
             reportContext,
             immediate: true,
         }, context),
-        recordReportForDigest(user.username, "automatically", context.redis),
+        recordReportForSummary(user.username, "automatically", context.redis),
     );
 
     console.log(`Created external submission via automated evaluation for ${user.username} for bot style ${botName}`);

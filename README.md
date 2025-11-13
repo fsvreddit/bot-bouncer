@@ -57,7 +57,8 @@ While you can unban the user yourself, this only affects the user on your subred
 
 ## v1.22.0 (coming soon)
 
-* Daily digest no longer incorrectly shows deleted users as if they have been unbanned by Bot Bouncer
+* Action summary (formerly daily digest) can now be sent either daily or weekly on Mondays
+* Action summary (formerly daily digest) no longer incorrectly shows deleted users as if they have been unbanned by Bot Bouncer
 * Internal changes to support operations on /r/BotBouncer
 
 ## v1.21.0

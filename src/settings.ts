@@ -52,17 +52,23 @@ export enum AppSetting {
     ReportPotentialBots = "reportPotentialBots",
     RemoveContentWhenReporting = "removeContentWhenReporting",
     AddModNoteOnClassificationChange = "addModNoteOnClassificationChange",
-    DailyDigest = "dailyDigest",
-    DailyDigestAsModNotification = "dailyDigestAsModNotification",
-    DailyDigestIncludeReported = "dailyDigestIncludeReported",
-    DailyDigestIncludeBanned = "dailyDigestIncludeBanned",
-    DailyDigestIncludeUnbanned = "dailyDigestIncludeUnbanned",
+    Digest = "dailyDigest",
+    DigestFrequency = "dailyDigestFrequency",
+    DigestAsModNotification = "dailyDigestAsModNotification",
+    DigestIncludeReported = "dailyDigestIncludeReported",
+    DigestIncludeBanned = "dailyDigestIncludeBanned",
+    DigestIncludeUnbanned = "dailyDigestIncludeUnbanned",
     UpgradeNotifier = "upgradeNotifier",
 }
 
 export enum ActionType {
     Ban = "ban",
     Report = "report",
+}
+
+export enum DigestFrequency {
+    Daily = "daily",
+    Weekly = "weekly",
 }
 
 export const appSettings: SettingsFormField[] = [
@@ -142,38 +148,50 @@ export const appSettings: SettingsFormField[] = [
     },
     {
         type: "group",
-        label: "Daily Digest",
+        label: "Actions Summary",
         fields: [
             {
                 type: "boolean",
-                label: "Send a daily digest of actions taken by Bot Bouncer, if any occur",
-                name: AppSetting.DailyDigest,
+                label: "Send a summary of actions taken by Bot Bouncer, if any occur",
+                name: AppSetting.Digest,
                 helpText: "If enabled, you will receive a daily message with a summary of actions taken by Bot Bouncer in the previous 24 hours, if any.",
                 defaultValue: false,
             },
             {
+                type: "select",
+                label: "Frequency of summary messages",
+                name: AppSetting.DigestFrequency,
+                helpText: "Choose how often you would like to receive the summary messages",
+                options: [
+                    { label: "Daily", value: DigestFrequency.Daily },
+                    { label: "Weekly", value: DigestFrequency.Weekly },
+                ],
+                multiSelect: false,
+                defaultValue: [DigestFrequency.Daily],
+            },
+            {
                 type: "boolean",
-                label: "Send digest to the 'Mod Notifications' section of modmail",
+                label: "Send summary to the 'Mod Notifications' section of modmail",
                 helpText: "If set, the daily digest will be sent to the 'Mod Notifications' section of modmail, otherwise it will go into the main inbox.",
-                name: AppSetting.DailyDigestAsModNotification,
+                name: AppSetting.DigestAsModNotification,
                 defaultValue: false,
             },
             {
                 type: "boolean",
                 label: "Include details of accounts reported to Bot Bouncer",
-                name: AppSetting.DailyDigestIncludeReported,
+                name: AppSetting.DigestIncludeReported,
                 defaultValue: true,
             },
             {
                 type: "boolean",
                 label: "Include details of accounts banned by Bot Bouncer",
-                name: AppSetting.DailyDigestIncludeBanned,
+                name: AppSetting.DigestIncludeBanned,
                 defaultValue: true,
             },
             {
                 type: "boolean",
                 label: "Include details of accounts unbanned by Bot Bouncer",
-                name: AppSetting.DailyDigestIncludeUnbanned,
+                name: AppSetting.DigestIncludeUnbanned,
                 defaultValue: true,
             },
         ],

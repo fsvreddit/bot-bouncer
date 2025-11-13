@@ -16,7 +16,7 @@ import { updateEvaluatorVariablesFromWikiHandler } from "./userEvaluation/evalua
 import { evaluateKarmaFarmingSubs, queueKarmaFarmingSubs } from "./karmaFarmingSubsCheck.js";
 import { controlSubQuerySubmissionFormDefinition, handleControlSubForm, sendQueryToSubmitter } from "./handleControlSubMenu.js";
 import { checkForUpdates } from "./upgradeNotifier.js";
-import { sendDailyDigest } from "./modmail/dailyDigest.js";
+import { sendDailySummary } from "./modmail/actionSummary.js";
 import { perform6HourlyJobs, perform6HourlyJobsPart2 } from "./sixHourlyJobs.js";
 import { checkUptimeAndMessages } from "./uptimeMonitor.js";
 import { analyseBioText } from "./similarBioTextFinder/bioTextFinder.js";
@@ -246,7 +246,7 @@ Devvit.addSchedulerJob({
 
 Devvit.addSchedulerJob({
     name: ClientSubredditJob.SendDailyDigest,
-    onRun: sendDailyDigest,
+    onRun: sendDailySummary,
 });
 
 Devvit.addSchedulerJob({

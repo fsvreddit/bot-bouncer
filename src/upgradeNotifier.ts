@@ -12,15 +12,7 @@ interface AppUpdate {
 const UPDATE_SUBREDDIT = "fsvapps";
 const UPDATE_WIKI_PAGE = "upgrade-notifier";
 
-export async function checkForUpdates (_: unknown, context: JobContext) {
-    const notificationsEnabled = await context.settings.get<boolean>(AppSetting.UpgradeNotifier);
-    if (!notificationsEnabled) {
-        console.log("Update Checker: Notifications are disabled");
-        return;
-    }
-
-    const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
-
+export async function getNewVersionInfo (context: JobContext): Promise<AppUpdate | undefined> {
     let wikiPage: WikiPage;
     try {
         wikiPage = await context.reddit.getWikiPage(UPDATE_SUBREDDIT, UPDATE_WIKI_PAGE);
@@ -41,12 +33,28 @@ export async function checkForUpdates (_: unknown, context: JobContext) {
         return;
     }
 
-    if (!lt(context.appVersion, updatesForThisApp[0].version)) {
+    const update = updatesForThisApp[0];
+
+    if (!lt(context.appVersion, update.version)) {
         console.log("Update Checker: No updates found");
         return;
     }
+}
 
-    const update = updatesForThisApp[0];
+export async function checkForUpdates (_: unknown, context: JobContext) {
+    const notificationsEnabled = await context.settings.get<boolean>(AppSetting.UpgradeNotifier);
+    if (!notificationsEnabled) {
+        console.log("Update Checker: Notifications are disabled");
+        return;
+    }
+
+    const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
+
+    const update = await getNewVersionInfo(context);
+    if (!update) {
+        return;
+    }
+
     const redisKey = "update-notification-sent";
     const notificationSent = await context.redis.get(redisKey);
     if (notificationSent === update.version) {

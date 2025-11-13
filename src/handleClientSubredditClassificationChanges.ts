@@ -7,7 +7,7 @@ import { ActionType, AppSetting, CONFIGURATION_DEFAULTS } from "./settings.js";
 import { getUserOrUndefined, isModeratorWithCache } from "./utility.js";
 import { ClientSubredditJob } from "./constants.js";
 import { fromPairs } from "lodash";
-import { recordBanForDigest, recordUnbanForDigest, removeRecordOfBanForDigest } from "./modmail/dailyDigest.js";
+import { recordBanForSummary, recordUnbanForSummary, removeRecordOfBanForSummary } from "./modmail/actionSummary.js";
 import { isBanned, isContributor } from "devvit-helpers";
 
 const UNBAN_WHITELIST = "UnbanWhitelist";
@@ -22,7 +22,7 @@ export async function recordBan (username: string, redis: RedisClient) {
 
 export async function removeRecordOfBan (username: string, redis: RedisClient) {
     await redis.zRem(BAN_STORE, [username]);
-    await removeRecordOfBanForDigest(username, redis);
+    await removeRecordOfBanForSummary(username, redis);
     console.log(`Removed record of ban for ${username}`);
 }
 
@@ -94,7 +94,7 @@ async function handleSetOrganic (username: string, subredditName: string, settin
     }
 
     await removeRecordOfBan(username, context.redis);
-    await recordUnbanForDigest(username, context.redis);
+    await recordUnbanForSummary(username, context.redis);
 
     if (settings[AppSetting.AddModNoteOnClassificationChange]) {
         await context.reddit.addModNote({
@@ -177,7 +177,7 @@ async function handleSetBanned (username: string, subredditName: string, setting
         ]);
 
         await recordBan(username, context.redis);
-        await recordBanForDigest(username, context.redis);
+        await recordBanForSummary(username, context.redis);
 
         const reinstatableContent = removableContent.filter(item => item.userReportReasons.length === 0);
         if (reinstatableContent.length > 0) {

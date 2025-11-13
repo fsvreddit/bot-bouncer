@@ -7,7 +7,7 @@ import { queryForm, reportForm } from "./main.js";
 import { subMonths } from "date-fns";
 import { getControlSubSettings } from "./settings.js";
 import { handleControlSubReportUser } from "./handleControlSubMenu.js";
-import { recordReportForDigest } from "./modmail/dailyDigest.js";
+import { recordReportForSummary } from "./modmail/actionSummary.js";
 import { canUserReceiveFeedback } from "./submissionFeedback.js";
 import { isLinkId } from "@devvit/public-api/types/tid.js";
 import { addClassificationQueryToQueue } from "./modmail/classificationQuery.js";
@@ -150,7 +150,7 @@ export async function reportFormHandler (event: FormOnSubmitEvent<JSONObject>, c
             sendFeedback: event.values[ReportFormField.SendFeedback] as boolean | undefined,
             immediate: true,
         }, context),
-        recordReportForDigest(target.authorName, "manually", context.redis),
+        recordReportForSummary(target.authorName, "manually", context.redis),
     ]);
 
     context.ui.showToast(`${target.authorName} has been submitted to /r/${CONTROL_SUBREDDIT}. A tracking post will be created shortly.`);
