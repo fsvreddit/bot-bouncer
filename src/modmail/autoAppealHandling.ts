@@ -10,10 +10,11 @@ import json2md from "json2md";
 import { sendMessageToWebhook } from "../utility.js";
 import { ModmailMessage } from "./modmail.js";
 import { getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
-import { getUserExtended, getUserSocialLinks } from "../extendedDevvit.js";
+import { getUserExtended } from "../extendedDevvit.js";
 import { statusToFlair } from "../postCreation.js";
 import { format, getYear } from "date-fns";
 import { getPossibleSetStatusValues } from "./controlSubModmail.js";
+import { getUserSocialLinks } from "devvit-helpers";
 
 const APPEAL_CONFIG_WIKI_PAGE = "appeal-config";
 const APPEAL_CONFIG_REDIS_KEY = "AppealConfig";
@@ -214,7 +215,7 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
     // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
     const user = appealConfig.some(config => config.bioRegex || config["~bioRegex"]) ? await getUserExtended(username, context) : undefined;
     // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
-    const socialLinks = appealConfig.some(config => config.socialLinkRegex || config["~socialLinkRegex"]) ? await getUserSocialLinks(username, context) : [];
+    const socialLinks = appealConfig.some(config => config.socialLinkRegex || config["~socialLinkRegex"]) ? await getUserSocialLinks(username, context.metadata) : [];
 
     const originalBio = await context.redis.hGet(BIO_TEXT_STORE, username.toLowerCase());
     const originalSocialLinks = await context.redis.hGet(SOCIAL_LINKS_STORE, username.toLowerCase())

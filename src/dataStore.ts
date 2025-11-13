@@ -10,11 +10,12 @@ import { isCommentId, isLinkId } from "@devvit/public-api/types/tid.js";
 import { deleteAccountInitialEvaluationResults } from "./handleControlSubAccountEvaluation.js";
 import json2md from "json2md";
 import { getUsernameFromUrl, sendMessageToWebhook } from "./utility.js";
-import { getUserExtended, getUserSocialLinks } from "./extendedDevvit.js";
+import { getUserExtended } from "./extendedDevvit.js";
 import { storeClassificationEvent } from "./statistics/classificationStatistics.js";
 import { USER_DEFINED_HANDLES_POSTS } from "./statistics/definedHandlesStatistics.js";
 import { RedisHelper } from "./redisHelper.js";
 import { ZMember } from "@devvit/protos";
+import { getUserSocialLinks } from "devvit-helpers";
 
 const ACTIVE_USER_STORE = "UserStore";
 const TEMP_DECLINE_STORE = "TempDeclineStore";
@@ -472,7 +473,7 @@ export async function storeInitialAccountProperties (username: string, context: 
         console.log(`Data Store: Stored display name for ${username}`);
     }
 
-    const socialLinks = await getUserSocialLinks(username, context);
+    const socialLinks = await getUserSocialLinks(username, context.metadata);
     if (socialLinks.length > 0) {
         promises.push(context.redis.hSet(SOCIAL_LINKS_STORE, { [username]: JSON.stringify(socialLinks) }));
         console.log(`Data Store: Stored social links for ${username}`);

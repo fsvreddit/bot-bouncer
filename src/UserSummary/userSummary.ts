@@ -6,13 +6,14 @@ import { count } from "@wordpress/wordcount";
 import { isUserPotentiallyBlockingBot } from "./blockChecker.js";
 import pluralize from "pluralize";
 import { isLinkId } from "@devvit/public-api/types/tid.js";
-import { getUserExtended, getUserSocialLinks, UserExtended } from "../extendedDevvit.js";
+import { getUserExtended, UserExtended } from "../extendedDevvit.js";
 import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
 import { getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
 import json2md from "json2md";
 import markdownEscape from "markdown-escape";
 import { ALL_EVALUATORS } from "@fsvreddit/bot-bouncer-evaluation";
 import { BIO_TEXT_STORE, getUserStatus } from "../dataStore.js";
+import { getUserSocialLinks } from "devvit-helpers";
 
 function formatDifferenceInDates (start: Date, end: Date) {
     const units: (keyof Duration)[] = ["years", "months", "days"];
@@ -204,7 +205,7 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
         accountPropsBullets.push(`Account flags: ${userStatus.flags.join(", ")}`);
     }
 
-    const socialLinks = await getUserSocialLinks(username, context);
+    const socialLinks = await getUserSocialLinks(username, context.metadata);
     const uniqueSocialLinks = compact(uniq(socialLinks.map(link => link.outboundUrl)));
     if (uniqueSocialLinks.length > 0) {
         if (source === "modmail") {
