@@ -58,8 +58,10 @@ While you can unban the user yourself, this only affects the user on your subred
 ## v1.22.0 (coming soon)
 
 * Improve resilience of app if required permissions are accidentally removed from the app's user account
+* Reduce false positives on one evaluator
 * Action summary (formerly daily digest) can now be sent either daily or weekly on Mondays
 * Action summary (formerly daily digest) no longer incorrectly shows deleted users as if they have been unbanned by Bot Bouncer
+* Improved performance to reduce compute load on Dev Platform infrastructure
 * Internal changes to support operations on /r/BotBouncer
 
 ## v1.21.0
