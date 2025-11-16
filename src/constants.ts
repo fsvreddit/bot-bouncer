@@ -36,7 +36,6 @@ export enum ControlSubredditJob {
     EvaluateKarmaFarmingSubs = "evaluateKarmaFarmingSubs",
     QueueKarmaFarmingSubs = "queueKarmaFarmingSubs",
     UptimeAndMessageCheck = "uptimeAndMessageCheck",
-    BioTextAnalyser = "bioTextAnalyser",
     RapidJob = "rapidJob",
     EvaluatorAccuracyStatistics = "evaluatorAccuracyStatistics",
     DefinedHandlesStatistics = "definedHandlesStatistics",
@@ -51,6 +50,7 @@ export enum ControlSubredditJob {
     DataExtractJob = "dataExtractJob",
     UpdateEvaluatorVariables = "updateEvaluatorVariables",
     EvaluatorReDoSChecker = "evaluatorReDoSChecker",
+    CheckPermissionQueueItems = "checkPermissionQueueItems",
 }
 
 /**
@@ -63,4 +63,5 @@ export enum ClientSubredditJob {
     UpgradeNotifier = "upgradeNotifier",
     SendDailyDigest = "sendDailyDigest",
     NotifyModTeamOnDemod = "notifyModTeamOnDemod",
+    PermissionCheckEnqueue = "permissionCheckEnqueue",
 }

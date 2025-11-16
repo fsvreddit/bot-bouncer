@@ -15,6 +15,7 @@ import { updateBioStatistics } from "./statistics/userBioStatistics.js";
 import { updateDefinedHandlesStats } from "./statistics/definedHandlesStatistics.js";
 import { pendingUserFinder } from "./statistics/pendingUserFinder.js";
 import { updateFailedFeedbackStorage } from "./submissionFeedback.js";
+import { analyseBioText } from "./similarBioTextFinder/bioTextFinder.js";
 
 const FLAGS_TO_EXCLUDE_FROM_STATS: UserFlag[] = [
     UserFlag.HackedAndRecovered,
@@ -73,6 +74,7 @@ export async function perform6HourlyJobs (_: unknown, context: JobContext) {
         updateClassificationStatistics(context),
         updateAppealStatistics(context),
         updateFailedFeedbackStorage(context),
+        analyseBioText(context),
         checkDataStoreIntegrity(context),
     ]);
 

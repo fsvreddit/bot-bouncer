@@ -19,7 +19,6 @@ import { checkForUpdates } from "./upgradeNotifier.js";
 import { sendDailySummary } from "./modmail/actionSummary.js";
 import { perform6HourlyJobs, perform6HourlyJobsPart2 } from "./sixHourlyJobs.js";
 import { checkUptimeAndMessages } from "./uptimeMonitor.js";
-import { analyseBioText } from "./similarBioTextFinder/bioTextFinder.js";
 import { handleRapidJob } from "./handleRapidJob.js";
 import { buildEvaluatorAccuracyStatistics } from "./statistics/evaluatorAccuracyStatistics.js";
 import { gatherDefinedHandlesStats, storeDefinedHandlesDataJob } from "./statistics/definedHandlesStatistics.js";
@@ -30,6 +29,7 @@ import { asyncWikiUpdate } from "./statistics/asyncWikiUpdate.js";
 import { generateBioStatisticsReport, updateBioStatisticsJob } from "./statistics/userBioStatistics.js";
 import { continueDataExtract } from "./modmail/dataExtract.js";
 import { redosChecker } from "./userEvaluation/redosChecker.js";
+import { checkPermissionQueueItems } from "./permissionChecks.js";
 
 Devvit.addSettings(appSettings);
 
@@ -161,11 +161,6 @@ Devvit.addSchedulerJob({
 });
 
 Devvit.addSchedulerJob({
-    name: ControlSubredditJob.BioTextAnalyser,
-    onRun: analyseBioText,
-});
-
-Devvit.addSchedulerJob({
     name: ControlSubredditJob.EvaluatorAccuracyStatistics,
     onRun: buildEvaluatorAccuracyStatistics,
 });
@@ -223,6 +218,11 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: ControlSubredditJob.EvaluatorReDoSChecker,
     onRun: redosChecker,
+});
+
+Devvit.addSchedulerJob({
+    name: ControlSubredditJob.CheckPermissionQueueItems,
+    onRun: checkPermissionQueueItems,
 });
 
 /**
