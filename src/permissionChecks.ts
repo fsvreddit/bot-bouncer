@@ -5,6 +5,7 @@ import { ExternalSubmission } from "./externalSubmissions.js";
 import { getPostOrCommentById } from "./utility.js";
 import { hasPermissions, isModerator } from "devvit-helpers";
 import json2md from "json2md";
+import pluralize from "pluralize";
 
 const PERMISSION_CHECKS_QUEUE = "permissionChecksQueue";
 const PERMISSION_MESSAGE_SENT_HASH = "permissionsMessageSent";
@@ -54,6 +55,7 @@ export async function addSubsToPermissionChecksQueueFromExternalSubmissions (ext
     }
 
     await Promise.all(Array.from(subreddits).map(subreddit => addSubToPermissionChecksQueue(subreddit, context)));
+    console.log(`Permission Checks: Added ${subreddits.size} ${pluralize("subreddit", subreddits.size)} to permission checks queue from external submissions.`);
 }
 
 export async function checkPermissionQueueItems (_: unknown, context: TriggerContext) {
