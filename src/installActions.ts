@@ -47,11 +47,6 @@ async function addControlSubredditJobs (context: TriggerContext) {
         }),
 
         context.scheduler.runJob({
-            name: ControlSubredditJob.Perform6HourlyJobs,
-            runAt: new Date(),
-        }),
-
-        context.scheduler.runJob({
             name: ControlSubredditJob.QueueKarmaFarmingSubs,
             cron: "5/10 * * * *",
         }),
