@@ -22,7 +22,7 @@ import { checkUptimeAndMessages } from "./uptimeMonitor.js";
 import { handleRapidJob } from "./handleRapidJob.js";
 import { buildEvaluatorAccuracyStatistics } from "./statistics/evaluatorAccuracyStatistics.js";
 import { gatherDefinedHandlesStats, storeDefinedHandlesDataJob } from "./statistics/definedHandlesStatistics.js";
-import { deleteRecordsForRemovedUsers, evaluatorReversalsJob } from "./evaluatorReversals.js";
+import { deleteRecordsForRemovedUsers, evaluatorReversalsJob, evaluatorReversalsRecheckJob } from "./evaluatorReversals.js";
 import { handleCommentCreate, handlePostCreate } from "./handleContentCreation.js";
 import { conditionalStatsUpdate } from "./statistics/conditionalStatsUpdate.js";
 import { asyncWikiUpdate } from "./statistics/asyncWikiUpdate.js";
@@ -178,6 +178,11 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: ControlSubredditJob.EvaluatorReversals,
     onRun: evaluatorReversalsJob,
+});
+
+Devvit.addSchedulerJob({
+    name: ControlSubredditJob.EvaluatorReversalsRecheck,
+    onRun: evaluatorReversalsRecheckJob,
 });
 
 Devvit.addSchedulerJob({
