@@ -1,12 +1,9 @@
-import { Comment, JobContext, JSONObject, Post, ScheduledJobEvent, TriggerContext } from "@devvit/public-api";
+import { JobContext, JSONObject, ScheduledJobEvent, TriggerContext } from "@devvit/public-api";
 import { deleteUserStatus, getFullDataStore, getUserStatus, updateAggregate, UserDetails, UserStatus } from "./dataStore.js";
 import { addDays, addSeconds, subDays } from "date-fns";
 import { CONTROL_SUBREDDIT, ControlSubredditJob, PostFlairTemplate } from "./constants.js";
 import { deleteAccountInitialEvaluationResults, getAccountInitialEvaluationResults } from "./handleControlSubAccountEvaluation.js";
 import { CLEANUP_LOG_KEY } from "./cleanup.js";
-import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
-import { EvaluateBotGroupAdvanced } from "@fsvreddit/bot-bouncer-evaluation/dist/userEvaluation/EvaluateBotGroupAdvanced.js";
-import { getUserExtended } from "./extendedDevvit.js";
 
 const REVERSALS_QUEUE = "ReversalsQueue";
 const SUBMISSION_REVERSAL_QUEUE = "submissionReversalQueue";
@@ -222,6 +219,7 @@ export async function deleteRecordsForRemovedUsers (_: unknown, context: JobCont
     }
 }
 
+/*
 const EVALUATOR_REVERSALS_RECHECK_QUEUE = "EvaluatorReversalsRecheckQueue";
 
 export async function evaluatorReversalsRecheckJob (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
@@ -313,3 +311,4 @@ export async function evaluatorReversalsRecheckJob (event: ScheduledJobEvent<JSO
         });
     }
 }
+*/
