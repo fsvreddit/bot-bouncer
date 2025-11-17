@@ -29,7 +29,7 @@ import { asyncWikiUpdate } from "./statistics/asyncWikiUpdate.js";
 import { generateBioStatisticsReport, updateBioStatisticsJob } from "./statistics/userBioStatistics.js";
 import { continueDataExtract } from "./modmail/dataExtract.js";
 import { redosChecker } from "./userEvaluation/redosChecker.js";
-import { checkPermissionQueueItems } from "./permissionChecks.js";
+import { checkPermissionQueueItems, handlePermissionCheckEnqueueJob } from "./permissionChecks.js";
 
 Devvit.addSettings(appSettings);
 
@@ -252,6 +252,11 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: ClientSubredditJob.NotifyModTeamOnDemod,
     onRun: notifyModTeamOnDemod,
+});
+
+Devvit.addSchedulerJob({
+    name: ClientSubredditJob.PermissionCheckEnqueue,
+    onRun: handlePermissionCheckEnqueueJob,
 });
 
 Devvit.configure({

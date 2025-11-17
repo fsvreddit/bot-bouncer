@@ -1,4 +1,4 @@
-import { TriggerContext } from "@devvit/public-api";
+import { JobContext, TriggerContext } from "@devvit/public-api";
 import { addDays } from "date-fns";
 import { CONTROL_SUBREDDIT } from "./constants.js";
 import { ExternalSubmission } from "./externalSubmissions.js";
@@ -10,7 +10,7 @@ import pluralize from "pluralize";
 const PERMISSION_CHECKS_QUEUE = "permissionChecksQueue";
 const PERMISSION_MESSAGE_SENT_HASH = "permissionsMessageSent";
 
-export async function handlePermissionCheckEnqueueJob (context: TriggerContext) {
+export async function handlePermissionCheckEnqueueJob (_: unknown, context: JobContext) {
     const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
     if (subredditName === CONTROL_SUBREDDIT) {
         throw new Error("Permission check enqueue job should not run on control subreddit");
@@ -59,6 +59,10 @@ export async function addSubsToPermissionChecksQueueFromExternalSubmissions (ext
 }
 
 export async function checkPermissionQueueItems (_: unknown, context: TriggerContext) {
+    if (context.subredditName !== CONTROL_SUBREDDIT) {
+        throw new Error("checkPermissionQueueItems should only be called from control subreddit");
+    }
+
     const subredditName = await context.redis.global.zRange(PERMISSION_CHECKS_QUEUE, 0, 0)
         .then(items => items.length === 0 ? undefined : items[0].member);
 
