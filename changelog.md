@@ -1,5 +1,14 @@
 # Changelog for Bot Bouncer
 
+## v1.22.0
+
+* Improve resilience of app if required permissions are accidentally removed from the app's user account
+* Reduce false positives on one evaluator
+* Action summary (formerly daily digest) can now be sent either daily or weekly on Mondays
+* Action summary (formerly daily digest) no longer incorrectly shows deleted users as if they have been unbanned by Bot Bouncer
+* Improved performance to reduce compute load on Dev Platform infrastructure
+* Internal changes to support operations on /r/BotBouncer
+
 ## v1.21.0
 
 * Faster response to bot classification changes, down from up to ten minutes to up to one minute

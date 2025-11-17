@@ -55,7 +55,7 @@ While you can unban the user yourself, this only affects the user on your subred
 
 # Change History
 
-## v1.22.0 (coming soon)
+## v1.22.0
 
 * Improve resilience of app if required permissions are accidentally removed from the app's user account
 * Reduce false positives on one evaluator
