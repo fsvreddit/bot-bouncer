@@ -41,7 +41,7 @@ export async function addSubsToPermissionChecksQueueFromExternalSubmissions (ext
     for (const submission of externalSubmissions) {
         let itemAdded = false;
         if (submission.reportContext) {
-            const regex = /^Automatically reported via a (?:post|comment) on \/r\/([A-Za-z_-]{3,21})$/;
+            const regex = /^Automatically reported via a \[(?:post|comment)\].+ on \/r\/([A-Za-z_-]{3,21})$/;
             const match = regex.exec(submission.reportContext);
             if (match?.[1]) {
                 subreddits.add(match[1]);
