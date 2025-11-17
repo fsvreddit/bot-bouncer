@@ -70,6 +70,7 @@ async function addControlSubredditJobs (context: TriggerContext) {
         context.scheduler.runJob({
             name: ControlSubredditJob.CheckPermissionQueueItems,
             cron: "*/5 * * * *",
+            data: { firstRun: true },
         }),
 
         context.scheduler.runJob({
