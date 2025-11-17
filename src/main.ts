@@ -16,13 +16,11 @@ import { updateEvaluatorVariablesFromWikiHandler } from "./userEvaluation/evalua
 import { evaluateKarmaFarmingSubs, queueKarmaFarmingSubs } from "./karmaFarmingSubsCheck.js";
 import { controlSubQuerySubmissionFormDefinition, handleControlSubForm, sendQueryToSubmitter } from "./handleControlSubMenu.js";
 import { checkForUpdates } from "./upgradeNotifier.js";
-import { sendDailyDigest } from "./modmail/dailyDigest.js";
+import { sendDailySummary } from "./modmail/actionSummary.js";
 import { perform6HourlyJobs, perform6HourlyJobsPart2 } from "./sixHourlyJobs.js";
 import { checkUptimeAndMessages } from "./uptimeMonitor.js";
-import { analyseBioText } from "./similarBioTextFinder/bioTextFinder.js";
 import { handleRapidJob } from "./handleRapidJob.js";
 import { buildEvaluatorAccuracyStatistics } from "./statistics/evaluatorAccuracyStatistics.js";
-import { processExternalSubmissionsFromObserverSubreddits } from "./externalSubmissions.js";
 import { gatherDefinedHandlesStats, storeDefinedHandlesDataJob } from "./statistics/definedHandlesStatistics.js";
 import { deleteRecordsForRemovedUsers, evaluatorReversalsJob } from "./evaluatorReversals.js";
 import { handleCommentCreate, handlePostCreate } from "./handleContentCreation.js";
@@ -30,6 +28,8 @@ import { conditionalStatsUpdate } from "./statistics/conditionalStatsUpdate.js";
 import { asyncWikiUpdate } from "./statistics/asyncWikiUpdate.js";
 import { generateBioStatisticsReport, updateBioStatisticsJob } from "./statistics/userBioStatistics.js";
 import { continueDataExtract } from "./modmail/dataExtract.js";
+import { redosChecker } from "./userEvaluation/redosChecker.js";
+import { checkPermissionQueueItems, handlePermissionCheckEnqueueJob } from "./permissionChecks.js";
 
 Devvit.addSettings(appSettings);
 
@@ -161,18 +161,8 @@ Devvit.addSchedulerJob({
 });
 
 Devvit.addSchedulerJob({
-    name: ControlSubredditJob.BioTextAnalyser,
-    onRun: analyseBioText,
-});
-
-Devvit.addSchedulerJob({
     name: ControlSubredditJob.EvaluatorAccuracyStatistics,
     onRun: buildEvaluatorAccuracyStatistics,
-});
-
-Devvit.addSchedulerJob({
-    name: ControlSubredditJob.HandleObserverSubredditSubmissions,
-    onRun: processExternalSubmissionsFromObserverSubreddits,
 });
 
 Devvit.addSchedulerJob({
@@ -225,6 +215,16 @@ Devvit.addSchedulerJob({
     onRun: continueDataExtract,
 });
 
+Devvit.addSchedulerJob({
+    name: ControlSubredditJob.EvaluatorReDoSChecker,
+    onRun: redosChecker,
+});
+
+Devvit.addSchedulerJob({
+    name: ControlSubredditJob.CheckPermissionQueueItems,
+    onRun: checkPermissionQueueItems,
+});
+
 /**
  * Jobs that run on client subreddits only
  */
@@ -246,12 +246,17 @@ Devvit.addSchedulerJob({
 
 Devvit.addSchedulerJob({
     name: ClientSubredditJob.SendDailyDigest,
-    onRun: sendDailyDigest,
+    onRun: sendDailySummary,
 });
 
 Devvit.addSchedulerJob({
     name: ClientSubredditJob.NotifyModTeamOnDemod,
     onRun: notifyModTeamOnDemod,
+});
+
+Devvit.addSchedulerJob({
+    name: ClientSubredditJob.PermissionCheckEnqueue,
+    onRun: handlePermissionCheckEnqueueJob,
 });
 
 Devvit.configure({

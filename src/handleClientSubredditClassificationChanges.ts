@@ -1,13 +1,14 @@
 import { Comment, JobContext, JSONObject, Post, RedisClient, ScheduledJobEvent, SettingsValues, TriggerContext } from "@devvit/public-api";
-import { addSeconds, formatDate, subWeeks } from "date-fns";
+import { addDays, addSeconds, formatDate, subDays, subWeeks } from "date-fns";
 import pluralize from "pluralize";
 import { getRecentlyChangedUsers, getUserStatus, isUserInTempDeclineStore, UserDetails, UserStatus } from "./dataStore.js";
 import { setCleanupForUser } from "./cleanup.js";
 import { ActionType, AppSetting, CONFIGURATION_DEFAULTS } from "./settings.js";
-import { getUserOrUndefined, isApproved, isBanned, isModerator, replaceAll } from "./utility.js";
+import { getUserOrUndefined, isModeratorWithCache } from "./utility.js";
 import { ClientSubredditJob } from "./constants.js";
 import { fromPairs } from "lodash";
-import { recordBanForDigest, recordUnbanForDigest, removeRecordOfBanForDigest } from "./modmail/dailyDigest.js";
+import { recordBanForSummary, recordUnbanForSummary, removeRecordOfBanForSummary } from "./modmail/actionSummary.js";
+import { hasPermissions, isBanned, isContributor } from "devvit-helpers";
 
 const UNBAN_WHITELIST = "UnbanWhitelist";
 const BAN_STORE = "BanStore";
@@ -21,14 +22,12 @@ export async function recordBan (username: string, redis: RedisClient) {
 
 export async function removeRecordOfBan (username: string, redis: RedisClient) {
     await redis.zRem(BAN_STORE, [username]);
-    await removeRecordOfBanForDigest(username, redis);
-    await recordUnbanForDigest(username, redis);
+    await removeRecordOfBanForSummary(username, redis);
     console.log(`Removed record of ban for ${username}`);
 }
 
 export async function wasUserBannedByApp (username: string, context: TriggerContext): Promise<boolean> {
-    const score = await context.redis.zScore(BAN_STORE, username);
-    return score !== undefined;
+    return await context.redis.zScore(BAN_STORE, username).then(score => score !== undefined);
 }
 
 export async function recordWhitelistUnban (username: string, context: TriggerContext) {
@@ -54,8 +53,7 @@ export async function removeWhitelistUnban (username: string, redis: RedisClient
 }
 
 export async function isUserWhitelisted (username: string, context: TriggerContext) {
-    const score = await context.redis.zScore(UNBAN_WHITELIST, username);
-    return score !== undefined;
+    return await context.redis.zScore(UNBAN_WHITELIST, username).then(score => score !== undefined);
 }
 
 async function approveIfNotRemovedByMod (targetId: string, context: TriggerContext) {
@@ -90,12 +88,13 @@ async function handleSetOrganic (username: string, subredditName: string, settin
         return;
     }
 
-    if (await isBanned(username, context)) {
+    if (await isBanned(context.reddit, subredditName, username)) {
         await context.reddit.unbanUser(username, subredditName);
         console.log(`Classification Update: Unbanned ${username}`);
     }
 
     await removeRecordOfBan(username, context.redis);
+    await recordUnbanForSummary(username, context.redis);
 
     if (settings[AppSetting.AddModNoteOnClassificationChange]) {
         await context.reddit.addModNote({
@@ -107,7 +106,7 @@ async function handleSetOrganic (username: string, subredditName: string, settin
 }
 
 async function handleSetBanned (username: string, subredditName: string, settings: SettingsValues, context: TriggerContext) {
-    const isCurrentlyBanned = await isBanned(username, context);
+    const isCurrentlyBanned = await isBanned(context.reddit, subredditName, username);
     if (isCurrentlyBanned) {
         console.log(`Classification Update: ${username} is already banned on ${subredditName}.`);
         return;
@@ -145,12 +144,12 @@ async function handleSetBanned (username: string, subredditName: string, setting
         }
     }
 
-    if (await isApproved(username, context)) {
+    if (await isContributor(context.reddit, subredditName, username)) {
         console.log(`Classification Update: ${username} is allowlisted as an approved user`);
         return;
     }
 
-    if (await isModerator(username, context)) {
+    if (await isModeratorWithCache(username, context)) {
         console.log(`Classification Update: ${username} is allowlisted as a moderator`);
         return;
     }
@@ -160,13 +159,12 @@ async function handleSetBanned (username: string, subredditName: string, setting
     const [actionToTake] = settings[AppSetting.Action] as ActionType[] | undefined ?? [ActionType.Ban];
     if (actionToTake === ActionType.Ban) {
         let message = settings[AppSetting.BanMessage] as string | undefined ?? CONFIGURATION_DEFAULTS.banMessage;
-        message = replaceAll(message, "{subreddit}", subredditName);
-        message = replaceAll(message, "{account}", username);
-        message = replaceAll(message, "{link}", username);
+        message = message.replaceAll("{subreddit}", subredditName)
+            .replaceAll("{account}", username);
 
-        let banNote = CONFIGURATION_DEFAULTS.banNote;
-        banNote = replaceAll(banNote, "{me}", context.appName);
-        banNote = replaceAll(banNote, "{date}", formatDate(new Date(), "yyyy-MM-dd"));
+        const banNote = CONFIGURATION_DEFAULTS.banNote
+            .replaceAll("{me}", context.appName)
+            .replaceAll("{date}", formatDate(new Date(), "yyyy-MM-dd"));
 
         const results = await Promise.allSettled([
             context.reddit.banUser({
@@ -179,7 +177,7 @@ async function handleSetBanned (username: string, subredditName: string, setting
         ]);
 
         await recordBan(username, context.redis);
-        await recordBanForDigest(username, context.redis);
+        await recordBanForSummary(username, context.redis);
 
         const reinstatableContent = removableContent.filter(item => item.userReportReasons.length === 0);
         if (reinstatableContent.length > 0) {
@@ -219,7 +217,7 @@ export async function queueRecentReclassifications (_: unknown, context: JobCont
     const now = new Date();
     const lastCheckKey = "lastUpdateDateKey";
     const lastCheckData = await context.redis.get(lastCheckKey);
-    const lastCheckDate = lastCheckData ? new Date(parseInt(lastCheckData, 10)) : subWeeks(now, 1);
+    const lastCheckDate = lastCheckData ? new Date(parseInt(lastCheckData, 10)) : subDays(now, 1);
 
     const recentlyChangedUsers = await getRecentlyChangedUsers(lastCheckDate, now, context);
     if (recentlyChangedUsers.length > 0) {
@@ -286,6 +284,11 @@ export async function handleClassificationChanges (event: ScheduledJobEvent<JSON
         console.log(`Classification Update: Processing ${items.length} ${pluralize("user", items.length)} in reclassification queue for ${subredditName}.`);
     }
 
+    if (!await appAccountHasPermissions(context)) {
+        console.warn(`Classification Update: Bot Bouncer does not have sufficient permissions on r/${subredditName} to process classification changes.`);
+        return;
+    }
+
     const settings = await context.settings.getAll();
 
     let processed = 0;
@@ -321,4 +324,26 @@ export async function handleClassificationChanges (event: ScheduledJobEvent<JSON
         console.log("Classification Update: All users in reclassification queue processed.");
         await context.redis.del(recentlyRunKey);
     }
+}
+
+const APP_PERMISSIONS_CACHE_KEY = "AppPermissionsCache";
+
+async function appAccountHasPermissions (context: TriggerContext): Promise<boolean> {
+    const cachedResult = await context.redis.get(APP_PERMISSIONS_CACHE_KEY);
+    if (cachedResult !== undefined) {
+        return JSON.parse(cachedResult) as boolean;
+    }
+
+    const hasPerms = await hasPermissions(context.reddit, {
+        subredditName: context.subredditName ?? await context.reddit.getCurrentSubredditName(),
+        username: context.appName,
+        requiredPerms: ["access", "posts"],
+    });
+
+    await context.redis.set(APP_PERMISSIONS_CACHE_KEY, JSON.stringify(hasPerms), { expiration: addDays(new Date(), 1) });
+    return hasPerms;
+}
+
+export async function clearAppPermissionsCache (context: TriggerContext) {
+    await context.redis.del(APP_PERMISSIONS_CACHE_KEY);
 }

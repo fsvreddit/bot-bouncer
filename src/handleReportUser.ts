@@ -1,13 +1,13 @@
 import { Context, MenuItemOnPressEvent, JSONObject, FormOnSubmitEvent, FormFunction } from "@devvit/public-api";
 import { CONTROL_SUBREDDIT } from "./constants.js";
-import { getPostOrCommentById, getUserOrUndefined, isModerator } from "./utility.js";
+import { getPostOrCommentById, getUserOrUndefined, isModeratorWithCache } from "./utility.js";
 import { getUserStatus, UserStatus } from "./dataStore.js";
 import { addExternalSubmissionFromClientSub } from "./externalSubmissions.js";
 import { queryForm, reportForm } from "./main.js";
 import { subMonths } from "date-fns";
 import { getControlSubSettings } from "./settings.js";
 import { handleControlSubReportUser } from "./handleControlSubMenu.js";
-import { recordReportForDigest } from "./modmail/dailyDigest.js";
+import { recordReportForSummary } from "./modmail/actionSummary.js";
 import { canUserReceiveFeedback } from "./submissionFeedback.js";
 import { isLinkId } from "@devvit/public-api/types/tid.js";
 import { addClassificationQueryToQueue } from "./modmail/classificationQuery.js";
@@ -91,7 +91,7 @@ export async function handleReportUser (event: MenuItemOnPressEvent, context: Co
         return;
     }
 
-    if (await isModerator(target.authorName, context)) {
+    if (await isModeratorWithCache(target.authorName, context)) {
         context.ui.showToast("You cannot report a moderator of this subreddit.");
         return;
     }
@@ -150,7 +150,7 @@ export async function reportFormHandler (event: FormOnSubmitEvent<JSONObject>, c
             sendFeedback: event.values[ReportFormField.SendFeedback] as boolean | undefined,
             immediate: true,
         }, context),
-        recordReportForDigest(target.authorName, "manually", context.redis),
+        recordReportForSummary(target.authorName, "manually", context.redis),
     ]);
 
     context.ui.showToast(`${target.authorName} has been submitted to /r/${CONTROL_SUBREDDIT}. A tracking post will be created shortly.`);

@@ -5,13 +5,14 @@ import { addDays, addWeeks, formatDate, subMinutes } from "date-fns";
 import { getUserStatus, UserDetails, UserStatus } from "./dataStore.js";
 import { isUserWhitelisted, recordBan } from "./handleClientSubredditClassificationChanges.js";
 import { CONTROL_SUBREDDIT } from "./constants.js";
-import { getPostOrCommentById, getUserOrUndefined, isApproved, isBanned, isModerator, replaceAll } from "./utility.js";
+import { getPostOrCommentById, getUserOrUndefined, isModeratorWithCache } from "./utility.js";
 import { ActionType, AppSetting, CONFIGURATION_DEFAULTS, getControlSubSettings } from "./settings.js";
 import { addExternalSubmissionFromClientSub } from "./externalSubmissions.js";
 import { isLinkId } from "@devvit/public-api/types/tid.js";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
-import { recordBanForDigest, recordReportForDigest } from "./modmail/dailyDigest.js";
+import { recordBanForSummary, recordReportForSummary } from "./modmail/actionSummary.js";
 import { getUserExtended } from "./extendedDevvit.js";
+import { isBanned, isContributor } from "devvit-helpers";
 
 export async function handleClientPostCreate (event: PostCreate, context: TriggerContext) {
     if (context.subredditName === CONTROL_SUBREDDIT) {
@@ -202,12 +203,12 @@ async function handleContentCreation (username: string, currentStatus: UserDetai
         return;
     }
 
-    if (await isApproved(user.username, context)) {
+    if (await isContributor(context.reddit, subredditName, user.username)) {
         console.log(`Content Create: ${user.username} is allowlisted as an approved user`);
         return;
     }
 
-    if (await isModerator(user.username, context)) {
+    if (await isModeratorWithCache(user.username, context)) {
         console.log(`Content Create: ${user.username} is allowlisted as a moderator`);
         return;
     }
@@ -237,17 +238,17 @@ async function handleContentCreation (username: string, currentStatus: UserDetai
             }
         }
 
-        const isCurrentlyBanned = await isBanned(user.username, context);
+        const isCurrentlyBanned = await isBanned(context.reddit, subredditName, user.username);
 
         if (!isCurrentlyBanned) {
             let message = await context.settings.get<string>(AppSetting.BanMessage) ?? CONFIGURATION_DEFAULTS.banMessage;
-            message = replaceAll(message, "{subreddit}", subredditName);
-            message = replaceAll(message, "{account}", user.username);
-            message = replaceAll(message, "{link}", user.username);
+            message = message.replaceAll("{subreddit}", subredditName)
+                .replaceAll("{account}", user.username)
+                .replaceAll("{link}", user.username);
 
-            let banNote = CONFIGURATION_DEFAULTS.banNote;
-            banNote = replaceAll(banNote, "{me}", context.appName);
-            banNote = replaceAll(banNote, "{date}", formatDate(new Date(), "yyyy-MM-dd"));
+            const banNote = CONFIGURATION_DEFAULTS.banNote
+                .replaceAll("{me}", context.appName)
+                .replaceAll("{date}", formatDate(new Date(), "yyyy-MM-dd"));
 
             promises.push(context.reddit.banUser({
                 subredditName,
@@ -257,7 +258,7 @@ async function handleContentCreation (username: string, currentStatus: UserDetai
             }));
 
             promises.push(recordBan(username, context.redis));
-            promises.push(recordBanForDigest(username, context.redis));
+            promises.push(recordBanForSummary(username, context.redis));
             console.log(`Content Create: ${user.username} banned from ${subredditName}`);
         }
     } else {
@@ -353,7 +354,7 @@ async function checkAndReportPotentialBot (username: string, target: Post | Comm
         return;
     }
 
-    const isMod = await isModerator(user.username, context);
+    const isMod = await isModeratorWithCache(user.username, context);
     if (isMod) {
         console.log(`Bot check: User ${user.username} is a moderator, so not reporting as a bot.`);
         return;
@@ -373,7 +374,7 @@ async function checkAndReportPotentialBot (username: string, target: Post | Comm
             reportContext,
             immediate: true,
         }, context),
-        recordReportForDigest(user.username, "automatically", context.redis),
+        recordReportForSummary(user.username, "automatically", context.redis),
     );
 
     console.log(`Created external submission via automated evaluation for ${user.username} for bot style ${botName}`);
@@ -388,11 +389,12 @@ async function checkAndReportPotentialBot (username: string, target: Post | Comm
             );
         }
     } else if (actionToTake === ActionType.Report) {
-        const isApprovedUser = await isApproved(user.username, context);
+        const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
+        const isApprovedUser = await isContributor(context.reddit, subredditName, user.username);
         if (!isApprovedUser) {
             promises.push(context.redis.set(`reported:${targetItem.id}`, "true", { expiration: addWeeks(new Date(), 2) }));
         }
     }
 
-    await Promise.all(promises);
+    await Promise.allSettled(promises);
 }

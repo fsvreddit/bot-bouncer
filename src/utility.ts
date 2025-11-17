@@ -1,6 +1,7 @@
-import { Comment, Post, TriggerContext, User, UserSocialLink } from "@devvit/public-api";
+import { Comment, Post, TriggerContext, User } from "@devvit/public-api";
 import { isCommentId, isLinkId } from "@devvit/public-api/types/tid.js";
-import { addMinutes } from "date-fns";
+import { addHours } from "date-fns";
+import { isModerator } from "devvit-helpers";
 
 export function getUsernameFromUrl (url: string) {
     const urlRegex = /reddit\.com\/u(?:ser)?\/([\w_-]+)\/?(?:[?/].+)?$/i;
@@ -13,31 +14,23 @@ export function getUsernameFromUrl (url: string) {
     return username;
 }
 
-export async function isModerator (username: string, context: TriggerContext, subreddit?: string): Promise<boolean> {
+export async function isModeratorWithCache (username: string, context: TriggerContext, subreddit?: string): Promise<boolean> {
     const subredditName = subreddit ?? context.subredditName ?? await context.reddit.getCurrentSubredditName();
 
     if (username === "AutoModerator" || username === `${subredditName}-ModTeam`) {
         return true;
     }
 
-    const modList = await context.reddit.getModerators({ subredditName, username }).all();
-    return modList.length > 0;
-}
+    const cacheKey = `modStatus:${subredditName}:${username}`;
+    const cachedValue = await context.redis.get(cacheKey);
+    if (cachedValue !== undefined) {
+        return JSON.parse(cachedValue) as boolean;
+    }
 
-export async function isApproved (username: string, context: TriggerContext) {
-    const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
-    const approvedList = await context.reddit.getApprovedUsers({ subredditName, username }).all();
-    return approvedList.length > 0;
-}
+    const isAMod = await isModerator(context.reddit, subredditName, username);
 
-export async function isBanned (username: string, context: TriggerContext, subreddit?: string): Promise<boolean> {
-    const subredditName = subreddit ?? context.subredditName ?? await context.reddit.getCurrentSubredditName();
-    const bannedList = await context.reddit.getBannedUsers({ subredditName, username }).all();
-    return bannedList.length > 0;
-}
-
-export function replaceAll (input: string, pattern: string, replacement: string): string {
-    return input.split(pattern).join(replacement);
+    await context.redis.set(cacheKey, JSON.stringify(isAMod), { expiration: addHours(new Date(), 1) });
+    return isAMod;
 }
 
 export function getPostOrCommentById (thingId: string, context: TriggerContext): Promise<Post | Comment> {
@@ -87,34 +80,30 @@ export function median (numbers: number[]): number {
 
 export async function sendMessageToWebhook (webhookUrl: string, message: string) {
     const params = {
-        content: replaceAll(replaceAll(message, "\n\n\n", "\n\n"), "\n\n", "\n"),
+        content: message.replaceAll("\n\n\n", "\n\n").replaceAll("\n\n", "\n"),
     };
 
-    await fetch(
-        webhookUrl,
-        {
-            method: "post",
-            headers: {
-                "Content-Type": "application/json",
+    try {
+        const result = await fetch(
+            webhookUrl,
+            {
+                method: "post",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(params),
             },
-            body: JSON.stringify(params),
-        },
-    );
+        );
+        console.log("Webhook message sent, status:", result.status);
+    } catch (error) {
+        console.error("Error sending message to webhook:", error);
+    }
 }
 
-export async function getUserSocialLinks (username: string, context: TriggerContext): Promise<UserSocialLink[]> {
-    const socialLinksCacheKey = `userSocialLinks~${username}`;
-    const cachedLinks = await context.redis.get(socialLinksCacheKey);
-    if (cachedLinks) {
-        return JSON.parse(cachedLinks) as UserSocialLink[];
-    }
+export function encodedText (input: string): string {
+    return Buffer.from(input, "utf-8").toString("base64");
+}
 
-    const user = await getUserOrUndefined(username, context);
-    if (!user) {
-        return [];
-    }
-
-    const socialLinks = await user.getSocialLinks();
-    await context.redis.set(socialLinksCacheKey, JSON.stringify(socialLinks), { expiration: addMinutes(new Date(), 20) });
-    return socialLinks;
+export function decodedText (input: string): string {
+    return Buffer.from(input, "base64").toString("utf-8");
 }

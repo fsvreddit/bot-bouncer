@@ -124,7 +124,7 @@ export async function handleControlSubFlairUpdate (event: PostFlairUpdate, conte
 
     await setUserStatus(username, newStatus, context);
 
-    console.log(`Flair Update: Status for ${username} set to ${postFlair} by ${operator}`);
+    console.log(`Flair Update: Status for ${username} set to ${newStatus.userStatus} by ${operator}`);
 
     const post = await context.reddit.getPostById(event.post.id);
 

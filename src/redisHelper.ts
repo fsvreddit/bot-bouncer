@@ -1,4 +1,5 @@
 import { RedisClient, ZRangeOptions } from "@devvit/public-api";
+import { differenceInSeconds } from "date-fns";
 import { chunk } from "lodash";
 
 export class RedisHelper {
@@ -66,5 +67,12 @@ export class RedisHelper {
         });
 
         return results;
+    }
+
+    public async expireAt (key: string, expireAt: Date) {
+        const secondsUntil = differenceInSeconds(expireAt, new Date());
+        if (secondsUntil > 0) {
+            await this.redis.expire(key, secondsUntil);
+        }
     }
 }

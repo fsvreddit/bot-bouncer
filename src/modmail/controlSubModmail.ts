@@ -2,9 +2,9 @@ import { Comment, TriggerContext } from "@devvit/public-api";
 import { isLinkId } from "@devvit/public-api/types/tid.js";
 import { getUserStatus, UserStatus } from "../dataStore.js";
 import { getSummaryForUser } from "../UserSummary/userSummary.js";
-import { getUserOrUndefined, isBanned, isModerator } from "../utility.js";
+import { getUserOrUndefined, isModeratorWithCache } from "../utility.js";
 import { CONFIGURATION_DEFAULTS, getControlSubSettings } from "../settings.js";
-import { addDays, addHours, format, subMinutes } from "date-fns";
+import { addDays, addHours, addWeeks, format, subMinutes } from "date-fns";
 import json2md from "json2md";
 import { ModmailMessage } from "./modmail.js";
 import { dataExtract } from "./dataExtract.js";
@@ -18,6 +18,7 @@ import { FLAIR_MAPPINGS } from "../handleControlSubFlairUpdate.js";
 import { uniq } from "lodash";
 import { CHECK_DATE_KEY } from "../karmaFarmingSubsCheck.js";
 import { evaluateAccountFromModmail } from "./modmailEvaluaton.js";
+import { isBanned } from "devvit-helpers";
 
 export function getPossibleSetStatusValues (): string[] {
     return uniq([...FLAIR_MAPPINGS.map(entry => entry.postFlair), ...Object.values(UserStatus)]);
@@ -70,7 +71,10 @@ export async function handleControlSubredditModmail (modmail: ModmailMessage, co
     }
 
     if (modmail.bodyMarkdown.startsWith("!summary") && modmail.participant) {
-        await addSummaryForUser(modmail.conversationId, modmail.participant, context);
+        const regex = /^!summary(?: ([\w\d_-]+))?/;
+        const match = regex.exec(modmail.bodyMarkdown);
+        const username = match?.[1] ?? modmail.participant;
+        await addSummaryForUser(modmail.conversationId, username, context);
         return;
     }
 
@@ -103,9 +107,12 @@ export async function handleControlSubredditModmail (modmail: ModmailMessage, co
         const statusChangeMatch = statusChangeRegex.exec(modmail.bodyMarkdown);
         if (statusChangeMatch?.length === 2) {
             const newStatus = statusChangeMatch[1] as UserStatus;
+
+            const username = await getOverrideForSetStatusCommand(modmail.conversationId, context) ?? modmail.participant;
+
             const currentStatus = await getUserStatus(modmail.participant, context);
             if (currentStatus && isLinkId(currentStatus.trackingPostId) && currentStatus.userStatus !== newStatus) {
-                await context.redis.set(`userStatusOverride~${modmail.participant}`, modmail.messageAuthor, { expiration: addHours(new Date(), 2) });
+                await context.redis.set(`userStatusOverride~${username}`, modmail.messageAuthor, { expiration: addHours(new Date(), 2) });
 
                 const newFlairTemplate = statusToFlair[newStatus];
                 let newFlairText: string | undefined;
@@ -122,7 +129,13 @@ export async function handleControlSubredditModmail (modmail: ModmailMessage, co
 
                 await context.reddit.modMail.reply({
                     conversationId: modmail.conversationId,
-                    body: `User status changed to ${newStatus}.`,
+                    body: `User status for ${username} changed to ${newStatus}.`,
+                    isInternal: true,
+                });
+            } else {
+                await context.reddit.modMail.reply({
+                    conversationId: modmail.conversationId,
+                    body: `Did not set status for ${username}, either no existing status or they are already marked as ${newStatus}.`,
                     isInternal: true,
                 });
             }
@@ -217,7 +230,8 @@ async function handleModmailFromUser (modmail: ModmailMessage, context: TriggerC
         return;
     }
 
-    const recentAppealMade = await context.redis.get(getKeyForAppeal(username));
+    const recentAppealKey = `recentAppeal~${username}`;
+    const recentAppealMade = await context.redis.get(recentAppealKey);
 
     if (recentAppealMade) {
         // User has already made an appeal recently, so we should tell the user it's already being handled.
@@ -264,6 +278,8 @@ async function handleModmailFromUser (modmail: ModmailMessage, context: TriggerC
     }
 
     await handleAppeal(modmail, currentStatus, context);
+
+    await context.redis.set(recentAppealKey, new Date().getTime().toString(), { expiration: addDays(new Date(), 1) });
 }
 
 function getKeyForAppeal (conversationId: string): string {
@@ -319,10 +335,10 @@ async function checkBanOnSub (modmail: ModmailMessage, context: TriggerContext) 
     const subredditName = checkBanMatch[1];
     const message: json2md.DataObject[] = [];
     try {
-        const isBannedOnSub = await isBanned(modmail.participant, context, subredditName);
+        const isBannedOnSub = await isBanned(context.reddit, subredditName, modmail.participant);
         message.push({ p: `User /u/${modmail.participant} is currently ${isBannedOnSub ? "banned" : "not banned"} on /r/${subredditName}.` });
     } catch (error) {
-        const isMod = await isModerator(context.appName, context, subredditName);
+        const isMod = await isModeratorWithCache(context.appName, context, subredditName);
         if (!isMod) {
             message.push({ p: `Bot Bouncer is not a moderator of /r/${subredditName}, so it cannot check the ban status of /u/${modmail.participant}.` });
         } else {
@@ -377,4 +393,18 @@ async function showUserHistory (modmail: ModmailMessage, context: TriggerContext
         conversationId: modmail.conversationId,
         isInternal: true,
     });
+}
+
+function getOverrideKeyForSetStatusCommand (conversationId: string): string {
+    return `setStatusOverride~${conversationId}`;
+}
+
+export async function setOverrideForSetStatusCommand (conversationId: string, username: string, context: TriggerContext) {
+    const overrideKey = getOverrideKeyForSetStatusCommand(conversationId);
+    await context.redis.set(overrideKey, username, { expiration: addWeeks(new Date(), 4) });
+}
+
+async function getOverrideForSetStatusCommand (conversationId: string, context: TriggerContext): Promise<string | undefined> {
+    const overrideKey = getOverrideKeyForSetStatusCommand(conversationId);
+    return context.redis.get(overrideKey);
 }

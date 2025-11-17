@@ -1,7 +1,7 @@
 import { TriggerContext, User } from "@devvit/public-api";
 import { PostCreate } from "@devvit/protos";
 import { CONTROL_SUBREDDIT } from "./constants.js";
-import { getUsernameFromUrl, getUserOrUndefined, isModerator } from "./utility.js";
+import { getUsernameFromUrl, getUserOrUndefined, isModeratorWithCache } from "./utility.js";
 import { getUserStatus, touchUserStatus, UserDetails, UserStatus } from "./dataStore.js";
 import { subMonths } from "date-fns";
 import { getControlSubSettings } from "./settings.js";
@@ -31,7 +31,7 @@ export async function handleControlSubPostCreate (event: PostCreate, context: Tr
     const username = getUsernameFromUrl(event.post.url);
 
     if (!username) {
-        if (await isModerator(event.author.name, context)) {
+        if (await isModeratorWithCache(event.author.name, context)) {
             // Allow mods to make meta submissions
             return;
         }

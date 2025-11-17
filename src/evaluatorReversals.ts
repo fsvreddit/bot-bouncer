@@ -218,3 +218,97 @@ export async function deleteRecordsForRemovedUsers (_: unknown, context: JobCont
         });
     }
 }
+
+/*
+const EVALUATOR_REVERSALS_RECHECK_QUEUE = "EvaluatorReversalsRecheckQueue";
+
+export async function evaluatorReversalsRecheckJob (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
+    // if (event.data?.firstRun) {
+    //     const reversedUsersQueue = await context.redis.zRange(REVERSED_USERS, 0, -1).then(entries => entries.map(entry => entry.member));
+    //     if (reversedUsersQueue.length > 0) {
+    //         await context.redis.zAdd(EVALUATOR_REVERSALS_RECHECK_QUEUE, ...reversedUsersQueue.map(username => ({ member: username, score: 0 })));
+    //     }
+
+    //     await context.scheduler.runJob({
+    //         name: ControlSubredditJob.EvaluatorReversalsRecheck,
+    //         runAt: addSeconds(new Date(), 5),
+    //     });
+
+    //     return;
+    // }
+
+    const runLimit = addSeconds(new Date(), 10);
+    const queue = await context.redis.zRange(EVALUATOR_REVERSALS_RECHECK_QUEUE, 0, -1).then(entries => entries.map(entry => entry.member));
+
+    if (queue.length === 0) {
+        console.log("Evaluator Reversals Recheck: No users in the recheck queue.");
+        await context.redis.del(EVALUATOR_REVERSALS_RECHECK_QUEUE);
+        return;
+    }
+
+    const evaluatorVariables = await getEvaluatorVariables(context);
+
+    while (queue.length > 0 && new Date() < runLimit) {
+        const username = queue.shift();
+        if (!username) {
+            break;
+        }
+
+        await context.redis.zRem(EVALUATOR_REVERSALS_RECHECK_QUEUE, [username]);
+
+        const userStatus = await getUserStatus(username, context);
+        if (!userStatus || userStatus.userStatus !== UserStatus.Declined) {
+            continue;
+        }
+
+        const evaluator = new EvaluateBotGroupAdvanced(context, undefined, evaluatorVariables);
+        const user = await getUserExtended(username, context);
+        if (!user) {
+            continue;
+        }
+
+        const preEvaluateResult = await evaluator.preEvaluateUser(user);
+        if (!preEvaluateResult) {
+            console.log(`Evaluator Reversals Recheck: No pre-evaluate results for ${username}.`);
+            continue;
+        }
+
+        let history: (Post | Comment)[];
+        try {
+            history = await context.reddit.getCommentsAndPostsByUser({
+                username,
+                sort: "new",
+                limit: 100,
+            }).all();
+        } catch {
+            continue;
+        }
+
+        const evaluateResult = await evaluator.evaluate(user, history);
+        if (!evaluateResult) {
+            console.log(`Evaluator Reversals Recheck: No evaluate result for ${username}.`);
+            continue;
+        }
+
+        // User matches at least one group!
+        try {
+            await context.reddit.setPostFlair({
+                subredditName: CONTROL_SUBREDDIT,
+                postId: userStatus.trackingPostId,
+                flairTemplateId: PostFlairTemplate.Banned,
+            });
+            await context.redis.zRem(REVERSED_USERS, [username]);
+            console.log(`Evaluator Reversals Recheck: Re-applied ban to ${username}.`);
+        } catch {
+            console.warn(`Evaluator Reversals Recheck: Failed to re-apply ban flair to ${username}.`);
+        }
+    }
+
+    if (queue.length > 0) {
+        await context.scheduler.runJob({
+            name: ControlSubredditJob.EvaluatorReversalsRecheck,
+            runAt: addSeconds(new Date(), 5),
+        });
+    }
+}
+*/

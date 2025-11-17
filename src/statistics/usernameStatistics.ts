@@ -3,7 +3,6 @@ import { UserStatus } from "../dataStore.js";
 import { getEvaluatorVariable } from "../userEvaluation/evaluatorVariables.js";
 import { subWeeks } from "date-fns";
 import json2md from "json2md";
-import { replaceAll } from "../utility.js";
 import { StatsUserEntry } from "../sixHourlyJobs.js";
 
 export async function updateUsernameStatistics (allEntries: StatsUserEntry[], context: JobContext) {
@@ -17,7 +16,7 @@ export async function updateUsernameStatistics (allEntries: StatsUserEntry[], co
 
     for (const regex of regexes) {
         const entriesMatchingRegex = recentData.filter(item => new RegExp(regex).test(item.username));
-        let regexForRow = replaceAll(regex, "|", "¦");
+        let regexForRow = regex.replaceAll("|", "¦");
 
         if (regexForRow.length > 50) {
             regexForRow = `${regexForRow.slice(0, 50)}...`;

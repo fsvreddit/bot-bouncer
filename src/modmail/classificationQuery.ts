@@ -2,6 +2,7 @@ import { TriggerContext } from "@devvit/public-api";
 import { CONTROL_SUBREDDIT } from "../constants.js";
 import json2md from "json2md";
 import { getSummaryForUser } from "../UserSummary/userSummary.js";
+import { setOverrideForSetStatusCommand } from "./controlSubModmail.js";
 
 const CLASSIFICATION_QUERY_QUEUE = "classificationQueryQueue";
 
@@ -68,6 +69,8 @@ export async function handleClassificationQueryQueue (context: TriggerContext) {
         console.error("Classification Queries: Could not find modmail conversation for classification query", queryData);
         return;
     }
+
+    await setOverrideForSetStatusCommand(conversation.id, queryData.username, context);
 
     const userSummary = await getSummaryForUser(queryData.username, "modmail", context);
 

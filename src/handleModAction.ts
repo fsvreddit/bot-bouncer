@@ -1,14 +1,14 @@
 import { JobContext, JSONObject, ScheduledJobEvent, TriggerContext } from "@devvit/public-api";
 import { ModAction } from "@devvit/protos";
 import { ClientSubredditJob, CONTROL_SUBREDDIT, ControlSubredditJob, INTERNAL_BOT } from "./constants.js";
-import { recordWhitelistUnban, removeRecordOfBan } from "./handleClientSubredditClassificationChanges.js";
+import { clearAppPermissionsCache, recordWhitelistUnban, removeRecordOfBan } from "./handleClientSubredditClassificationChanges.js";
 import { handleExternalSubmissionsPageUpdate } from "./externalSubmissions.js";
 import { getControlSubSettings, validateControlSubConfigChange } from "./settings.js";
 import { addDays, addMinutes, addSeconds } from "date-fns";
 import { validateAndSaveAppealConfig } from "./modmail/autoAppealHandling.js";
 import { checkIfStatsNeedUpdating } from "./sixHourlyJobs.js";
 import { handleBannedSubredditsModAction } from "./statistics/bannedSubreddits.js";
-import { isModerator, replaceAll, sendMessageToWebhook } from "./utility.js";
+import { isModeratorWithCache, sendMessageToWebhook } from "./utility.js";
 
 export async function handleModAction (event: ModAction, context: TriggerContext) {
     if (context.subredditName === CONTROL_SUBREDDIT) {
@@ -63,9 +63,15 @@ async function handleModActionClientSub (event: ModAction, context: TriggerConte
         console.warn(`handleModActionClientSub: Bot Bouncer has been removed as a moderator from r/${context.subredditName} by u/${event.moderator?.name}`);
     }
 
-    // Special action for observer subreddits
+    if (event.action === "setpermissions" && event.targetUser?.name === context.appName) {
+        await clearAppPermissionsCache(context);
+        console.log(`handleModActionClientSub: Bot Bouncer's moderator permissions have been changed on r/${context.subredditName} by u/${event.moderator?.name}`);
+    }
+
+    // Special actions for observer subreddits
     if (event.action === "wikirevise" && event.moderator?.name.startsWith(context.appName) && event.moderator.name !== context.appName && event.moderator.name !== INTERNAL_BOT) {
         await handleBannedSubredditsModAction(event, context);
+        await handleExternalSubmissionsPageUpdate(context);
     }
 }
 
@@ -100,7 +106,7 @@ async function handleModActionControlSub (event: ModAction, context: TriggerCont
                 }),
 
                 queueConfigWikiCheck(ConfigWikiPage.AutoAppealHandling, 5, context),
-                queueConfigWikiCheck(ConfigWikiPage.ControlSubSettings, 10, context),
+                queueConfigWikiCheck(ConfigWikiPage.ControlSubSettings, 5, context),
             ]);
         }
     }
@@ -111,7 +117,7 @@ async function handleModActionControlSub (event: ModAction, context: TriggerCont
      */
     if (event.action === "approvelink" && event.moderator?.name !== context.appName && event.targetPost) {
         const post = await context.reddit.getPostById(event.targetPost.id);
-        if (await isModerator(post.authorName, context)) {
+        if (await isModeratorWithCache(post.authorName, context)) {
             return;
         }
 
@@ -208,8 +214,8 @@ export async function notifyModTeamOnDemod (event: ScheduledJobEvent<JSONObject 
         return;
     }
 
-    message = replaceAll(message, "{modName}", modName);
-    message = replaceAll(message, "{subredditName}", subredditName);
+    message = message.replaceAll("{modName}", modName);
+    message = message.replaceAll("{subredditName}", subredditName);
 
     message += "\n\n*This message was sent automatically, replies will not be read.*";
 

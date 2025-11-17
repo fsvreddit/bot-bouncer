@@ -49,21 +49,26 @@ export enum AppSetting {
     BanMessage = "banMessage",
     AutoWhitelist = "autoWhitelist",
     ModmailNote = "clientModmailNote",
-    RemoveRecentContent = "removeRecentContent",
     ReportPotentialBots = "reportPotentialBots",
     RemoveContentWhenReporting = "removeContentWhenReporting",
     AddModNoteOnClassificationChange = "addModNoteOnClassificationChange",
-    DailyDigest = "dailyDigest",
-    DailyDigestAsModNotification = "dailyDigestAsModNotification",
-    DailyDigestIncludeReported = "dailyDigestIncludeReported",
-    DailyDigestIncludeBanned = "dailyDigestIncludeBanned",
-    DailyDigestIncludeUnbanned = "dailyDigestIncludeUnbanned",
+    Digest = "dailyDigest",
+    DigestFrequency = "dailyDigestFrequency",
+    DigestAsModNotification = "dailyDigestAsModNotification",
+    DigestIncludeReported = "dailyDigestIncludeReported",
+    DigestIncludeBanned = "dailyDigestIncludeBanned",
+    DigestIncludeUnbanned = "dailyDigestIncludeUnbanned",
     UpgradeNotifier = "upgradeNotifier",
 }
 
 export enum ActionType {
     Ban = "ban",
     Report = "report",
+}
+
+export enum DigestFrequency {
+    Daily = "daily",
+    Weekly = "weekly",
 }
 
 export const appSettings: SettingsFormField[] = [
@@ -113,13 +118,6 @@ export const appSettings: SettingsFormField[] = [
             },
             {
                 type: "boolean",
-                name: AppSetting.RemoveRecentContent,
-                label: "Ban newly classified accounts if they have recent interactions on your sub, and remove the last week's posts and comments",
-                helpText: "If this is turned off, accounts banned on r/BotBouncer will only be actioned if they comment or post in the future.",
-                defaultValue: true,
-            },
-            {
-                type: "boolean",
                 name: AppSetting.AddModNoteOnClassificationChange,
                 label: "Add a moderator note to users when they are banned or unbanned by Bot Bouncer",
                 helpText: "If this is turned on, a mod note will be added to the account when it is banned or unbanned by Bot Bouncer. The note will include the date and time of the action.",
@@ -150,38 +148,50 @@ export const appSettings: SettingsFormField[] = [
     },
     {
         type: "group",
-        label: "Daily Digest",
+        label: "Actions Summary",
         fields: [
             {
                 type: "boolean",
-                label: "Send a daily digest of actions taken by Bot Bouncer, if any occur",
-                name: AppSetting.DailyDigest,
+                label: "Send a summary of actions taken by Bot Bouncer, if any occur",
+                name: AppSetting.Digest,
                 helpText: "If enabled, you will receive a daily message with a summary of actions taken by Bot Bouncer in the previous 24 hours, if any.",
                 defaultValue: false,
             },
             {
+                type: "select",
+                label: "Frequency of summary messages",
+                name: AppSetting.DigestFrequency,
+                helpText: "Choose how often you would like to receive the summary messages",
+                options: [
+                    { label: "Daily", value: DigestFrequency.Daily },
+                    { label: "Weekly", value: DigestFrequency.Weekly },
+                ],
+                multiSelect: false,
+                defaultValue: [DigestFrequency.Daily],
+            },
+            {
                 type: "boolean",
-                label: "Send digest to the 'Mod Notifications' section of modmail",
+                label: "Send summary to the 'Mod Notifications' section of modmail",
                 helpText: "If set, the daily digest will be sent to the 'Mod Notifications' section of modmail, otherwise it will go into the main inbox.",
-                name: AppSetting.DailyDigestAsModNotification,
+                name: AppSetting.DigestAsModNotification,
                 defaultValue: false,
             },
             {
                 type: "boolean",
                 label: "Include details of accounts reported to Bot Bouncer",
-                name: AppSetting.DailyDigestIncludeReported,
+                name: AppSetting.DigestIncludeReported,
                 defaultValue: true,
             },
             {
                 type: "boolean",
                 label: "Include details of accounts banned by Bot Bouncer",
-                name: AppSetting.DailyDigestIncludeBanned,
+                name: AppSetting.DigestIncludeBanned,
                 defaultValue: true,
             },
             {
                 type: "boolean",
                 label: "Include details of accounts unbanned by Bot Bouncer",
-                name: AppSetting.DailyDigestIncludeUnbanned,
+                name: AppSetting.DigestIncludeUnbanned,
                 defaultValue: true,
             },
         ],
@@ -220,6 +230,7 @@ export interface ControlSubSettings {
     postCreationQueueProcessingEnabled?: boolean;
     allowClassificationQueries?: boolean;
     legacyWikiPageUpdateFrequencyMinutes: number;
+    redosCheckerEnabled?: boolean;
     appRemovedMessage?: string;
 }
 
@@ -245,6 +256,7 @@ const schema: JSONSchemaType<ControlSubSettings> = {
         postCreationQueueProcessingEnabled: { type: "boolean", nullable: true },
         allowClassificationQueries: { type: "boolean", nullable: true },
         legacyWikiPageUpdateFrequencyMinutes: { type: "number" },
+        redosCheckerEnabled: { type: "boolean", nullable: true },
         appRemovedMessage: { type: "string", nullable: true },
     },
     required: ["evaluationDisabled", "trustedSubmitters", "reporterBlacklist"],

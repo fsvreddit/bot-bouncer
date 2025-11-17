@@ -1,6 +1,6 @@
 import { JobContext, TriggerContext } from "@devvit/public-api";
 import { getUserStatus, setUserStatus, storeInitialAccountProperties, touchUserStatus, UserDetails, UserStatus } from "./dataStore.js";
-import { CONTROL_SUBREDDIT, ControlSubredditJob, PostFlairTemplate } from "./constants.js";
+import { CONTROL_SUBREDDIT, ControlSubredditJob, INTERNAL_BOT, PostFlairTemplate } from "./constants.js";
 import { UserExtended } from "./extendedDevvit.js";
 import { addHours, addSeconds } from "date-fns";
 import { getControlSubSettings } from "./settings.js";
@@ -35,8 +35,7 @@ export interface AsyncSubmission {
 }
 
 export async function isUserAlreadyQueued (username: string, context: JobContext): Promise<boolean> {
-    const score = await context.redis.zScore(SUBMISSION_QUEUE, username);
-    return score !== undefined;
+    return await context.redis.zScore(SUBMISSION_QUEUE, username).then(score => score !== undefined);
 }
 
 async function createNewSubmission (submission: AsyncSubmission, context: TriggerContext) {
@@ -146,7 +145,12 @@ export async function queuePostCreation (submission: AsyncSubmission, context: T
         return PostCreationQueueResult.AlreadyInDatabase;
     }
 
-    const score = submission.immediate ? new Date().getTime() / 1000 : new Date().getTime();
+    let score = submission.immediate ? new Date().getTime() / 1000 : new Date().getTime();
+
+    // Hacky workaround to promote private bot submissions
+    if (submission.details.submitter?.startsWith(`${context.appName}-`) && submission.details.submitter !== INTERNAL_BOT) {
+        score /= 2;
+    }
 
     const txn = await context.redis.watch();
     await txn.multi();
@@ -204,6 +208,7 @@ export async function processQueuedSubmission (context: JobContext) {
     await createNewSubmission(JSON.parse(submissionDetails) as AsyncSubmission, context);
 
     if (queuedSubmissions.length > 1) {
-        console.log(`Post Creation: ${queuedSubmissions.length - 1} ${pluralize("submission", queuedSubmissions.length - 1)} still in the queue.`);
+        const message = `Post Creation: ${queuedSubmissions.length - 1} ${pluralize("submission", queuedSubmissions.length - 1)} still in the queue.`;
+        console.log(message);
     }
 }

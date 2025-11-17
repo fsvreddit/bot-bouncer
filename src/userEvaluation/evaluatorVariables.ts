@@ -1,5 +1,5 @@
 import { JobContext, JSONObject, JSONValue, ScheduledJobEvent, TriggerContext, WikiPage } from "@devvit/public-api";
-import { ALL_EVALUATORS, yamlToVariables } from "@fsvreddit/bot-bouncer-evaluation";
+import { ALL_EVALUATORS, ValidationIssue, yamlToVariables } from "@fsvreddit/bot-bouncer-evaluation";
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "../constants.js";
 import { fromPairs, uniq } from "lodash";
 import { sendMessageToWebhook } from "../utility.js";
@@ -78,7 +78,7 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
     const invalidEntries = invalidEvaluatorVariableCondition(variables);
     const errors = variables.errors as string[] | undefined;
     if (errors && errors.length > 0) {
-        invalidEntries.push(...errors);
+        invalidEntries.push({ severity: "error", message: errors.join(", ") });
     }
 
     if (invalidEntries.length === 0) {
@@ -101,12 +101,14 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
             }
         }
         for (const [username, reason] of Object.entries(matchedMods)) {
-            invalidEntries.push(`Bot Group Advanced matched moderator ${username} with reason(s): ${JSON.stringify(reason)}`);
+            invalidEntries.push({ severity: "error", message: `Bot Group Advanced matched moderator ${username} with reason(s): ${JSON.stringify(reason)}` });
             console.log(`Evaluator Variables: Bot Group Advanced matched moderator ${username} with reason(s): ${JSON.stringify(reason)}`);
         }
     }
 
+    const failedEvaluatorVariablesKey = "failedEvaluatorVariables";
     if (invalidEntries.length > 0) {
+        await context.redis.set(failedEvaluatorVariablesKey, "true");
         if (!event.data?.username) {
             console.error("Evaluator Variables: Evaluator variables contains issues. Will fall back to cached values.");
             return;
@@ -115,7 +117,7 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
 
             const body: json2md.DataObject[] = [
                 { p: "There are invalid regexes in the evaluator variables. Please check the wiki page and try again." },
-                { ul: invalidEntries },
+                { ul: invalidEntries.map(entry => `${entry.severity}: ${entry.message}`) },
             ];
 
             let messageBody = json2md(body);
@@ -127,17 +129,21 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
             const controlSubSettings = await getControlSubSettings(context);
             if (controlSubSettings.monitoringWebhook) {
                 const discordMessage: json2md.DataObject[] = [{ p: `${username} has updated the evaluator config, but there's an error! Please check and correct as soon as possible.` }];
-                discordMessage.push({ ul: invalidEntries });
+                discordMessage.push({ ul: invalidEntries.map(entry => `${entry.severity}: ${entry.message}`) });
                 discordMessage.push({ p: "Last known good values will be used until the issue is resolved." });
                 console.log(JSON.stringify(discordMessage));
                 await sendMessageToWebhook(controlSubSettings.monitoringWebhook, json2md(discordMessage));
             }
 
-            await context.reddit.sendPrivateMessage({
-                subject: "Problem with evaluator variables config after edit",
-                to: username,
-                text: messageBody,
-            });
+            try {
+                await context.reddit.sendPrivateMessage({
+                    subject: "Problem with evaluator variables config after edit",
+                    to: username,
+                    text: messageBody,
+                });
+            } catch (error) {
+                console.error(`Evaluator Variables: Failed to send PM to ${username} about invalid evaluator variables.`, error);
+            }
 
             return;
         }
@@ -192,10 +198,23 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
         name: ControlSubredditJob.ConditionalStatsUpdate,
         runAt: addSeconds(new Date(), 10),
     });
+
+    await context.scheduler.runJob({
+        name: ControlSubredditJob.EvaluatorReDoSChecker,
+        runAt: addSeconds(new Date(), 5),
+        data: { firstRun: true, modName: event.data?.username ?? "unknown" },
+    });
+
+    const previouslyFailed = await context.redis.exists(failedEvaluatorVariablesKey);
+    await context.redis.del(failedEvaluatorVariablesKey);
+    if (previouslyFailed && controlSubSettings.monitoringWebhook) {
+        const username = event.data?.username as string | undefined ?? "unknown";
+        await sendMessageToWebhook(controlSubSettings.monitoringWebhook, `✅ Successfully updated evaluator variables from wiki edit by /u/${username}.`);
+    }
 }
 
-export function invalidEvaluatorVariableCondition (variables: Record<string, JSONValue>): string[] {
-    const results: string[] = [];
+export function invalidEvaluatorVariableCondition (variables: Record<string, JSONValue>): ValidationIssue[] {
+    const results: ValidationIssue[] = [];
 
     // Now check for inconsistent types.
     for (const key of Object.keys(variables)) {
@@ -203,7 +222,7 @@ export function invalidEvaluatorVariableCondition (variables: Record<string, JSO
         if (Array.isArray(value)) {
             const distinctTypes = uniq(value.map(item => typeof item));
             if (distinctTypes.length > 1) {
-                results.push(`Inconsistent types for ${key} which may be a result of an undoubled single quote: ${distinctTypes.join(", ")}`);
+                results.push({ severity: "error", message: `Inconsistent types for ${key} which may be a result of an undoubled single quote: ${distinctTypes.join(", ")}` });
             }
         }
     }
@@ -213,7 +232,7 @@ export function invalidEvaluatorVariableCondition (variables: Record<string, JSO
         const evaluator = new Evaluator({} as unknown as TriggerContext, undefined, variables);
         const errors = evaluator.validateVariables();
         if (errors.length > 0) {
-            results.push(...errors.map(r => `${evaluator.name}: ${r.length < 200 ? r : r.substring(0, 197) + "..."}`));
+            results.push(...errors.map(r => ({ severity: r.severity, message: `${evaluator.name}: ${r.message.length < 200 ? r.message : r.message.substring(0, 197) + "..."}` })));
         }
 
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition

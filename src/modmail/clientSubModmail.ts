@@ -1,9 +1,9 @@
 import { TriggerContext } from "@devvit/public-api";
 import { getUserStatus, UserStatus } from "../dataStore.js";
 import { wasUserBannedByApp } from "../handleClientSubredditClassificationChanges.js";
-import { isBanned, replaceAll } from "../utility.js";
 import { CONFIGURATION_DEFAULTS } from "../settings.js";
 import { ModmailMessage } from "./modmail.js";
+import { isBanned } from "devvit-helpers";
 
 export async function handleClientSubredditModmail (modmail: ModmailMessage, context: TriggerContext) {
     if (!modmail.isFirstMessage) {
@@ -30,18 +30,18 @@ export async function handleClientSubredditModmail (modmail: ModmailMessage, con
         return;
     }
 
-    const userIsBanned = await isBanned(username, context);
+    const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
+    const userIsBanned = await isBanned(context.reddit, subredditName, username);
     if (!userIsBanned) {
         return;
     }
 
-    const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
     const post = await context.reddit.getPostById(currentStatus.trackingPostId);
 
-    let message = CONFIGURATION_DEFAULTS.noteClient;
-    message = replaceAll(message, "{link}", post.permalink);
-    message = replaceAll(message, "{subreddit}", subredditName);
-    message = replaceAll(message, "{account}", username);
+    const message = CONFIGURATION_DEFAULTS.noteClient
+        .replaceAll("{link}", post.permalink)
+        .replaceAll("{subreddit}", subredditName)
+        .replaceAll("{account}", username);
 
     await context.reddit.modMail.reply({
         body: message,

@@ -1,5 +1,5 @@
 import { Comment, JSONValue, Post, TriggerContext } from "@devvit/public-api";
-import { getUserSocialLinks, median, replaceAll } from "../utility.js";
+import { median } from "../utility.js";
 import { addMilliseconds, differenceInDays, differenceInHours, differenceInMilliseconds, differenceInMinutes, Duration, format, formatDuration, intervalToDuration, startOfDecade } from "date-fns";
 import { compact, countBy, mean, uniq } from "lodash";
 import { count } from "@wordpress/wordcount";
@@ -13,6 +13,7 @@ import json2md from "json2md";
 import markdownEscape from "markdown-escape";
 import { ALL_EVALUATORS } from "@fsvreddit/bot-bouncer-evaluation";
 import { BIO_TEXT_STORE, getUserStatus } from "../dataStore.js";
+import { getUserSocialLinks } from "devvit-helpers";
 
 function formatDifferenceInDates (start: Date, end: Date) {
     const units: (keyof Duration)[] = ["years", "months", "days"];
@@ -144,7 +145,7 @@ function activityByTimeOfDay (history: (Post | Comment)[]): json2md.DataObject[]
 function cleanedBio (bio: string, bannedDomains: string[]): string {
     let result = bio;
     for (const domain of bannedDomains) {
-        result = replaceAll(result, domain, "[redacted]");
+        result = result.replaceAll(domain, "[redacted]");
     }
     return result;
 }
@@ -204,7 +205,7 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
         accountPropsBullets.push(`Account flags: ${userStatus.flags.join(", ")}`);
     }
 
-    const socialLinks = await getUserSocialLinks(username, context);
+    const socialLinks = await getUserSocialLinks(username, context.metadata);
     const uniqueSocialLinks = compact(uniq(socialLinks.map(link => link.outboundUrl)));
     if (uniqueSocialLinks.length > 0) {
         if (source === "modmail") {

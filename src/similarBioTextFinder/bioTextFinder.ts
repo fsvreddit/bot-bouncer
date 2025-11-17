@@ -1,4 +1,4 @@
-import { JobContext, JSONValue, Post, TriggerContext } from "@devvit/public-api";
+import { JSONValue, Post, TriggerContext } from "@devvit/public-api";
 import { getUserExtended } from "../extendedDevvit.js";
 import { addDays } from "date-fns";
 import { compact, uniq } from "lodash";
@@ -70,7 +70,7 @@ interface Match {
     ratio: number;
 }
 
-export async function analyseBioText (_: unknown, context: JobContext) {
+export async function analyseBioText (context: TriggerContext) {
     const BIO_TEXT_STORAGE_KEY = "BioTextSimilarity";
     const BIO_TEXT_MODMAIL_SENT = "BioTextModmailSent";
 

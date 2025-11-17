@@ -9,12 +9,13 @@ import { getControlSubSettings } from "./settings.js";
 import { isCommentId, isLinkId } from "@devvit/public-api/types/tid.js";
 import { deleteAccountInitialEvaluationResults } from "./handleControlSubAccountEvaluation.js";
 import json2md from "json2md";
-import { getUsernameFromUrl, getUserSocialLinks, sendMessageToWebhook } from "./utility.js";
+import { getUsernameFromUrl, sendMessageToWebhook } from "./utility.js";
 import { getUserExtended } from "./extendedDevvit.js";
 import { storeClassificationEvent } from "./statistics/classificationStatistics.js";
 import { USER_DEFINED_HANDLES_POSTS } from "./statistics/definedHandlesStatistics.js";
 import { RedisHelper } from "./redisHelper.js";
 import { ZMember } from "@devvit/protos";
+import { getUserSocialLinks } from "devvit-helpers";
 
 const ACTIVE_USER_STORE = "UserStore";
 const TEMP_DECLINE_STORE = "TempDeclineStore";
@@ -437,19 +438,21 @@ export async function removeRecordOfSubmitterOrMod (username: string, context: T
     const data = await getFullDataStore(context);
     const entries = Object.entries(data).map(([key, value]) => ({ username: key, details: JSON.parse(value) as UserDetails }));
 
+    let entriesUpdated = 0;
     for (const entry of entries.filter(item => item.details.operator === username || item.details.submitter === username)) {
         const updatedDetails = { ...entry.details };
         if (updatedDetails.operator === username) {
-            updatedDetails.operator = "";
+            delete updatedDetails.operator;
         }
         if (updatedDetails.submitter === username) {
             delete updatedDetails.submitter;
         }
 
-        await setUserStatus(entry.username, updatedDetails, context);
+        await writeUserStatus(entry.username, updatedDetails, context);
+        entriesUpdated++;
     }
 
-    console.log(`Cleanup: Removed records of ${username} as submitter or operator`);
+    console.log(`Cleanup: Removed ${entriesUpdated} ${pluralize("record", entriesUpdated)} of ${username} as submitter or operator`);
 }
 
 export async function storeInitialAccountProperties (username: string, context: TriggerContext) {
@@ -470,7 +473,7 @@ export async function storeInitialAccountProperties (username: string, context: 
         console.log(`Data Store: Stored display name for ${username}`);
     }
 
-    const socialLinks = await getUserSocialLinks(username, context);
+    const socialLinks = await getUserSocialLinks(username, context.metadata);
     if (socialLinks.length > 0) {
         promises.push(context.redis.hSet(SOCIAL_LINKS_STORE, { [username]: JSON.stringify(socialLinks) }));
         console.log(`Data Store: Stored social links for ${username}`);
@@ -503,8 +506,7 @@ export async function addUserToTempDeclineStore (username: string, context: Trig
 }
 
 export async function isUserInTempDeclineStore (username: string, context: TriggerContext): Promise<boolean> {
-    const exists = await context.redis.global.zScore(TEMP_DECLINE_STORE, username);
-    return exists !== undefined;
+    return await context.redis.global.zScore(TEMP_DECLINE_STORE, username).then(exists => exists !== undefined);
 }
 
 export async function getRecentlyChangedUsers (since: Date, now: Date, context: TriggerContext): Promise<ZMember[]> {

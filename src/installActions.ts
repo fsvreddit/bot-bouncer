@@ -4,7 +4,7 @@ import { ClientSubredditJob, CONTROL_SUBREDDIT, ControlSubredditJob, UniversalJo
 import { handleExternalSubmissionsPageUpdate } from "./externalSubmissions.js";
 import { removeRetiredEvaluatorsFromStats } from "./userEvaluation/evaluatorHelpers.js";
 import { getControlSubSettings } from "./settings.js";
-import { addDays, addSeconds } from "date-fns";
+import { addDays, addMinutes, addSeconds } from "date-fns";
 import { migrationToGlobalRedis } from "./dataStore.js";
 import { forceEvaluatorVariablesRefresh } from "./userEvaluation/evaluatorVariables.js";
 
@@ -47,11 +47,6 @@ async function addControlSubredditJobs (context: TriggerContext) {
         }),
 
         context.scheduler.runJob({
-            name: ControlSubredditJob.Perform6HourlyJobs,
-            runAt: new Date(),
-        }),
-
-        context.scheduler.runJob({
             name: ControlSubredditJob.QueueKarmaFarmingSubs,
             cron: "5/10 * * * *",
         }),
@@ -73,13 +68,9 @@ async function addControlSubredditJobs (context: TriggerContext) {
         }),
 
         context.scheduler.runJob({
-            name: ControlSubredditJob.BioTextAnalyser,
-            cron: "29 1/6 * * *",
-        }),
-
-        context.scheduler.runJob({
-            name: ControlSubredditJob.HandleObserverSubredditSubmissions,
-            cron: "1/5 * * * *", // Every 5 minutes
+            name: ControlSubredditJob.CheckPermissionQueueItems,
+            cron: "*/5 * * * *",
+            data: { firstRun: true },
         }),
 
         context.scheduler.runJob({
@@ -117,7 +108,7 @@ async function addClientSubredditJobs (context: TriggerContext) {
     });
 
     let randomMinute = Math.floor(Math.random() * 60);
-    const randomHour = Math.floor(Math.random() * 24);
+    let randomHour = Math.floor(Math.random() * 24);
     await context.scheduler.runJob({
         name: ClientSubredditJob.UpgradeNotifier,
         cron: `${randomMinute} ${randomHour} * * *`,
@@ -134,6 +125,18 @@ async function addClientSubredditJobs (context: TriggerContext) {
         name: UniversalJob.Cleanup,
         cron: `${randomMinute} 0/2 * * *`, // Every two hours
         data: { firstRun: true },
+    });
+
+    randomMinute = Math.floor(Math.random() * 60);
+    randomHour = Math.floor(Math.random() * 24);
+    await context.scheduler.runJob({
+        name: ClientSubredditJob.PermissionCheckEnqueue,
+        cron: `${randomMinute} ${randomHour} * * *`,
+    });
+
+    await context.scheduler.runJob({
+        name: ClientSubredditJob.PermissionCheckEnqueue,
+        runAt: addMinutes(new Date(), 5),
     });
 
     console.log("App Install: Client subreddit jobs added");
