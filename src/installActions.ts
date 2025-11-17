@@ -83,12 +83,6 @@ async function addControlSubredditJobs (context: TriggerContext) {
             runAt: addSeconds(new Date(), 5),
             data: { firstRun: true },
         }),
-
-        context.scheduler.runJob({
-            name: ControlSubredditJob.EvaluatorReversalsRecheck,
-            runAt: addSeconds(new Date(), 5),
-            data: { firstRun: true },
-        }),
     ]);
 
     await Promise.all([

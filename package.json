@@ -11,8 +11,8 @@
     "test:unit": "vitest --run"
   },
   "dependencies": {
-    "@devvit/protos": "0.12.1",
-    "@devvit/public-api": "0.12.1",
+    "@devvit/protos": "0.12.2",
+    "@devvit/public-api": "0.12.2",
     "@fsvreddit/bot-bouncer-evaluation": "github:fsvreddit/bot-bouncer-evaluation",
     "@types/json2md": "^1.5.4",
     "@types/lodash": "^4.17.13",
