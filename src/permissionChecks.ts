@@ -52,11 +52,6 @@ export async function addSubsToPermissionChecksQueueFromExternalSubmissions (ext
         if (!itemAdded && submission.targetId) {
             const target = await getPostOrCommentById(submission.targetId, context);
             subreddits.add(target.subredditName);
-            itemAdded = true;
-        }
-
-        if (!itemAdded) {
-            console.log(`Permission Checks: Could not determine subreddit for external submission with targetId ${submission.targetId} and reportContext "${submission.reportContext}"`);
         }
     }
 
