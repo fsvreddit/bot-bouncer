@@ -303,7 +303,9 @@ export async function handleExternalSubmissionsPageUpdate (context: TriggerConte
     await processAccountsToCheckFromObserverSubreddit(context);
 
     // For items enqueued from a client subreddit, enqueue for permissions checks.
-    await addSubsToPermissionChecksQueueFromExternalSubmissions(currentSubmissionList, context);
+    if (context.subredditName === CONTROL_SUBREDDIT) {
+        await addSubsToPermissionChecksQueueFromExternalSubmissions(currentSubmissionList, context);
+    }
 }
 
 export async function processExternalSubmissionsQueue (context: JobContext): Promise<number> {
