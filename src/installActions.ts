@@ -7,6 +7,7 @@ import { getControlSubSettings } from "./settings.js";
 import { addDays, addMinutes, addSeconds } from "date-fns";
 import { migrationToGlobalRedis } from "./dataStore.js";
 import { forceEvaluatorVariablesRefresh } from "./userEvaluation/evaluatorVariables.js";
+import { storeRecordOfContentCreationGracePeriod } from "./handleClientSubredditClassificationChanges.js";
 
 export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, context: TriggerContext) {
     console.log("App Install: Detected an app install or update event");
@@ -23,6 +24,9 @@ export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, contex
         // Delete cached control sub settings
         await context.redis.del("controlSubSettings");
         await addClientSubredditJobs(context);
+
+        // Keep this indefinitely, or until everyone has been forced onto a new version for at least a week.
+        await storeRecordOfContentCreationGracePeriod(context);
     }
 
     await checkJobsAreApplicable(context);

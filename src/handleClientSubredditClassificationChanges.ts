@@ -112,6 +112,10 @@ async function handleSetBanned (username: string, subredditName: string, setting
         return;
     }
 
+    if (!await hasUserCreatedContentRecently(username, context)) {
+        return;
+    }
+
     let userContent: (Comment | Post)[];
     try {
         userContent = await context.reddit.getCommentsAndPostsByUser({
@@ -346,4 +350,28 @@ async function appAccountHasPermissions (context: TriggerContext): Promise<boole
 
 export async function clearAppPermissionsCache (context: TriggerContext) {
     await context.redis.del(APP_PERMISSIONS_CACHE_KEY);
+}
+
+function getUserContentCreationKey (username: string): string {
+    return `userCreatedContentRecently:${username}`;
+}
+
+const IN_GRACE_PERIOD_KEY = "InContentCreationGracePeriod";
+
+export async function recordUserContentCreation (username: string, context: TriggerContext) {
+    await context.redis.set(getUserContentCreationKey(username), "", { expiration: addDays(new Date(), 7) });
+}
+
+async function hasUserCreatedContentRecently (username: string, context: TriggerContext): Promise<boolean> {
+    return context.redis.exists(getUserContentCreationKey(username), IN_GRACE_PERIOD_KEY).then(exists => exists !== 0);
+}
+
+export async function storeRecordOfContentCreationGracePeriod (context: TriggerContext) {
+    const gracePeriodStoredKey = "ContentCreationGracePeriodStored";
+    if (await context.redis.exists(gracePeriodStoredKey)) {
+        return;
+    }
+
+    await context.redis.set(IN_GRACE_PERIOD_KEY, "true", { expiration: addDays(new Date(), 7) });
+    await context.redis.set(gracePeriodStoredKey, "true");
 }
