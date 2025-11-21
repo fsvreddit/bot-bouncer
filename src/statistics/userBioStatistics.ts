@@ -5,10 +5,10 @@ import { BIO_TEXT_STORE } from "../dataStore.js";
 import { getEvaluatorVariable } from "../userEvaluation/evaluatorVariables.js";
 import { StatsUserEntry } from "../sixHourlyJobs.js";
 import { ControlSubredditJob } from "../constants.js";
-import { RedisHelper } from "../redisHelper.js";
 import crypto from "crypto";
 import { userIsBanned } from "./statsHelpers.js";
 import { decodedText, encodedText } from "../utility.js";
+import { hMGetAsRecord, zRangeAsRecord } from "devvit-helpers";
 
 const BIO_QUEUE = "BioTextQueue";
 const BIO_STATS_TEMP_STORE = "BioTextStatsTempStore";
@@ -88,7 +88,6 @@ function sha1hash (input: string): string {
 
 export async function updateBioStatisticsJob (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
     await context.redis.set(BIO_STATS_UPDATE_IN_PROGRESS, "true", { expiration: addSeconds(new Date(), 30) });
-    const redisHelper = new RedisHelper(context.redis);
 
     let batchSize = 500;
 
@@ -124,7 +123,7 @@ export async function updateBioStatisticsJob (event: ScheduledJobEvent<JSONObjec
         batchSize = 100;
     }
 
-    const userBios = await redisHelper.hMGet(BIO_TEXT_STORE, queuedUsersWithSuccessfulRetrievals);
+    const userBios = await hMGetAsRecord(context.redis, BIO_TEXT_STORE, queuedUsersWithSuccessfulRetrievals);
 
     const recordsToStore = await context.redis.hGetAll(BIO_STATS_TEMP_STORE);
 
@@ -217,10 +216,8 @@ export async function updateBioStatisticsJob (event: ScheduledJobEvent<JSONObjec
 export async function generateBioStatisticsReport (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
     console.log("Bio Stats: Generating bio statistics report");
 
-    const redisHelper = new RedisHelper(context.redis);
-
-    const itemsWithMoreThanOne = await redisHelper.zRangeAsRecord(BIO_STATS_COUNTS, 2, "+inf", { by: "score" });
-    const bioRecords = await redisHelper.hMGet(BIO_STATS_TEMP_STORE, Object.keys(itemsWithMoreThanOne));
+    const itemsWithMoreThanOne = await zRangeAsRecord(context.redis, BIO_STATS_COUNTS, 2, "+inf", { by: "score" });
+    const bioRecords = await hMGetAsRecord(context.redis, BIO_STATS_TEMP_STORE, Object.keys(itemsWithMoreThanOne));
     console.log(`Bio Stats: Retrieved ${Object.keys(bioRecords).length} bio records for report generation`);
 
     const configuredBioRegexes = await getEvaluatorVariable<string[]>("biotext:bantext", context) ?? [];

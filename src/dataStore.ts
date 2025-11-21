@@ -13,9 +13,8 @@ import { getUsernameFromUrl, sendMessageToWebhook } from "./utility.js";
 import { getUserExtended } from "./extendedDevvit.js";
 import { storeClassificationEvent } from "./statistics/classificationStatistics.js";
 import { USER_DEFINED_HANDLES_POSTS } from "./statistics/definedHandlesStatistics.js";
-import { RedisHelper } from "./redisHelper.js";
 import { ZMember } from "@devvit/protos";
-import { getUserSocialLinks } from "devvit-helpers";
+import { getUserSocialLinks, hMGetAllChunked } from "devvit-helpers";
 
 const ACTIVE_USER_STORE = "UserStore";
 const TEMP_DECLINE_STORE = "TempDeclineStore";
@@ -88,8 +87,7 @@ function getStoreKey (username: string): string {
 }
 
 async function getActiveDataStore (context: TriggerContext): Promise<Record<string, string>> {
-    const redisHelper = new RedisHelper(context.redis);
-    return redisHelper.hMGetAllChunked(ACTIVE_USER_STORE, 10000);
+    return await hMGetAllChunked(context.redis, ACTIVE_USER_STORE, 10000);
 }
 
 export async function getFullDataStore (context: TriggerContext): Promise<Record<string, string>> {
