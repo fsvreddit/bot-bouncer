@@ -164,7 +164,6 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
     const existingVariables = await context.redis.global.hGetAll(EVALUATOR_VARIABLES_KEY);
     const keysToRemove = Object.keys(existingVariables).filter(key => !(key in converted));
 
-    await context.redis.del(EVALUATOR_VARIABLES_KEY);
     await context.redis.global.hSet(EVALUATOR_VARIABLES_KEY, converted);
     if (keysToRemove.length > 0) {
         await context.redis.global.hDel(EVALUATOR_VARIABLES_KEY, keysToRemove);

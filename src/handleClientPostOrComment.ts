@@ -3,7 +3,7 @@ import { CommentCreate, CommentUpdate, PostCreate } from "@devvit/protos";
 import { ALL_EVALUATORS } from "@fsvreddit/bot-bouncer-evaluation";
 import { addDays, addWeeks, formatDate, subMinutes } from "date-fns";
 import { getUserStatus, UserDetails, UserStatus } from "./dataStore.js";
-import { isUserWhitelisted, recordBan } from "./handleClientSubredditClassificationChanges.js";
+import { isUserWhitelisted, recordBan, recordUserContentCreation } from "./handleClientSubredditClassificationChanges.js";
 import { CONTROL_SUBREDDIT } from "./constants.js";
 import { getPostOrCommentById, getUserOrUndefined, isModeratorWithCache } from "./utility.js";
 import { ActionType, AppSetting, CONFIGURATION_DEFAULTS, getControlSubSettings } from "./settings.js";
@@ -22,6 +22,8 @@ export async function handleClientPostCreate (event: PostCreate, context: Trigge
     if (!event.post || !event.author?.name) {
         return;
     }
+
+    await recordUserContentCreation(event.author.name, context);
 
     if (event.author.name === "AutoModerator" || event.author.name === `${context.subredditName}-ModTeam`) {
         return;
@@ -68,6 +70,8 @@ export async function handleClientCommentCreate (event: CommentCreate, context: 
     if (!event.comment || !event.author?.name) {
         return;
     }
+
+    await recordUserContentCreation(event.author.name, context);
 
     if (event.author.name === "AutoModerator" || event.author.name === `${context.subredditName}-ModTeam`) {
         return;

@@ -7,10 +7,10 @@ import json2md from "json2md";
 import { addSeconds, format } from "date-fns";
 import { setCleanupForUser } from "../cleanup.js";
 import { getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
-import { RedisHelper } from "../redisHelper.js";
 import { ModmailMessage } from "./modmail.js";
 import { chunk, fromPairs } from "lodash";
 import { ControlSubredditJob } from "../constants.js";
+import { hMGetAsRecord } from "devvit-helpers";
 
 interface ModmailDataExtract {
     status?: UserStatus[];
@@ -276,9 +276,7 @@ export async function continueDataExtract (event: ScheduledJobEvent<JSONObject |
         return;
     }
 
-    const redisHelper = new RedisHelper(context.redis);
-
-    const rawData = await redisHelper.hMGet(getExtractTempStoreKey(extractId), processingQueue);
+    const rawData = await hMGetAsRecord(context.redis, getExtractTempStoreKey(extractId), processingQueue);
     const dataMapped = Object.entries(rawData)
         .map(([username, data]) => ({ username, data: JSON.parse(data) as UserDetailsWithBioAndSocialLinks }));
 
@@ -288,7 +286,7 @@ export async function continueDataExtract (event: ScheduledJobEvent<JSONObject |
 
     if (request.bioRegex) {
         const regex = new RegExp(request.bioRegex);
-        const bioTexts = await redisHelper.hMGet(BIO_TEXT_STORE, processingQueue);
+        const bioTexts = await hMGetAsRecord(context.redis, BIO_TEXT_STORE, processingQueue);
 
         for (const username of processingQueue) {
             if (bioTexts[username] && regex.test(bioTexts[username])) {
@@ -302,7 +300,7 @@ export async function continueDataExtract (event: ScheduledJobEvent<JSONObject |
 
     if (request.displayNameRegex) {
         const regex = new RegExp(request.displayNameRegex);
-        const displayNames = await redisHelper.hMGet(DISPLAY_NAME_STORE, processingQueue);
+        const displayNames = await hMGetAsRecord(context.redis, DISPLAY_NAME_STORE, processingQueue);
         for (const username of processingQueue) {
             if (displayNames[username] && regex.test(displayNames[username])) {
                 data[username].displayName = displayNames[username];
@@ -314,7 +312,7 @@ export async function continueDataExtract (event: ScheduledJobEvent<JSONObject |
     }
 
     if (request.socialLinkStartsWith || request.socialLinkUrlRegex || request.socialLinkTitleRegex) {
-        const socialLinks = await redisHelper.hMGet(SOCIAL_LINKS_STORE, processingQueue);
+        const socialLinks = await hMGetAsRecord(context.redis, SOCIAL_LINKS_STORE, processingQueue);
 
         const socialLinkPrefix = request.socialLinkStartsWith?.toLowerCase();
         const socialLinkUrlRegex = request.socialLinkUrlRegex ? new RegExp(request.socialLinkUrlRegex) : undefined;

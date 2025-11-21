@@ -5,9 +5,9 @@ import { getEvaluatorVariables } from "./evaluatorVariables.js";
 import { addMinutes, addSeconds } from "date-fns";
 import { isSafe } from "redos-detector";
 import { decodedText, encodedText } from "../utility.js";
-import { RedisHelper } from "../redisHelper.js";
 import json2md from "json2md";
 import { getControlSubSettings } from "../settings.js";
+import { expireKeyAt } from "devvit-helpers";
 
 const REDOS_QUEUE_KEY = "evaluatorRedosQueue";
 const REDOS_HITS_KEY = "evaluatorRedosHits";
@@ -22,8 +22,7 @@ async function queueRedosCheckEntries (context: JobContext) {
             continue;
         }
         entriesAdded += await context.redis.zAdd(REDOS_QUEUE_KEY, ...evaluatorRegexes.map(regex => ({ member: encodedText(JSON.stringify(regex)), score: Date.now() })));
-        const redisHelper = new RedisHelper(context.redis);
-        await redisHelper.expireAt(REDOS_QUEUE_KEY, addMinutes(new Date(), 30));
+        await expireKeyAt(context.redis, REDOS_QUEUE_KEY, addMinutes(new Date(), 30));
     }
 
     console.log(`ReDoS Checker: Queued ${entriesAdded.toLocaleString()} regex entries for checking.`);

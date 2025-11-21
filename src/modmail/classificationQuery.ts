@@ -47,38 +47,24 @@ export async function handleClassificationQueryQueue (context: TriggerContext) {
 
     const subject = `Your classification status query about /u/${queryData.username}`;
 
-    await context.reddit.sendPrivateMessageAsSubreddit({
-        fromSubredditName: CONTROL_SUBREDDIT,
-        to: queryData.submittingUser,
+    const conversationResponse = await context.reddit.modMail.createConversation({
+        subredditName: CONTROL_SUBREDDIT,
         subject,
-        text: json2md(message),
+        to: queryData.submittingUser,
+        body: json2md(message),
     });
 
-    const modmailMessages = await context.reddit.modMail.getConversations({
-        subreddits: [CONTROL_SUBREDDIT],
-        state: "all",
-        sort: "recent",
-        limit: 100,
-    });
+    if (conversationResponse.conversation.id) {
+        await setOverrideForSetStatusCommand(conversationResponse.conversation.id, queryData.username, context);
 
-    const conversation = Object.entries(modmailMessages.conversations)
-        .map(([id, conversation]) => ({ id, conversation }))
-        .find(({ conversation }) => conversation.subject === subject && conversation.participant?.name === queryData.submittingUser);
+        const userSummary = await getSummaryForUser(queryData.username, "modmail", context);
 
-    if (!conversation) {
-        console.error("Classification Queries: Could not find modmail conversation for classification query", queryData);
-        return;
+        await context.reddit.modMail.reply({
+            conversationId: conversationResponse.conversation.id,
+            body: json2md(userSummary),
+            isInternal: true,
+        });
     }
 
-    await setOverrideForSetStatusCommand(conversation.id, queryData.username, context);
-
-    const userSummary = await getSummaryForUser(queryData.username, "modmail", context);
-
-    await context.reddit.modMail.reply({
-        conversationId: conversation.id,
-        body: json2md(userSummary),
-        isInternal: true,
-    });
-
-    console.log(`Classification Queries: Handled classification query for /u/${queryData.username} from /u/${queryData.submittingUser}, conversation ID: ${conversation.id}`);
+    console.log(`Classification Queries: Handled classification query for /u/${queryData.username} from /u/${queryData.submittingUser}, conversation ID: ${conversationResponse.conversation.id}`);
 }
