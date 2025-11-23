@@ -3,7 +3,7 @@ import { addSeconds, format, subDays, subWeeks } from "date-fns";
 import json2md from "json2md";
 import { BIO_TEXT_STORE } from "../dataStore.js";
 import { getEvaluatorVariable } from "../userEvaluation/evaluatorVariables.js";
-import { StatsUserEntry } from "../sixHourlyJobs.js";
+import { StatsUserEntry } from "../scheduler/sixHourlyJobs.js";
 import { ControlSubredditJob } from "../constants.js";
 import crypto from "crypto";
 import { userIsBanned } from "./statsHelpers.js";

@@ -17,7 +17,7 @@ import { evaluateKarmaFarmingSubs, queueKarmaFarmingSubs } from "./karmaFarmingS
 import { controlSubQuerySubmissionFormDefinition, handleControlSubForm, sendQueryToSubmitter } from "./handleControlSubMenu.js";
 import { checkForUpdates } from "./upgradeNotifier.js";
 import { sendDailySummary } from "./modmail/actionSummary.js";
-import { perform6HourlyJobs, perform6HourlyJobsPart2 } from "./sixHourlyJobs.js";
+import { perform6HourlyJobs, perform6HourlyJobsPart2 } from "./scheduler/sixHourlyJobs.js";
 import { checkUptimeAndMessages } from "./uptimeMonitor.js";
 import { handleRapidJob } from "./handleRapidJob.js";
 import { buildEvaluatorAccuracyStatistics } from "./statistics/evaluatorAccuracyStatistics.js";
@@ -30,6 +30,8 @@ import { generateBioStatisticsReport, updateBioStatisticsJob } from "./statistic
 import { continueDataExtract } from "./modmail/dataExtract.js";
 import { redosChecker } from "./userEvaluation/redosChecker.js";
 import { checkPermissionQueueItems, handlePermissionCheckEnqueueJob } from "./permissionChecks.js";
+import { handleFiveMinutelyJob } from "./scheduler/fiveMinutelyJobs.js";
+import { processLegacySubUpgradeNotifications } from "./upgradeNotifierForLegacySubs.js";
 
 Devvit.addSettings(appSettings);
 
@@ -136,6 +138,11 @@ Devvit.addSchedulerJob({
 });
 
 Devvit.addSchedulerJob({
+    name: ControlSubredditJob.Perform5MinutelyJobs,
+    onRun: handleFiveMinutelyJob,
+});
+
+Devvit.addSchedulerJob({
     name: ControlSubredditJob.Perform6HourlyJobsPart2,
     onRun: perform6HourlyJobsPart2,
 });
@@ -223,6 +230,11 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: ControlSubredditJob.CheckPermissionQueueItems,
     onRun: checkPermissionQueueItems,
+});
+
+Devvit.addSchedulerJob({
+    name: ControlSubredditJob.CheckUpgradeNotifierForLegacySubs,
+    onRun: processLegacySubUpgradeNotifications,
 });
 
 /**

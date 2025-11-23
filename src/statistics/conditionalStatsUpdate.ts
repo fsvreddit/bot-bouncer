@@ -2,7 +2,7 @@ import { JobContext, JSONValue } from "@devvit/public-api";
 import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
 import { updateSocialLinksStatistics } from "./socialLinksStatistics.js";
 import { updateBioStatistics } from "./userBioStatistics.js";
-import { getAllValuesForStats, StatsUserEntry } from "../sixHourlyJobs.js";
+import { getAllValuesForStats, StatsUserEntry } from "../scheduler/sixHourlyJobs.js";
 import { addDays } from "date-fns";
 import { updateUsernameStatistics } from "./usernameStatistics.js";
 import { updateDisplayNameStatistics } from "./displayNameStats.js";

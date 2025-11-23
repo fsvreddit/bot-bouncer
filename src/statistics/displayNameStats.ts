@@ -3,7 +3,7 @@ import { DISPLAY_NAME_STORE, UserDetails, UserStatus } from "../dataStore.js";
 import { subWeeks } from "date-fns";
 import { getEvaluatorVariable } from "../userEvaluation/evaluatorVariables.js";
 import json2md from "json2md";
-import { StatsUserEntry } from "../sixHourlyJobs.js";
+import { StatsUserEntry } from "../scheduler/sixHourlyJobs.js";
 import { userIsBanned } from "./statsHelpers.js";
 
 type UserDetailsWithDisplayName = UserDetails & { displayName?: string };

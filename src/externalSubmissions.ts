@@ -15,6 +15,7 @@ import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { queueKarmaFarmingAccounts } from "./karmaFarmingSubsCheck.js";
 import { userIsTrustedSubmitter } from "./trustedSubmitterHelpers.js";
 import { addSubsToPermissionChecksQueueFromExternalSubmissions } from "./permissionChecks.js";
+import { queueUpgradeNotificationsForLegacySubs } from "./upgradeNotifierForLegacySubs.js";
 
 const WIKI_PAGE = "externalsubmissions";
 
@@ -305,6 +306,7 @@ export async function handleExternalSubmissionsPageUpdate (context: TriggerConte
     // For items enqueued from a client subreddit, enqueue for permissions checks.
     if (context.subredditName === CONTROL_SUBREDDIT) {
         await addSubsToPermissionChecksQueueFromExternalSubmissions(currentSubmissionList, context);
+        await queueUpgradeNotificationsForLegacySubs(currentSubmissionList, context);
     }
 }
 
@@ -382,4 +384,27 @@ export async function processAccountsToCheckFromObserverSubreddit (context: Trig
     });
 
     console.log(`External Submissions: Queued ${accountsToCheck.length} ${pluralize("account", accountsToCheck.length)} from /r/${subredditName} for evaluation.`);
+}
+
+export async function getSubredditsFromExternalSubmissions (externalSubmissions: ExternalSubmission[], context: TriggerContext): Promise<string[]> {
+    const subreddits = new Set<string>();
+
+    for (const submission of externalSubmissions) {
+        let itemAdded = false;
+        if (submission.reportContext) {
+            const regex = /^Automatically reported via a \[(?:post|comment)\].+ on \/r\/([A-Za-z_-]{3,21})$/;
+            const match = regex.exec(submission.reportContext);
+            if (match?.[1]) {
+                subreddits.add(match[1]);
+                itemAdded = true;
+            }
+        }
+
+        if (!itemAdded && submission.targetId) {
+            const target = await getPostOrCommentById(submission.targetId, context);
+            subreddits.add(target.subredditName);
+        }
+    }
+
+    return Array.from(subreddits);
 }

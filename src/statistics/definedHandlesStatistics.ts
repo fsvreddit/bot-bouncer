@@ -5,7 +5,7 @@ import { getEvaluatorVariable } from "../userEvaluation/evaluatorVariables.js";
 import { chunk, fromPairs } from "lodash";
 import { ControlSubredditJob } from "../constants.js";
 import json2md from "json2md";
-import { StatsUserEntry } from "../sixHourlyJobs.js";
+import { StatsUserEntry } from "../scheduler/sixHourlyJobs.js";
 import { userIsBanned } from "./statsHelpers.js";
 import { parse } from "regjsparser";
 

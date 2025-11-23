@@ -6,7 +6,7 @@ import { handleExternalSubmissionsPageUpdate } from "./externalSubmissions.js";
 import { getControlSubSettings, validateControlSubConfigChange } from "./settings.js";
 import { addDays, addMinutes, addSeconds } from "date-fns";
 import { validateAndSaveAppealConfig } from "./modmail/autoAppealHandling.js";
-import { checkIfStatsNeedUpdating } from "./sixHourlyJobs.js";
+import { checkIfStatsNeedUpdating } from "./scheduler/sixHourlyJobs.js";
 import { handleBannedSubredditsModAction } from "./statistics/bannedSubreddits.js";
 import { isModeratorWithCache, sendMessageToWebhook } from "./utility.js";
 

@@ -1,8 +1,7 @@
 import { JobContext, JSONObject, ScheduledJobEvent, TriggerContext } from "@devvit/public-api";
 import { addDays, addMinutes, addSeconds } from "date-fns";
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "./constants.js";
-import { ExternalSubmission } from "./externalSubmissions.js";
-import { getPostOrCommentById } from "./utility.js";
+import { ExternalSubmission, getSubredditsFromExternalSubmissions } from "./externalSubmissions.js";
 import { hasPermissions, isModerator } from "devvit-helpers";
 import json2md from "json2md";
 import pluralize from "pluralize";
@@ -36,27 +35,10 @@ export async function addSubsToPermissionChecksQueueFromExternalSubmissions (ext
         throw new Error("addSubsToPermissionChecksQueueFromExternalSubmissions should only be called from control subreddit");
     }
 
-    const subreddits = new Set<string>();
+    const subreddits = await getSubredditsFromExternalSubmissions(externalSubmissions, context);
 
-    for (const submission of externalSubmissions) {
-        let itemAdded = false;
-        if (submission.reportContext) {
-            const regex = /^Automatically reported via a \[(?:post|comment)\].+ on \/r\/([A-Za-z_-]{3,21})$/;
-            const match = regex.exec(submission.reportContext);
-            if (match?.[1]) {
-                subreddits.add(match[1]);
-                itemAdded = true;
-            }
-        }
-
-        if (!itemAdded && submission.targetId) {
-            const target = await getPostOrCommentById(submission.targetId, context);
-            subreddits.add(target.subredditName);
-        }
-    }
-
-    await Promise.all(Array.from(subreddits).map(subreddit => addSubToPermissionChecksQueue(subreddit, context)));
-    console.log(`Permission Checks: Added ${subreddits.size} ${pluralize("subreddit", subreddits.size)} to permission checks queue from external submissions.`);
+    await Promise.all(subreddits.map(subreddit => addSubToPermissionChecksQueue(subreddit, context)));
+    console.log(`Permission Checks: Added ${subreddits.length} ${pluralize("subreddit", subreddits.length)} to permission checks queue from external submissions.`);
 }
 
 export async function checkPermissionQueueItems (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
@@ -70,13 +52,13 @@ export async function checkPermissionQueueItems (event: ScheduledJobEvent<JSONOb
         return;
     }
 
-    const { subredditName, backlog } = await context.redis.global.zRange(PERMISSION_CHECKS_QUEUE, 0, 1)
+    const { subredditName, inBacklog } = await context.redis.global.zRange(PERMISSION_CHECKS_QUEUE, 0, 1)
         .then((items) => {
             if (items.length === 0) {
-                return { subredditName: undefined, backlog: false };
+                return { subredditName: undefined, inBacklog: false };
             }
 
-            return { subredditName: items[0].member, backlog: items.length > 1 };
+            return { subredditName: items[0].member, inBacklog: items.length > 1 };
         });
 
     if (!subredditName) {
@@ -115,7 +97,7 @@ export async function checkPermissionQueueItems (event: ScheduledJobEvent<JSONOb
     if (problemFound.length === 0) {
         console.log(`Permission Checks: ${subredditName} passed permission checks.`);
         await context.redis.hDel(PERMISSION_MESSAGE_SENT_HASH, [subredditName]);
-        if (backlog) {
+        if (inBacklog) {
             await context.scheduler.runJob({
                 name: ControlSubredditJob.CheckPermissionQueueItems,
                 runAt: addSeconds(new Date(), 2),
@@ -127,7 +109,7 @@ export async function checkPermissionQueueItems (event: ScheduledJobEvent<JSONOb
 
     if (await context.redis.hGet(PERMISSION_MESSAGE_SENT_HASH, subredditName)) {
         console.log(`Permission Checks: Permissions message already sent to ${subredditName}, skipping check.`);
-        if (backlog) {
+        if (inBacklog) {
             await context.scheduler.runJob({
                 name: ControlSubredditJob.CheckPermissionQueueItems,
                 runAt: addSeconds(new Date(), 2),
@@ -154,7 +136,7 @@ export async function checkPermissionQueueItems (event: ScheduledJobEvent<JSONOb
     await context.redis.hSet(PERMISSION_MESSAGE_SENT_HASH, { [subredditName]: "true" });
     console.log(`Permission Checks: Sent permissions issue message to /r/${subredditName}.`);
 
-    if (backlog) {
+    if (inBacklog) {
         await context.scheduler.runJob({
             name: ControlSubredditJob.CheckPermissionQueueItems,
             runAt: addSeconds(new Date(), 30),

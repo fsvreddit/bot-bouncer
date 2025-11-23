@@ -33,6 +33,7 @@ export enum ControlSubredditJob {
     EvaluateUser = "evaluateUser",
     Perform6HourlyJobs = "performDailyJobs",
     Perform6HourlyJobsPart2 = "performDailyJobsPart2",
+    Perform5MinutelyJobs = "perform5MinutelyJobs",
     EvaluateKarmaFarmingSubs = "evaluateKarmaFarmingSubs",
     QueueKarmaFarmingSubs = "queueKarmaFarmingSubs",
     UptimeAndMessageCheck = "uptimeAndMessageCheck",
@@ -51,6 +52,7 @@ export enum ControlSubredditJob {
     UpdateEvaluatorVariables = "updateEvaluatorVariables",
     EvaluatorReDoSChecker = "evaluatorReDoSChecker",
     CheckPermissionQueueItems = "checkPermissionQueueItems",
+    CheckUpgradeNotifierForLegacySubs = "checkUpgradeNotifierForLegacySubs",
 }
 
 /**

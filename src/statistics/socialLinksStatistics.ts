@@ -4,7 +4,7 @@ import json2md from "json2md";
 import { max, min, uniq } from "lodash";
 import { getEvaluatorVariable } from "../userEvaluation/evaluatorVariables.js";
 import { SOCIAL_LINKS_STORE, UserDetails } from "../dataStore.js";
-import { StatsUserEntry } from "../sixHourlyJobs.js";
+import { StatsUserEntry } from "../scheduler/sixHourlyJobs.js";
 import { userIsBanned } from "./statsHelpers.js";
 
 export function cleanLink (input: string): string {

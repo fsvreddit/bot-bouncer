@@ -2,7 +2,7 @@ import { JobContext } from "@devvit/public-api";
 import { UserStatus } from "../dataStore.js";
 import { addDays, format, subDays } from "date-fns";
 import json2md from "json2md";
-import { StatsUserEntry } from "../sixHourlyJobs.js";
+import { StatsUserEntry } from "../scheduler/sixHourlyJobs.js";
 
 export async function pendingUserFinder (allEntries: StatsUserEntry[], context: JobContext) {
     const cutoff = subDays(new Date(), 2).getTime();
