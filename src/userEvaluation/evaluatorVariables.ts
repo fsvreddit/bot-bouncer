@@ -1,4 +1,4 @@
-import { JobContext, JSONObject, JSONValue, ScheduledJobEvent, TriggerContext, WikiPage } from "@devvit/public-api";
+import { JobContext, JSONObject, JSONValue, ScheduledJobEvent, TriggerContext } from "@devvit/public-api";
 import { ALL_EVALUATORS, ValidationIssue, yamlToVariables } from "@fsvreddit/bot-bouncer-evaluation";
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "../constants.js";
 import { fromPairs, uniq } from "lodash";
@@ -10,9 +10,9 @@ import { getUserExtended } from "../extendedDevvit.js";
 import { addSeconds } from "date-fns";
 
 const EVALUATOR_VARIABLES_KEY = "evaluatorVariablesHash";
-const EVALUATOR_VARIABLES_YAML_PAGE = "evaluator-config";
+const EVALUATOR_VARIABLES_YAML_PAGE_ROOT = "evaluator-config";
 const EVALUATOR_VARIABLES_WIKI_PAGE = "evaluatorvars";
-const EVALUATOR_VARIABLES_LAST_REVISION_KEY = "evaluatorVariablesLastRevision";
+const EVALUATOR_VARIABLES_LAST_REVISIONS_KEY = "evaluatorVariablesLastRevisions";
 
 export async function getEvaluatorVariables (context: TriggerContext | JobContext): Promise<Record<string, JSONValue>> {
     let allVariables: Record<string, string>;
@@ -60,20 +60,26 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
         throw new Error("Evaluator Variables: This job should only be run in the control subreddit.");
     }
 
-    let wikiPage: WikiPage | undefined;
-    try {
-        wikiPage = await context.reddit.getWikiPage(CONTROL_SUBREDDIT, EVALUATOR_VARIABLES_YAML_PAGE);
-    } catch (e) {
-        console.error("Evaluator Variables: Error reading evaluator variables from wiki", e);
+    const controlSubSettings = await getControlSubSettings(context);
+    if (!controlSubSettings.evaluatorVariableUpdatesEnabled) {
+        console.log("Evaluator Variables: Evaluator variable updates from wiki are disabled in control sub settings.");
         return;
     }
 
-    const lastRevision = await context.redis.get(EVALUATOR_VARIABLES_LAST_REVISION_KEY);
-    if (lastRevision === wikiPage.revisionId || event.data?.username === context.appName) {
+    const pageList = await context.reddit.getWikiPages(CONTROL_SUBREDDIT)
+        .then(pages => pages.filter(page => page === EVALUATOR_VARIABLES_YAML_PAGE_ROOT || page.startsWith(`${EVALUATOR_VARIABLES_YAML_PAGE_ROOT}/`)));
+
+    const pages = await Promise.all(pageList.map(page => context.reddit.getWikiPage(CONTROL_SUBREDDIT, page)));
+
+    const recentRevisions = await context.redis.hGetAll(EVALUATOR_VARIABLES_LAST_REVISIONS_KEY);
+    if (!pages.some(page => recentRevisions[page.name] !== page.revisionId)) {
+        console.log("Evaluator Variables: No changes detected in evaluator variable wiki pages.");
         return;
     }
 
-    const variables = yamlToVariables(wikiPage.content);
+    const yamlStr = pages.map(page => page.content).join("\n\n---\n\n");
+
+    const variables = yamlToVariables(yamlStr);
 
     const invalidEntries = invalidEvaluatorVariableCondition(variables);
     const errors = variables.errors as string[] | undefined;
@@ -168,10 +174,12 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
     if (keysToRemove.length > 0) {
         await context.redis.global.hDel(EVALUATOR_VARIABLES_KEY, keysToRemove);
     }
-    await context.redis.set(EVALUATOR_VARIABLES_LAST_REVISION_KEY, wikiPage.revisionId);
+
+    const newRevisions = fromPairs(pages.map(page => [page.name, page.revisionId]));
+    await context.redis.hSet(EVALUATOR_VARIABLES_LAST_REVISIONS_KEY, newRevisions);
 
     const variablesCount = Object.keys(converted).length;
-    console.log(`Evaluator Variables: Updated ${variablesCount} variables and removed ${keysToRemove.length} from wiki revision ${wikiPage.revisionId}`);
+    console.log(`Evaluator Variables: Updated ${variablesCount} variables and removed ${keysToRemove.length} from wiki edit by /u/${event.data?.username as string | undefined ?? "unknown"}.`);
 
     // Write back to parsed wiki page for older client subreddits and observer subreddits
     await context.reddit.updateWikiPage({
@@ -181,7 +189,6 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
         reason: `Updating evaluator variables from wiki on /r/${context.subredditName}`,
     });
 
-    const controlSubSettings = await getControlSubSettings(context);
     if (controlSubSettings.observerSubreddits?.length) {
         for (const subreddit of controlSubSettings.observerSubreddits) {
             await context.reddit.updateWikiPage({

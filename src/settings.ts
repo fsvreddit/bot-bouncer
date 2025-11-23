@@ -231,6 +231,7 @@ export interface ControlSubSettings {
     allowClassificationQueries?: boolean;
     legacyWikiPageUpdateFrequencyMinutes: number;
     redosCheckerEnabled?: boolean;
+    evaluatorVariableUpdatesEnabled?: boolean;
     appRemovedMessage?: string;
 }
 
@@ -257,6 +258,7 @@ const schema: JSONSchemaType<ControlSubSettings> = {
         allowClassificationQueries: { type: "boolean", nullable: true },
         legacyWikiPageUpdateFrequencyMinutes: { type: "number" },
         redosCheckerEnabled: { type: "boolean", nullable: true },
+        evaluatorVariableUpdatesEnabled: { type: "boolean", nullable: true },
         appRemovedMessage: { type: "string", nullable: true },
     },
     required: ["evaluationDisabled", "trustedSubmitters", "reporterBlacklist"],
