@@ -1,10 +1,10 @@
-import { Context, MenuItemOnPressEvent, JSONObject, FormOnSubmitEvent, FormFunction } from "@devvit/public-api";
+import { Context, MenuItemOnPressEvent, JSONObject, FormOnSubmitEvent, FormFunction, TriggerContext } from "@devvit/public-api";
 import { CONTROL_SUBREDDIT } from "./constants.js";
 import { getPostOrCommentById, getUserOrUndefined, isModeratorWithCache } from "./utility.js";
 import { getUserStatus, UserStatus } from "./dataStore.js";
 import { addExternalSubmissionFromClientSub } from "./externalSubmissions.js";
 import { queryForm, reportForm } from "./main.js";
-import { subMonths } from "date-fns";
+import { addMinutes, subMonths } from "date-fns";
 import { getControlSubSettings } from "./settings.js";
 import { handleControlSubReportUser } from "./handleControlSubMenu.js";
 import { recordReportForSummary } from "./modmail/actionSummary.js";
@@ -45,6 +45,21 @@ export const reportFormDefinition: FormFunction = data => ({
     ],
 });
 
+function getAlreadyReportedKey (username: string): string {
+    return `alreadyReported:${username}`;
+}
+
+async function getAlreadyReported (username: string, context: TriggerContext): Promise<boolean> {
+    if (await context.redis.exists(getAlreadyReportedKey(username))) {
+        return true;
+    }
+    return false;
+}
+
+async function setAlreadyReported (username: string, context: TriggerContext) {
+    await context.redis.set(getAlreadyReportedKey(username), "", { expiration: addMinutes(new Date(), 10) });
+}
+
 export async function handleReportUser (event: MenuItemOnPressEvent, context: Context) {
     const target = await getPostOrCommentById(event.targetId, context);
     if (context.subredditName === CONTROL_SUBREDDIT) {
@@ -63,6 +78,11 @@ export async function handleReportUser (event: MenuItemOnPressEvent, context: Co
             context.ui.showToast(`${target.authorName} has already been reported to Bot Bouncer with status: ${currentStatus.userStatus}`);
         }
 
+        return;
+    }
+
+    if (await getAlreadyReported(target.authorName, context)) {
+        context.ui.showToast(`${target.authorName} has already been reported recently.`);
         return;
     }
 
@@ -159,6 +179,8 @@ export async function reportFormHandler (event: FormOnSubmitEvent<JSONObject>, c
         }, context),
         recordReportForSummary(target.authorName, "manually", context.redis),
     ]);
+
+    await setAlreadyReported(target.authorName, context);
 
     context.ui.showToast(`${target.authorName} has been submitted to /r/${CONTROL_SUBREDDIT}. A tracking post will be created shortly.`);
 }
