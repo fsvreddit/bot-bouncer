@@ -1,6 +1,6 @@
 import { JobContext, JSONObject, ScheduledJobEvent, TriggerContext } from "@devvit/public-api";
 import { ExternalSubmission, getSubredditsFromExternalSubmissions } from "./externalSubmissions.js";
-import { addMinutes, format } from "date-fns";
+import { addMinutes, addSeconds, format } from "date-fns";
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "./constants.js";
 import json2md from "json2md";
 
@@ -35,7 +35,7 @@ export async function processLegacySubUpgradeNotifications (event: ScheduledJobE
         return;
     }
 
-    await context.redis.set(recentlyRunKey, "true", { expiration: addMinutes(new Date(), 5) });
+    await context.redis.set(recentlyRunKey, "true", { expiration: addMinutes(new Date(), 2) });
 
     const { subredditName, inBacklog } = await context.redis.zRange(UPDATE_AVAILABLE_QUEUE_KEY, 0, 1)
         .then((items) => {
@@ -56,7 +56,7 @@ export async function processLegacySubUpgradeNotifications (event: ScheduledJobE
     if (inBacklog) {
         await context.scheduler.runJob({
             name: ControlSubredditJob.CheckUpgradeNotifierForLegacySubs,
-            runAt: addMinutes(new Date(), 1),
+            runAt: addSeconds(new Date(), 30),
             data: { firstRun: false },
         });
     }
@@ -75,6 +75,8 @@ async function sendNotificationToLegacySub (subredditName: string, context: JobC
         subject: "Upgrade available for Bot Bouncer",
         text: json2md(message),
     });
+
+    console.log(`Upgrade Notifier for Legacy Subs: Sent upgrade notification to /r/${subredditName}`);
 
     await context.redis.hSet(UPDATE_AVAILABLE_SENT_KEY, { [subredditName]: Date.now().toString() });
 }
