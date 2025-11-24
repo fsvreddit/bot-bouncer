@@ -91,7 +91,7 @@ async function getActiveDataStore (context: TriggerContext): Promise<Record<stri
 }
 
 export async function getFullDataStore (context: TriggerContext): Promise<Record<string, string>> {
-    const dataArray = await Promise.all(ALL_POTENTIAL_USER_PREFIXES.map(prefix => context.redis.global.hGetAll(getStoreKey(prefix))));
+    const dataArray = await Promise.all(ALL_POTENTIAL_USER_PREFIXES.map(prefix => hMGetAllChunked(context.redis.global as RedisClient, getStoreKey(prefix), 10000)));
     const data = Object.assign({}, ...dataArray) as Record<string, string>;
 
     return { ...data };
