@@ -1,6 +1,6 @@
 import { JobContext, WikiPage, WikiPagePermissionLevel } from "@devvit/public-api";
 import { AGGREGATE_STORE, UserDetails, UserStatus } from "../dataStore.js";
-import { countBy, sum } from "lodash";
+import _ from "lodash";
 import json2md from "json2md";
 
 export async function updateMainStatisticsPage (entries: UserDetails[], context: JobContext) {
@@ -15,7 +15,7 @@ export async function updateMainStatisticsPage (entries: UserDetails[], context:
 
     wikiContent.push({ ul: results.map(item => `**${item.member}**: ${item.score.toLocaleString()}`) });
 
-    wikiContent.push({ p: `**Total accounts processed**: ${sum(results.map(item => item.score)).toLocaleString()}` });
+    wikiContent.push({ p: `**Total accounts processed**: ${_.sum(results.map(item => item.score)).toLocaleString()}` });
     wikiContent.push({ p: "These statistics update every 6 hours, and may update more frequently." });
 
     const wikiPageName = "statistics";
@@ -50,7 +50,7 @@ export async function updateMainStatisticsPage (entries: UserDetails[], context:
 
 async function correctAggregateData (entries: UserDetails[], context: JobContext) {
     const statusesToUpdate = [UserStatus.Banned, UserStatus.Pending, UserStatus.Organic, UserStatus.Service, UserStatus.Declined];
-    const statuses = Object.entries(countBy(entries.map(item => item.userStatus)))
+    const statuses = Object.entries(_.countBy(entries.map(item => item.userStatus)))
         .map(([key, value]) => ({ member: key, score: value }))
         .filter(item => statusesToUpdate.includes(item.member as UserStatus));
 

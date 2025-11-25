@@ -6,7 +6,7 @@ import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { createUserSummary } from "./UserSummary/userSummary.js";
 import { addMonths, addWeeks, subMonths } from "date-fns";
 import { getUserExtended } from "./extendedDevvit.js";
-import { uniq } from "lodash";
+import _ from "lodash";
 import { getSubmitterSuccessRate } from "./statistics/submitterStatistics.js";
 
 export interface EvaluatorStats {
@@ -268,7 +268,7 @@ export async function userHasContinuousNSFWHistory (username: string, context: T
             continue;
         }
 
-        for (const subreddit of uniq(postsInMonth.map(post => post.subredditName))) {
+        for (const subreddit of _.uniq(postsInMonth.map(post => post.subredditName))) {
             subNSFW[subreddit] ??= await subIsNSFW(subreddit, context);
             if (subNSFW[subreddit]) {
                 continue;

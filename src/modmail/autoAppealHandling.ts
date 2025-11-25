@@ -5,7 +5,7 @@ import { BIO_TEXT_STORE, SOCIAL_LINKS_STORE, UserDetails, UserFlag, UserStatus }
 import { getControlSubSettings } from "../settings.js";
 import { CONTROL_SUBREDDIT } from "../constants.js";
 import { parseAllDocuments } from "yaml";
-import { compact } from "lodash";
+import _ from "lodash";
 import json2md from "json2md";
 import { sendMessageToWebhook } from "../utility.js";
 import { ModmailMessage } from "./modmail.js";
@@ -142,7 +142,7 @@ export async function validateAndSaveAppealConfig (username: string, context: Tr
 
     const documents = parseAllDocuments(pageToParse);
 
-    const parsedConfigs = compact(documents.map(doc => doc.toJSON() as AppealConfig)).filter(item => item.name !== "substitutions");
+    const parsedConfigs = _.compact(documents.map(doc => doc.toJSON() as AppealConfig)).filter(item => item.name !== "substitutions");
 
     const ajv = new Ajv.default({
         coerceTypes: "array",

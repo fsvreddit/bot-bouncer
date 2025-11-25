@@ -4,7 +4,7 @@ import { CONTROL_SUBREDDIT, PostFlairTemplate, UniversalJob } from "./constants.
 import { deleteUserStatus, getUserStatus, removeRecordOfSubmitterOrMod, updateAggregate, UserStatus, writeUserStatus } from "./dataStore.js";
 import { getUserOrUndefined } from "./utility.js";
 import { removeRecordOfBan, removeWhitelistUnban } from "./handleClientSubredditClassificationChanges.js";
-import { max } from "lodash";
+import _ from "lodash";
 import { getControlSubSettings } from "./settings.js";
 
 export const CLEANUP_LOG_KEY = "CleanupLog";
@@ -332,5 +332,5 @@ async function getLatestContentDate (username: string, context: JobContext): Pro
         return;
     }
 
-    return max(content.map(content => content.createdAt.getTime()));
+    return _.max(content.map(content => content.createdAt.getTime()));
 }

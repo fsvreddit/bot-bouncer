@@ -1,7 +1,7 @@
 import { JobContext, JSONObject, JSONValue, ScheduledJobEvent, TriggerContext } from "@devvit/public-api";
 import { ALL_EVALUATORS, ValidationIssue, yamlToVariables } from "@fsvreddit/bot-bouncer-evaluation";
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "../constants.js";
-import { fromPairs, uniq } from "lodash";
+import _ from "lodash";
 import { sendMessageToWebhook } from "../utility.js";
 import json2md from "json2md";
 import { getControlSubSettings } from "../settings.js";
@@ -30,7 +30,7 @@ export async function getEvaluatorVariables (context: TriggerContext | JobContex
         }
     }
 
-    return fromPairs(Object.entries(allVariables).map(([key, value]) => [key, JSON.parse(value)]));
+    return _.fromPairs(Object.entries(allVariables).map(([key, value]) => [key, JSON.parse(value)]));
 }
 
 export async function forceEvaluatorVariablesRefresh (context: TriggerContext | JobContext) {
@@ -155,7 +155,7 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
         }
     }
 
-    for (const module of uniq(Object.keys(variables).map(key => key.split(":")[0]))) {
+    for (const module of _.uniq(Object.keys(variables).map(key => key.split(":")[0]))) {
         if (module === "generic" || module === "substitutions" || module === "errors") {
             continue;
         }
@@ -165,7 +165,7 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
         }
     }
 
-    const converted = fromPairs(Object.entries(variables).map(([key, value]) => [key, JSON.stringify(value)]));
+    const converted = _.fromPairs(Object.entries(variables).map(([key, value]) => [key, JSON.stringify(value)]));
 
     const existingVariables = await context.redis.global.hGetAll(EVALUATOR_VARIABLES_KEY);
     const keysToRemove = Object.keys(existingVariables).filter(key => !(key in converted));
@@ -175,7 +175,7 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
         await context.redis.global.hDel(EVALUATOR_VARIABLES_KEY, keysToRemove);
     }
 
-    const newRevisions = fromPairs(pages.map(page => [page.name, page.revisionId]));
+    const newRevisions = _.fromPairs(pages.map(page => [page.name, page.revisionId]));
     await context.redis.hSet(EVALUATOR_VARIABLES_LAST_REVISIONS_KEY, newRevisions);
 
     const variablesCount = Object.keys(converted).length;
@@ -226,7 +226,7 @@ export function invalidEvaluatorVariableCondition (variables: Record<string, JSO
     for (const key of Object.keys(variables)) {
         const value = variables[key];
         if (Array.isArray(value)) {
-            const distinctTypes = uniq(value.map(item => typeof item));
+            const distinctTypes = _.uniq(value.map(item => typeof item));
             if (distinctTypes.length > 1) {
                 results.push({ severity: "error", message: `Inconsistent types for ${key} which may be a result of an undoubled single quote: ${distinctTypes.join(", ")}` });
             }

@@ -2,7 +2,7 @@ import { JobContext, JSONObject, Post, ScheduledJobEvent } from "@devvit/public-
 import { BIO_TEXT_STORE, DISPLAY_NAME_STORE } from "../dataStore.js";
 import { addSeconds, format, subMonths } from "date-fns";
 import { getEvaluatorVariable } from "../userEvaluation/evaluatorVariables.js";
-import { chunk, fromPairs } from "lodash";
+import _ from "lodash";
 import { ControlSubredditJob } from "../constants.js";
 import json2md from "json2md";
 import { StatsUserEntry } from "../scheduler/sixHourlyJobs.js";
@@ -35,7 +35,7 @@ export async function updateDefinedHandlesStats (allEntries: StatsUserEntry[], c
         .filter(item => item.data.reportedAt && item.data.reportedAt > subMonths(new Date(), 3).getTime() && (userIsBanned(item.data)))
         .map(item => ({ member: item.username, score: item.data.reportedAt ?? 0 }));
 
-    const lastMonthDataChunked = chunk(lastMonthData, 10000);
+    const lastMonthDataChunked = _.chunk(lastMonthData, 10000);
     await Promise.all(lastMonthDataChunked.map(chunk => context.redis.zAdd(DEFINED_HANDLES_QUEUE, ...chunk)));
 
     await context.scheduler.runJob({
@@ -75,7 +75,7 @@ export async function gatherDefinedHandlesStats (event: ScheduledJobEvent<JSONOb
         }
     } else {
         const existingDefinedHandlesData = await context.redis.hGetAll(DEFINED_HANDLES_DATA);
-        existingDefinedHandles = fromPairs(Object.entries(existingDefinedHandlesData).map(([handle, data]) => ([handle, JSON.parse(data) as DefinedHandleData])));
+        existingDefinedHandles = _.fromPairs(Object.entries(existingDefinedHandlesData).map(([handle, data]) => ([handle, JSON.parse(data) as DefinedHandleData])));
     }
 
     const userBioTextData = await context.redis.hMGet(BIO_TEXT_STORE, queuedHandles.map(handle => handle.member));
@@ -143,7 +143,7 @@ export async function gatherDefinedHandlesStats (event: ScheduledJobEvent<JSONOb
     }
 
     await context.redis.zRem(DEFINED_HANDLES_QUEUE, processedUsers);
-    await context.redis.hSet(DEFINED_HANDLES_DATA, fromPairs(Object.entries(existingDefinedHandles).map(([handle, data]) => ([handle, JSON.stringify(data)]))));
+    await context.redis.hSet(DEFINED_HANDLES_DATA, _.fromPairs(Object.entries(existingDefinedHandles).map(([handle, data]) => ([handle, JSON.stringify(data)]))));
 
     console.log(`Processed ${processedCount} defined handles. Remaining in queue: ${queuedHandles.length}.`);
 

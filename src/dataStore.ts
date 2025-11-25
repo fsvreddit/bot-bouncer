@@ -1,5 +1,5 @@
 import { JobContext, TriggerContext, CreateModNoteOptions, UserSocialLink, TxClientLike, RedisClient } from "@devvit/public-api";
-import { compact, fromPairs, uniq } from "lodash";
+import _ from "lodash";
 import pako from "pako";
 import { setCleanupForSubmittersAndMods, setCleanupForUser } from "./cleanup.js";
 import { CONTROL_SUBREDDIT } from "./constants.js";
@@ -100,7 +100,7 @@ export async function getFullDataStore (context: TriggerContext): Promise<Record
 export async function getAllKnownUsers (context: TriggerContext): Promise<string[]> {
     const users = await Promise.all(ALL_POTENTIAL_USER_PREFIXES.map(prefix => context.redis.global.hKeys(getStoreKey(prefix))));
 
-    return uniq([...users.flat()]);
+    return _.uniq([...users.flat()]);
 }
 
 export async function getUserStatus (username: string, context: TriggerContext) {
@@ -189,7 +189,7 @@ export async function setUserStatus (username: string, details: UserDetails, con
             await setCleanupForUser(username, context.redis);
         }
 
-        const submittersAndMods = uniq(compact([details.submitter, details.operator]));
+        const submittersAndMods = _.uniq(_.compact([details.submitter, details.operator]));
         await setCleanupForSubmittersAndMods(submittersAndMods, context);
 
         if (details.userStatus !== currentStatus?.userStatus) {
@@ -312,7 +312,7 @@ function compactDataForWiki (input: string): string | undefined {
     return JSON.stringify(status);
 }
 
-export async function updateWikiPage (_: unknown, context: JobContext) {
+export async function updateWikiPage (_event: unknown, context: JobContext) {
     const updateDue = await context.redis.exists(WIKI_UPDATE_DUE);
     if (!updateDue) {
         return;
@@ -425,7 +425,7 @@ export async function updateWikiPage (_: unknown, context: JobContext) {
     }
 
     const aggregateStore = await context.redis.zRange(AGGREGATE_STORE, 0, -1);
-    const aggregateData = fromPairs(aggregateStore.map(item => ([item.member, item.score])));
+    const aggregateData = _.fromPairs(aggregateStore.map(item => ([item.member, item.score])));
     console.log(`Status: Banned ${aggregateData[UserStatus.Banned] ?? 0}, Organic ${aggregateData[UserStatus.Organic] ?? 0}, Pending ${aggregateData[UserStatus.Pending] ?? 0}`);
 
     await context.redis.set(lastUpdateDoneKey, new Date().getTime().toString());

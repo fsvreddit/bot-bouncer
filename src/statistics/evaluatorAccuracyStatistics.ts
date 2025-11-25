@@ -1,6 +1,6 @@
 import { JobContext, JSONObject, ScheduledJobEvent } from "@devvit/public-api";
 import { getFullDataStore, UserDetails, UserStatus } from "../dataStore.js";
-import { fromPairs, toPairs } from "lodash";
+import _ from "lodash";
 import { addSeconds, format, subDays } from "date-fns";
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "../constants.js";
 import { EvaluationResult, getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
@@ -22,7 +22,7 @@ function dateInRange (date: Date): boolean {
 
 async function gatherUsernames (context: JobContext) {
     const fullDataStore = await getFullDataStore(context);
-    const parsed = toPairs(fullDataStore).map(([username, data]) => ({ username, data: JSON.parse(data) as UserDetails }));
+    const parsed = _.toPairs(fullDataStore).map(([username, data]) => ({ username, data: JSON.parse(data) as UserDetails }));
     const relevantData = parsed.filter((item) => {
         const date = item.data.reportedAt ? new Date(item.data.reportedAt) : undefined;
         if (!date) {
@@ -36,7 +36,7 @@ async function gatherUsernames (context: JobContext) {
         return true;
     });
 
-    const recordsToQueue = fromPairs(relevantData.map((item) => {
+    const recordsToQueue = _.fromPairs(relevantData.map((item) => {
         let itemToQueue: AccuracyQueueItem;
         if (item.data.userStatus === UserStatus.Purged || item.data.userStatus === UserStatus.Retired) {
             itemToQueue = { status: item.data.lastStatus ?? item.data.userStatus, reportedAt: item.data.reportedAt };
@@ -86,7 +86,7 @@ export async function buildEvaluatorAccuracyStatistics (event: ScheduledJobEvent
 
     const existingResults = await context.redis.hGetAll(ACCURACY_STORE);
 
-    const data = toPairs(await context.redis.hGetAll(ACCURACY_QUEUE));
+    const data = _.toPairs(await context.redis.hGetAll(ACCURACY_QUEUE));
     while (data.length > 0 && new Date() < runLimit) {
         const record = data.shift();
         if (!record) {
@@ -147,7 +147,7 @@ export async function buildEvaluatorAccuracyStatistics (event: ScheduledJobEvent
     output.push({ p: "This page shows the accuracy of the Bot Bouncer evaluation system based on initial evaluations in the last two weeks, taking into account appeals." });
 
     // eslint-disable-next-line @stylistic/function-paren-newline
-    const evaluatorAccuracyStats: Record<string, EvaluationAccuracyResult> = fromPairs(
+    const evaluatorAccuracyStats: Record<string, EvaluationAccuracyResult> = _.fromPairs(
         Object.entries(existingResults).map(([key, value]) => {
             const data = JSON.parse(value) as EvaluationAccuracyResult;
             return [key, {
@@ -196,7 +196,7 @@ export async function buildEvaluatorAccuracyStatistics (event: ScheduledJobEvent
     const tableRows: string[][] = [];
     const headers: string[] = ["Bot Name", "Hit Reason", "Last Seen", "Total Count", "Banned Count", "Accuracy (%)", "Example Banned Accounts", "Unbanned Accounts"];
 
-    for (const [key, data] of toPairs(evaluatorAccuracyStats).sort((a, b) => a > b ? 1 : -1)) {
+    for (const [key, data] of _.toPairs(evaluatorAccuracyStats).sort((a, b) => a > b ? 1 : -1)) {
         const [botName, hitReason] = key.split("~");
         tableRows.push([
             botName,

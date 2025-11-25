@@ -1,6 +1,6 @@
 import { JobContext, TriggerContext, WikiPage, WikiPagePermissionLevel } from "@devvit/public-api";
 import { UserDetails, UserStatus } from "../dataStore.js";
-import { uniq } from "lodash";
+import _ from "lodash";
 import { subMonths } from "date-fns";
 import json2md from "json2md";
 import { ZMember } from "@devvit/protos";
@@ -34,7 +34,7 @@ export async function updateSubmitterStatistics (allStatuses: UserDetails[], con
         }
     }
 
-    const distinctUsers = uniq([...Object.keys(organicStatuses), ...Object.keys(bannedStatuses)]);
+    const distinctUsers = _.uniq([...Object.keys(organicStatuses), ...Object.keys(bannedStatuses)]);
     const submitterStatistics: SubmitterStatistic[] = [];
     const successRatesToStore: ZMember[] = [];
 

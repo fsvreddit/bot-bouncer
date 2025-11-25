@@ -1,6 +1,6 @@
 import { JobContext, JSONObject, JSONValue, Post, ScheduledJobEvent, TriggerContext, ZMember } from "@devvit/public-api";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
-import { compact, uniq } from "lodash";
+import _ from "lodash";
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "./constants.js";
 import { getAllKnownUsers, getUserStatus, UserDetails, UserStatus } from "./dataStore.js";
 import { evaluateUserAccount, storeAccountInitialEvaluationResults, userHasContinuousNSFWHistory } from "./handleControlSubAccountEvaluation.js";
@@ -32,7 +32,7 @@ async function getAccountsFromSub (subredditName: string, since: Date, context: 
 
     return {
         subredditName,
-        accounts: uniq(posts.filter(post => post.createdAt > since && post.authorName !== "[deleted]").map(post => post.authorName)),
+        accounts: _.uniq(posts.filter(post => post.createdAt > since && post.authorName !== "[deleted]").map(post => post.authorName)),
     };
 }
 
@@ -50,7 +50,7 @@ async function getDistinctAccounts (context: JobContext): Promise<string[]> {
     const variables = await getEvaluatorVariables(context);
     const karmaFarmingSubs = variables["generic:karmafarminglinksubs"] as string[] | undefined ?? [];
     const karmaFarmingSubsNSFW = variables["generic:karmafarminglinksubsnsfw"] as string[] | undefined ?? [];
-    const uniqueSubs = uniq([...karmaFarmingSubs, ...karmaFarmingSubsNSFW]);
+    const uniqueSubs = _.uniq([...karmaFarmingSubs, ...karmaFarmingSubsNSFW]);
 
     // Remove check dates older than a week.
     await context.redis.zRemRangeByScore(CHECK_DATE_KEY, 0, subWeeks(new Date(), 1).getTime());
@@ -83,13 +83,13 @@ async function getDistinctAccounts (context: JobContext): Promise<string[]> {
     console.log(`Karma Farming Subs: Total subs in KF list: ${uniqueSubs.length}`);
 
     const promises = Object.entries(subsToCheck).map(([sub, date]) => getAccountsFromSub(sub, date, context));
-    const accountsToCheck = compact(await Promise.all(promises));
+    const accountsToCheck = _.compact(await Promise.all(promises));
 
     if (accountsToCheck.length > 0) {
         await context.redis.zAdd(CHECK_DATE_KEY, ...accountsToCheck.map(item => ({ member: item.subredditName, score: new Date().getTime() })));
     }
 
-    return uniq(accountsToCheck.map(item => item.accounts).flat());
+    return _.uniq(accountsToCheck.map(item => item.accounts).flat());
 }
 
 async function evaluateAndHandleUser (username: string, variables: Record<string, JSONValue>, context: JobContext) {

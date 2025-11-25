@@ -1,7 +1,7 @@
 import { Comment, Post, TriggerContext } from "@devvit/public-api";
 import Ajv, { JSONSchemaType } from "ajv";
 import { getUserStatus, touchUserStatus, UserStatus } from "../dataStore.js";
-import { compact, countBy, uniq } from "lodash";
+import _ from "lodash";
 import { subMonths } from "date-fns";
 import json2md from "json2md";
 import { AsyncSubmission, queuePostCreation } from "../postCreation.js";
@@ -154,14 +154,14 @@ export async function handleBulkSubmission (submitter: string, trusted: boolean,
 
     if (data.usernames) {
         const initialStatus = trusted ? UserStatus.Banned : UserStatus.Pending;
-        const results = await Promise.all(uniq(data.usernames).map(username => handleBulkItem(username, initialStatus, submitter, undefined, data.reason, context)));
-        queued += compact(results).length;
+        const results = await Promise.all(_.uniq(data.usernames).map(username => handleBulkItem(username, initialStatus, submitter, undefined, data.reason, context)));
+        queued += _.compact(results).length;
     }
 
     if (data.userDetails) {
         const initialStatus = trusted ? UserStatus.Banned : UserStatus.Pending;
         const results = await Promise.all(data.userDetails.map(entry => handleBulkItem(entry.username, initialStatus, submitter, entry.submitter, entry.reason ?? data.reason, context)));
-        queued += compact(results).length;
+        queued += _.compact(results).length;
     }
 
     await context.reddit.modMail.archiveConversation(conversationId);
@@ -199,7 +199,7 @@ async function trustedSubmitterInitialStatus (user: UserExtended, context: Trigg
     }
 
     const recentComments = recentHistory.filter(item => item instanceof Comment);
-    const commentPosts = countBy(recentComments.map(comment => comment.postId));
+    const commentPosts = _.countBy(recentComments.map(comment => comment.postId));
     if (Object.values(commentPosts).some(count => count > 1)) {
         console.log(`Trusted submitter override: ${user.username} has commented multiple times in the same post`);
         return UserStatus.Pending;

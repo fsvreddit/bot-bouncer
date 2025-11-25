@@ -1,7 +1,7 @@
 import { JobContext, UserSocialLink } from "@devvit/public-api";
 import { format, subWeeks } from "date-fns";
 import json2md from "json2md";
-import { max, min, uniq } from "lodash";
+import _ from "lodash";
 import { getEvaluatorVariable } from "../userEvaluation/evaluatorVariables.js";
 import { SOCIAL_LINKS_STORE, UserDetails } from "../dataStore.js";
 import { StatsUserEntry } from "../scheduler/sixHourlyJobs.js";
@@ -59,7 +59,7 @@ export async function updateSocialLinksStatistics (allEntries: StatsUserEntry[],
 
         const userSocialLinks = JSON.parse(socialLinksEntry) as UserSocialLink[];
 
-        recentData[i].data.socialLinks = uniq(userSocialLinks.map(link => cleanLink(link.outboundUrl)));
+        recentData[i].data.socialLinks = _.uniq(userSocialLinks.map(link => cleanLink(link.outboundUrl)));
     }
 
     recentData = recentData.filter(item => item.data.socialLinks && item.data.socialLinks.length > 0);
@@ -80,8 +80,8 @@ export async function updateSocialLinksStatistics (allEntries: StatsUserEntry[],
                 socialLinksCounts[link] = {
                     hits: existingEntry.hits + 1,
                     coveredByEvaluator: existingEntry.coveredByEvaluator,
-                    firstSeen: item.data.reportedAt ? min([existingEntry.firstSeen, new Date(item.data.reportedAt)]) ?? existingEntry.firstSeen : existingEntry.firstSeen,
-                    lastSeen: item.data.reportedAt ? max([existingEntry.lastSeen, new Date(item.data.reportedAt)]) ?? existingEntry.lastSeen : existingEntry.lastSeen,
+                    firstSeen: item.data.reportedAt ? _.min([existingEntry.firstSeen, new Date(item.data.reportedAt)]) ?? existingEntry.firstSeen : existingEntry.firstSeen,
+                    lastSeen: item.data.reportedAt ? _.max([existingEntry.lastSeen, new Date(item.data.reportedAt)]) ?? existingEntry.lastSeen : existingEntry.lastSeen,
                     usernames: [...existingEntry.usernames, item.username],
                 };
             } else {
@@ -123,7 +123,7 @@ export async function updateSocialLinksStatistics (allEntries: StatsUserEntry[],
                 record.value.hits.toLocaleString(),
                 record.value.firstSeen ? format(record.value.firstSeen, "MMM dd") : "",
                 record.value.lastSeen ? format(record.value.lastSeen, "MMM dd") : "",
-                uniq(record.value.usernames).map(username => `/u/${username}`).slice(-5).join(", "),
+                _.uniq(record.value.usernames).map(username => `/u/${username}`).slice(-5).join(", "),
             ];
 
             if (record.value.coveredByEvaluator) {

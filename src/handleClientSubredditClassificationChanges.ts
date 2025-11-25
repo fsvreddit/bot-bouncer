@@ -6,7 +6,7 @@ import { setCleanupForUser } from "./cleanup.js";
 import { ActionType, AppSetting, CONFIGURATION_DEFAULTS } from "./settings.js";
 import { getUserOrUndefined, isModeratorWithCache } from "./utility.js";
 import { ClientSubredditJob } from "./constants.js";
-import { fromPairs } from "lodash";
+import _ from "lodash";
 import { recordBanForSummary, recordUnbanForSummary, removeRecordOfBanForSummary } from "./modmail/actionSummary.js";
 import { hasPermissions, isBanned, isContributor } from "devvit-helpers";
 
@@ -185,7 +185,7 @@ async function handleSetBanned (username: string, subredditName: string, setting
 
         const reinstatableContent = removableContent.filter(item => item.userReportReasons.length === 0);
         if (reinstatableContent.length > 0) {
-            await context.redis.hSet(`removedItems:${username}`, fromPairs(reinstatableContent.map(item => ([item.id, item.id]))));
+            await context.redis.hSet(`removedItems:${username}`, _.fromPairs(reinstatableContent.map(item => ([item.id, item.id]))));
             // Expire key after 14 days
             await context.redis.expire(`removedItems:${username}`, 60 * 60 * 24 * 14);
         }

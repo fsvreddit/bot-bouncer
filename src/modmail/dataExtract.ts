@@ -8,7 +8,7 @@ import { addSeconds, format } from "date-fns";
 import { setCleanupForUser } from "../cleanup.js";
 import { getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
 import { ModmailMessage } from "./modmail.js";
-import { chunk, fromPairs } from "lodash";
+import _ from "lodash";
 import { ControlSubredditJob } from "../constants.js";
 import { hMGetAsRecord } from "devvit-helpers";
 
@@ -212,8 +212,8 @@ export async function dataExtract (message: ModmailMessage, conversationId: stri
 
     const extractId = Date.now().toString();
 
-    await Promise.all(chunk(data, 10000).map(async (dataChunk) => {
-        const dataToStore = fromPairs(dataChunk.map(entry => [entry.username, JSON.stringify(entry.data)]));
+    await Promise.all(_.chunk(data, 10000).map(async (dataChunk) => {
+        const dataToStore = _.fromPairs(dataChunk.map(entry => [entry.username, JSON.stringify(entry.data)]));
         await context.redis.hSet(getExtractTempStoreKey(extractId), dataToStore);
         await context.redis.zAdd(getExtractTempQueueKey(extractId), ...dataChunk.map(entry => ({ score: 0, member: entry.username })));
     }));
@@ -280,7 +280,7 @@ export async function continueDataExtract (event: ScheduledJobEvent<JSONObject |
     const dataMapped = Object.entries(rawData)
         .map(([username, data]) => ({ username, data: JSON.parse(data) as UserDetailsWithBioAndSocialLinks }));
 
-    const data = fromPairs(dataMapped.map(entry => [entry.username, entry.data]));
+    const data = _.fromPairs(dataMapped.map(entry => [entry.username, entry.data]));
 
     console.log(`Data Extract: Processing batch of ${processingQueue.length} entries.`);
 
@@ -374,7 +374,7 @@ export async function continueDataExtract (event: ScheduledJobEvent<JSONObject |
     }
 
     if (entriesToRewrite.size > 0) {
-        const rewrittenData = fromPairs(Array.from(entriesToRewrite).map(username => [username, JSON.stringify(data[username])]));
+        const rewrittenData = _.fromPairs(Array.from(entriesToRewrite).map(username => [username, JSON.stringify(data[username])]));
         await context.redis.hSet(getExtractTempStoreKey(extractId), rewrittenData);
     }
 

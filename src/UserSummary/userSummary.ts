@@ -1,7 +1,7 @@
 import { Comment, JSONValue, Post, TriggerContext } from "@devvit/public-api";
 import { median } from "../utility.js";
 import { addMilliseconds, differenceInDays, differenceInHours, differenceInMilliseconds, differenceInMinutes, Duration, format, formatDuration, intervalToDuration, startOfDecade } from "date-fns";
-import { compact, countBy, mean, uniq } from "lodash";
+import _ from "lodash";
 import { count } from "@wordpress/wordcount";
 import { isUserPotentiallyBlockingBot } from "./blockChecker.js";
 import pluralize from "pluralize";
@@ -84,7 +84,7 @@ function averageInterval (history: (Post | Comment)[], mode: "mean" | "median") 
     }
 
     const start = startOfDecade(new Date());
-    const end = addMilliseconds(start, Math.round(mode === "mean" ? mean(differences) : median(differences)));
+    const end = addMilliseconds(start, Math.round(mode === "mean" ? _.mean(differences) : median(differences)));
 
     return formatDifferenceInDates(start, end);
 }
@@ -92,7 +92,7 @@ function averageInterval (history: (Post | Comment)[], mode: "mean" | "median") 
 function minMaxAvg (numbers: number[]) {
     const min = Math.min(...numbers);
     const max = Math.max(...numbers);
-    const avg = Math.round(mean(numbers));
+    const avg = Math.round(_.mean(numbers));
     const mdn = Math.round(median(numbers));
 
     if (min === max) {
@@ -121,7 +121,7 @@ function numberToBlock (input: number): string {
 }
 
 function activityByTimeOfDay (history: (Post | Comment)[]): json2md.DataObject[] {
-    const hours = countBy(history.map(item => item.createdAt.getHours()));
+    const hours = _.countBy(history.map(item => item.createdAt.getHours()));
     const max = Math.max(...Object.values(hours));
 
     const headers: string[] = [];
@@ -206,7 +206,7 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
     }
 
     const socialLinks = await getUserSocialLinks(username, context.metadata);
-    const uniqueSocialLinks = compact(uniq(socialLinks.map(link => link.outboundUrl)));
+    const uniqueSocialLinks = _.compact(_.uniq(socialLinks.map(link => link.outboundUrl)));
     if (uniqueSocialLinks.length > 0) {
         if (source === "modmail") {
             accountPropsBullets.push(`Social links: ${uniqueSocialLinks.join(", ")}`);
@@ -374,10 +374,10 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
             bullets.push(`Edited comments: ${editedCommentPercentage}% of total`);
         }
 
-        const subreddits = countBy(compact(userComments.map(comment => comment.subredditName)));
+        const subreddits = _.countBy(_.compact(userComments.map(comment => comment.subredditName)));
         bullets.push(`Comment subreddits: ${Object.entries(subreddits).map(([subreddit, count]) => `${markdownEscape(subreddit)}: ${count}`).join(", ")}`);
 
-        const commentsPerPost = countBy(Object.values(countBy(userComments.map(comment => comment.postId))));
+        const commentsPerPost = _.countBy(Object.values(_.countBy(userComments.map(comment => comment.postId))));
         bullets.push(`Comments per post: ${Object.entries(commentsPerPost).map(([count, posts]) => `${count} comments: ${posts}`).join(", ")}`);
 
         if (userComments.length < 90) {
@@ -402,7 +402,7 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
             bullets.push(`Edited posts: ${editedPostPercentage}% of total`);
         }
 
-        const subreddits = countBy(compact(userPosts.map(post => post.subredditName)));
+        const subreddits = _.countBy(_.compact(userPosts.map(post => post.subredditName)));
         bullets.push(`Post subreddits: ${Object.entries(subreddits).map(([subreddit, count]) => `${markdownEscape(subreddit)}: ${count}`).join(", ")}`);
         if (userPosts.length < 90) {
             bullets.push(`First post was ${formatDifferenceInDates(extendedUser.createdAt, userPosts[userPosts.length - 1].createdAt)} after account creation`);
