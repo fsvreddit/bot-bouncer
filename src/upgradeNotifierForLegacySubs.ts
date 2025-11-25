@@ -65,7 +65,7 @@ export async function processLegacySubUpgradeNotifications (event: ScheduledJobE
 async function sendNotificationToLegacySub (subredditName: string, context: JobContext) {
     const message: json2md.DataObject[] = [
         { p: `Hello! It looks like you have an old version of Bot Bouncer installed on /r/${subredditName}. This version may be missing newer bot detection code and reacts slower to newly configured detections.` },
-        { p: `To upgrade to the latest version of Bot Bouncer, visit [this page](https://developers.reddit.com/r/${subredditName}/apps).` },
+        { p: `To upgrade to the latest version of Bot Bouncer, visit [this page](https://developers.reddit.com/r/${subredditName}/apps) from a web browser (it may not work from the app).` },
         { p: "You can also configure automatic update notifications from the Bot Bouncer configuration page after upgrading." },
         { p: "*This is an automated message, replies will not be read. If you have any questions, please modmail /r/BotBouncer.*" },
     ];
