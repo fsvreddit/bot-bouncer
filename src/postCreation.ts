@@ -2,7 +2,7 @@ import { JobContext, TriggerContext } from "@devvit/public-api";
 import { getUserStatus, setUserStatus, storeInitialAccountProperties, touchUserStatus, UserDetails, UserStatus } from "./dataStore.js";
 import { CONTROL_SUBREDDIT, ControlSubredditJob, INTERNAL_BOT, PostFlairTemplate } from "./constants.js";
 import { UserExtended } from "./extendedDevvit.js";
-import { addHours, addSeconds } from "date-fns";
+import { addHours, addMinutes, addSeconds } from "date-fns";
 import { getControlSubSettings } from "./settings.js";
 import pluralize from "pluralize";
 import { queueSendFeedback } from "./submissionFeedback.js";
@@ -199,6 +199,14 @@ export async function processQueuedSubmission (context: JobContext) {
         return;
     }
 
+    const cooldownKey = "postCreationCooldown";
+    if (await context.redis.exists(cooldownKey)) {
+        console.log("Post Creation: Post creation is on cooldown. Skipping this run.");
+        return;
+    }
+
+    await context.redis.set(cooldownKey, "", { expiration: addMinutes(new Date(), 3) });
+
     const txn = await context.redis.watch();
     await txn.multi();
     await txn.zRem(SUBMISSION_QUEUE, [firstSubmission.member]);
@@ -211,4 +219,6 @@ export async function processQueuedSubmission (context: JobContext) {
         const message = `Post Creation: ${queuedSubmissions.length - 1} ${pluralize("submission", queuedSubmissions.length - 1)} still in the queue.`;
         console.log(message);
     }
+
+    await context.redis.del(cooldownKey);
 }
