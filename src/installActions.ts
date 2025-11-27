@@ -36,6 +36,8 @@ export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, contex
     await context.redis.del("clientSubWikiUpdateCron");
     await context.redis.del("ReclassificationQueue");
     await context.redis.del("oneOffReaffirmation");
+
+    await setInstallDateIfNotSet(context);
 }
 
 async function addControlSubredditJobs (context: TriggerContext) {
@@ -197,4 +199,26 @@ export async function ensureClientSubJobsExist (context: TriggerContext) {
     } else {
         console.log("All client subreddit jobs are present.");
     }
+}
+
+async function setInstallDateIfNotSet (context: TriggerContext) {
+    const installDateKey = "appInstallDate";
+    if (await context.redis.exists(installDateKey)) {
+        return;
+    }
+
+    await context.redis.set(installDateKey, Date.now().toString());
+}
+
+export async function getInstallDate (context: TriggerContext): Promise<Date | undefined> {
+    const installDateKey = "appInstallDate";
+    const installDateString = await context.redis.get(installDateKey);
+    if (!installDateString) {
+        return undefined;
+    }
+    const installDateMillis = parseInt(installDateString, 10);
+    if (isNaN(installDateMillis)) {
+        return undefined;
+    }
+    return new Date(installDateMillis);
 }

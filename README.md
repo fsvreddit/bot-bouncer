@@ -55,6 +55,10 @@ While you can unban the user yourself, this only affects the user on your subred
 
 # Change History
 
+## v1.23 (coming soon)
+
+* Bot Bouncer can now accept a moderator invite if it has been accidentally removed from the mod list
+
 ## v1.22.1
 
 * Improve resilience of app if required permissions are accidentally removed from the app's user account

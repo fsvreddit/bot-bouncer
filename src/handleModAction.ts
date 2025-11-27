@@ -4,11 +4,13 @@ import { ClientSubredditJob, CONTROL_SUBREDDIT, ControlSubredditJob, INTERNAL_BO
 import { clearAppPermissionsCache, recordWhitelistUnban, removeRecordOfBan } from "./handleClientSubredditClassificationChanges.js";
 import { handleExternalSubmissionsPageUpdate } from "./externalSubmissions.js";
 import { getControlSubSettings, validateControlSubConfigChange } from "./settings.js";
-import { addDays, addMinutes, addSeconds } from "date-fns";
+import { addDays, addMinutes, addSeconds, subMinutes } from "date-fns";
 import { validateAndSaveAppealConfig } from "./modmail/autoAppealHandling.js";
 import { checkIfStatsNeedUpdating } from "./scheduler/sixHourlyJobs.js";
 import { handleBannedSubredditsModAction } from "./statistics/bannedSubreddits.js";
 import { isModeratorWithCache, sendMessageToWebhook } from "./utility.js";
+import { getExtendedDevvit } from "devvit-helpers";
+import { getInstallDate } from "./installActions.js";
 
 export async function handleModAction (event: ModAction, context: TriggerContext) {
     if (context.subredditName === CONTROL_SUBREDDIT) {
@@ -61,6 +63,25 @@ async function handleModActionClientSub (event: ModAction, context: TriggerConte
         });
 
         console.warn(`handleModActionClientSub: Bot Bouncer has been removed as a moderator from r/${context.subredditName} by u/${event.moderator?.name}`);
+    }
+
+    if (event.action === "invitemoderator" && event.targetUser?.name === context.appName) {
+        // Bot Bouncer has been re-invited as a mod. Accept the invitation.
+        const installDate = await getInstallDate(context);
+        if (!installDate) {
+            console.error("handleModActionClientSub: Cannot accept moderator invite as install date is not set.");
+            return;
+        }
+
+        if (installDate > subMinutes(new Date(), 1)) {
+            console.log("handleModActionClientSub: Moderator invite ignored as install date is very recent. Don't want to interfere with initial install.");
+            return;
+        }
+
+        await getExtendedDevvit().redditAPIPlugins.Moderation.AcceptModeratorInvite({
+            subreddit: context.subredditName ?? await context.reddit.getCurrentSubredditName(),
+        });
+        console.log(`handleModActionClientSub: Bot Bouncer has been re-invited as a moderator to r/${context.subredditName} by u/${event.moderator?.name}`);
     }
 
     if (event.action === "setpermissions" && event.targetUser?.name === context.appName) {
