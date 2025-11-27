@@ -6,6 +6,7 @@ import { addHours, addMinutes, addSeconds } from "date-fns";
 import { getControlSubSettings } from "./settings.js";
 import pluralize from "pluralize";
 import { queueSendFeedback } from "./submissionFeedback.js";
+import { sendMessageToWebhook } from "./utility.js";
 
 export const statusToFlair: Record<UserStatus, PostFlairTemplate> = {
     [UserStatus.Pending]: PostFlairTemplate.Pending,
@@ -215,9 +216,25 @@ export async function processQueuedSubmission (context: JobContext) {
 
     await createNewSubmission(JSON.parse(submissionDetails) as AsyncSubmission, context);
 
-    if (queuedSubmissions.length > 1) {
-        const message = `Post Creation: ${queuedSubmissions.length - 1} ${pluralize("submission", queuedSubmissions.length - 1)} still in the queue.`;
+    const remainingItemsInQueue = queuedSubmissions.length - 1;
+
+    if (remainingItemsInQueue > 0) {
+        const message = `Post Creation: ${remainingItemsInQueue} ${pluralize("submission", remainingItemsInQueue)} still in the queue.`;
         console.log(message);
+    }
+
+    const alertKey = "postCreationQueueAlertSent";
+
+    if (controlSubSettings.backlogWebhook && remainingItemsInQueue > (controlSubSettings.postCreationQueueAlertLevel ?? 100) && !await context.redis.exists(alertKey)) {
+        await sendMessageToWebhook(controlSubSettings.backlogWebhook, `⚠️ Post creation queue is backlogged. There are currently ${remainingItemsInQueue} ${pluralize("submission", remainingItemsInQueue)} waiting to be processed.`);
+        await context.redis.set(alertKey, "sent");
+    }
+
+    if (remainingItemsInQueue === 0) {
+        if (await context.redis.exists(alertKey) && controlSubSettings.backlogWebhook) {
+            await sendMessageToWebhook(controlSubSettings.backlogWebhook, `✅ Post creation queue has been cleared.`);
+            await context.redis.del(alertKey);
+        }
     }
 
     await context.redis.del(cooldownKey);

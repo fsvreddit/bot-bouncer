@@ -225,9 +225,11 @@ export interface ControlSubSettings {
     uptimeMonitoringEnabled?: boolean;
     messageMonitoringEnabled?: boolean;
     monitoringWebhook?: string;
+    backlogWebhook?: string;
     banNoteCheckingEnabled?: boolean;
     observerSubreddits?: string[];
     postCreationQueueProcessingEnabled?: boolean;
+    postCreationQueueAlertLevel?: number;
     allowClassificationQueries?: boolean;
     legacyWikiPageUpdateFrequencyMinutes: number;
     redosCheckerEnabled?: boolean;
@@ -252,9 +254,11 @@ const schema: JSONSchemaType<ControlSubSettings> = {
         uptimeMonitoringEnabled: { type: "boolean", nullable: true },
         messageMonitoringEnabled: { type: "boolean", nullable: true },
         monitoringWebhook: { type: "string", nullable: true },
+        backlogWebhook: { type: "string", nullable: true },
         banNoteCheckingEnabled: { type: "boolean", nullable: true },
         observerSubreddits: { type: "array", items: { type: "string" }, nullable: true },
         postCreationQueueProcessingEnabled: { type: "boolean", nullable: true },
+        postCreationQueueAlertLevel: { type: "number", nullable: true },
         allowClassificationQueries: { type: "boolean", nullable: true },
         legacyWikiPageUpdateFrequencyMinutes: { type: "number" },
         redosCheckerEnabled: { type: "boolean", nullable: true },
