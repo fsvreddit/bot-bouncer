@@ -5,7 +5,7 @@ import { CONTROL_SUBREDDIT, ControlSubredditJob } from "./constants.js";
 import { getAllKnownUsers, getUserStatus, UserDetails, UserStatus } from "./dataStore.js";
 import { evaluateUserAccount, storeAccountInitialEvaluationResults, userHasContinuousNSFWHistory } from "./handleControlSubAccountEvaluation.js";
 import { getControlSubSettings } from "./settings.js";
-import { addSeconds, differenceInMinutes, subMinutes, subWeeks } from "date-fns";
+import { addMinutes, addSeconds, differenceInMinutes, subMinutes, subWeeks } from "date-fns";
 import { getUserExtended } from "./extendedDevvit.js";
 import { AsyncSubmission, PostCreationQueueResult, queuePostCreation } from "./postCreation.js";
 import pluralize from "pluralize";
@@ -237,6 +237,12 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
 
     await context.redis.set(inProgressKey, "true", { expiration: addSeconds(new Date(), 30) });
 
+    const cooldownKey = `KarmaFarmingSubsCooldown`;
+    if (await context.redis.exists(cooldownKey)) {
+        console.log("Karma Farming Subs: Cooldown active, skipping evaluation.");
+        return;
+    }
+
     const runLimit = addSeconds(new Date(), 10);
 
     const accounts = await context.redis.global.zRange(ACCOUNTS_QUEUED_KEY, 0, -1)
@@ -264,6 +270,8 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
         ...accounts.slice(4, 14).map(item => [item.member]),
     ];
 
+    let failedInBatch = 0;
+
     while (new Date() < runLimit && chunkedAccounts.length > 0) {
         const firstChunk = chunkedAccounts.shift();
         if (!firstChunk) {
@@ -277,10 +285,15 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
                 await evaluateAndHandleUser(username, variables, context);
             } catch (error) {
                 console.error(`Karma Farming Subs: Error evaluating ${username}: ${error}`);
+                failedInBatch++;
             }
 
             processed += 1;
         }));
+    }
+
+    if (failedInBatch > 3) {
+        await context.redis.set(cooldownKey, "true", { expiration: addMinutes(new Date(), 2) });
     }
 
     const remaining = totalQueued - processed;
