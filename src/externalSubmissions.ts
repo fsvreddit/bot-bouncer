@@ -114,7 +114,7 @@ export async function addExternalSubmissionToPostCreationQueue (item: ExternalSu
     const alreadyQueued = await isUserAlreadyQueued(item.username, context);
     if (alreadyQueued) {
         console.log(`External Submissions: User ${item.username} is already in the queue.`);
-        if (item.immediate) {
+        if (immediate) {
             await promotePositionInQueue(item.username, context);
             console.log(`External Submissions: Promoted ${item.username} in the queue due to immediate flag.`);
         }
