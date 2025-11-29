@@ -39,6 +39,14 @@ export async function isUserAlreadyQueued (username: string, context: JobContext
     return await context.redis.zScore(SUBMISSION_QUEUE, username).then(score => score !== undefined);
 }
 
+export async function promotePositionInQueue (username: string, context: JobContext) {
+    const existingScore = await context.redis.zScore(SUBMISSION_QUEUE, username);
+    if (existingScore !== undefined) {
+        await context.redis.zAdd(SUBMISSION_QUEUE, { member: username, score: Date.now() });
+        console.log(`Post Creation: Promoted ${username}'s position in the queue.`);
+    }
+}
+
 async function createNewSubmission (submission: AsyncSubmission, context: TriggerContext) {
     if (submission.user.username.endsWith("-ModTeam")) {
         console.log(`Post Creation: Skipping post creation for ${submission.user.username} as it is a ModTeam account.`);

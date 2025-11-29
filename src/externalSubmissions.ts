@@ -6,7 +6,7 @@ import Ajv, { JSONSchemaType } from "ajv";
 import { addDays, addMinutes, addSeconds } from "date-fns";
 import { getPostOrCommentById, getUserOrUndefined } from "./utility.js";
 import { isLinkId } from "@devvit/public-api/types/tid.js";
-import { AsyncSubmission, isUserAlreadyQueued, PostCreationQueueResult, queuePostCreation } from "./postCreation.js";
+import { AsyncSubmission, isUserAlreadyQueued, PostCreationQueueResult, promotePositionInQueue, queuePostCreation } from "./postCreation.js";
 import pluralize from "pluralize";
 import { getUserExtendedFromUser } from "./extendedDevvit.js";
 import { evaluateUserAccount, EvaluationResult, storeAccountInitialEvaluationResults } from "./handleControlSubAccountEvaluation.js";
@@ -114,6 +114,10 @@ export async function addExternalSubmissionToPostCreationQueue (item: ExternalSu
     const alreadyQueued = await isUserAlreadyQueued(item.username, context);
     if (alreadyQueued) {
         console.log(`External Submissions: User ${item.username} is already in the queue.`);
+        if (item.immediate) {
+            await promotePositionInQueue(item.username, context);
+            console.log(`External Submissions: Promoted ${item.username} in the queue due to immediate flag.`);
+        }
         return false;
     }
 
