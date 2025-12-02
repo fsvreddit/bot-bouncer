@@ -9,7 +9,7 @@ import { isLinkId } from "@devvit/public-api/types/tid.js";
 import { getUserExtended, UserExtended } from "../extendedDevvit.js";
 import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
 import { EvaluationResult, getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
-import { MarkdownEntry, MarkdownEntryOrPrimitive, tsMarkdown } from "ts-markdown";
+import { MarkdownEntry, tsMarkdown } from "ts-markdown";
 import markdownEscape from "markdown-escape";
 import { ALL_EVALUATORS } from "@fsvreddit/bot-bouncer-evaluation";
 import { BIO_TEXT_STORE, getUserStatus } from "../dataStore.js";
@@ -166,11 +166,11 @@ function getCommonEntriesForContent (items: Post[] | Comment[]): string[] {
     return bullets;
 }
 
-function evaluationResultsToBullets (results: EvaluationResult[]) {
-    const hitsRows: MarkdownEntryOrPrimitive[] = [];
+export function evaluationResultsToBullets (results: EvaluationResult[]) {
+    const markdown: MarkdownEntry[] = [];
 
     for (const result of results) {
-        let row = `${result.botName} matched`;
+        let row = `**${result.botName}** matched`;
         if (result.hitReason) {
             if (typeof result.hitReason === "string") {
                 row += `: ${result.hitReason}`;
@@ -178,17 +178,17 @@ function evaluationResultsToBullets (results: EvaluationResult[]) {
                 row += `: ${result.hitReason.reason}`;
             }
         }
-        hitsRows.push(row);
+        markdown.push({ p: row });
 
         if (typeof result.hitReason === "object") {
             const detailRows: string[] = [];
             for (const detail of result.hitReason.details) {
                 detailRows.push(`${detail.key}: ${detail.value}`);
             }
-            hitsRows.push({ ul: detailRows });
+            markdown.push({ ul: detailRows });
         }
     }
-    return hitsRows;
+    return markdown;
 }
 
 export async function getSummaryForUser (username: string, source: "modmail" | "submission", context: TriggerContext): Promise<MarkdownEntry[]> {
@@ -296,7 +296,7 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
             const initialEvaluatorsMatched = await getAccountInitialEvaluationResults(username, context);
             summary.push({ p: `At the point of initial evaluation, user matched ${initialEvaluatorsMatched.length} ${pluralize("evaluator", initialEvaluatorsMatched.length)}` });
 
-            summary.push({ ul: evaluationResultsToBullets(initialEvaluatorsMatched) });
+            summary.push(...evaluationResultsToBullets(initialEvaluatorsMatched));
         }
 
         summary.push({ h2: "User Activity" });
@@ -321,7 +321,7 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
         if (initialEvaluatorsMatched.length > 0) {
             summary.push({ p: `At the point of initial evaluation, user matched ${initialEvaluatorsMatched.length} ${pluralize("evaluator", initialEvaluatorsMatched.length)}` });
 
-            summary.push({ ul: evaluationResultsToBullets(initialEvaluatorsMatched) });
+            summary.push(...evaluationResultsToBullets(initialEvaluatorsMatched));
         }
 
         if (matchedEvaluators.length > 0) {
@@ -348,7 +348,7 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
                 }
             }
 
-            summary.push({ ul: evaluationResultsToBullets(evaluationResults) });
+            summary.push(...evaluationResultsToBullets(evaluationResults));
         }
     }
 
