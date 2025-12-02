@@ -199,7 +199,7 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
         const post = await context.reddit.getPostById(userStatus.trackingPostId);
         summary.push(
             { p: `/u/${username} is currently listed as ${userStatus.userStatus}, set by ${userStatus.operator} at ${new Date(userStatus.lastUpdate).toUTCString()} and reported by ${userStatus.submitter ?? "unknown"}` },
-            { link: { title: "Link to submission", source: `https://www.reddit.com${post.permalink}` } },
+            { p: `[Link to submission](https://www.reddit.com${post.permalink})` },
         );
     }
 
