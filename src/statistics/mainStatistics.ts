@@ -1,7 +1,7 @@
 import { JobContext, WikiPage, WikiPagePermissionLevel } from "@devvit/public-api";
 import { AGGREGATE_STORE, UserDetails, UserStatus } from "../dataStore.js";
 import _ from "lodash";
-import json2md from "json2md";
+import { MarkdownEntry, tsMarkdown } from "ts-markdown";
 
 export async function updateMainStatisticsPage (entries: UserDetails[], context: JobContext) {
     await correctAggregateData(entries, context);
@@ -9,7 +9,7 @@ export async function updateMainStatisticsPage (entries: UserDetails[], context:
     let results = await context.redis.zRange(AGGREGATE_STORE, 0, -1);
     results = results.filter(item => item.member !== "pending");
 
-    const wikiContent: json2md.DataObject[] = [];
+    const wikiContent: MarkdownEntry[] = [];
     wikiContent.push({ h1: "Bot Bouncer statistics" });
     wikiContent.push({ p: "This page details the number of accounts that have been processed by Bot Bouncer." });
 
@@ -28,7 +28,7 @@ export async function updateMainStatisticsPage (entries: UserDetails[], context:
         //
     }
 
-    const content = json2md(wikiContent);
+    const content = tsMarkdown(wikiContent);
 
     if (content.trim() !== wikiPage?.content.trim()) {
         await context.reddit.updateWikiPage({

@@ -8,8 +8,8 @@ import pluralize from "pluralize";
 import { isLinkId } from "@devvit/public-api/types/tid.js";
 import { getUserExtended, UserExtended } from "../extendedDevvit.js";
 import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
-import { getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
-import json2md from "json2md";
+import { EvaluationResult, getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
+import { MarkdownEntry, MarkdownEntryOrPrimitive, tsMarkdown } from "ts-markdown";
 import markdownEscape from "markdown-escape";
 import { ALL_EVALUATORS } from "@fsvreddit/bot-bouncer-evaluation";
 import { BIO_TEXT_STORE, getUserStatus } from "../dataStore.js";
@@ -120,7 +120,7 @@ function numberToBlock (input: number): string {
     }
 }
 
-function activityByTimeOfDay (history: (Post | Comment)[]): json2md.DataObject[] {
+function activityByTimeOfDay (history: (Post | Comment)[]): MarkdownEntry[] {
     const hours = _.countBy(history.map(item => item.createdAt.getHours()));
     const max = Math.max(...Object.values(hours));
 
@@ -134,7 +134,7 @@ function activityByTimeOfDay (history: (Post | Comment)[]): json2md.DataObject[]
         values.push(numberToBlock(blockHeight));
     }
 
-    const result: json2md.DataObject[] = [
+    const result: MarkdownEntry[] = [
         { h2: "Activity by time of day" },
         { table: { headers, rows: [values] } },
     ];
@@ -166,9 +166,34 @@ function getCommonEntriesForContent (items: Post[] | Comment[]): string[] {
     return bullets;
 }
 
-export async function getSummaryForUser (username: string, source: "modmail" | "submission", context: TriggerContext): Promise<json2md.DataObject[]> {
+function evaluationResultsToBullets (results: EvaluationResult[]) {
+    const hitsRows: MarkdownEntryOrPrimitive[] = [];
+
+    for (const result of results) {
+        let row = `${result.botName} matched`;
+        if (result.hitReason) {
+            if (typeof result.hitReason === "string") {
+                row += `: ${result.hitReason}`;
+            } else {
+                row += `: ${result.hitReason.reason}`;
+            }
+        }
+        hitsRows.push(row);
+
+        if (typeof result.hitReason === "object") {
+            const detailRows: string[] = [];
+            for (const detail of result.hitReason.details) {
+                detailRows.push(`${detail.key}: ${detail.value}`);
+            }
+            hitsRows.push({ ul: detailRows });
+        }
+    }
+    return hitsRows;
+}
+
+export async function getSummaryForUser (username: string, source: "modmail" | "submission", context: TriggerContext): Promise<MarkdownEntry[]> {
     const userStatus = await getUserStatus(username, context);
-    const summary: json2md.DataObject[] = [];
+    const summary: MarkdownEntry[] = [];
 
     if (userStatus && (source === "modmail")) {
         const post = await context.reddit.getPostById(userStatus.trackingPostId);
@@ -271,15 +296,7 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
             const initialEvaluatorsMatched = await getAccountInitialEvaluationResults(username, context);
             summary.push({ p: `At the point of initial evaluation, user matched ${initialEvaluatorsMatched.length} ${pluralize("evaluator", initialEvaluatorsMatched.length)}` });
 
-            const hitsRows = initialEvaluatorsMatched.map((evaluator) => {
-                let row = `${evaluator.botName} matched`;
-                if (evaluator.hitReason) {
-                    row += `: ${evaluator.hitReason}`;
-                }
-                return row;
-            });
-
-            summary.push({ ul: hitsRows });
+            summary.push({ ul: evaluationResultsToBullets(initialEvaluatorsMatched) });
         }
 
         summary.push({ h2: "User Activity" });
@@ -304,33 +321,34 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
         if (initialEvaluatorsMatched.length > 0) {
             summary.push({ p: `At the point of initial evaluation, user matched ${initialEvaluatorsMatched.length} ${pluralize("evaluator", initialEvaluatorsMatched.length)}` });
 
-            const hitsRows = initialEvaluatorsMatched.map((evaluator) => {
-                let row = `${evaluator.botName} matched`;
-                if (evaluator.hitReason) {
-                    row += `: ${evaluator.hitReason.slice(0, 1000)}`;
-                }
-                return row;
-            });
-
-            summary.push({ ul: hitsRows });
+            summary.push({ ul: evaluationResultsToBullets(initialEvaluatorsMatched) });
         }
 
         if (matchedEvaluators.length > 0) {
             summary.push({ p: `User currently matches ${matchedEvaluators.length} ${pluralize("evaluator", matchedEvaluators.length)}` });
 
-            const hitsRows: string[] = [];
+            const evaluationResults: EvaluationResult[] = [];
 
             for (const evaluator of matchedEvaluators) {
                 if (!evaluator.hitReasons || evaluator.hitReasons.length === 0) {
-                    hitsRows.push(`${evaluator.name} matched`);
+                    evaluationResults.push({
+                        botName: evaluator.name,
+                        canAutoBan: evaluator.canAutoBan,
+                        metThreshold: true,
+                    });
                 } else {
                     for (const hitReason of evaluator.hitReasons) {
-                        hitsRows.push(`${evaluator.name} matched: ${hitReason.slice(0, 1000)}`);
+                        evaluationResults.push({
+                            botName: evaluator.name,
+                            hitReason,
+                            canAutoBan: evaluator.canAutoBan,
+                            metThreshold: true,
+                        });
                     }
                 }
             }
 
-            summary.push({ ul: hitsRows });
+            summary.push({ ul: evaluationResultsToBullets(evaluationResults) });
         }
     }
 
@@ -426,7 +444,7 @@ export async function createUserSummary (username: string, postId: string, conte
 
     const newComment = await context.reddit.submitComment({
         id: postId,
-        text: json2md(summary),
+        text: tsMarkdown(summary),
     });
     await newComment.remove();
 

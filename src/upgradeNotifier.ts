@@ -1,7 +1,7 @@
 import { JobContext, WikiPage } from "@devvit/public-api";
 import { AppSetting } from "./settings.js";
 import { lt } from "semver";
-import json2md from "json2md";
+import { MarkdownEntry, tsMarkdown } from "ts-markdown";
 
 interface AppUpdate {
     appname: string;
@@ -61,7 +61,7 @@ export async function checkForUpdates (_: unknown, context: JobContext) {
         return;
     }
 
-    const message: json2md.DataObject[] = [
+    const message: MarkdownEntry[] = [
         { p: `A new version of Bot Bouncer is available to install.` },
     ];
     if (update.whatsNewBullets.length > 0) {
@@ -74,7 +74,7 @@ export async function checkForUpdates (_: unknown, context: JobContext) {
     await context.reddit.modMail.createModNotification({
         subredditId: context.subredditId,
         subject: `New Bot Bouncer Update Available: v${update.version}`,
-        bodyMarkdown: json2md(message),
+        bodyMarkdown: tsMarkdown(message),
     });
 
     console.log(`Update Checker: Notification sent for version ${update.version}`);

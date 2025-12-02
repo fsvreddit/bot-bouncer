@@ -1,7 +1,7 @@
 import { JobContext } from "@devvit/public-api";
 import { UserStatus } from "../dataStore.js";
 import { addDays, format, subDays } from "date-fns";
-import json2md from "json2md";
+import { MarkdownEntry, tsMarkdown } from "ts-markdown";
 import { StatsUserEntry } from "../scheduler/sixHourlyJobs.js";
 
 export async function pendingUserFinder (allEntries: StatsUserEntry[], context: JobContext) {
@@ -28,7 +28,7 @@ export async function pendingUserFinder (allEntries: StatsUserEntry[], context: 
         return; // Report already sent in the last 24 hours
     }
 
-    const output: json2md.DataObject[] = [
+    const output: MarkdownEntry[] = [
         { p: "Some users have been in 'Pending' for two days without being in the mod queue. Please take a look and classify as needed" },
         { p: "This can happen due to a crash in the app or a user's shadowban or suspension being lifted." },
     ];
@@ -46,7 +46,7 @@ export async function pendingUserFinder (allEntries: StatsUserEntry[], context: 
 
     await context.reddit.modMail.createModInboxConversation({
         subject: "Pending Users Report",
-        bodyMarkdown: json2md(output),
+        bodyMarkdown: tsMarkdown(output),
         subredditId: context.subredditId,
     });
 

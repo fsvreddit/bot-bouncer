@@ -6,7 +6,7 @@ import { getControlSubSettings } from "../settings.js";
 import { CONTROL_SUBREDDIT } from "../constants.js";
 import { parseAllDocuments } from "yaml";
 import _ from "lodash";
-import json2md from "json2md";
+import { tsMarkdown } from "ts-markdown";
 import { sendMessageToWebhook } from "../utility.js";
 import { ModmailMessage } from "./modmail.js";
 import { getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
@@ -164,7 +164,7 @@ export async function validateAndSaveAppealConfig (username: string, context: Tr
         await context.reddit.sendPrivateMessage({
             to: username,
             subject: "Error in appeal configuration",
-            text: json2md([
+            text: tsMarkdown([
                 { p: "There was an error in your appeal configuration:" },
                 { blockquote: ajv.errorsText(validate.errors) },
             ]),
@@ -172,7 +172,7 @@ export async function validateAndSaveAppealConfig (username: string, context: Tr
 
         const webhookUrl = await getControlSubSettings(context).then(s => s.monitoringWebhook);
         if (webhookUrl) {
-            await sendMessageToWebhook(webhookUrl, json2md([
+            await sendMessageToWebhook(webhookUrl, tsMarkdown([
                 { p: `There was an error in the appeal configuration, last updated by ${username}:` },
                 { p: "Last known good values will be used until this is corrected." },
                 { ul: validate.errors.map(err => `${err.instancePath} ${err.message}`) },
@@ -253,7 +253,17 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
                     continue;
                 }
 
-                if (config.evaluatorHitReasonRegex && !config.evaluatorHitReasonRegex.some(regex => new RegExp(regex, "i").test(evaluationResult.hitReason ?? ""))) {
+                if (config.evaluatorHitReasonRegex && !config.evaluatorHitReasonRegex.some((regex) => {
+                    if (!evaluationResult.hitReason) {
+                        return false;
+                    }
+
+                    if (typeof evaluationResult.hitReason === "string") {
+                        return new RegExp(regex, "i").test(evaluationResult.hitReason);
+                    }
+
+                    return new RegExp(regex, "i").test(evaluationResult.hitReason.reason);
+                })) {
                     continue;
                 }
                 anyMatched = true;

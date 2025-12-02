@@ -1,7 +1,7 @@
 import { JobContext, WikiPage, WikiPagePermissionLevel } from "@devvit/public-api";
 import { UserDetails } from "../dataStore.js";
 import { eachDayOfInterval, endOfDay, format, isSameDay, startOfDay, subDays } from "date-fns";
-import json2md from "json2md";
+import { MarkdownEntry, tsMarkdown } from "ts-markdown";
 
 export async function createTimeOfSubmissionStatistics (allEntries: UserDetails[], context: JobContext) {
     const endRange = startOfDay(new Date());
@@ -15,7 +15,7 @@ export async function createTimeOfSubmissionStatistics (allEntries: UserDetails[
 
     const days = eachDayOfInterval({ start: startRange, end: endOfDay(subDays(endRange, 1)) });
 
-    const wikiContent: json2md.DataObject[] = [];
+    const wikiContent: MarkdownEntry[] = [];
     wikiContent.push({ h1: "Time of submission statistics" });
     wikiContent.push({ p: "Here are the statistics for new submissions covering the last four weeks." });
 
@@ -50,7 +50,7 @@ export async function createTimeOfSubmissionStatistics (allEntries: UserDetails[
     await context.reddit.updateWikiPage({
         subredditName,
         page: pageName,
-        content: json2md(wikiContent),
+        content: tsMarkdown(wikiContent),
     });
 
     if (!wikiPage) {

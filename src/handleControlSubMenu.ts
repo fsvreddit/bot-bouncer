@@ -5,7 +5,7 @@ import { controlSubForm, controlSubQuerySubmissionForm } from "./main.js";
 import { CONTROL_SUBREDDIT } from "./constants.js";
 import { createUserSummary } from "./UserSummary/userSummary.js";
 import { evaluateUserAccount, getAccountInitialEvaluationResults } from "./handleControlSubAccountEvaluation.js";
-import json2md from "json2md";
+import { MarkdownEntry, tsMarkdown } from "ts-markdown";
 import { CLEANUP_LOG_KEY } from "./cleanup.js";
 // eslint-disable-next-line camelcase
 import { FieldConfig_Selection_Item } from "@devvit/protos";
@@ -87,12 +87,18 @@ export async function handleControlSubReportUser (target: Post | Comment, contex
     const initialEvaluationResult = await getAccountInitialEvaluationResults(username, context);
     let hitCount = 0;
     for (const hit of initialEvaluationResult) {
+        let hitReason: string | undefined;
+        if (typeof hit.hitReason === "string") {
+            hitReason = hit.hitReason;
+        } else if (hit.hitReason) {
+            hitReason = hit.hitReason.reason;
+        }
         fields.push({
             name: `${hit.botName}${hitCount}`,
             label: `User hit ${hit.botName}`,
             type: "paragraph",
             lineHeight: 4,
-            defaultValue: hit.hitReason,
+            defaultValue: hitReason,
         });
         hitCount++;
     }
@@ -218,7 +224,7 @@ export async function sendQueryToSubmitter (event: FormOnSubmitEvent<JSONObject>
         return;
     }
 
-    const modmailText: json2md.DataObject[] = [
+    const modmailText: MarkdownEntry[] = [
         { p: `Hi /u/${currentStatus.submitter},` },
         { p: `We are reaching out to you regarding your recent [report](${post.permalink}) of u/${username} on r/BotBouncer.` },
         { p: "We are unable to determine why this user might be considered a bot based on a look at their profile alone. If you're able to add more context to help us, please reply to this message." },
@@ -234,7 +240,7 @@ export async function sendQueryToSubmitter (event: FormOnSubmitEvent<JSONObject>
         to: currentStatus.submitter,
         subject: `Query regarding u/${username} on r/BotBouncer`,
         subredditName: CONTROL_SUBREDDIT,
-        body: json2md(modmailText),
+        body: tsMarkdown(modmailText),
         isAuthorHidden: true,
     });
 
@@ -283,12 +289,19 @@ async function reevaluateUserAccount (username: string, context: Context) {
     } else {
         for (const hit of evaluationResults) {
             if (hit.hitReason) {
+                let hitReason: string;
+                if (typeof hit.hitReason === "string") {
+                    hitReason = hit.hitReason;
+                } else {
+                    hitReason = hit.hitReason.reason;
+                }
+
                 fields.push({
                     type: "paragraph",
                     label: `User hit ${hit.botName}`,
                     name: hit.botName,
-                    lineHeight: Math.min(Math.ceil(hit.hitReason.length / 60), 8),
-                    defaultValue: hit.hitReason,
+                    lineHeight: Math.min(Math.ceil(hitReason.length / 60), 8),
+                    defaultValue: hitReason,
                 });
             } else {
                 fields.push({

@@ -2,7 +2,7 @@ import { JobContext, RedisClient, TxClientLike, ZMember } from "@devvit/public-a
 import { addDays, format, getDay, subDays } from "date-fns";
 import { getUserStatus } from "../dataStore.js";
 import { AppSetting, DigestFrequency } from "../settings.js";
-import json2md from "json2md";
+import { MarkdownEntry, tsMarkdown } from "ts-markdown";
 import { expireKeyAt } from "devvit-helpers";
 import { getNewVersionInfo } from "../upgradeNotifier.js";
 
@@ -72,7 +72,7 @@ export async function sendDailySummary (_: unknown, context: JobContext) {
             subject = `Bot Bouncer Weekly Action Summary for week ending ${format(subDays(new Date(), 1), `yyyy-MM-dd`)}, covering the last 7 days`;
         }
 
-        const message: json2md.DataObject[] = [];
+        const message: MarkdownEntry[] = [];
 
         if (reportedEnabled) {
             if (reports.length === 0) {
@@ -124,7 +124,7 @@ export async function sendDailySummary (_: unknown, context: JobContext) {
         const params = {
             subredditId: context.subredditId,
             subject,
-            bodyMarkdown: json2md(message),
+            bodyMarkdown: tsMarkdown(message),
         };
 
         if (settings[AppSetting.DigestAsModNotification]) {

@@ -9,7 +9,7 @@ import { addMinutes, addSeconds, differenceInMinutes, subMinutes, subWeeks } fro
 import { getUserExtended } from "./extendedDevvit.js";
 import { AsyncSubmission, PostCreationQueueResult, queuePostCreation } from "./postCreation.js";
 import pluralize from "pluralize";
-import json2md from "json2md";
+import { tsMarkdown } from "ts-markdown";
 
 export const CHECK_DATE_KEY = "KarmaFarmingSubsCheckDates";
 
@@ -130,7 +130,7 @@ async function evaluateAndHandleUser (username: string, variables: Record<string
     const submission: AsyncSubmission = {
         user,
         details: newDetails,
-        commentToAdd: json2md([
+        commentToAdd: tsMarkdown([
             { p: "This user was detected automatically through proactive bot hunting activity." },
             { p: `*I am a bot, and this action was performed automatically. Please [contact the moderators of this subreddit](/message/compose/?to=/r/${CONTROL_SUBREDDIT}) if you have any questions or concerns.*` },
         ]),

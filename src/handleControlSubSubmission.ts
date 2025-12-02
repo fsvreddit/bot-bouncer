@@ -7,7 +7,7 @@ import { subMonths } from "date-fns";
 import { getControlSubSettings } from "./settings.js";
 import { AsyncSubmission, PostCreationQueueResult, queuePostCreation } from "./postCreation.js";
 import { getUserExtendedFromUser } from "./extendedDevvit.js";
-import json2md from "json2md";
+import { MarkdownEntry, tsMarkdown } from "ts-markdown";
 import { userIsTrustedSubmitter } from "./trustedSubmitterHelpers.js";
 
 export async function handleControlSubPostCreate (event: PostCreate, context: TriggerContext) {
@@ -26,7 +26,7 @@ export async function handleControlSubPostCreate (event: PostCreate, context: Tr
         return;
     }
 
-    const submissionResponse: json2md.DataObject[] = [];
+    const submissionResponse: MarkdownEntry[] = [];
 
     const username = getUsernameFromUrl(event.post.url);
 
@@ -108,7 +108,7 @@ export async function handleControlSubPostCreate (event: PostCreate, context: Tr
                     details: newDetails,
                     callback: {
                         postId: event.post.id,
-                        comment: json2md([
+                        comment: tsMarkdown([
                             { p: "Hi, thanks for your submission." },
                             { p: `The post tracking ${user.username} can be found [here]({{permalink}}).` },
                             { p: `Your post has been removed, and can be deleted. Consider reporting the account for Spam->Bots, as this may result in the account being suspended or shadowbanned.` },
@@ -148,7 +148,7 @@ export async function handleControlSubPostCreate (event: PostCreate, context: Tr
         submissionResponse.push({ p: `Your post has been removed, and can be deleted.` });
         const newComment = await context.reddit.submitComment({
             id: event.post.id,
-            text: json2md(submissionResponse),
+            text: tsMarkdown(submissionResponse),
         });
         await newComment.distinguish(true);
     }

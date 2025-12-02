@@ -3,7 +3,7 @@ import { addDays, addMinutes, addSeconds } from "date-fns";
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "./constants.js";
 import { ExternalSubmission, getSubredditsFromExternalSubmissions } from "./externalSubmissions.js";
 import { hasPermissions, isModerator } from "devvit-helpers";
-import json2md from "json2md";
+import { MarkdownEntry, tsMarkdown } from "ts-markdown";
 import pluralize from "pluralize";
 
 const PERMISSION_CHECKS_QUEUE = "permissionChecksQueue";
@@ -67,7 +67,7 @@ export async function checkPermissionQueueItems (event: ScheduledJobEvent<JSONOb
 
     await context.redis.set(recentlyRunKey, "true", { expiration: addMinutes(new Date(), 1) });
 
-    const problemFound: json2md.DataObject[] = [];
+    const problemFound: MarkdownEntry[] = [];
 
     await context.redis.global.zRem(PERMISSION_CHECKS_QUEUE, [subredditName]);
 
@@ -120,7 +120,7 @@ export async function checkPermissionQueueItems (event: ScheduledJobEvent<JSONOb
     }
 
     const messageSubject = "Bot Bouncer: Moderator Permissions Issue Detected";
-    const message: json2md.DataObject[] = [
+    const message: MarkdownEntry[] = [
         { p: `Hello! During a recent check, Bot Bouncer detected that there is a problem with its moderator permissions in your subreddit, /r/${subredditName}. As a result, some or all of the bot's functionality may not work correctly.` },
         ...problemFound,
         { p: `If you have any questions or need assistance, please message the mods of /r/BotBouncer.` },
@@ -130,7 +130,7 @@ export async function checkPermissionQueueItems (event: ScheduledJobEvent<JSONOb
     await context.reddit.sendPrivateMessage({
         to: `/r/${subredditName}`,
         subject: messageSubject,
-        text: json2md(message),
+        text: tsMarkdown(message),
     });
 
     await context.redis.hSet(PERMISSION_MESSAGE_SENT_HASH, { [subredditName]: "true" });

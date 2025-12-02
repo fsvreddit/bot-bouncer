@@ -3,7 +3,7 @@ import { JobContext, JSONObject, ScheduledJobEvent, TriggerContext, UserSocialLi
 import { BIO_TEXT_STORE, DISPLAY_NAME_STORE, getFullDataStore, SOCIAL_LINKS_STORE, UserDetails, UserFlag, UserStatus } from "../dataStore.js";
 import Ajv, { JSONSchemaType } from "ajv";
 import pluralize from "pluralize";
-import json2md from "json2md";
+import { MarkdownEntry, tsMarkdown } from "ts-markdown";
 import { addSeconds, format } from "date-fns";
 import { setCleanupForUser } from "../cleanup.js";
 import { getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
@@ -89,7 +89,7 @@ export async function dataExtract (message: ModmailMessage, conversationId: stri
     } catch (error) {
         await context.reddit.modMail.reply({
             conversationId,
-            body: json2md([
+            body: tsMarkdown([
                 { p: "Error parsing JSON" },
                 { blockquote: error },
             ]),
@@ -104,7 +104,7 @@ export async function dataExtract (message: ModmailMessage, conversationId: stri
     if (!validate(request)) {
         await context.reddit.modMail.reply({
             conversationId,
-            body: json2md([
+            body: tsMarkdown([
                 { p: "Invalid JSON" },
                 { blockquote: ajv.errorsText(validate.errors) },
             ]),
@@ -360,8 +360,19 @@ export async function continueDataExtract (event: ScheduledJobEvent<JSONObject |
                 return;
             }
 
-            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-            if (request.hitReason && !results.some(result => result.hitReason?.toLowerCase().includes(request.hitReason!.toLowerCase()))) {
+            if (request.hitReason && !results.some((result) => {
+                if (!result.hitReason) {
+                    return false;
+                }
+
+                if (typeof result.hitReason === "string") {
+                    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+                    return result.hitReason.toLowerCase().includes(request.hitReason!.toLowerCase());
+                }
+
+                // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+                return result.hitReason.reason.toLowerCase().includes(request.hitReason!.toLowerCase());
+            })) {
                 entriesToRemove.add(username);
                 return;
             }
@@ -436,7 +447,7 @@ async function createDataExtract (
 
     const includeFlags = data.some(entry => entry.data.flags && entry.data.flags.length > 0);
 
-    const markdown: json2md.DataObject[] = [
+    const markdown: MarkdownEntry[] = [
         { p: `Data export for ${data.length} ${pluralize("user", data.length)}.` },
     ];
 
@@ -523,7 +534,7 @@ async function createDataExtract (
     }
 
     markdown.push({ table: { headers, rows } });
-    const content = json2md(markdown);
+    const content = tsMarkdown(markdown);
 
     if (content.length > 512 * 1024) {
         await context.reddit.modMail.reply({
@@ -549,7 +560,7 @@ async function createDataExtract (
         });
     }
 
-    const body: json2md.DataObject[] = [
+    const body: MarkdownEntry[] = [
         { p: `Data for ${data.length} ${pluralize("user", data.length)} exported to [wiki page](https://www.reddit.com/r/BotBouncer/wiki/${wikiPageName}?v=${result.revisionId}).` },
     ];
 
@@ -564,7 +575,7 @@ async function createDataExtract (
 
     await context.reddit.modMail.reply({
         conversationId,
-        body: json2md(body),
+        body: tsMarkdown(body),
         isAuthorHidden: false,
     });
 }

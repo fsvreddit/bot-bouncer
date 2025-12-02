@@ -2,7 +2,7 @@ import { JobContext, JSONObject, ScheduledJobEvent, TriggerContext } from "@devv
 import { ExternalSubmission, getSubredditsFromExternalSubmissions } from "./externalSubmissions.js";
 import { addMinutes, addSeconds, format } from "date-fns";
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "./constants.js";
-import json2md from "json2md";
+import { MarkdownEntry, tsMarkdown } from "ts-markdown";
 
 const UPDATE_AVAILABLE_SENT_KEY = "LegacySubUpgradeNotificationAvailableSent";
 const UPDATE_AVAILABLE_QUEUE_KEY = "LegacySubUpgradeNotificationAvailableQueue";
@@ -63,7 +63,7 @@ export async function processLegacySubUpgradeNotifications (event: ScheduledJobE
 }
 
 async function sendNotificationToLegacySub (subredditName: string, context: JobContext) {
-    const message: json2md.DataObject[] = [
+    const message: MarkdownEntry[] = [
         { p: `Hello! It looks like you have an old version of Bot Bouncer installed on /r/${subredditName}. This version may be missing newer bot detection code and reacts slower to newly configured detections.` },
         { p: `To upgrade to the latest version of Bot Bouncer, visit [this page](https://developers.reddit.com/r/${subredditName}/apps) from a web browser (it may not work from the app).` },
         { p: "You can also configure automatic update notifications from the Bot Bouncer configuration page after upgrading." },
@@ -73,7 +73,7 @@ async function sendNotificationToLegacySub (subredditName: string, context: JobC
     await context.reddit.sendPrivateMessage({
         to: `/r/${subredditName}`,
         subject: "Upgrade available for Bot Bouncer",
-        text: json2md(message),
+        text: tsMarkdown(message),
     });
 
     console.log(`Upgrade Notifier for Legacy Subs: Sent upgrade notification to /r/${subredditName}`);

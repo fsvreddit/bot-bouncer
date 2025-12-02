@@ -2,7 +2,7 @@ import { JobContext, TriggerContext, WikiPage, WikiPagePermissionLevel } from "@
 import { UserDetails, UserStatus } from "../dataStore.js";
 import _ from "lodash";
 import { subMonths } from "date-fns";
-import json2md from "json2md";
+import { MarkdownEntry, tsMarkdown } from "ts-markdown";
 import { ZMember } from "@devvit/protos";
 import { getControlSubSettings } from "../settings.js";
 
@@ -50,7 +50,7 @@ export async function updateSubmitterStatistics (allStatuses: UserDetails[], con
         }
     }
 
-    const wikiContent: json2md.DataObject[] = [];
+    const wikiContent: MarkdownEntry[] = [];
     wikiContent.push({ h1: "Submitter statistics" });
     wikiContent.push({ p: "This lists all users who have submitted an account for review within the last month." });
 
@@ -81,7 +81,7 @@ export async function updateSubmitterStatistics (allStatuses: UserDetails[], con
     await context.reddit.updateWikiPage({
         subredditName,
         page: submitterStatisticsWikiPage,
-        content: json2md(wikiContent),
+        content: tsMarkdown(wikiContent),
     });
 
     if (!wikiPage) {

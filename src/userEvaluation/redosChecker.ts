@@ -5,7 +5,7 @@ import { getEvaluatorVariables } from "./evaluatorVariables.js";
 import { addMinutes, addSeconds } from "date-fns";
 import { isSafe } from "redos-detector";
 import { decodedText, encodedText } from "../utility.js";
-import json2md from "json2md";
+import { MarkdownEntry, tsMarkdown } from "ts-markdown";
 import { getControlSubSettings } from "../settings.js";
 import { expireKeyAt } from "devvit-helpers";
 
@@ -139,7 +139,7 @@ async function finaliseReDosReport (context: JobContext) {
 
     const wikiPageName = "statistics/redos-detections";
 
-    const wikiContent: json2md.DataObject[] = [
+    const wikiContent: MarkdownEntry[] = [
         { h1: "ReDoS Detections Report" },
         { p: `This report lists all regular expressions used by evaluators that have been identified as potentially vulnerable to Regular Expression Denial of Service (ReDoS) attacks. A total of ${redosHits.length.toLocaleString()} vulnerable regex patterns were detected.` },
     ];
@@ -167,7 +167,7 @@ async function finaliseReDosReport (context: JobContext) {
     await context.reddit.updateWikiPage({
         subredditName: context.subredditName ?? await context.reddit.getCurrentSubredditName(),
         page: wikiPageName,
-        content: json2md(wikiContent),
+        content: tsMarkdown(wikiContent),
         reason: "Updating ReDoS Detections Report",
     });
 

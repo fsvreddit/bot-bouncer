@@ -2,7 +2,7 @@ import { JobContext, JSONObject, ScheduledJobEvent, TriggerContext } from "@devv
 import { deleteUserStatus, getFullDataStore, getUserStatus, updateAggregate, UserDetails, UserStatus } from "./dataStore.js";
 import { addDays, addSeconds, subDays } from "date-fns";
 import { CONTROL_SUBREDDIT, ControlSubredditJob, PostFlairTemplate } from "./constants.js";
-import { deleteAccountInitialEvaluationResults, getAccountInitialEvaluationResults } from "./handleControlSubAccountEvaluation.js";
+import { deleteAccountInitialEvaluationResults, EvaluationResult, getAccountInitialEvaluationResults } from "./handleControlSubAccountEvaluation.js";
 import { CLEANUP_LOG_KEY } from "./cleanup.js";
 
 const REVERSALS_QUEUE = "ReversalsQueue";
@@ -23,6 +23,13 @@ interface EvaluatorResultToReverse {
 const HIT_REASONS_TO_REVERSE: EvaluatorResultToReverse[] = [
     // { evaluatorName: "Bot Group Advanced", hitReason: "AITAH Snitch Accounts Created C. May 29, 2025" },
 ];
+
+function evaluationResultMatchesReversal (evaluationResult: EvaluationResult, reason: EvaluatorResultToReverse): boolean {
+    return evaluationResult.botName === reason.evaluatorName
+        && evaluationResult.hitReason !== undefined
+        && ((typeof evaluationResult.hitReason === "string" && evaluationResult.hitReason.includes(reason.hitReason))
+            || (typeof evaluationResult.hitReason !== "string" && evaluationResult.hitReason.reason.includes(reason.hitReason)));
+}
 
 export async function addToReversalsQueue (username: string, days: number, context: TriggerContext) {
     const removalDate = addDays(new Date(), days).getTime();
@@ -88,7 +95,7 @@ async function reverseExistingBanned (context: JobContext) {
 
         const evaluatorData = await getAccountInitialEvaluationResults(username, context);
 
-        if (evaluatorData.length > 0 && evaluatorData.every(entry => entry.hitReason && HIT_REASONS_TO_REVERSE.some(reason => entry.botName === reason.evaluatorName && entry.hitReason?.includes(reason.hitReason)))) {
+        if (evaluatorData.length > 0 && evaluatorData.every(entry => HIT_REASONS_TO_REVERSE.some(reason => evaluationResultMatchesReversal(entry, reason)))) {
             // Reversible.
             console.log(`Evaluator Reversals: Reversing ${username} due to hit reasons.`);
             const userStatus = await getUserStatus(username, context);
@@ -147,7 +154,7 @@ async function reversePostCreationQueue (context: JobContext) {
         const username = entry.member;
         const evaluatorData = await getAccountInitialEvaluationResults(username, context);
 
-        if (evaluatorData.length > 0 && evaluatorData.every(entry => entry.hitReason && HIT_REASONS_TO_REVERSE.some(reason => entry.botName === reason.evaluatorName && entry.hitReason?.includes(reason.hitReason)))) {
+        if (evaluatorData.length > 0 && evaluatorData.every(entry => HIT_REASONS_TO_REVERSE.some(reason => evaluationResultMatchesReversal(entry, reason)))) {
             // Reversible.
             const txn = await context.redis.watch();
             await txn.multi();
