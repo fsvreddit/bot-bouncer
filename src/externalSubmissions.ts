@@ -61,7 +61,7 @@ const externalSubmissionSchema: JSONSchemaType<ExternalSubmission[]> = {
                     type: "object",
                     properties: {
                         botName: { type: "string" },
-                        hitReason: { type: "string", nullable: true },
+                        hitReason: { type: ["string", "object"], nullable: true },
                         canAutoBan: { type: "boolean" },
                         metThreshold: { type: "boolean" },
                     },
