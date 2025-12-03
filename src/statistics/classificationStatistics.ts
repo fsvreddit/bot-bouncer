@@ -1,6 +1,6 @@
 import { JobContext, TriggerContext } from "@devvit/public-api";
 import { eachDayOfInterval, format, startOfDay, subDays } from "date-fns";
-import { MarkdownEntry, tsMarkdown } from "ts-markdown";
+import json2md from "json2md";
 import pluralize from "pluralize";
 
 function classificationKeyForDate (date: Date): string {
@@ -36,7 +36,7 @@ export async function updateClassificationStatistics (context: JobContext) {
         return;
     }
 
-    const wikiContent: MarkdownEntry[] = [
+    const wikiContent: json2md.DataObject[] = [
         { h1: "Classification statistics" },
         { p: "This lists all users who have classified accounts from Pending within the last week." },
     ];
@@ -51,6 +51,6 @@ export async function updateClassificationStatistics (context: JobContext) {
     await context.reddit.updateWikiPage({
         subredditName,
         page: "statistics/classificationstats",
-        content: tsMarkdown(wikiContent),
+        content: json2md(wikiContent),
     });
 }

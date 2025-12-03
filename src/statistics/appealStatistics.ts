@@ -1,7 +1,7 @@
 import { JobContext, TriggerContext } from "@devvit/public-api";
 import { eachDayOfInterval, format, startOfDay, subDays } from "date-fns";
 import { deleteKeyForAppeal, isActiveAppeal } from "../modmail/controlSubModmail.js";
-import { MarkdownEntry, tsMarkdown } from "ts-markdown";
+import json2md from "json2md";
 import { ModmailMessage } from "../modmail/modmail.js";
 
 function getKeyForDate (date = new Date()): string {
@@ -47,7 +47,7 @@ export async function updateAppealStatistics (context: JobContext) {
         return;
     }
 
-    const wikiContent: MarkdownEntry[] = [
+    const wikiContent: json2md.DataObject[] = [
         { h1: "Appeal statistics" },
         { p: "This lists all users who have handled ban appeals within the last week." },
     ];
@@ -62,6 +62,6 @@ export async function updateAppealStatistics (context: JobContext) {
     await context.reddit.updateWikiPage({
         subredditName,
         page: "statistics/appealstats",
-        content: tsMarkdown(wikiContent),
+        content: json2md(wikiContent),
     });
 }

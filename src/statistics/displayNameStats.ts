@@ -2,7 +2,7 @@ import { JobContext } from "@devvit/public-api";
 import { DISPLAY_NAME_STORE, UserDetails, UserStatus } from "../dataStore.js";
 import { subWeeks } from "date-fns";
 import { getEvaluatorVariable } from "../userEvaluation/evaluatorVariables.js";
-import { MarkdownEntry, tsMarkdown } from "ts-markdown";
+import json2md from "json2md";
 import { StatsUserEntry } from "../scheduler/sixHourlyJobs.js";
 import { userIsBanned } from "./statsHelpers.js";
 
@@ -31,7 +31,7 @@ export async function updateDisplayNameStatistics (allEntries: StatsUserEntry[],
         }
     }
 
-    const wikiContent: MarkdownEntry[] = [];
+    const wikiContent: json2md.DataObject[] = [];
     wikiContent.push({ h1: "Bad Display Name Statistics" });
 
     const displayNameHeaders = ["Display Name", "Count", "Covered by Evaluator"];
@@ -95,6 +95,6 @@ export async function updateDisplayNameStatistics (allEntries: StatsUserEntry[],
     await context.reddit.updateWikiPage({
         subredditName: context.subredditName ?? await context.reddit.getCurrentSubredditName(),
         page: "statistics/displaynames",
-        content: tsMarkdown(wikiContent),
+        content: json2md(wikiContent),
     });
 }

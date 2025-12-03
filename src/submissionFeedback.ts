@@ -1,6 +1,6 @@
 import { TriggerContext } from "@devvit/public-api";
 import { getUserStatus, UserStatus } from "./dataStore.js";
-import { MarkdownEntry, tsMarkdown } from "ts-markdown";
+import json2md from "json2md";
 import { CONTROL_SUBREDDIT } from "./constants.js";
 import { addMinutes, subDays } from "date-fns";
 
@@ -71,7 +71,7 @@ async function sendFeedback (username: string, submitter: string, operator: stri
     };
 
     const automaticText = operator === context.appName ? "automatically" : "manually";
-    const message: MarkdownEntry[] = [
+    const message: json2md.DataObject[] = [
         { p: `Hi ${submitter}, you recently reported /u/${username} to /r/${CONTROL_SUBREDDIT}.` },
     ];
 
@@ -94,7 +94,7 @@ async function sendFeedback (username: string, submitter: string, operator: stri
         await context.reddit.sendPrivateMessage({
             to: submitter,
             subject: `Bot Bouncer classification for /u/${username}`,
-            text: tsMarkdown(message),
+            text: json2md(message),
         });
 
         console.log(`Feedback sent to ${submitter} about ${username} being classified as ${userStatus} by ${operator}`);

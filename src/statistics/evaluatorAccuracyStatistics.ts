@@ -4,7 +4,7 @@ import _ from "lodash";
 import { addSeconds, format, subDays } from "date-fns";
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "../constants.js";
 import { EvaluationResult, getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
-import { MarkdownEntry, tsMarkdown } from "ts-markdown";
+import json2md from "json2md";
 import { ALL_EVALUATORS } from "@fsvreddit/bot-bouncer-evaluation";
 import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
 
@@ -146,7 +146,7 @@ export async function buildEvaluatorAccuracyStatistics (event: ScheduledJobEvent
     }
 
     // Nothing left in queue. Generate the statistics page.
-    const output: MarkdownEntry[] = [];
+    const output: json2md.DataObject[] = [];
     output.push({ h1: "Evaluator Accuracy Statistics" });
     output.push({ p: "This page shows the accuracy of the Bot Bouncer evaluation system based on initial evaluations in the last two weeks, taking into account appeals." });
 
@@ -223,7 +223,7 @@ export async function buildEvaluatorAccuracyStatistics (event: ScheduledJobEvent
     await context.reddit.updateWikiPage({
         subredditName: CONTROL_SUBREDDIT,
         page: "statistics/evaluator-accuracy",
-        content: tsMarkdown(output),
+        content: json2md(output),
     });
 
     await context.redis.del(ACCURACY_QUEUE);

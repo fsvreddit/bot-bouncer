@@ -5,7 +5,7 @@ import { controlSubForm, controlSubQuerySubmissionForm } from "./main.js";
 import { CONTROL_SUBREDDIT } from "./constants.js";
 import { createUserSummary } from "./UserSummary/userSummary.js";
 import { evaluateUserAccount, getAccountInitialEvaluationResults } from "./handleControlSubAccountEvaluation.js";
-import { MarkdownEntry, tsMarkdown } from "ts-markdown";
+import json2md from "json2md";
 import { CLEANUP_LOG_KEY } from "./cleanup.js";
 // eslint-disable-next-line camelcase
 import { FieldConfig_Selection_Item } from "@devvit/protos";
@@ -224,7 +224,7 @@ export async function sendQueryToSubmitter (event: FormOnSubmitEvent<JSONObject>
         return;
     }
 
-    const modmailText: MarkdownEntry[] = [
+    const modmailText: json2md.DataObject[] = [
         { p: `Hi /u/${currentStatus.submitter},` },
         { p: `We are reaching out to you regarding your recent [report](${post.permalink}) of u/${username} on r/BotBouncer.` },
         { p: "We are unable to determine why this user might be considered a bot based on a look at their profile alone. If you're able to add more context to help us, please reply to this message." },
@@ -240,7 +240,7 @@ export async function sendQueryToSubmitter (event: FormOnSubmitEvent<JSONObject>
         to: currentStatus.submitter,
         subject: `Query regarding u/${username} on r/BotBouncer`,
         subredditName: CONTROL_SUBREDDIT,
-        body: tsMarkdown(modmailText),
+        body: json2md(modmailText),
         isAuthorHidden: true,
     });
 

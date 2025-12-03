@@ -2,7 +2,7 @@ import { TriggerContext } from "@devvit/public-api";
 import { CommentCreate } from "@devvit/protos";
 import { CONTROL_SUBREDDIT } from "./constants.js";
 import { getUserStatus, UserStatus } from "./dataStore.js";
-import { MarkdownEntry, tsMarkdown } from "ts-markdown";
+import json2md from "json2md";
 
 export async function handleControlSubCommentCreate (event: CommentCreate, context: TriggerContext) {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
@@ -21,7 +21,7 @@ export async function handleControlSubCommentCreate (event: CommentCreate, conte
 
     await context.reddit.remove(event.comment.id, false);
 
-    const replyText: MarkdownEntry[] = [
+    const replyText: json2md.DataObject[] = [
         { p: "You are currently marked as **banned** on /r/BotBouncer." },
         { p: `To appeal your ban, please [message the moderators](https://www.reddit.com/message/compose?to=/r/${CONTROL_SUBREDDIT}) if you have not already done so.` },
         { p: "*This is an automated message.*" },
@@ -29,7 +29,7 @@ export async function handleControlSubCommentCreate (event: CommentCreate, conte
 
     const newComment = await context.reddit.submitComment({
         id: event.comment.id,
-        text: tsMarkdown(replyText),
+        text: json2md(replyText),
     });
 
     await newComment.distinguish();

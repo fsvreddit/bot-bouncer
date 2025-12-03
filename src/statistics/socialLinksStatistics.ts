@@ -1,6 +1,6 @@
 import { JobContext, UserSocialLink } from "@devvit/public-api";
 import { format, subWeeks } from "date-fns";
-import { MarkdownEntry, tsMarkdown } from "ts-markdown";
+import json2md from "json2md";
 import _ from "lodash";
 import { getEvaluatorVariable } from "../userEvaluation/evaluatorVariables.js";
 import { SOCIAL_LINKS_STORE, UserDetails } from "../dataStore.js";
@@ -104,7 +104,7 @@ export async function updateSocialLinksStatistics (allEntries: StatsUserEntry[],
         .sort((a, b) => a.link > b.link ? 1 : -1)
         .sort((a, b) => b.value.hits - a.value.hits);
 
-    const wikiContent: MarkdownEntry[] = [
+    const wikiContent: json2md.DataObject[] = [
         { p: "This page lists social links seen on more than one user, where it has been seen on a newly banned user in the last four weeks" },
         { p: "Note: OnlyFans links have been cleaned to remove share codes and trial invites." },
     ];
@@ -170,6 +170,6 @@ export async function updateSocialLinksStatistics (allEntries: StatsUserEntry[],
     await context.reddit.updateWikiPage({
         subredditName: context.subredditName ?? await context.reddit.getCurrentSubredditName(),
         page: wikiPageName,
-        content: tsMarkdown(wikiContent),
+        content: json2md(wikiContent),
     });
 }

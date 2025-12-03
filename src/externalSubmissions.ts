@@ -10,7 +10,7 @@ import { AsyncSubmission, isUserAlreadyQueued, PostCreationQueueResult, promoteP
 import pluralize from "pluralize";
 import { getUserExtendedFromUser } from "./extendedDevvit.js";
 import { evaluateUserAccount, EvaluationResult, storeAccountInitialEvaluationResults } from "./handleControlSubAccountEvaluation.js";
-import { MarkdownEntry, tsMarkdown } from "ts-markdown";
+import json2md from "json2md";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { queueKarmaFarmingAccounts } from "./karmaFarmingSubsCheck.js";
 import { userIsTrustedSubmitter } from "./trustedSubmitterHelpers.js";
@@ -161,12 +161,12 @@ export async function addExternalSubmissionToPostCreationQueue (item: ExternalSu
     let commentToAdd: string | undefined;
 
     if (item.proactive) {
-        commentToAdd = tsMarkdown([
+        commentToAdd = json2md([
             { p: "This user was detected automatically through proactive bot hunting activity." },
             { p: `*I am a bot, and this action was performed automatically. Please [contact the moderators of this subreddit](/message/compose/?to=/r/${CONTROL_SUBREDDIT}) if you have any questions or concerns.*` },
         ]);
     } else if (item.reportContext) {
-        const body: MarkdownEntry[] = [
+        const body: json2md.DataObject[] = [
             { p: "The submitter added the following context for this submission:" },
             { blockquote: item.reportContext },
         ];
@@ -177,7 +177,7 @@ export async function addExternalSubmissionToPostCreationQueue (item: ExternalSu
         }
 
         body.push({ p: `*I am a bot, and this action was performed automatically. Please [contact the moderators of this subreddit](/message/compose/?to=/r/${CONTROL_SUBREDDIT}) if you have any questions or concerns.*` });
-        commentToAdd = tsMarkdown(body);
+        commentToAdd = json2md(body);
     }
 
     const submission: AsyncSubmission = {

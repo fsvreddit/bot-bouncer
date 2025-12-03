@@ -1,7 +1,7 @@
 import { JobContext } from "@devvit/public-api";
 import { EvaluatorStats } from "../handleControlSubAccountEvaluation.js";
 import { format } from "date-fns";
-import { MarkdownEntry, tsMarkdown } from "ts-markdown";
+import json2md from "json2md";
 
 export async function updateEvaluatorHitsWikiPage (context: JobContext) {
     const redisKey = "EvaluatorStats";
@@ -9,7 +9,7 @@ export async function updateEvaluatorHitsWikiPage (context: JobContext) {
 
     const allStats: Record<string, EvaluatorStats> = existingStatsVal ? JSON.parse(existingStatsVal) as Record<string, EvaluatorStats> : {};
 
-    const wikiContent: MarkdownEntry[] = [];
+    const wikiContent: json2md.DataObject[] = [];
     wikiContent.push({ h1: "Evaluator Hits Statistics" });
 
     const tableRows = Object.entries(allStats)
@@ -22,6 +22,6 @@ export async function updateEvaluatorHitsWikiPage (context: JobContext) {
     await context.reddit.updateWikiPage({
         subredditName,
         page: "statistics/evaluator-hits",
-        content: tsMarkdown(wikiContent),
+        content: json2md(wikiContent),
     });
 }

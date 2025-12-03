@@ -1,6 +1,6 @@
 import { JobContext, JSONObject, ScheduledJobEvent, UpdateWikiPageOptions } from "@devvit/public-api";
 import { addSeconds, format, subDays, subWeeks } from "date-fns";
-import { MarkdownEntry, tsMarkdown } from "ts-markdown";
+import json2md from "json2md";
 import { BIO_TEXT_STORE } from "../dataStore.js";
 import { getEvaluatorVariable } from "../userEvaluation/evaluatorVariables.js";
 import { StatsUserEntry } from "../scheduler/sixHourlyJobs.js";
@@ -236,14 +236,14 @@ export async function generateBioStatisticsReport (event: ScheduledJobEvent<JSON
 
     console.log("Bio Stats: Sorted records. Generating report content");
 
-    const content: MarkdownEntry[] = [];
+    const content: json2md.DataObject[] = [];
 
-    const notCoveredByEvaluatorData: MarkdownEntry[] = [];
-    const coveredByEvaluatorData: MarkdownEntry[] = [];
+    const notCoveredByEvaluatorData: json2md.DataObject[] = [];
+    const coveredByEvaluatorData: json2md.DataObject[] = [];
 
     content.push({ h1: "User Bio Text" });
     for (const record of reusedRecords) {
-        const currentContent: MarkdownEntry[] = [];
+        const currentContent: json2md.DataObject[] = [];
         currentContent.push({ blockquote: decodedText(record.record.bioText) });
         const listRows: string[] = [];
 
@@ -298,7 +298,7 @@ export async function generateBioStatisticsReport (event: ScheduledJobEvent<JSON
     const wikiUpdateData: UpdateWikiPageOptions = {
         subredditName: "botbouncer",
         page: "statistics/biotext",
-        content: tsMarkdown(content),
+        content: json2md(content),
     };
 
     console.log(`Bio Stats: Queueing wiki update job for biotext stats`);

@@ -3,7 +3,7 @@ import { JobContext, JSONObject, ScheduledJobEvent, TriggerContext, UserSocialLi
 import { BIO_TEXT_STORE, DISPLAY_NAME_STORE, getFullDataStore, SOCIAL_LINKS_STORE, UserDetails, UserFlag, UserStatus } from "../dataStore.js";
 import Ajv, { JSONSchemaType } from "ajv";
 import pluralize from "pluralize";
-import { MarkdownEntry, tsMarkdown } from "ts-markdown";
+import json2md from "json2md";
 import { addSeconds, format } from "date-fns";
 import { setCleanupForUser } from "../cleanup.js";
 import { getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
@@ -89,7 +89,7 @@ export async function dataExtract (message: ModmailMessage, conversationId: stri
     } catch (error) {
         await context.reddit.modMail.reply({
             conversationId,
-            body: tsMarkdown([
+            body: json2md([
                 { p: "Error parsing JSON" },
                 { blockquote: error },
             ]),
@@ -104,7 +104,7 @@ export async function dataExtract (message: ModmailMessage, conversationId: stri
     if (!validate(request)) {
         await context.reddit.modMail.reply({
             conversationId,
-            body: tsMarkdown([
+            body: json2md([
                 { p: "Invalid JSON" },
                 { blockquote: ajv.errorsText(validate.errors) },
             ]),
@@ -447,7 +447,7 @@ async function createDataExtract (
 
     const includeFlags = data.some(entry => entry.data.flags && entry.data.flags.length > 0);
 
-    const markdown: MarkdownEntry[] = [
+    const markdown: json2md.DataObject[] = [
         { p: `Data export for ${data.length} ${pluralize("user", data.length)}.` },
     ];
 
@@ -534,7 +534,7 @@ async function createDataExtract (
     }
 
     markdown.push({ table: { headers, rows } });
-    const content = tsMarkdown(markdown);
+    const content = json2md(markdown);
 
     if (content.length > 512 * 1024) {
         await context.reddit.modMail.reply({
@@ -560,7 +560,7 @@ async function createDataExtract (
         });
     }
 
-    const body: MarkdownEntry[] = [
+    const body: json2md.DataObject[] = [
         { p: `Data for ${data.length} ${pluralize("user", data.length)} exported to [wiki page](https://www.reddit.com/r/BotBouncer/wiki/${wikiPageName}?v=${result.revisionId}).` },
     ];
 
@@ -575,7 +575,7 @@ async function createDataExtract (
 
     await context.reddit.modMail.reply({
         conversationId,
-        body: tsMarkdown(body),
+        body: json2md(body),
         isAuthorHidden: false,
     });
 }

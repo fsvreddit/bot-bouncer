@@ -2,7 +2,7 @@ import { SettingsFormField, TriggerContext, WikiPage } from "@devvit/public-api"
 import { CONTROL_SUBREDDIT } from "./constants.js";
 import Ajv, { JSONSchemaType } from "ajv";
 import { addMinutes } from "date-fns";
-import { MarkdownEntry, tsMarkdown } from "ts-markdown";
+import json2md from "json2md";
 
 export const CONFIGURATION_DEFAULTS = {
     banMessage: `Bots and bot-like accounts are not welcome on /r/{subreddit}.
@@ -294,7 +294,7 @@ export async function getControlSubSettings (context: TriggerContext): Promise<C
 }
 
 async function reportControlSubValidationError (username: string, message: string, context: TriggerContext) {
-    const messageBody: MarkdownEntry[] = [
+    const messageBody: json2md.DataObject[] = [
         { p: `Hi ${username}, ` },
         { p: `There is an issue with the control sub settings on r/${CONTROL_SUBREDDIT}:` },
         { blockquote: message },
@@ -303,7 +303,7 @@ async function reportControlSubValidationError (username: string, message: strin
 
     await context.reddit.sendPrivateMessage({
         subject: "Validation error in r/BotBouncer control sub settings",
-        text: tsMarkdown(messageBody),
+        text: json2md(messageBody),
         to: username,
     });
 }

@@ -4,7 +4,7 @@ import { addSeconds, format, subMonths } from "date-fns";
 import { getEvaluatorVariable } from "../userEvaluation/evaluatorVariables.js";
 import _ from "lodash";
 import { ControlSubredditJob } from "../constants.js";
-import { MarkdownEntry, tsMarkdown } from "ts-markdown";
+import json2md from "json2md";
 import { StatsUserEntry } from "../scheduler/sixHourlyJobs.js";
 import { userIsBanned } from "./statsHelpers.js";
 import { parse } from "regjsparser";
@@ -163,7 +163,7 @@ async function buildDefinedHandlesWikiPage (context: JobContext) {
 
     existingDefinedHandles.sort((a, b) => (cleanHandleForSort(a.handle) < cleanHandleForSort(b.handle) ? -1 : 1));
 
-    const wikiContent: MarkdownEntry[] = [
+    const wikiContent: json2md.DataObject[] = [
         { h1: "Defined Handles Statistics" },
         { p: "This page lists all defined handles and their usage statistics from the last three months." },
         { p: "This page only lists handles seen in user bios or display names, not in comments or posts, so is not comprehensive at this time." },
@@ -225,7 +225,7 @@ async function buildDefinedHandlesWikiPage (context: JobContext) {
     await context.reddit.updateWikiPage({
         subredditName: context.subredditName ?? await context.reddit.getCurrentSubredditName(),
         page: "statistics/definedhandles",
-        content: tsMarkdown(wikiContent),
+        content: json2md(wikiContent),
     });
 }
 

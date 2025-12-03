@@ -9,7 +9,7 @@ import { isLinkId } from "@devvit/public-api/types/tid.js";
 import { getUserExtended, UserExtended } from "../extendedDevvit.js";
 import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
 import { EvaluationResult, getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
-import { MarkdownEntry, tsMarkdown } from "ts-markdown";
+import json2md from "json2md";
 import markdownEscape from "markdown-escape";
 import { ALL_EVALUATORS } from "@fsvreddit/bot-bouncer-evaluation";
 import { BIO_TEXT_STORE, getUserStatus } from "../dataStore.js";
@@ -120,7 +120,7 @@ function numberToBlock (input: number): string {
     }
 }
 
-function activityByTimeOfDay (history: (Post | Comment)[]): MarkdownEntry[] {
+function activityByTimeOfDay (history: (Post | Comment)[]): json2md.DataObject[] {
     const hours = _.countBy(history.map(item => item.createdAt.getHours()));
     const max = Math.max(...Object.values(hours));
 
@@ -134,7 +134,7 @@ function activityByTimeOfDay (history: (Post | Comment)[]): MarkdownEntry[] {
         values.push(numberToBlock(blockHeight));
     }
 
-    const result: MarkdownEntry[] = [
+    const result: json2md.DataObject[] = [
         { h2: "Activity by time of day" },
         { table: { headers, rows: [values] } },
     ];
@@ -167,7 +167,7 @@ function getCommonEntriesForContent (items: Post[] | Comment[]): string[] {
 }
 
 export function evaluationResultsToBullets (results: EvaluationResult[]) {
-    const markdown: MarkdownEntry[] = [];
+    const markdown: json2md.DataObject[] = [];
 
     for (const result of results) {
         let row = `**${result.botName}** matched`;
@@ -191,9 +191,9 @@ export function evaluationResultsToBullets (results: EvaluationResult[]) {
     return markdown;
 }
 
-export async function getSummaryForUser (username: string, source: "modmail" | "submission", context: TriggerContext): Promise<MarkdownEntry[]> {
+export async function getSummaryForUser (username: string, source: "modmail" | "submission", context: TriggerContext): Promise<json2md.DataObject[]> {
     const userStatus = await getUserStatus(username, context);
-    const summary: MarkdownEntry[] = [];
+    const summary: json2md.DataObject[] = [];
 
     if (userStatus && (source === "modmail")) {
         const post = await context.reddit.getPostById(userStatus.trackingPostId);
@@ -444,7 +444,7 @@ export async function createUserSummary (username: string, postId: string, conte
 
     const newComment = await context.reddit.submitComment({
         id: postId,
-        text: tsMarkdown(summary),
+        text: json2md(summary),
     });
     await newComment.remove();
 

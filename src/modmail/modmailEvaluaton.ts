@@ -2,7 +2,7 @@ import { TriggerContext } from "@devvit/public-api";
 import { ModmailMessage } from "./modmail.js";
 import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
 import { evaluateUserAccount, EvaluationResult } from "../handleControlSubAccountEvaluation.js";
-import { MarkdownEntry, tsMarkdown } from "ts-markdown";
+import json2md from "json2md";
 
 export async function evaluateAccountFromModmail (modmail: ModmailMessage, context: TriggerContext) {
     const regex = /^!evaluate ([a-zA-Z0-9_-]+)\b/;
@@ -20,7 +20,7 @@ export async function evaluateAccountFromModmail (modmail: ModmailMessage, conte
 
     const variables = await getEvaluatorVariables(context);
     let evaluationResults: EvaluationResult[];
-    const output: MarkdownEntry[] = [];
+    const output: json2md.DataObject[] = [];
 
     try {
         evaluationResults = await evaluateUserAccount(username, variables, context, false);
@@ -51,7 +51,7 @@ export async function evaluateAccountFromModmail (modmail: ModmailMessage, conte
     }
 
     await context.reddit.modMail.reply({
-        body: tsMarkdown(output),
+        body: json2md(output),
         conversationId: modmail.conversationId,
         isInternal: true,
     });

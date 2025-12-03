@@ -1,6 +1,6 @@
 import { TriggerContext } from "@devvit/public-api";
 import { CONTROL_SUBREDDIT } from "../constants.js";
-import { MarkdownEntry, tsMarkdown } from "ts-markdown";
+import json2md from "json2md";
 import { getSummaryForUser } from "../UserSummary/userSummary.js";
 import { setOverrideForSetStatusCommand } from "./controlSubModmail.js";
 
@@ -38,7 +38,7 @@ export async function handleClassificationQueryQueue (context: TriggerContext) {
 
     await context.redis.global.hDel(CLASSIFICATION_QUERY_QUEUE, [entryId]);
 
-    const message: MarkdownEntry[] = [
+    const message: json2md.DataObject[] = [
         { p: `Hi ${queryData.submittingUser}, thanks for querying the status of ${queryData.username}.` },
         { p: "A mod of /r/BotBouncer will review your query and get back to you shortly." },
         { p: "Here is the reason you provided:" },
@@ -51,7 +51,7 @@ export async function handleClassificationQueryQueue (context: TriggerContext) {
         subredditName: CONTROL_SUBREDDIT,
         subject,
         to: queryData.submittingUser,
-        body: tsMarkdown(message),
+        body: json2md(message),
     });
 
     if (conversationResponse.conversation.id) {
@@ -61,7 +61,7 @@ export async function handleClassificationQueryQueue (context: TriggerContext) {
 
         await context.reddit.modMail.reply({
             conversationId: conversationResponse.conversation.id,
-            body: tsMarkdown(userSummary),
+            body: json2md(userSummary),
             isInternal: true,
         });
     }

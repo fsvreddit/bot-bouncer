@@ -8,7 +8,7 @@ import pluralize from "pluralize";
 import { getControlSubSettings } from "./settings.js";
 import { isCommentId, isLinkId } from "@devvit/public-api/types/tid.js";
 import { deleteAccountInitialEvaluationResults } from "./handleControlSubAccountEvaluation.js";
-import { MarkdownEntry, tsMarkdown } from "ts-markdown";
+import json2md from "json2md";
 import { getUsernameFromUrl, sendMessageToWebhook } from "./utility.js";
 import { getUserExtended } from "./extendedDevvit.js";
 import { storeClassificationEvent } from "./statistics/classificationStatistics.js";
@@ -413,12 +413,12 @@ export async function updateWikiPage (_event: unknown, context: JobContext) {
             const controlSubSettings = await getControlSubSettings(context);
             const webhook = controlSubSettings.monitoringWebhook;
             if (webhook) {
-                const message: MarkdownEntry[] = [
+                const message: json2md.DataObject[] = [
                     { p: `The botbouncer wiki page is now at ${Math.round(content.length / maxSupportedSize * 100)}% of its maximum size. It's time to rethink how data is stored.` },
                     { p: `I will notify you again in a week if the page is still over this threshold` },
                 ];
 
-                await sendMessageToWebhook(webhook, tsMarkdown(message));
+                await sendMessageToWebhook(webhook, json2md(message));
             }
             await context.redis.set(spaceAlertKey, new Date().getTime().toString(), { expiration: addWeeks(new Date(), 1) });
         }
@@ -553,7 +553,7 @@ export async function checkDataStoreIntegrity (context: TriggerContext) {
         return;
     }
 
-    const message: MarkdownEntry[] = [
+    const message: json2md.DataObject[] = [
         { p: `Found ${misplacedEntries.length} misplaced ${pluralize("entry", misplacedEntries.length)} in the data store.` },
         {
             table: {
@@ -567,5 +567,5 @@ export async function checkDataStoreIntegrity (context: TriggerContext) {
         },
     ];
 
-    await sendMessageToWebhook(webhook, tsMarkdown(message));
+    await sendMessageToWebhook(webhook, json2md(message));
 }

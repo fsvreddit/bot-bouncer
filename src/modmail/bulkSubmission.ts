@@ -3,7 +3,7 @@ import Ajv, { JSONSchemaType } from "ajv";
 import { getUserStatus, touchUserStatus, UserStatus } from "../dataStore.js";
 import _ from "lodash";
 import { subMonths } from "date-fns";
-import { tsMarkdown } from "ts-markdown";
+import json2md from "json2md";
 import { AsyncSubmission, queuePostCreation } from "../postCreation.js";
 import { getUserExtended, UserExtended } from "../extendedDevvit.js";
 import { CONTROL_SUBREDDIT } from "../constants.js";
@@ -81,7 +81,7 @@ async function handleBulkItem (username: string, initialStatus: UserStatus, subm
 
     let commentToAdd: string | undefined;
     if (reason) {
-        commentToAdd = tsMarkdown([
+        commentToAdd = json2md([
             { p: "The submitter added the following context for this submission:" },
             { blockquote: reason },
             { p: `*I am a bot, and this action was performed automatically. Please [contact the moderators of this subreddit](/message/compose/?to=/r/${CONTROL_SUBREDDIT}) if you have any questions or concerns.*` },
@@ -124,7 +124,7 @@ export async function handleBulkSubmission (submitter: string, trusted: boolean,
     } catch (error) {
         await context.reddit.modMail.reply({
             conversationId,
-            body: tsMarkdown([
+            body: json2md([
                 { p: "Error parsing JSON" },
                 { blockquote: error },
             ]),
@@ -140,7 +140,7 @@ export async function handleBulkSubmission (submitter: string, trusted: boolean,
     if (!validate(data)) {
         await context.reddit.modMail.reply({
             conversationId,
-            body: tsMarkdown([
+            body: json2md([
                 { p: "Invalid JSON" },
                 { blockquote: ajv.errorsText(validate.errors) },
             ]),

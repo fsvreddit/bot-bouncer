@@ -3,7 +3,7 @@ import { ALL_EVALUATORS, ValidationIssue, yamlToVariables } from "@fsvreddit/bot
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "../constants.js";
 import _ from "lodash";
 import { sendMessageToWebhook } from "../utility.js";
-import { MarkdownEntry, tsMarkdown } from "ts-markdown";
+import json2md from "json2md";
 import { getControlSubSettings } from "../settings.js";
 import { EvaluateBotGroupAdvanced } from "@fsvreddit/bot-bouncer-evaluation/dist/userEvaluation/EvaluateBotGroupAdvanced.js";
 import { getUserExtended } from "../extendedDevvit.js";
@@ -132,12 +132,12 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
         } else {
             console.error("Evaluator Variables: Invalid entries in evaluator variables", invalidEntries);
 
-            const body: MarkdownEntry[] = [
+            const body: json2md.DataObject[] = [
                 { p: "There are invalid regexes in the evaluator variables. Please check the wiki page and try again." },
                 { ul: invalidEntries.map(entry => `${entry.severity}: ${entry.message}`) },
             ];
 
-            let messageBody = tsMarkdown(body);
+            let messageBody = json2md(body);
             if (messageBody.length > 10000) {
                 messageBody = messageBody.substring(0, 9997) + "...";
             }
@@ -145,11 +145,11 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
             const username = event.data.username as string;
             const controlSubSettings = await getControlSubSettings(context);
             if (controlSubSettings.monitoringWebhook) {
-                const discordMessage: MarkdownEntry[] = [{ p: `${username} has updated the evaluator config, but there's an error! Please check and correct as soon as possible.` }];
+                const discordMessage: json2md.DataObject[] = [{ p: `${username} has updated the evaluator config, but there's an error! Please check and correct as soon as possible.` }];
                 discordMessage.push({ ul: invalidEntries.map(entry => `${entry.severity}: ${entry.message}`) });
                 discordMessage.push({ p: "Last known good values will be used until the issue is resolved." });
                 console.log(JSON.stringify(discordMessage));
-                await sendMessageToWebhook(controlSubSettings.monitoringWebhook, tsMarkdown(discordMessage));
+                await sendMessageToWebhook(controlSubSettings.monitoringWebhook, json2md(discordMessage));
             }
 
             try {

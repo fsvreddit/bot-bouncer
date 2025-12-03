@@ -3,7 +3,7 @@ import { isMessageId } from "@devvit/public-api/types/tid.js";
 import { formatDistanceToNow } from "date-fns";
 import { ControlSubSettings, getControlSubSettings } from "./settings.js";
 import { CONTROL_SUBREDDIT } from "./constants.js";
-import { MarkdownEntry, tsMarkdown } from "ts-markdown";
+import json2md from "json2md";
 import { sendMessageToWebhook } from "./utility.js";
 
 export async function checkUptimeAndMessages (_: unknown, context: JobContext) {
@@ -117,12 +117,12 @@ async function checkMessages (settings: ControlSubSettings, context: JobContext)
             continue;
         }
 
-        const alertMessage: MarkdownEntry[] = [
+        const alertMessage: json2md.DataObject[] = [
             { p: `Uh-oh! ${context.appName} has a message from Reddit Admin in the inbox, sent at ${message.created.toUTCString()}.` },
             { blockquote: message.body },
         ];
 
-        let markdown = tsMarkdown(alertMessage);
+        let markdown = json2md(alertMessage);
         if (markdown.length > 2000) {
             markdown = markdown.substring(0, 1997) + "...";
         }

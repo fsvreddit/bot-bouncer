@@ -5,7 +5,7 @@ import { getSummaryForUser } from "../UserSummary/userSummary.js";
 import { getUserOrUndefined, isModeratorWithCache } from "../utility.js";
 import { CONFIGURATION_DEFAULTS, getControlSubSettings } from "../settings.js";
 import { addDays, addHours, addWeeks, format, subMinutes } from "date-fns";
-import { MarkdownEntry, tsMarkdown } from "ts-markdown";
+import json2md from "json2md";
 import { ModmailMessage } from "./modmail.js";
 import { dataExtract } from "./dataExtract.js";
 import { addAllUsersFromModmail } from "../similarBioTextFinder/bioTextFinder.js";
@@ -143,8 +143,8 @@ export async function handleControlSubredditModmail (modmail: ModmailMessage, co
     }
 }
 
-export function markdownToText (markdown: MarkdownEntry[], limit = 9500): string[] {
-    const text = tsMarkdown(markdown);
+export function markdownToText (markdown: json2md.DataObject[], limit = 9500): string[] {
+    const text = json2md(markdown);
     if (text.length < limit) {
         return [text];
     }
@@ -155,16 +155,16 @@ export function markdownToText (markdown: MarkdownEntry[], limit = 9500): string
 
     // Split the markdown into chunks that fit within the limit
     const chunks: string[] = [];
-    let currentChunkMarkdown: MarkdownEntry[] = [];
+    let currentChunkMarkdown: json2md.DataObject[] = [];
     while (workingMarkdown.length > 0) {
         const firstElement = workingMarkdown.shift();
         if (!firstElement) {
             // Impossible, but satisfy the TypeScript compiler
             break;
         }
-        const text = tsMarkdown([...currentChunkMarkdown, firstElement]);
+        const text = json2md([...currentChunkMarkdown, firstElement]);
         if (text.length > limit) {
-            chunks.push(tsMarkdown(currentChunkMarkdown));
+            chunks.push(json2md(currentChunkMarkdown));
             console.log(`Markdown to text conversion: ${text.length} > ${limit}, chunk size: ${currentChunkMarkdown.length}`);
             currentChunkMarkdown = []; // Clear the current chunk
         }
@@ -173,7 +173,7 @@ export function markdownToText (markdown: MarkdownEntry[], limit = 9500): string
 
     // Add the last chunk if it exists
     if (currentChunkMarkdown.length > 0) {
-        chunks.push(tsMarkdown(currentChunkMarkdown));
+        chunks.push(json2md(currentChunkMarkdown));
     }
 
     return chunks;
@@ -206,7 +206,7 @@ async function handleModmailFromUser (modmail: ModmailMessage, context: TriggerC
 
     if (modmail.subject.startsWith(`Ban dispute for /u/${username}`) && (currentStatus.userStatus === UserStatus.Organic || currentStatus.userStatus === UserStatus.Declined)) {
         console.log(`Modmail: /u/${username} is appealing a ban, but is currently marked as human. Sending reply.`);
-        const message: MarkdownEntry[] = [
+        const message: json2md.DataObject[] = [
             { p: `Hi /u/${username},` },
             { p: "Thanks for appealing your ban. A moderator of /r/BotBouncer has already reviewed your account proactively and marked you as human." },
         ];
@@ -221,7 +221,7 @@ async function handleModmailFromUser (modmail: ModmailMessage, context: TriggerC
         message.push({ p: "*This is an automated message.*" });
 
         await context.reddit.modMail.reply({
-            body: tsMarkdown(message),
+            body: json2md(message),
             conversationId: modmail.conversationId,
             isInternal: false,
             isAuthorHidden: true,
@@ -333,7 +333,7 @@ async function checkBanOnSub (modmail: ModmailMessage, context: TriggerContext) 
     }
 
     const subredditName = checkBanMatch[1];
-    const message: MarkdownEntry[] = [];
+    const message: json2md.DataObject[] = [];
     try {
         const isBannedOnSub = await isBanned(context.reddit, subredditName, modmail.participant);
         message.push({ p: `User /u/${modmail.participant} is currently ${isBannedOnSub ? "banned" : "not banned"} on /r/${subredditName}.` });
@@ -347,7 +347,7 @@ async function checkBanOnSub (modmail: ModmailMessage, context: TriggerContext) 
         }
     }
     await context.reddit.modMail.reply({
-        body: tsMarkdown(message),
+        body: json2md(message),
         conversationId: modmail.conversationId,
         isInternal: true,
     });
@@ -373,7 +373,7 @@ async function showUserHistory (modmail: ModmailMessage, context: TriggerContext
         sort: "new",
     }).all();
 
-    const message: MarkdownEntry[] = [];
+    const message: json2md.DataObject[] = [];
 
     if (userHistory.length === 0) {
         message.push({ p: `No recent posts or comments found for /u/${modmail.participant}.` });
@@ -389,7 +389,7 @@ async function showUserHistory (modmail: ModmailMessage, context: TriggerContext
     }
 
     await context.reddit.modMail.reply({
-        body: tsMarkdown(message),
+        body: json2md(message),
         conversationId: modmail.conversationId,
         isInternal: true,
     });

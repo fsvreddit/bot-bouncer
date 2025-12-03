@@ -7,7 +7,7 @@ import { getSubstitutedText } from "./substitutions.js";
 import pluralize from "pluralize";
 import { getUserStatus, UserStatus } from "../dataStore.js";
 import { evaluateUserAccount } from "../handleControlSubAccountEvaluation.js";
-import { MarkdownEntry, tsMarkdown } from "ts-markdown";
+import json2md from "json2md";
 import { AsyncSubmission, PostCreationQueueResult, queuePostCreation } from "../postCreation.js";
 import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
 
@@ -112,7 +112,7 @@ export async function analyseBioText (context: TriggerContext) {
         results[bioText.bioText] = [bioText, ...similarBioTexts];
     }
 
-    const output: MarkdownEntry[] = [];
+    const output: json2md.DataObject[] = [];
     const addableUsers: string[] = [];
 
     if (Object.keys(results).length === 0) {
@@ -157,7 +157,7 @@ export async function analyseBioText (context: TriggerContext) {
     const conversationId = await context.reddit.modMail.createModInboxConversation({
         subredditId: context.subredditId,
         subject: "Similar Bio Text Patterns spotted in swept subreddits",
-        bodyMarkdown: tsMarkdown(output),
+        bodyMarkdown: json2md(output),
     });
 
     await context.redis.set(BIO_TEXT_MODMAIL_SENT, "true", { expiration: addDays(new Date(), 1) });

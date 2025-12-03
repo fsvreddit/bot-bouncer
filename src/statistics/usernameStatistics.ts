@@ -2,7 +2,7 @@ import { JobContext } from "@devvit/public-api";
 import { UserStatus } from "../dataStore.js";
 import { getEvaluatorVariable } from "../userEvaluation/evaluatorVariables.js";
 import { subWeeks } from "date-fns";
-import { MarkdownEntry, tsMarkdown } from "ts-markdown";
+import json2md from "json2md";
 import { StatsUserEntry } from "../scheduler/sixHourlyJobs.js";
 
 export async function updateUsernameStatistics (allEntries: StatsUserEntry[], context: JobContext) {
@@ -42,7 +42,7 @@ export async function updateUsernameStatistics (allEntries: StatsUserEntry[], co
         }
     }
 
-    const wikiContent: MarkdownEntry[] = [];
+    const wikiContent: json2md.DataObject[] = [];
     wikiContent.push({ h1: "Username Statistics" });
     wikiContent.push({ p: "This page lists all the 'Bad Username' regexes and their statistics from accounts submitted in the last two weeks." });
     wikiContent.push({ table: { headers: columns, rows } });
@@ -55,6 +55,6 @@ export async function updateUsernameStatistics (allEntries: StatsUserEntry[], co
     await context.reddit.updateWikiPage({
         subredditName,
         page: "statistics/badusernames",
-        content: tsMarkdown(wikiContent),
+        content: json2md(wikiContent),
     });
 }
