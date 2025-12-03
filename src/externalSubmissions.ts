@@ -2,7 +2,6 @@ import { JobContext, TriggerContext, User, WikiPage } from "@devvit/public-api";
 import { CONTROL_SUBREDDIT, INTERNAL_BOT } from "./constants.js";
 import { addUserToTempDeclineStore, getUserStatus, touchUserStatus, UserStatus } from "./dataStore.js";
 import { getControlSubSettings } from "./settings.js";
-import Ajv, { JSONSchemaType } from "ajv";
 import { addDays, addMinutes, addSeconds } from "date-fns";
 import { getPostOrCommentById, getUserOrUndefined } from "./utility.js";
 import { isLinkId } from "@devvit/public-api/types/tid.js";
@@ -39,42 +38,6 @@ export interface ExternalSubmission {
     sendFeedback?: boolean;
     proactive?: boolean;
     immediate?: boolean;
-};
-
-const externalSubmissionSchema: JSONSchemaType<ExternalSubmission[]> = {
-    type: "array",
-    items: {
-        type: "object",
-        properties: {
-            username: { type: "string" },
-            submitter: { type: "string", nullable: true },
-            subreddit: { type: "string", nullable: true },
-            reportContext: { type: "string", nullable: true },
-            publicContext: { type: "boolean", nullable: true },
-            targetId: { type: "string", nullable: true },
-            initialStatus: { type: "string", nullable: true, enum: Object.values(UserStatus) },
-            evaluatorName: { type: "string", nullable: true },
-            hitReason: { type: "string", nullable: true },
-            evaluationResults: {
-                type: "array",
-                items: {
-                    type: "object",
-                    properties: {
-                        botName: { type: "string" },
-                        hitReason: { type: ["string", "object"], nullable: true },
-                        canAutoBan: { type: "boolean" },
-                        metThreshold: { type: "boolean" },
-                    },
-                    required: ["botName", "canAutoBan", "metThreshold"],
-                },
-                nullable: true,
-            },
-            sendFeedback: { type: "boolean", nullable: true },
-            proactive: { type: "boolean", nullable: true },
-            immediate: { type: "boolean", nullable: true },
-        },
-        required: ["username"],
-    },
 };
 
 export async function addExternalSubmissionFromClientSub (data: ExternalSubmission, context: TriggerContext) {
@@ -257,13 +220,6 @@ export async function handleExternalSubmissionsPageUpdate (context: TriggerConte
 
     if (currentSubmissionList.length === 0) {
         await context.redis.del(externalSubmissionLock);
-        return;
-    }
-
-    const ajv = new Ajv.default();
-    const validate = ajv.compile(externalSubmissionSchema);
-    if (!validate(currentSubmissionList)) {
-        console.error("External submission list is invalid.", ajv.errorsText(validate.errors));
         return;
     }
 
