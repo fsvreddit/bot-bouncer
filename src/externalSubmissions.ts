@@ -255,15 +255,15 @@ export async function handleExternalSubmissionsPageUpdate (context: TriggerConte
 
     const currentSubmissionList = JSON.parse(wikiPage?.content ?? "[]") as ExternalSubmission[];
 
+    if (currentSubmissionList.length === 0) {
+        await context.redis.del(externalSubmissionLock);
+        return;
+    }
+
     const ajv = new Ajv.default();
     const validate = ajv.compile(externalSubmissionSchema);
     if (!validate(currentSubmissionList)) {
         console.error("External submission list is invalid.", ajv.errorsText(validate.errors));
-        return;
-    }
-
-    if (currentSubmissionList.length === 0) {
-        await context.redis.del(externalSubmissionLock);
         return;
     }
 
@@ -343,7 +343,7 @@ export async function processExternalSubmissionsQueue (context: JobContext): Pro
         }
 
         const submissionData = JSON.parse(submissionDataRaw) as ExternalSubmission;
-        const postSubmitted = await addExternalSubmissionToPostCreationQueue(submissionData, submissionData.immediate ?? false, context);
+        const postSubmitted = await addExternalSubmissionToPostCreationQueue(submissionData, submissionData.immediate ?? submissionData.submitter === undefined, context);
         await context.redis.del(getExternalSubmissionDataKey(username));
         if (postSubmitted) {
             processed++;
