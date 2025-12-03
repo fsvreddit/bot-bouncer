@@ -42,7 +42,7 @@ export async function isUserAlreadyQueued (username: string, context: JobContext
 export async function promotePositionInQueue (username: string, context: JobContext) {
     const existingScore = await context.redis.zScore(SUBMISSION_QUEUE, username);
     if (existingScore !== undefined) {
-        await context.redis.zAdd(SUBMISSION_QUEUE, { member: username, score: Date.now() });
+        await context.redis.zAdd(SUBMISSION_QUEUE, { member: username, score: Date.now() / 1000 });
         console.log(`Post Creation: Promoted ${username}'s position in the queue.`);
     }
 }
