@@ -55,6 +55,9 @@ export interface UserDetails {
     submitter?: string;
     operator?: string;
     reportedAt?: number;
+    /**
+     * @deprecated This was only used for wiki functionality, which has been removed.
+     */
     mostRecentActivity?: number;
     flags?: UserFlag[];
 }
@@ -125,10 +128,6 @@ export async function setUserStatus (username: string, details: UserDetails, con
 
     // Set the reported at date from the original date, or current date/time if not set.
     details.reportedAt ??= currentStatus?.reportedAt ?? new Date().getTime();
-
-    if (currentStatus?.mostRecentActivity && !details.mostRecentActivity) {
-        details.mostRecentActivity = currentStatus.mostRecentActivity;
-    }
 
     if (details.flags && details.flags.length > 0) {
         details.flags = details.flags.filter(flag => eligibleFlagsForStatus[flag].includes(details.userStatus));
