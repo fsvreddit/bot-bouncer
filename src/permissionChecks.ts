@@ -68,34 +68,42 @@ export async function checkPermissionQueueItems (event: ScheduledJobEvent<JSONOb
     await context.redis.set(recentlyRunKey, "true", { expiration: addMinutes(new Date(), 1) });
 
     const problemFound: json2md.DataObject[] = [];
-
+    let checkSucceeded = false;
     await context.redis.global.zRem(PERMISSION_CHECKS_QUEUE, [subredditName]);
 
-    const isMod = await isModerator(context.reddit, subredditName, context.appName);
+    try {
+        const isMod = await isModerator(context.reddit, subredditName, context.appName);
 
-    if (!isMod) {
-        problemFound.push([
-            { p: `/u/bot-bouncer is not a moderator of ${subredditName}. This means that most functions of Bot Bouncer will not work correctly.` },
-            { p: `Unfortunately it is not possible to add Dev Platform apps back as moderators once they have been removed. ` },
-            { p: `Please **uninstall Bot Bouncer** from your subreddit's [app configuration page](https://developers.reddit.com/r/${subredditName}/apps/bot-bouncer), it can then be reinstalled from the [app directory page](https://developers.reddit.com/apps/${context.appName}) if you wish to continue using the service.` },
-        ]);
-    } else {
-        const hasPerms = await hasPermissions(context.reddit, {
-            subredditName,
-            username: context.appName,
-            requiredPerms: ["access", "posts", "mail"],
-        });
-
-        if (!hasPerms) {
+        if (!isMod) {
             problemFound.push([
-                { p: `/u/bot-bouncer does not have all required moderator permissions in ${subredditName} to work correctly.` },
-                { p: `Dev Platform apps must have full moderator permissions to work properly, so please update the app's moderator permissions.` },
+                { p: `/u/bot-bouncer is not a moderator of ${subredditName}. This means that most functions of Bot Bouncer will not work correctly.` },
+                { p: `Unfortunately it is not possible to add Dev Platform apps back as moderators once they have been removed. ` },
+                { p: `Please **uninstall Bot Bouncer** from your subreddit's [app configuration page](https://developers.reddit.com/r/${subredditName}/apps/bot-bouncer), it can then be reinstalled from the [app directory page](https://developers.reddit.com/apps/${context.appName}) if you wish to continue using the service.` },
             ]);
+        } else {
+            const hasPerms = await hasPermissions(context.reddit, {
+                subredditName,
+                username: context.appName,
+                requiredPerms: ["access", "posts", "mail"],
+            });
+
+            if (!hasPerms) {
+                problemFound.push([
+                    { p: `/u/bot-bouncer does not have all required moderator permissions in ${subredditName} to work correctly.` },
+                    { p: `Dev Platform apps must have full moderator permissions to work properly, so please update the app's moderator permissions.` },
+                ]);
+            }
         }
+        checkSucceeded = true;
+    } catch {
+        console.log(`Permission Checks: Failed to check moderator status for /r/${subredditName}, assuming sub banned or platform issues.`);
     }
 
     if (problemFound.length === 0) {
-        console.log(`Permission Checks: ${subredditName} passed permission checks.`);
+        if (checkSucceeded) {
+            console.log(`Permission Checks: ${subredditName} passed permission checks.`);
+        }
+
         await context.redis.hDel(PERMISSION_MESSAGE_SENT_HASH, [subredditName]);
         if (inBacklog) {
             await context.scheduler.runJob({
