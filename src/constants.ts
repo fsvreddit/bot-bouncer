@@ -21,7 +21,6 @@ export enum PostFlairTemplate {
  */
 export enum UniversalJob {
     Cleanup = "cleanupJob",
-    AdhocCleanup = "adhocCleanup",
 }
 
 /**

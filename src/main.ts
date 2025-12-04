@@ -107,11 +107,6 @@ Devvit.addSchedulerJob({
     onRun: cleanupDeletedAccounts,
 });
 
-Devvit.addSchedulerJob({
-    name: UniversalJob.AdhocCleanup,
-    onRun: cleanupDeletedAccounts,
-});
-
 /**
  * Jobs that run on the control subreddit only
  */
