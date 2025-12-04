@@ -8,6 +8,7 @@ import { getControlSubSettings } from "../settings.js";
 import { EvaluateBotGroupAdvanced } from "@fsvreddit/bot-bouncer-evaluation/dist/userEvaluation/EvaluateBotGroupAdvanced.js";
 import { getUserExtended } from "../extendedDevvit.js";
 import { addSeconds } from "date-fns";
+import Pako from "pako";
 
 const EVALUATOR_VARIABLES_KEY = "evaluatorVariablesHash";
 const EVALUATOR_VARIABLES_YAML_PAGE_ROOT = "evaluator-config";
@@ -192,11 +193,13 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
     const variablesCount = Object.keys(converted).length;
     console.log(`Evaluator Variables: Updated ${variablesCount} variables and removed ${keysToRemove.length} from wiki edit by /u/${event.data?.username as string | undefined ?? "unknown"}.`);
 
+    const compressedVariables = compressData(variables);
+
     // Write back to parsed wiki page for older client subreddits and observer subreddits
     await context.reddit.updateWikiPage({
         subredditName: CONTROL_SUBREDDIT,
         page: EVALUATOR_VARIABLES_WIKI_PAGE,
-        content: JSON.stringify(variables),
+        content: compressedVariables,
         reason: `Updating evaluator variables from wiki on /r/${context.subredditName}`,
     });
 
@@ -205,7 +208,7 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
             await context.reddit.updateWikiPage({
                 subredditName: subreddit,
                 page: EVALUATOR_VARIABLES_WIKI_PAGE,
-                content: JSON.stringify(variables),
+                content: compressedVariables,
             });
             console.log(`Evaluator Variables: Updated wiki page on /r/${subreddit}`);
         }
@@ -259,4 +262,8 @@ export function invalidEvaluatorVariableCondition (variables: Record<string, JSO
     }
 
     return results;
+}
+
+function compressData (value: Record<string, JSONValue>): string {
+    return Buffer.from(Pako.deflate(JSON.stringify(value), { level: 9 })).toString("base64");
 }
