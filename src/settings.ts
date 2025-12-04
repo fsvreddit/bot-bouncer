@@ -231,7 +231,6 @@ export interface ControlSubSettings {
     postCreationQueueProcessingEnabled?: boolean;
     postCreationQueueAlertLevel?: number;
     allowClassificationQueries?: boolean;
-    legacyWikiPageUpdateFrequencyMinutes: number;
     redosCheckerEnabled?: boolean;
     evaluatorVariableUpdatesEnabled?: boolean;
     appRemovedMessage?: string;

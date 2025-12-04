@@ -1,6 +1,6 @@
 import { Comment, Post, TriggerContext } from "@devvit/public-api";
 import Ajv, { JSONSchemaType } from "ajv";
-import { getUserStatus, touchUserStatus, UserStatus } from "../dataStore.js";
+import { getUserStatus, UserStatus } from "../dataStore.js";
 import _ from "lodash";
 import { subMonths } from "date-fns";
 import json2md from "json2md";
@@ -66,9 +66,6 @@ async function handleBulkItem (username: string, initialStatus: UserStatus, subm
     const currentStatus = await getUserStatus(username, context);
     if (currentStatus) {
         console.log(`Bulk submission: User ${username} already has a status of ${currentStatus.userStatus}.`);
-        if (currentStatus.userStatus !== UserStatus.Pending) {
-            await touchUserStatus(user.username, currentStatus, context);
-        }
         return false;
     }
 

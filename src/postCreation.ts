@@ -1,5 +1,5 @@
 import { JobContext, TriggerContext } from "@devvit/public-api";
-import { getUserStatus, setUserStatus, storeInitialAccountProperties, touchUserStatus, UserDetails, UserStatus } from "./dataStore.js";
+import { getUserStatus, setUserStatus, storeInitialAccountProperties, UserDetails, UserStatus } from "./dataStore.js";
 import { CONTROL_SUBREDDIT, ControlSubredditJob, INTERNAL_BOT, PostFlairTemplate } from "./constants.js";
 import { UserExtended } from "./extendedDevvit.js";
 import { addHours, addMinutes, addSeconds } from "date-fns";
@@ -56,9 +56,6 @@ async function createNewSubmission (submission: AsyncSubmission, context: Trigge
     const currentStatus = await getUserStatus(submission.user.username, context);
     if (currentStatus) {
         console.log(`Post Creation: User ${submission.user.username} already has a status of ${currentStatus.userStatus}.`);
-        if (currentStatus.userStatus !== UserStatus.Pending) {
-            await touchUserStatus(submission.user.username, currentStatus, context);
-        }
         return;
     }
 
@@ -148,9 +145,6 @@ export async function queuePostCreation (submission: AsyncSubmission, context: T
     const currentStatus = await getUserStatus(submission.user.username, context);
     if (currentStatus) {
         console.log(`Post Creation: User ${submission.user.username} already has a status of ${currentStatus.userStatus}.`);
-        if (currentStatus.userStatus !== UserStatus.Pending) {
-            await touchUserStatus(submission.user.username, currentStatus, context);
-        }
         return PostCreationQueueResult.AlreadyInDatabase;
     }
 

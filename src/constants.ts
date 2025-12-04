@@ -29,7 +29,6 @@ export enum UniversalJob {
  */
 
 export enum ControlSubredditJob {
-    UpdateWikiPage = "updateWikiPage",
     EvaluateUser = "evaluateUser",
     Perform6HourlyJobs = "performDailyJobs",
     Perform6HourlyJobsPart2 = "performDailyJobsPart2",

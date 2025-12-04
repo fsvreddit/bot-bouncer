@@ -1,6 +1,6 @@
 import { JobContext, TriggerContext, User, WikiPage } from "@devvit/public-api";
 import { CONTROL_SUBREDDIT, INTERNAL_BOT } from "./constants.js";
-import { addUserToTempDeclineStore, getUserStatus, touchUserStatus, UserStatus } from "./dataStore.js";
+import { addUserToTempDeclineStore, getUserStatus, UserStatus } from "./dataStore.js";
 import { getControlSubSettings } from "./settings.js";
 import { addDays, addMinutes, addSeconds } from "date-fns";
 import { getPostOrCommentById, getUserOrUndefined } from "./utility.js";
@@ -55,7 +55,7 @@ export async function addExternalSubmissionFromClientSub (data: ExternalSubmissi
     console.log(`External Submissions: Added external submission for ${data.username} to the queue.`);
 }
 
-export async function addExternalSubmissionToPostCreationQueue (item: ExternalSubmission, immediate: boolean, context: TriggerContext, enableTouch = true): Promise<boolean> {
+export async function addExternalSubmissionToPostCreationQueue (item: ExternalSubmission, immediate: boolean, context: TriggerContext): Promise<boolean> {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
         throw new Error("This function can only be called from the control subreddit.");
     }
@@ -67,9 +67,6 @@ export async function addExternalSubmissionToPostCreationQueue (item: ExternalSu
             // Submitted automatically, but in the database already.
             // Need to send back initial status.
             await addUserToTempDeclineStore(item.username, context);
-        }
-        if (currentStatus.userStatus !== UserStatus.Pending && enableTouch) {
-            await touchUserStatus(item.username, currentStatus, context);
         }
         return false;
     }
@@ -234,9 +231,6 @@ export async function handleExternalSubmissionsPageUpdate (context: TriggerConte
         const currentStatus = await getUserStatus(item.username, context);
         if (currentStatus) {
             console.log(`External Submissions: User ${item.username} already has a status of ${currentStatus.userStatus}, skipping.`);
-            if (currentStatus.userStatus !== UserStatus.Pending && context.subredditName === CONTROL_SUBREDDIT) {
-                await touchUserStatus(item.username, currentStatus, context);
-            }
             return false;
         }
 

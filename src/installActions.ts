@@ -43,11 +43,6 @@ export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, contex
 async function addControlSubredditJobs (context: TriggerContext) {
     await Promise.all([
         context.scheduler.runJob({
-            name: ControlSubredditJob.UpdateWikiPage,
-            cron: "* * * * *",
-        }),
-
-        context.scheduler.runJob({
             name: ControlSubredditJob.Perform6HourlyJobs,
             cron: "0 0/6 * * *",
         }),

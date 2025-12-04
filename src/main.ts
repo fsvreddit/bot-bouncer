@@ -1,5 +1,4 @@
 import { Devvit, FormField } from "@devvit/public-api";
-import { updateWikiPage } from "./dataStore.js";
 import { ClientSubredditJob, CONTROL_SUBREDDIT, ControlSubredditJob, UniversalJob } from "./constants.js";
 import { handleInstallOrUpgrade } from "./installActions.js";
 import { handleControlSubFlairUpdate } from "./handleControlSubFlairUpdate.js";
@@ -116,11 +115,6 @@ Devvit.addSchedulerJob({
 /**
  * Jobs that run on the control subreddit only
  */
-
-Devvit.addSchedulerJob({
-    name: ControlSubredditJob.UpdateWikiPage,
-    onRun: updateWikiPage,
-});
 
 Devvit.addSchedulerJob({
     name: ControlSubredditJob.EvaluateUser,
