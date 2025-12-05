@@ -183,7 +183,7 @@ export function evaluationResultsToBullets (results: EvaluationResult[]) {
         if (typeof result.hitReason === "object") {
             const detailRows: string[] = [];
             for (const detail of result.hitReason.details) {
-                detailRows.push(`${detail.key}: ${detail.value}`);
+                detailRows.push(`${detail.key}: ${detail.value.length > 500 ? `${detail.value.substring(0, 500)}...` : detail.value}`);
             }
             markdown.push({ ul: detailRows });
         }

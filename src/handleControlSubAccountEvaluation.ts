@@ -201,7 +201,10 @@ function truncatedHitReason (hitReason?: HitReason): HitReason | undefined {
     } else {
         return {
             reason: hitReason.reason.length > 500 ? `${hitReason.reason.substring(0, 500)}...` : hitReason.reason,
-            details: hitReason.details,
+            details: hitReason.details.map(detail => ({
+                key: detail.key,
+                value: detail.value.length > 500 ? `${detail.value.substring(0, 500)}...` : detail.value,
+            })),
         };
     }
 }
