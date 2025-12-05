@@ -90,7 +90,7 @@ export async function checkPermissionQueueItems (event: ScheduledJobEvent<JSONOb
             if (!hasPerms) {
                 problemFound.push([
                     { p: `/u/bot-bouncer does not have all required moderator permissions in ${subredditName} to work correctly.` },
-                    { p: `Dev Platform apps must have full moderator permissions to work properly, so please update the app's moderator permissions.` },
+                    { p: `Dev Platform apps must have full moderator permissions to work properly. Please check the permissions and update them as needed.` },
                 ]);
             }
         }
