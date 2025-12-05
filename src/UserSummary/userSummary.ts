@@ -172,11 +172,13 @@ export function evaluationResultsToBullets (results: EvaluationResult[]) {
     for (const result of results) {
         let row = `**${result.botName}** matched`;
         if (result.hitReason) {
+            let reasonToStore: string;
             if (typeof result.hitReason === "string") {
-                row += `: ${result.hitReason}`;
+                reasonToStore = result.hitReason;
             } else {
-                row += `: ${result.hitReason.reason}`;
+                reasonToStore = result.hitReason.reason;
             }
+            row += `: ${reasonToStore.length > 500 ? `${reasonToStore.substring(0, 500)}...` : reasonToStore}`;
         }
         markdown.push({ p: row });
 
