@@ -58,6 +58,8 @@ While you can unban the user yourself, this only affects the user on your subred
 ## v1.23 (coming soon)
 
 * Bot Bouncer can now accept a moderator invite if it has been accidentally removed from the mod list
+* Reduced Dev Platform resource usage
+* Internal changes to support operations on /r/BotBouncer
 
 ## v1.22.1
 
@@ -74,27 +76,6 @@ While you can unban the user yourself, this only affects the user on your subred
 * Faster response to bot classification changes, down from up to ten minutes to up to one minute
 * Faster refreshes of bot detection config, down from up to an hour to up to five minutes
 * Embolden instruction in default ban message to emphasise contacting /r/BotBouncer
-* Internal changes to support operations on /r/BotBouncer
-
-## v1.20.0
-
-* Reduce false positives on two evaluator types
-* Flexible rules-based evaluator can now act on comment edits
-* Notify mod teams via Modmail if /u/bot-bouncer is removed from the mod list without properly uninstalling
-* Internal changes to support operations on /r/BotBouncer
-
-## v1.19.1
-
-* Fix typo on default appeal message that users are prompted to send
-* Add feature to query a user's classification status when reporting, if they are marked as human
-* Internal changes to support operations on /r/BotBouncer
-
-## v1.18.0
-
-* Fix issues that could result in ban appeals not being processed on subreddits using Bot Bouncer
-* Add option to add a mod note on accounts banned by Bot Bouncer
-* Pre-populate appeal message with a placeholder message (thanks, /u/Drunken_Economist!)
-* Enhance Bad Social Links evaluator to look at links on posts, not just social links in profile
 * Internal changes to support operations on /r/BotBouncer
 
 For older versions, please see the [full changelog](https://github.com/fsvreddit/bot-bouncer/blob/main/changelog.md).
