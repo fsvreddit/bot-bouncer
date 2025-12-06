@@ -28,6 +28,7 @@ interface ModmailDataExtract {
     "~flags"?: UserFlag[];
     since?: string;
     recheck?: boolean;
+    omitUserDetails?: boolean;
 }
 
 const schema: JSONSchemaType<ModmailDataExtract> = {
@@ -60,6 +61,7 @@ const schema: JSONSchemaType<ModmailDataExtract> = {
         },
         since: { type: "string", nullable: true, pattern: "^\\d{4}-\\d{2}-\\d{2}$" },
         recheck: { type: "boolean", nullable: true },
+        omitUserDetails: { type: "boolean", nullable: true },
     },
     additionalProperties: false,
 };
@@ -494,7 +496,12 @@ async function createDataExtract (
         markdown.push({ ul: criteriaBullets });
     }
 
-    const headers = ["User", "Tracking Post", "Status", "Reported At", "Last Update", "Submitter", "Operator"];
+    const headers = ["User", "Tracking Post", "Status", "Reported At", "Last Update"];
+    if (!request.omitUserDetails) {
+        headers.push("Submitter");
+        headers.push("Operator");
+    }
+
     if (includeFlags) {
         headers.push("Flags");
     }
@@ -514,9 +521,12 @@ async function createDataExtract (
             entry.data.userStatus,
             entry.data.reportedAt ? format(new Date(entry.data.reportedAt), "yyyy-MM-dd") : "",
             entry.data.lastUpdate ? format(new Date(entry.data.lastUpdate), "yyyy-MM-dd") : "",
-            entry.data.submitter ?? "",
-            entry.data.operator ?? "unknown",
         ];
+
+        if (!request.omitUserDetails) {
+            row.push(entry.data.submitter ?? "");
+            row.push(entry.data.operator ?? "unknown");
+        }
 
         if (includeFlags) {
             row.push(entry.data.flags?.join(", ") ?? "");
