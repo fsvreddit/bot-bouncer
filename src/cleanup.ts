@@ -2,7 +2,7 @@ import { Comment, JobContext, JSONObject, Post, RedisClient, ScheduledJobEvent, 
 import { addDays, addHours, addSeconds, formatDuration, intervalToDuration, subDays, subMinutes, subSeconds } from "date-fns";
 import { CONTROL_SUBREDDIT, PostFlairTemplate, UniversalJob } from "./constants.js";
 import { deleteUserStatus, getUserStatus, removeRecordOfSubmitterOrMod, updateAggregate, UserStatus, writeUserStatus } from "./dataStore.js";
-import { getUserOrUndefined } from "./utility.js";
+import { getUserExtended } from "./extendedDevvit.js";
 import { removeRecordOfBan, removeWhitelistUnban } from "./handleClientSubredditClassificationChanges.js";
 import _ from "lodash";
 import { getControlSubSettings } from "./settings.js";
@@ -44,7 +44,11 @@ enum UserActiveStatus {
 }
 
 async function userActive (username: string, context: TriggerContext): Promise<UserActiveStatus> {
-    const user = await getUserOrUndefined(username, context);
+    const user = await getUserExtended(username, context);
+    if (user?.isSuspended) {
+        return UserActiveStatus.Suspended;
+    }
+
     if (user) {
         return UserActiveStatus.Active;
     }
