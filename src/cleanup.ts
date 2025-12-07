@@ -118,6 +118,9 @@ export async function cleanupDeletedAccounts (event: ScheduledJobEvent<JSONObjec
 
         totalProcessed++;
 
+        // Push forward cleanup by one day in case retrieving user fails catastrophically.
+        await setCleanupForUser(username, context.redis, addDays(new Date(), 1));
+
         const currentUserStatus = await userActive(username, context);
 
         if (currentUserStatus === UserActiveStatus.Deleted) {
