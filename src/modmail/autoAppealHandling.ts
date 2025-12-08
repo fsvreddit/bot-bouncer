@@ -132,7 +132,32 @@ export async function validateAndSaveAppealConfig (username: string, context: Tr
         return;
     }
 
-    const substitutions = getSubstitutions(wikiPage.content);
+    let substitutions: Record<string, string | string[]>;
+    try {
+        substitutions = getSubstitutions(wikiPage.content);
+    } catch {
+        console.error("Failed to parse substitutions from the appeal config wiki page.");
+
+        await context.reddit.sendPrivateMessage({
+            to: username,
+            subject: "Error in appeal configuration",
+            text: json2md([
+                { p: "Unable to parse YAML on the appeal configuration page." },
+                { p: "Please ensure the page is formatted correctly." },
+            ]),
+        });
+
+        const webhookUrl = await getControlSubSettings(context).then(s => s.monitoringWebhook);
+        if (webhookUrl) {
+            await sendMessageToWebhook(webhookUrl, json2md([
+                { p: `There was an error in the appeal configuration, last updated by ${username}` },
+                { p: "Last known good values will be used until this is corrected." },
+                { p: "The YAML on the appeal configuration page could not be parsed." },
+            ]));
+        }
+
+        return;
+    }
 
     let pageToParse = wikiPage.content;
     for (const [key, value] of Object.entries(substitutions)) {
