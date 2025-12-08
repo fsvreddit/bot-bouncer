@@ -4,7 +4,7 @@ import { BIO_TEXT_STORE, DISPLAY_NAME_STORE, getFullDataStore, SOCIAL_LINKS_STOR
 import Ajv, { JSONSchemaType } from "ajv";
 import pluralize from "pluralize";
 import json2md from "json2md";
-import { addSeconds, format } from "date-fns";
+import { addHours, addSeconds, format, subDays } from "date-fns";
 import { setCleanupForUser } from "../cleanup.js";
 import { getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
 import { ModmailMessage } from "./modmail.js";
@@ -27,6 +27,7 @@ interface ModmailDataExtract {
     flags?: UserFlag[];
     "~flags"?: UserFlag[];
     since?: string;
+    until?: string;
     recheck?: boolean;
     omitUserDetails?: boolean;
 }
@@ -59,7 +60,8 @@ const schema: JSONSchemaType<ModmailDataExtract> = {
             items: { type: "string", enum: Object.values(UserFlag) },
             nullable: true,
         },
-        since: { type: "string", nullable: true, pattern: "^\\d{4}-\\d{2}-\\d{2}$" },
+        since: { type: "string", nullable: true, pattern: "^\\d{4}-\\d{2}-\\d{2}(?: \\d{2}:\\d{2})?$" },
+        until: { type: "string", nullable: true, pattern: "^\\d{4}-\\d{2}-\\d{2}(?: \\d{2}:\\d{2})?$" },
         recheck: { type: "boolean", nullable: true },
         omitUserDetails: { type: "boolean", nullable: true },
     },
@@ -203,6 +205,13 @@ export async function dataExtract (message: ModmailMessage, conversationId: stri
             if (request.since && entry.data.reportedAt) {
                 const sinceDate = new Date(request.since);
                 if (new Date(entry.data.reportedAt) <= sinceDate) {
+                    return false;
+                }
+            }
+
+            if (request.until && entry.data.reportedAt) {
+                const untilDate = new Date(request.until);
+                if (new Date(entry.data.reportedAt) >= untilDate) {
                     return false;
                 }
             }
@@ -494,6 +503,16 @@ async function createDataExtract (
     if (criteriaBullets.length > 0) {
         markdown.push({ p: "Criteria for this extract:" });
         markdown.push({ ul: criteriaBullets });
+    }
+
+    if (data.length > 0 && request.status?.includes(UserStatus.Banned) && request.since && new Date(request.since) > subDays(new Date(), 2)) {
+        // Generate a random four-character string for reversing classifications
+        const randomString = Math.random().toString(36).substring(2, 6);
+
+        markdown.push({ p: `To reverse the classifications of all users included in this extract, issue the following command in the next two hours:` });
+        markdown.push({ code: { content: `!reverse-classification ${randomString}` } });
+
+        await context.redis.set(`reversibleExtract:${randomString}`, JSON.stringify(data.map(entry => entry.username)), { expiration: addHours(new Date(), 2) });
     }
 
     const headers = ["User", "Tracking Post", "Status", "Reported At", "Last Update"];

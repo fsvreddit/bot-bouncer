@@ -6,7 +6,7 @@ import { getUsernameFromUrl } from "./utility.js";
 import { queueSendFeedback } from "./submissionFeedback.js";
 import _ from "lodash";
 import { addHours } from "date-fns";
-import { addToReversalsQueue } from "./evaluatorReversals.js";
+import { addToReversalsQueue } from "./modmail/evaluatorReversals.js";
 
 interface FlairMapping {
     postFlair: string;

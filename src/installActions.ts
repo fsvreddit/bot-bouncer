@@ -4,7 +4,7 @@ import { ClientSubredditJob, CONTROL_SUBREDDIT, ControlSubredditJob, UniversalJo
 import { handleExternalSubmissionsPageUpdate } from "./externalSubmissions.js";
 import { removeRetiredEvaluatorsFromStats } from "./userEvaluation/evaluatorHelpers.js";
 import { getControlSubSettings } from "./settings.js";
-import { addDays, addMinutes, addSeconds } from "date-fns";
+import { addDays, addMinutes } from "date-fns";
 import { migrationToGlobalRedis } from "./dataStore.js";
 import { forceEvaluatorVariablesRefresh } from "./userEvaluation/evaluatorVariables.js";
 import { storeRecordOfContentCreationGracePeriod } from "./handleClientSubredditClassificationChanges.js";
@@ -76,12 +76,6 @@ async function addControlSubredditJobs (context: TriggerContext) {
         context.scheduler.runJob({
             name: UniversalJob.Cleanup,
             cron: "* * * * *",
-            data: { firstRun: true },
-        }),
-
-        context.scheduler.runJob({
-            name: ControlSubredditJob.EvaluatorReversals,
-            runAt: addSeconds(new Date(), 5),
             data: { firstRun: true },
         }),
     ]);
