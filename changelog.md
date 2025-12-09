@@ -1,5 +1,11 @@
 # Changelog for Bot Bouncer
 
+## v1.23.1
+
+* Bot Bouncer can now accept a moderator invite if it has been accidentally removed from the mod list
+* Reduced Dev Platform resource usage
+* Internal changes to support operations on /r/BotBouncer
+
 ## v1.22.1
 
 * Improve resilience of app if required permissions are accidentally removed from the app's user account
