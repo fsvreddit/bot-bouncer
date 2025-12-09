@@ -1,5 +1,4 @@
 import { Devvit, FormField } from "@devvit/public-api";
-import { updateWikiPage } from "./dataStore.js";
 import { ClientSubredditJob, CONTROL_SUBREDDIT, ControlSubredditJob, UniversalJob } from "./constants.js";
 import { handleInstallOrUpgrade } from "./installActions.js";
 import { handleControlSubFlairUpdate } from "./handleControlSubFlairUpdate.js";
@@ -17,12 +16,12 @@ import { evaluateKarmaFarmingSubs, queueKarmaFarmingSubs } from "./karmaFarmingS
 import { controlSubQuerySubmissionFormDefinition, handleControlSubForm, sendQueryToSubmitter } from "./handleControlSubMenu.js";
 import { checkForUpdates } from "./upgradeNotifier.js";
 import { sendDailySummary } from "./modmail/actionSummary.js";
-import { perform6HourlyJobs, perform6HourlyJobsPart2 } from "./sixHourlyJobs.js";
+import { perform6HourlyJobs, perform6HourlyJobsPart2 } from "./scheduler/sixHourlyJobs.js";
 import { checkUptimeAndMessages } from "./uptimeMonitor.js";
 import { handleRapidJob } from "./handleRapidJob.js";
 import { buildEvaluatorAccuracyStatistics } from "./statistics/evaluatorAccuracyStatistics.js";
 import { gatherDefinedHandlesStats, storeDefinedHandlesDataJob } from "./statistics/definedHandlesStatistics.js";
-import { deleteRecordsForRemovedUsers, evaluatorReversalsJob } from "./evaluatorReversals.js";
+import { deleteRecordsForRemovedUsers, classificationReversalsJob, reversePostCreationQueue } from "./modmail/evaluatorReversals.js";
 import { handleCommentCreate, handlePostCreate } from "./handleContentCreation.js";
 import { conditionalStatsUpdate } from "./statistics/conditionalStatsUpdate.js";
 import { asyncWikiUpdate } from "./statistics/asyncWikiUpdate.js";
@@ -30,6 +29,8 @@ import { generateBioStatisticsReport, updateBioStatisticsJob } from "./statistic
 import { continueDataExtract } from "./modmail/dataExtract.js";
 import { redosChecker } from "./userEvaluation/redosChecker.js";
 import { checkPermissionQueueItems, handlePermissionCheckEnqueueJob } from "./permissionChecks.js";
+import { handleFiveMinutelyJob } from "./scheduler/fiveMinutelyJobs.js";
+import { processLegacySubUpgradeNotifications } from "./upgradeNotifierForLegacySubs.js";
 
 Devvit.addSettings(appSettings);
 
@@ -106,19 +107,9 @@ Devvit.addSchedulerJob({
     onRun: cleanupDeletedAccounts,
 });
 
-Devvit.addSchedulerJob({
-    name: UniversalJob.AdhocCleanup,
-    onRun: cleanupDeletedAccounts,
-});
-
 /**
  * Jobs that run on the control subreddit only
  */
-
-Devvit.addSchedulerJob({
-    name: ControlSubredditJob.UpdateWikiPage,
-    onRun: updateWikiPage,
-});
 
 Devvit.addSchedulerJob({
     name: ControlSubredditJob.EvaluateUser,
@@ -133,6 +124,11 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: ControlSubredditJob.Perform6HourlyJobs,
     onRun: perform6HourlyJobs,
+});
+
+Devvit.addSchedulerJob({
+    name: ControlSubredditJob.Perform5MinutelyJobs,
+    onRun: handleFiveMinutelyJob,
 });
 
 Devvit.addSchedulerJob({
@@ -176,8 +172,13 @@ Devvit.addSchedulerJob({
 });
 
 Devvit.addSchedulerJob({
-    name: ControlSubredditJob.EvaluatorReversals,
-    onRun: evaluatorReversalsJob,
+    name: ControlSubredditJob.ClassificationReversals,
+    onRun: classificationReversalsJob,
+});
+
+Devvit.addSchedulerJob({
+    name: ControlSubredditJob.PostCreationQueueReversals,
+    onRun: reversePostCreationQueue,
 });
 
 Devvit.addSchedulerJob({
@@ -223,6 +224,11 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: ControlSubredditJob.CheckPermissionQueueItems,
     onRun: checkPermissionQueueItems,
+});
+
+Devvit.addSchedulerJob({
+    name: ControlSubredditJob.CheckUpgradeNotifierForLegacySubs,
+    onRun: processLegacySubUpgradeNotifications,
 });
 
 /**

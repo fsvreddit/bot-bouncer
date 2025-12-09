@@ -4,7 +4,7 @@ import { ClientSubredditJob, CONTROL_SUBREDDIT, ControlSubredditJob, UniversalJo
 import { handleExternalSubmissionsPageUpdate } from "./externalSubmissions.js";
 import { removeRetiredEvaluatorsFromStats } from "./userEvaluation/evaluatorHelpers.js";
 import { getControlSubSettings } from "./settings.js";
-import { addDays, addMinutes, addSeconds } from "date-fns";
+import { addDays, addMinutes } from "date-fns";
 import { migrationToGlobalRedis } from "./dataStore.js";
 import { forceEvaluatorVariablesRefresh } from "./userEvaluation/evaluatorVariables.js";
 import { storeRecordOfContentCreationGracePeriod } from "./handleClientSubredditClassificationChanges.js";
@@ -36,15 +36,12 @@ export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, contex
     await context.redis.del("clientSubWikiUpdateCron");
     await context.redis.del("ReclassificationQueue");
     await context.redis.del("oneOffReaffirmation");
+
+    await setInstallDateIfNotSet(context);
 }
 
 async function addControlSubredditJobs (context: TriggerContext) {
     await Promise.all([
-        context.scheduler.runJob({
-            name: ControlSubredditJob.UpdateWikiPage,
-            cron: "* * * * *",
-        }),
-
         context.scheduler.runJob({
             name: ControlSubredditJob.Perform6HourlyJobs,
             cron: "0 0/6 * * *",
@@ -72,20 +69,13 @@ async function addControlSubredditJobs (context: TriggerContext) {
         }),
 
         context.scheduler.runJob({
-            name: ControlSubredditJob.CheckPermissionQueueItems,
+            name: ControlSubredditJob.Perform5MinutelyJobs,
             cron: "*/5 * * * *",
-            data: { firstRun: true },
         }),
 
         context.scheduler.runJob({
             name: UniversalJob.Cleanup,
             cron: "* * * * *",
-            data: { firstRun: true },
-        }),
-
-        context.scheduler.runJob({
-            name: ControlSubredditJob.EvaluatorReversals,
-            runAt: addSeconds(new Date(), 5),
             data: { firstRun: true },
         }),
     ]);
@@ -198,4 +188,26 @@ export async function ensureClientSubJobsExist (context: TriggerContext) {
     } else {
         console.log("All client subreddit jobs are present.");
     }
+}
+
+async function setInstallDateIfNotSet (context: TriggerContext) {
+    const installDateKey = "appInstallDate";
+    if (await context.redis.exists(installDateKey)) {
+        return;
+    }
+
+    await context.redis.set(installDateKey, Date.now().toString());
+}
+
+export async function getInstallDate (context: TriggerContext): Promise<Date | undefined> {
+    const installDateKey = "appInstallDate";
+    const installDateString = await context.redis.get(installDateKey);
+    if (!installDateString) {
+        return undefined;
+    }
+    const installDateMillis = parseInt(installDateString, 10);
+    if (isNaN(installDateMillis)) {
+        return undefined;
+    }
+    return new Date(installDateMillis);
 }

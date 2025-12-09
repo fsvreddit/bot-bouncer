@@ -1,21 +1,21 @@
 import { JobContext, TriggerContext } from "@devvit/public-api";
-import { updateMainStatisticsPage } from "./statistics/mainStatistics.js";
-import { updateSubmitterStatistics } from "./statistics/submitterStatistics.js";
-import { updateEvaluatorHitsWikiPage } from "./statistics/evaluatorHitsStatistics.js";
-import { createTimeOfSubmissionStatistics } from "./statistics/timeOfSubmissionStatistics.js";
-import { checkDataStoreIntegrity, getFullDataStore, removeStaleRecentChangesEntries, UserDetails, UserFlag } from "./dataStore.js";
-import { CONTROL_SUBREDDIT, ControlSubredditJob } from "./constants.js";
-import { updateClassificationStatistics } from "./statistics/classificationStatistics.js";
-import { updateAppealStatistics } from "./statistics/appealStatistics.js";
+import { updateMainStatisticsPage } from "../statistics/mainStatistics.js";
+import { updateSubmitterStatistics } from "../statistics/submitterStatistics.js";
+import { updateEvaluatorHitsWikiPage } from "../statistics/evaluatorHitsStatistics.js";
+import { createTimeOfSubmissionStatistics } from "../statistics/timeOfSubmissionStatistics.js";
+import { checkDataStoreIntegrity, getFullDataStore, removeStaleRecentChangesEntries, UserDetails, UserFlag } from "../dataStore.js";
+import { CONTROL_SUBREDDIT, ControlSubredditJob } from "../constants.js";
+import { updateClassificationStatistics } from "../statistics/classificationStatistics.js";
+import { updateAppealStatistics } from "../statistics/appealStatistics.js";
 import { addMinutes } from "date-fns";
-import { updateUsernameStatistics } from "./statistics/usernameStatistics.js";
-import { updateDisplayNameStatistics } from "./statistics/displayNameStats.js";
-import { updateSocialLinksStatistics } from "./statistics/socialLinksStatistics.js";
-import { updateBioStatistics } from "./statistics/userBioStatistics.js";
-import { updateDefinedHandlesStats } from "./statistics/definedHandlesStatistics.js";
-import { pendingUserFinder } from "./statistics/pendingUserFinder.js";
-import { updateFailedFeedbackStorage } from "./submissionFeedback.js";
-import { analyseBioText } from "./similarBioTextFinder/bioTextFinder.js";
+import { updateUsernameStatistics } from "../statistics/usernameStatistics.js";
+import { updateDisplayNameStatistics } from "../statistics/displayNameStats.js";
+import { updateSocialLinksStatistics } from "../statistics/socialLinksStatistics.js";
+import { updateBioStatistics } from "../statistics/userBioStatistics.js";
+import { updateDefinedHandlesStats } from "../statistics/definedHandlesStatistics.js";
+import { pendingUserFinder } from "../statistics/pendingUserFinder.js";
+import { updateFailedFeedbackStorage } from "../submissionFeedback.js";
+import { analyseBioText } from "../similarBioTextFinder/bioTextFinder.js";
 
 const FLAGS_TO_EXCLUDE_FROM_STATS: UserFlag[] = [
     UserFlag.HackedAndRecovered,
@@ -40,8 +40,7 @@ export async function getAllValuesForStats (context: TriggerContext) {
 
 export async function perform6HourlyJobs (_: unknown, context: JobContext) {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
-        console.log("Daily jobs are only run in the control subreddit.");
-        return;
+        throw new Error("6 hourly jobs are only run in the control subreddit.");
     }
 
     await removeStaleRecentChangesEntries(context);

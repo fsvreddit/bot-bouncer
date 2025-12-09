@@ -15,13 +15,14 @@ import { CONTROL_SUBREDDIT, INTERNAL_BOT } from "../constants.js";
 import { handleBulkSubmission, retryBulkSubmission } from "./bulkSubmission.js";
 import { handleAppeal } from "./autoAppealHandling.js";
 import { FLAIR_MAPPINGS } from "../handleControlSubFlairUpdate.js";
-import { uniq } from "lodash";
+import _ from "lodash";
 import { CHECK_DATE_KEY } from "../karmaFarmingSubsCheck.js";
 import { evaluateAccountFromModmail } from "./modmailEvaluaton.js";
 import { isBanned } from "devvit-helpers";
+import { handleReversalCommand } from "./evaluatorReversals.js";
 
 export function getPossibleSetStatusValues (): string[] {
-    return uniq([...FLAIR_MAPPINGS.map(entry => entry.postFlair), ...Object.values(UserStatus)]);
+    return _.uniq([...FLAIR_MAPPINGS.map(entry => entry.postFlair), ...Object.values(UserStatus)]);
 }
 
 export async function handleControlSubredditModmail (modmail: ModmailMessage, context: TriggerContext) {
@@ -45,6 +46,11 @@ export async function handleControlSubredditModmail (modmail: ModmailMessage, co
 
     if (modmail.bodyMarkdown.startsWith("!extract")) {
         await dataExtract(modmail, modmail.conversationId, context);
+        return;
+    }
+
+    if (modmail.bodyMarkdown.startsWith("!reverse")) {
+        await handleReversalCommand(modmail, context);
         return;
     }
 

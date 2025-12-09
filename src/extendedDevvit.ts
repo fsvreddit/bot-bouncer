@@ -31,6 +31,7 @@ export interface UserExtended {
     nsfw: boolean;
     username: string;
     userDescription?: string;
+    isSuspended?: boolean;
 }
 
 export async function getUserExtended (username: string, context: TriggerContext): Promise<UserExtended | undefined> {
@@ -52,6 +53,7 @@ export async function getUserExtended (username: string, context: TriggerContext
         nsfw: rawUserData.data.subreddit?.over18 ?? false,
         username: rawUserData.data.name ?? "",
         userDescription: rawUserData.data.subreddit?.publicDescription,
+        isSuspended: rawUserData.data.isSuspended ?? false,
     };
 
     return userExtendedVal;

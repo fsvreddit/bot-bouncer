@@ -4,9 +4,9 @@ import { CONTROL_SUBREDDIT, PostFlairTemplate } from "./constants.js";
 import { getUserStatus, setUserStatus, UserDetails, UserFlag, UserStatus, writeUserStatus } from "./dataStore.js";
 import { getUsernameFromUrl } from "./utility.js";
 import { queueSendFeedback } from "./submissionFeedback.js";
-import { uniq } from "lodash";
+import _ from "lodash";
 import { addHours } from "date-fns";
-import { addToReversalsQueue } from "./evaluatorReversals.js";
+import { addToReversalsQueue } from "./modmail/evaluatorReversals.js";
 
 interface FlairMapping {
     postFlair: string;
@@ -70,7 +70,7 @@ export async function handleControlSubFlairUpdate (event: PostFlairUpdate, conte
         if (currentStatus) {
             const flags = currentStatus.flags ?? [];
             flags.push(mapping.flagToSet);
-            currentStatus.flags = uniq(flags);
+            currentStatus.flags = _.uniq(flags);
             await writeUserStatus(username, currentStatus, context);
         }
 

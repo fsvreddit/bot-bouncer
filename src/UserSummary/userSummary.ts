@@ -1,14 +1,14 @@
 import { Comment, JSONValue, Post, TriggerContext } from "@devvit/public-api";
 import { median } from "../utility.js";
 import { addMilliseconds, differenceInDays, differenceInHours, differenceInMilliseconds, differenceInMinutes, Duration, format, formatDuration, intervalToDuration, startOfDecade } from "date-fns";
-import { compact, countBy, mean, uniq } from "lodash";
+import _ from "lodash";
 import { count } from "@wordpress/wordcount";
 import { isUserPotentiallyBlockingBot } from "./blockChecker.js";
 import pluralize from "pluralize";
 import { isLinkId } from "@devvit/public-api/types/tid.js";
 import { getUserExtended, UserExtended } from "../extendedDevvit.js";
 import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
-import { getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
+import { EvaluationResult, getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
 import json2md from "json2md";
 import markdownEscape from "markdown-escape";
 import { ALL_EVALUATORS } from "@fsvreddit/bot-bouncer-evaluation";
@@ -84,7 +84,7 @@ function averageInterval (history: (Post | Comment)[], mode: "mean" | "median") 
     }
 
     const start = startOfDecade(new Date());
-    const end = addMilliseconds(start, Math.round(mode === "mean" ? mean(differences) : median(differences)));
+    const end = addMilliseconds(start, Math.round(mode === "mean" ? _.mean(differences) : median(differences)));
 
     return formatDifferenceInDates(start, end);
 }
@@ -92,7 +92,7 @@ function averageInterval (history: (Post | Comment)[], mode: "mean" | "median") 
 function minMaxAvg (numbers: number[]) {
     const min = Math.min(...numbers);
     const max = Math.max(...numbers);
-    const avg = Math.round(mean(numbers));
+    const avg = Math.round(_.mean(numbers));
     const mdn = Math.round(median(numbers));
 
     if (min === max) {
@@ -121,7 +121,7 @@ function numberToBlock (input: number): string {
 }
 
 function activityByTimeOfDay (history: (Post | Comment)[]): json2md.DataObject[] {
-    const hours = countBy(history.map(item => item.createdAt.getHours()));
+    const hours = _.countBy(history.map(item => item.createdAt.getHours()));
     const max = Math.max(...Object.values(hours));
 
     const headers: string[] = [];
@@ -166,6 +166,33 @@ function getCommonEntriesForContent (items: Post[] | Comment[]): string[] {
     return bullets;
 }
 
+export function evaluationResultsToBullets (results: EvaluationResult[]) {
+    const markdown: json2md.DataObject[] = [];
+
+    for (const result of results) {
+        let row = `**${result.botName}** matched`;
+        if (result.hitReason) {
+            let reasonToStore: string;
+            if (typeof result.hitReason === "string") {
+                reasonToStore = result.hitReason;
+            } else {
+                reasonToStore = result.hitReason.reason;
+            }
+            row += `: ${reasonToStore.length > 500 ? `${reasonToStore.substring(0, 500)}...` : reasonToStore}`;
+        }
+        markdown.push({ p: row });
+
+        if (typeof result.hitReason === "object") {
+            const detailRows: string[] = [];
+            for (const detail of result.hitReason.details) {
+                detailRows.push(`${detail.key}: ${detail.value.length > 500 ? `${detail.value.substring(0, 500)}...` : detail.value}`);
+            }
+            markdown.push({ ul: detailRows });
+        }
+    }
+    return markdown;
+}
+
 export async function getSummaryForUser (username: string, source: "modmail" | "submission", context: TriggerContext): Promise<json2md.DataObject[]> {
     const userStatus = await getUserStatus(username, context);
     const summary: json2md.DataObject[] = [];
@@ -174,7 +201,7 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
         const post = await context.reddit.getPostById(userStatus.trackingPostId);
         summary.push(
             { p: `/u/${username} is currently listed as ${userStatus.userStatus}, set by ${userStatus.operator} at ${new Date(userStatus.lastUpdate).toUTCString()} and reported by ${userStatus.submitter ?? "unknown"}` },
-            { link: { title: "Link to submission", source: `https://www.reddit.com${post.permalink}` } },
+            { p: `[Link to submission](https://www.reddit.com${post.permalink})` },
         );
     }
 
@@ -206,7 +233,7 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
     }
 
     const socialLinks = await getUserSocialLinks(username, context.metadata);
-    const uniqueSocialLinks = compact(uniq(socialLinks.map(link => link.outboundUrl)));
+    const uniqueSocialLinks = _.compact(_.uniq(socialLinks.map(link => link.outboundUrl)));
     if (uniqueSocialLinks.length > 0) {
         if (source === "modmail") {
             accountPropsBullets.push(`Social links: ${uniqueSocialLinks.join(", ")}`);
@@ -271,15 +298,7 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
             const initialEvaluatorsMatched = await getAccountInitialEvaluationResults(username, context);
             summary.push({ p: `At the point of initial evaluation, user matched ${initialEvaluatorsMatched.length} ${pluralize("evaluator", initialEvaluatorsMatched.length)}` });
 
-            const hitsRows = initialEvaluatorsMatched.map((evaluator) => {
-                let row = `${evaluator.botName} matched`;
-                if (evaluator.hitReason) {
-                    row += `: ${evaluator.hitReason}`;
-                }
-                return row;
-            });
-
-            summary.push({ ul: hitsRows });
+            summary.push(...evaluationResultsToBullets(initialEvaluatorsMatched));
         }
 
         summary.push({ h2: "User Activity" });
@@ -304,33 +323,34 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
         if (initialEvaluatorsMatched.length > 0) {
             summary.push({ p: `At the point of initial evaluation, user matched ${initialEvaluatorsMatched.length} ${pluralize("evaluator", initialEvaluatorsMatched.length)}` });
 
-            const hitsRows = initialEvaluatorsMatched.map((evaluator) => {
-                let row = `${evaluator.botName} matched`;
-                if (evaluator.hitReason) {
-                    row += `: ${evaluator.hitReason.slice(0, 1000)}`;
-                }
-                return row;
-            });
-
-            summary.push({ ul: hitsRows });
+            summary.push(...evaluationResultsToBullets(initialEvaluatorsMatched));
         }
 
         if (matchedEvaluators.length > 0) {
             summary.push({ p: `User currently matches ${matchedEvaluators.length} ${pluralize("evaluator", matchedEvaluators.length)}` });
 
-            const hitsRows: string[] = [];
+            const evaluationResults: EvaluationResult[] = [];
 
             for (const evaluator of matchedEvaluators) {
                 if (!evaluator.hitReasons || evaluator.hitReasons.length === 0) {
-                    hitsRows.push(`${evaluator.name} matched`);
+                    evaluationResults.push({
+                        botName: evaluator.name,
+                        canAutoBan: evaluator.canAutoBan,
+                        metThreshold: true,
+                    });
                 } else {
                     for (const hitReason of evaluator.hitReasons) {
-                        hitsRows.push(`${evaluator.name} matched: ${hitReason.slice(0, 1000)}`);
+                        evaluationResults.push({
+                            botName: evaluator.name,
+                            hitReason,
+                            canAutoBan: evaluator.canAutoBan,
+                            metThreshold: true,
+                        });
                     }
                 }
             }
 
-            summary.push({ ul: hitsRows });
+            summary.push(...evaluationResultsToBullets(evaluationResults));
         }
     }
 
@@ -374,10 +394,10 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
             bullets.push(`Edited comments: ${editedCommentPercentage}% of total`);
         }
 
-        const subreddits = countBy(compact(userComments.map(comment => comment.subredditName)));
+        const subreddits = _.countBy(_.compact(userComments.map(comment => comment.subredditName)));
         bullets.push(`Comment subreddits: ${Object.entries(subreddits).map(([subreddit, count]) => `${markdownEscape(subreddit)}: ${count}`).join(", ")}`);
 
-        const commentsPerPost = countBy(Object.values(countBy(userComments.map(comment => comment.postId))));
+        const commentsPerPost = _.countBy(Object.values(_.countBy(userComments.map(comment => comment.postId))));
         bullets.push(`Comments per post: ${Object.entries(commentsPerPost).map(([count, posts]) => `${count} comments: ${posts}`).join(", ")}`);
 
         if (userComments.length < 90) {
@@ -402,7 +422,7 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
             bullets.push(`Edited posts: ${editedPostPercentage}% of total`);
         }
 
-        const subreddits = countBy(compact(userPosts.map(post => post.subredditName)));
+        const subreddits = _.countBy(_.compact(userPosts.map(post => post.subredditName)));
         bullets.push(`Post subreddits: ${Object.entries(subreddits).map(([subreddit, count]) => `${markdownEscape(subreddit)}: ${count}`).join(", ")}`);
         if (userPosts.length < 90) {
             bullets.push(`First post was ${formatDifferenceInDates(extendedUser.createdAt, userPosts[userPosts.length - 1].createdAt)} after account creation`);

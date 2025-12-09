@@ -1,12 +1,11 @@
 import { JobContext, TriggerContext, User, WikiPage } from "@devvit/public-api";
 import { CONTROL_SUBREDDIT, INTERNAL_BOT } from "./constants.js";
-import { addUserToTempDeclineStore, getUserStatus, touchUserStatus, UserStatus } from "./dataStore.js";
+import { addUserToTempDeclineStore, getUserStatus, UserStatus } from "./dataStore.js";
 import { getControlSubSettings } from "./settings.js";
-import Ajv, { JSONSchemaType } from "ajv";
 import { addDays, addMinutes, addSeconds } from "date-fns";
 import { getPostOrCommentById, getUserOrUndefined } from "./utility.js";
 import { isLinkId } from "@devvit/public-api/types/tid.js";
-import { AsyncSubmission, isUserAlreadyQueued, PostCreationQueueResult, queuePostCreation } from "./postCreation.js";
+import { AsyncSubmission, isUserAlreadyQueued, PostCreationQueueResult, promotePositionInQueue, queuePostCreation } from "./postCreation.js";
 import pluralize from "pluralize";
 import { getUserExtendedFromUser } from "./extendedDevvit.js";
 import { evaluateUserAccount, EvaluationResult, storeAccountInitialEvaluationResults } from "./handleControlSubAccountEvaluation.js";
@@ -15,6 +14,7 @@ import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { queueKarmaFarmingAccounts } from "./karmaFarmingSubsCheck.js";
 import { userIsTrustedSubmitter } from "./trustedSubmitterHelpers.js";
 import { addSubsToPermissionChecksQueueFromExternalSubmissions } from "./permissionChecks.js";
+import { queueUpgradeNotificationsForLegacySubs } from "./upgradeNotifierForLegacySubs.js";
 
 const WIKI_PAGE = "externalsubmissions";
 
@@ -40,42 +40,6 @@ export interface ExternalSubmission {
     immediate?: boolean;
 };
 
-const externalSubmissionSchema: JSONSchemaType<ExternalSubmission[]> = {
-    type: "array",
-    items: {
-        type: "object",
-        properties: {
-            username: { type: "string" },
-            submitter: { type: "string", nullable: true },
-            subreddit: { type: "string", nullable: true },
-            reportContext: { type: "string", nullable: true },
-            publicContext: { type: "boolean", nullable: true },
-            targetId: { type: "string", nullable: true },
-            initialStatus: { type: "string", nullable: true, enum: Object.values(UserStatus) },
-            evaluatorName: { type: "string", nullable: true },
-            hitReason: { type: "string", nullable: true },
-            evaluationResults: {
-                type: "array",
-                items: {
-                    type: "object",
-                    properties: {
-                        botName: { type: "string" },
-                        hitReason: { type: "string", nullable: true },
-                        canAutoBan: { type: "boolean" },
-                        metThreshold: { type: "boolean" },
-                    },
-                    required: ["botName", "canAutoBan", "metThreshold"],
-                },
-                nullable: true,
-            },
-            sendFeedback: { type: "boolean", nullable: true },
-            proactive: { type: "boolean", nullable: true },
-            immediate: { type: "boolean", nullable: true },
-        },
-        required: ["username"],
-    },
-};
-
 export async function addExternalSubmissionFromClientSub (data: ExternalSubmission, context: TriggerContext) {
     if (context.subredditName === CONTROL_SUBREDDIT) {
         throw new Error("This function must be called from a client subreddit, not the control subreddit.");
@@ -91,7 +55,7 @@ export async function addExternalSubmissionFromClientSub (data: ExternalSubmissi
     console.log(`External Submissions: Added external submission for ${data.username} to the queue.`);
 }
 
-export async function addExternalSubmissionToPostCreationQueue (item: ExternalSubmission, immediate: boolean, context: TriggerContext, enableTouch = true): Promise<boolean> {
+export async function addExternalSubmissionToPostCreationQueue (item: ExternalSubmission, immediate: boolean, context: TriggerContext): Promise<boolean> {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
         throw new Error("This function can only be called from the control subreddit.");
     }
@@ -104,15 +68,16 @@ export async function addExternalSubmissionToPostCreationQueue (item: ExternalSu
             // Need to send back initial status.
             await addUserToTempDeclineStore(item.username, context);
         }
-        if (currentStatus.userStatus !== UserStatus.Pending && enableTouch) {
-            await touchUserStatus(item.username, currentStatus, context);
-        }
         return false;
     }
 
     const alreadyQueued = await isUserAlreadyQueued(item.username, context);
     if (alreadyQueued) {
         console.log(`External Submissions: User ${item.username} is already in the queue.`);
+        if (immediate) {
+            await promotePositionInQueue(item.username, context);
+            console.log(`External Submissions: Promoted ${item.username} in the queue due to immediate flag.`);
+        }
         return false;
     }
 
@@ -250,13 +215,6 @@ export async function handleExternalSubmissionsPageUpdate (context: TriggerConte
 
     const currentSubmissionList = JSON.parse(wikiPage?.content ?? "[]") as ExternalSubmission[];
 
-    const ajv = new Ajv.default();
-    const validate = ajv.compile(externalSubmissionSchema);
-    if (!validate(currentSubmissionList)) {
-        console.error("External submission list is invalid.", ajv.errorsText(validate.errors));
-        return;
-    }
-
     if (currentSubmissionList.length === 0) {
         await context.redis.del(externalSubmissionLock);
         return;
@@ -273,9 +231,6 @@ export async function handleExternalSubmissionsPageUpdate (context: TriggerConte
         const currentStatus = await getUserStatus(item.username, context);
         if (currentStatus) {
             console.log(`External Submissions: User ${item.username} already has a status of ${currentStatus.userStatus}, skipping.`);
-            if (currentStatus.userStatus !== UserStatus.Pending && context.subredditName === CONTROL_SUBREDDIT) {
-                await touchUserStatus(item.username, currentStatus, context);
-            }
             return false;
         }
 
@@ -305,6 +260,7 @@ export async function handleExternalSubmissionsPageUpdate (context: TriggerConte
     // For items enqueued from a client subreddit, enqueue for permissions checks.
     if (context.subredditName === CONTROL_SUBREDDIT) {
         await addSubsToPermissionChecksQueueFromExternalSubmissions(currentSubmissionList, context);
+        await queueUpgradeNotificationsForLegacySubs(currentSubmissionList, context);
     }
 }
 
@@ -337,7 +293,7 @@ export async function processExternalSubmissionsQueue (context: JobContext): Pro
         }
 
         const submissionData = JSON.parse(submissionDataRaw) as ExternalSubmission;
-        const postSubmitted = await addExternalSubmissionToPostCreationQueue(submissionData, submissionData.immediate ?? false, context);
+        const postSubmitted = await addExternalSubmissionToPostCreationQueue(submissionData, submissionData.immediate ?? submissionData.submitter === undefined, context);
         await context.redis.del(getExternalSubmissionDataKey(username));
         if (postSubmitted) {
             processed++;
@@ -382,4 +338,27 @@ export async function processAccountsToCheckFromObserverSubreddit (context: Trig
     });
 
     console.log(`External Submissions: Queued ${accountsToCheck.length} ${pluralize("account", accountsToCheck.length)} from /r/${subredditName} for evaluation.`);
+}
+
+export async function getSubredditsFromExternalSubmissions (externalSubmissions: ExternalSubmission[], context: TriggerContext): Promise<string[]> {
+    const subreddits = new Set<string>();
+
+    for (const submission of externalSubmissions) {
+        let itemAdded = false;
+        if (submission.reportContext) {
+            const regex = /^Automatically reported via a \[(?:post|comment)\].+ on \/r\/([A-Za-z_-]{3,21})$/;
+            const match = regex.exec(submission.reportContext);
+            if (match?.[1]) {
+                subreddits.add(match[1]);
+                itemAdded = true;
+            }
+        }
+
+        if (!itemAdded && submission.targetId) {
+            const target = await getPostOrCommentById(submission.targetId, context);
+            subreddits.add(target.subredditName);
+        }
+    }
+
+    return Array.from(subreddits);
 }

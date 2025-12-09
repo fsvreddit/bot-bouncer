@@ -1,6 +1,6 @@
 import { Comment, Post, TriggerContext } from "@devvit/public-api";
 import { addWeeks } from "date-fns";
-import { uniq } from "lodash";
+import _ from "lodash";
 
 async function isAppModOfSub (subredditName: string, context: TriggerContext): Promise<boolean> {
     if (subredditName === context.subredditName) {
@@ -30,7 +30,7 @@ async function isAppModOfSub (subredditName: string, context: TriggerContext): P
 }
 
 export async function isUserPotentiallyBlockingBot (history: (Post | Comment)[], context: TriggerContext): Promise<boolean> {
-    const distinctSubreddits = uniq(history.map(item => item.subredditName));
+    const distinctSubreddits = _.uniq(history.map(item => item.subredditName));
     if (distinctSubreddits.length < 5) {
         return false;
     }

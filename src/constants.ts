@@ -21,7 +21,6 @@ export enum PostFlairTemplate {
  */
 export enum UniversalJob {
     Cleanup = "cleanupJob",
-    AdhocCleanup = "adhocCleanup",
 }
 
 /**
@@ -29,10 +28,10 @@ export enum UniversalJob {
  */
 
 export enum ControlSubredditJob {
-    UpdateWikiPage = "updateWikiPage",
     EvaluateUser = "evaluateUser",
     Perform6HourlyJobs = "performDailyJobs",
     Perform6HourlyJobsPart2 = "performDailyJobsPart2",
+    Perform5MinutelyJobs = "perform5MinutelyJobs",
     EvaluateKarmaFarmingSubs = "evaluateKarmaFarmingSubs",
     QueueKarmaFarmingSubs = "queueKarmaFarmingSubs",
     UptimeAndMessageCheck = "uptimeAndMessageCheck",
@@ -40,7 +39,8 @@ export enum ControlSubredditJob {
     EvaluatorAccuracyStatistics = "evaluatorAccuracyStatistics",
     DefinedHandlesStatistics = "definedHandlesStatistics",
     DefinedHandlesPostStore = "definedHandlesPostStore",
-    EvaluatorReversals = "evaluatorReversals",
+    ClassificationReversals = "classificationReversals",
+    PostCreationQueueReversals = "postCreationQueueReversals",
     DeleteRecordsForRemovedUsers = "deleteRecordsForRemovedUsers",
     HandleConfigWikiChange = "handleConfigWikiChange",
     ConditionalStatsUpdate = "conditionalStatsUpdate",
@@ -51,6 +51,7 @@ export enum ControlSubredditJob {
     UpdateEvaluatorVariables = "updateEvaluatorVariables",
     EvaluatorReDoSChecker = "evaluatorReDoSChecker",
     CheckPermissionQueueItems = "checkPermissionQueueItems",
+    CheckUpgradeNotifierForLegacySubs = "checkUpgradeNotifierForLegacySubs",
 }
 
 /**

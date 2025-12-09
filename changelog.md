@@ -1,6 +1,6 @@
 # Changelog for Bot Bouncer
 
-## v1.22.0
+## v1.22.1
 
 * Improve resilience of app if required permissions are accidentally removed from the app's user account
 * Reduce false positives on one evaluator

@@ -1,7 +1,7 @@
 import { JSONValue, Post, TriggerContext } from "@devvit/public-api";
 import { getUserExtended } from "../extendedDevvit.js";
 import { addDays } from "date-fns";
-import { compact, uniq } from "lodash";
+import _ from "lodash";
 import { SequenceMatcher } from "./difflib.js";
 import { getSubstitutedText } from "./substitutions.js";
 import pluralize from "pluralize";
@@ -49,12 +49,12 @@ async function getDistinctUsersFromSubreddit (subredditName: string, context: Tr
         return [];
     }
 
-    return uniq(posts.map(post => post.authorName));
+    return _.uniq(posts.map(post => post.authorName));
 }
 
 async function getDistinctUsersFromSubreddits (subredditNames: string[], context: TriggerContext): Promise<string[]> {
     const userSets = await Promise.all(subredditNames.map(subredditName => getDistinctUsersFromSubreddit(subredditName, context)));
-    return uniq(userSets.flat());
+    return _.uniq(userSets.flat());
 }
 
 function bioTextAlreadyBanned (bioText: string, variables: Record<string, JSONValue>): boolean {
@@ -79,7 +79,7 @@ export async function analyseBioText (context: TriggerContext) {
 
     const users = await getDistinctUsersFromSubreddits(subreddits, context);
 
-    let bioTextResults = compact(await Promise.all(users.map(username => getBioTextForUser(username, context))));
+    let bioTextResults = _.compact(await Promise.all(users.map(username => getBioTextForUser(username, context))));
     const results: Record<string, UserBioText[]> = {};
 
     let bestMatch: Match | undefined = undefined;

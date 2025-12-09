@@ -3,7 +3,7 @@ import { UserStatus } from "../dataStore.js";
 import { getEvaluatorVariable } from "../userEvaluation/evaluatorVariables.js";
 import { subWeeks } from "date-fns";
 import json2md from "json2md";
-import { StatsUserEntry } from "../sixHourlyJobs.js";
+import { StatsUserEntry } from "../scheduler/sixHourlyJobs.js";
 
 export async function updateUsernameStatistics (allEntries: StatsUserEntry[], context: JobContext) {
     const recentData = allEntries

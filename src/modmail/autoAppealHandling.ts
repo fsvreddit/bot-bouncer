@@ -5,7 +5,7 @@ import { BIO_TEXT_STORE, SOCIAL_LINKS_STORE, UserDetails, UserFlag, UserStatus }
 import { getControlSubSettings } from "../settings.js";
 import { CONTROL_SUBREDDIT } from "../constants.js";
 import { parseAllDocuments } from "yaml";
-import { compact } from "lodash";
+import _ from "lodash";
 import json2md from "json2md";
 import { sendMessageToWebhook } from "../utility.js";
 import { ModmailMessage } from "./modmail.js";
@@ -132,7 +132,32 @@ export async function validateAndSaveAppealConfig (username: string, context: Tr
         return;
     }
 
-    const substitutions = getSubstitutions(wikiPage.content);
+    let substitutions: Record<string, string | string[]>;
+    try {
+        substitutions = getSubstitutions(wikiPage.content);
+    } catch {
+        console.error("Failed to parse substitutions from the appeal config wiki page.");
+
+        await context.reddit.sendPrivateMessage({
+            to: username,
+            subject: "Error in appeal configuration",
+            text: json2md([
+                { p: "Unable to parse YAML on the appeal configuration page." },
+                { p: "Please ensure the page is formatted correctly." },
+            ]),
+        });
+
+        const webhookUrl = await getControlSubSettings(context).then(s => s.monitoringWebhook);
+        if (webhookUrl) {
+            await sendMessageToWebhook(webhookUrl, json2md([
+                { p: `There was an error in the appeal configuration, last updated by ${username}` },
+                { p: "Last known good values will be used until this is corrected." },
+                { p: "The YAML on the appeal configuration page could not be parsed." },
+            ]));
+        }
+
+        return;
+    }
 
     let pageToParse = wikiPage.content;
     for (const [key, value] of Object.entries(substitutions)) {
@@ -142,7 +167,7 @@ export async function validateAndSaveAppealConfig (username: string, context: Tr
 
     const documents = parseAllDocuments(pageToParse);
 
-    const parsedConfigs = compact(documents.map(doc => doc.toJSON() as AppealConfig)).filter(item => item.name !== "substitutions");
+    const parsedConfigs = _.compact(documents.map(doc => doc.toJSON() as AppealConfig)).filter(item => item.name !== "substitutions");
 
     const ajv = new Ajv.default({
         coerceTypes: "array",
@@ -253,7 +278,17 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
                     continue;
                 }
 
-                if (config.evaluatorHitReasonRegex && !config.evaluatorHitReasonRegex.some(regex => new RegExp(regex, "i").test(evaluationResult.hitReason ?? ""))) {
+                if (config.evaluatorHitReasonRegex && !config.evaluatorHitReasonRegex.some((regex) => {
+                    if (!evaluationResult.hitReason) {
+                        return false;
+                    }
+
+                    if (typeof evaluationResult.hitReason === "string") {
+                        return new RegExp(regex, "i").test(evaluationResult.hitReason);
+                    }
+
+                    return new RegExp(regex, "i").test(evaluationResult.hitReason.reason);
+                })) {
                     continue;
                 }
                 anyMatched = true;

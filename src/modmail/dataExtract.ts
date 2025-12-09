@@ -4,13 +4,13 @@ import { BIO_TEXT_STORE, DISPLAY_NAME_STORE, getFullDataStore, SOCIAL_LINKS_STOR
 import Ajv, { JSONSchemaType } from "ajv";
 import pluralize from "pluralize";
 import json2md from "json2md";
-import { addSeconds, format } from "date-fns";
+import { addHours, addSeconds, format, subDays } from "date-fns";
 import { setCleanupForUser } from "../cleanup.js";
 import { getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
-import { RedisHelper } from "../redisHelper.js";
 import { ModmailMessage } from "./modmail.js";
-import { chunk, fromPairs } from "lodash";
+import _ from "lodash";
 import { ControlSubredditJob } from "../constants.js";
+import { hMGetAsRecord } from "devvit-helpers";
 
 interface ModmailDataExtract {
     status?: UserStatus[];
@@ -27,7 +27,9 @@ interface ModmailDataExtract {
     flags?: UserFlag[];
     "~flags"?: UserFlag[];
     since?: string;
+    until?: string;
     recheck?: boolean;
+    omitUserDetails?: boolean;
 }
 
 const schema: JSONSchemaType<ModmailDataExtract> = {
@@ -58,8 +60,10 @@ const schema: JSONSchemaType<ModmailDataExtract> = {
             items: { type: "string", enum: Object.values(UserFlag) },
             nullable: true,
         },
-        since: { type: "string", nullable: true, pattern: "^\\d{4}-\\d{2}-\\d{2}$" },
+        since: { type: "string", nullable: true, pattern: "^\\d{4}-\\d{2}-\\d{2}(?: \\d{2}:\\d{2})?$" },
+        until: { type: "string", nullable: true, pattern: "^\\d{4}-\\d{2}-\\d{2}(?: \\d{2}:\\d{2})?$" },
         recheck: { type: "boolean", nullable: true },
+        omitUserDetails: { type: "boolean", nullable: true },
     },
     additionalProperties: false,
 };
@@ -205,6 +209,13 @@ export async function dataExtract (message: ModmailMessage, conversationId: stri
                 }
             }
 
+            if (request.until && entry.data.reportedAt) {
+                const untilDate = new Date(request.until);
+                if (new Date(entry.data.reportedAt) >= untilDate) {
+                    return false;
+                }
+            }
+
             return true; // Keep the entry if it passes all filters
         });
 
@@ -212,8 +223,8 @@ export async function dataExtract (message: ModmailMessage, conversationId: stri
 
     const extractId = Date.now().toString();
 
-    await Promise.all(chunk(data, 10000).map(async (dataChunk) => {
-        const dataToStore = fromPairs(dataChunk.map(entry => [entry.username, JSON.stringify(entry.data)]));
+    await Promise.all(_.chunk(data, 10000).map(async (dataChunk) => {
+        const dataToStore = _.fromPairs(dataChunk.map(entry => [entry.username, JSON.stringify(entry.data)]));
         await context.redis.hSet(getExtractTempStoreKey(extractId), dataToStore);
         await context.redis.zAdd(getExtractTempQueueKey(extractId), ...dataChunk.map(entry => ({ score: 0, member: entry.username })));
     }));
@@ -276,19 +287,17 @@ export async function continueDataExtract (event: ScheduledJobEvent<JSONObject |
         return;
     }
 
-    const redisHelper = new RedisHelper(context.redis);
-
-    const rawData = await redisHelper.hMGet(getExtractTempStoreKey(extractId), processingQueue);
+    const rawData = await hMGetAsRecord(context.redis, getExtractTempStoreKey(extractId), processingQueue);
     const dataMapped = Object.entries(rawData)
         .map(([username, data]) => ({ username, data: JSON.parse(data) as UserDetailsWithBioAndSocialLinks }));
 
-    const data = fromPairs(dataMapped.map(entry => [entry.username, entry.data]));
+    const data = _.fromPairs(dataMapped.map(entry => [entry.username, entry.data]));
 
     console.log(`Data Extract: Processing batch of ${processingQueue.length} entries.`);
 
     if (request.bioRegex) {
         const regex = new RegExp(request.bioRegex);
-        const bioTexts = await redisHelper.hMGet(BIO_TEXT_STORE, processingQueue);
+        const bioTexts = await hMGetAsRecord(context.redis, BIO_TEXT_STORE, processingQueue);
 
         for (const username of processingQueue) {
             if (bioTexts[username] && regex.test(bioTexts[username])) {
@@ -302,7 +311,7 @@ export async function continueDataExtract (event: ScheduledJobEvent<JSONObject |
 
     if (request.displayNameRegex) {
         const regex = new RegExp(request.displayNameRegex);
-        const displayNames = await redisHelper.hMGet(DISPLAY_NAME_STORE, processingQueue);
+        const displayNames = await hMGetAsRecord(context.redis, DISPLAY_NAME_STORE, processingQueue);
         for (const username of processingQueue) {
             if (displayNames[username] && regex.test(displayNames[username])) {
                 data[username].displayName = displayNames[username];
@@ -314,7 +323,7 @@ export async function continueDataExtract (event: ScheduledJobEvent<JSONObject |
     }
 
     if (request.socialLinkStartsWith || request.socialLinkUrlRegex || request.socialLinkTitleRegex) {
-        const socialLinks = await redisHelper.hMGet(SOCIAL_LINKS_STORE, processingQueue);
+        const socialLinks = await hMGetAsRecord(context.redis, SOCIAL_LINKS_STORE, processingQueue);
 
         const socialLinkPrefix = request.socialLinkStartsWith?.toLowerCase();
         const socialLinkUrlRegex = request.socialLinkUrlRegex ? new RegExp(request.socialLinkUrlRegex) : undefined;
@@ -362,8 +371,19 @@ export async function continueDataExtract (event: ScheduledJobEvent<JSONObject |
                 return;
             }
 
-            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-            if (request.hitReason && !results.some(result => result.hitReason?.toLowerCase().includes(request.hitReason!.toLowerCase()))) {
+            if (request.hitReason && !results.some((result) => {
+                if (!result.hitReason) {
+                    return false;
+                }
+
+                if (typeof result.hitReason === "string") {
+                    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+                    return result.hitReason.toLowerCase().includes(request.hitReason!.toLowerCase());
+                }
+
+                // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+                return result.hitReason.reason.toLowerCase().includes(request.hitReason!.toLowerCase());
+            })) {
                 entriesToRemove.add(username);
                 return;
             }
@@ -376,7 +396,7 @@ export async function continueDataExtract (event: ScheduledJobEvent<JSONObject |
     }
 
     if (entriesToRewrite.size > 0) {
-        const rewrittenData = fromPairs(Array.from(entriesToRewrite).map(username => [username, JSON.stringify(data[username])]));
+        const rewrittenData = _.fromPairs(Array.from(entriesToRewrite).map(username => [username, JSON.stringify(data[username])]));
         await context.redis.hSet(getExtractTempStoreKey(extractId), rewrittenData);
     }
 
@@ -485,7 +505,22 @@ async function createDataExtract (
         markdown.push({ ul: criteriaBullets });
     }
 
-    const headers = ["User", "Tracking Post", "Status", "Reported At", "Last Update", "Submitter", "Operator"];
+    if (data.length > 0 && request.status?.includes(UserStatus.Banned) && request.since && new Date(request.since) > subDays(new Date(), 2)) {
+        // Generate a random four-character string for reversing classifications
+        const randomString = Math.random().toString(36).substring(2, 6);
+
+        markdown.push({ p: `To reverse the classifications of all users included in this extract, issue the following command in the next two hours:` });
+        markdown.push({ code: { content: `!reverse-classification ${randomString}` } });
+
+        await context.redis.set(`reversibleExtract:${randomString}`, JSON.stringify(data.map(entry => entry.username)), { expiration: addHours(new Date(), 2) });
+    }
+
+    const headers = ["User", "Tracking Post", "Status", "Reported At", "Last Update"];
+    if (!request.omitUserDetails) {
+        headers.push("Submitter");
+        headers.push("Operator");
+    }
+
     if (includeFlags) {
         headers.push("Flags");
     }
@@ -505,9 +540,12 @@ async function createDataExtract (
             entry.data.userStatus,
             entry.data.reportedAt ? format(new Date(entry.data.reportedAt), "yyyy-MM-dd") : "",
             entry.data.lastUpdate ? format(new Date(entry.data.lastUpdate), "yyyy-MM-dd") : "",
-            entry.data.submitter ?? "",
-            entry.data.operator ?? "unknown",
         ];
+
+        if (!request.omitUserDetails) {
+            row.push(entry.data.submitter ?? "");
+            row.push(entry.data.operator ?? "unknown");
+        }
 
         if (includeFlags) {
             row.push(entry.data.flags?.join(", ") ?? "");

@@ -1,18 +1,19 @@
-import { JobContext, JSONObject, JSONValue, ScheduledJobEvent, TriggerContext, WikiPage } from "@devvit/public-api";
+import { JobContext, JSONObject, JSONValue, ScheduledJobEvent, TriggerContext } from "@devvit/public-api";
 import { ALL_EVALUATORS, ValidationIssue, yamlToVariables } from "@fsvreddit/bot-bouncer-evaluation";
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "../constants.js";
-import { fromPairs, uniq } from "lodash";
+import _ from "lodash";
 import { sendMessageToWebhook } from "../utility.js";
 import json2md from "json2md";
 import { getControlSubSettings } from "../settings.js";
 import { EvaluateBotGroupAdvanced } from "@fsvreddit/bot-bouncer-evaluation/dist/userEvaluation/EvaluateBotGroupAdvanced.js";
 import { getUserExtended } from "../extendedDevvit.js";
 import { addSeconds } from "date-fns";
+import Pako from "pako";
 
 const EVALUATOR_VARIABLES_KEY = "evaluatorVariablesHash";
-const EVALUATOR_VARIABLES_YAML_PAGE = "evaluator-config";
+const EVALUATOR_VARIABLES_YAML_PAGE_ROOT = "evaluator-config";
 const EVALUATOR_VARIABLES_WIKI_PAGE = "evaluatorvars";
-const EVALUATOR_VARIABLES_LAST_REVISION_KEY = "evaluatorVariablesLastRevision";
+const EVALUATOR_VARIABLES_LAST_REVISIONS_KEY = "evaluatorVariablesLastRevisions";
 
 export async function getEvaluatorVariables (context: TriggerContext | JobContext): Promise<Record<string, JSONValue>> {
     let allVariables: Record<string, string>;
@@ -30,7 +31,7 @@ export async function getEvaluatorVariables (context: TriggerContext | JobContex
         }
     }
 
-    return fromPairs(Object.entries(allVariables).map(([key, value]) => [key, JSON.parse(value)]));
+    return _.fromPairs(Object.entries(allVariables).map(([key, value]) => [key, JSON.parse(value)]));
 }
 
 export async function forceEvaluatorVariablesRefresh (context: TriggerContext | JobContext) {
@@ -60,20 +61,26 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
         throw new Error("Evaluator Variables: This job should only be run in the control subreddit.");
     }
 
-    let wikiPage: WikiPage | undefined;
-    try {
-        wikiPage = await context.reddit.getWikiPage(CONTROL_SUBREDDIT, EVALUATOR_VARIABLES_YAML_PAGE);
-    } catch (e) {
-        console.error("Evaluator Variables: Error reading evaluator variables from wiki", e);
+    const controlSubSettings = await getControlSubSettings(context);
+    if (!controlSubSettings.evaluatorVariableUpdatesEnabled) {
+        console.log("Evaluator Variables: Evaluator variable updates from wiki are disabled in control sub settings.");
         return;
     }
 
-    const lastRevision = await context.redis.get(EVALUATOR_VARIABLES_LAST_REVISION_KEY);
-    if (lastRevision === wikiPage.revisionId || event.data?.username === context.appName) {
+    const pageList = await context.reddit.getWikiPages(CONTROL_SUBREDDIT)
+        .then(pages => pages.filter(page => page === EVALUATOR_VARIABLES_YAML_PAGE_ROOT || page.startsWith(`${EVALUATOR_VARIABLES_YAML_PAGE_ROOT}/`)));
+
+    const pages = await Promise.all(pageList.map(page => context.reddit.getWikiPage(CONTROL_SUBREDDIT, page)));
+
+    const recentRevisions = await context.redis.hGetAll(EVALUATOR_VARIABLES_LAST_REVISIONS_KEY);
+    if (!pages.some(page => recentRevisions[page.name] !== page.revisionId)) {
+        console.log("Evaluator Variables: No changes detected in evaluator variable wiki pages.");
         return;
     }
 
-    const variables = yamlToVariables(wikiPage.content);
+    const yamlStr = pages.map(page => page.content).join("\n\n---\n\n");
+
+    const variables = yamlToVariables(yamlStr);
 
     const invalidEntries = invalidEvaluatorVariableCondition(variables);
     const errors = variables.errors as string[] | undefined;
@@ -97,7 +104,18 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
                 limit: 100,
             }).all();
             if (await evaluator.evaluate(user, userHistory)) {
-                matchedMods[moderator] = evaluator.hitReasons?.join(", ") ?? "unknown reason";
+                const reasons: string[] = [];
+                for (const reason of evaluator.hitReasons ?? []) {
+                    if (typeof reason === "string") {
+                        reasons.push(reason);
+                    } else {
+                        reasons.push(reason.reason);
+                    }
+                }
+                if (reasons.length === 0) {
+                    reasons.push("unknown reason");
+                }
+                matchedMods[moderator] = reasons.join(", ");
             }
         }
         for (const [username, reason] of Object.entries(matchedMods)) {
@@ -149,7 +167,7 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
         }
     }
 
-    for (const module of uniq(Object.keys(variables).map(key => key.split(":")[0]))) {
+    for (const module of _.uniq(Object.keys(variables).map(key => key.split(":")[0]))) {
         if (module === "generic" || module === "substitutions" || module === "errors") {
             continue;
         }
@@ -159,36 +177,38 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
         }
     }
 
-    const converted = fromPairs(Object.entries(variables).map(([key, value]) => [key, JSON.stringify(value)]));
+    const converted = _.fromPairs(Object.entries(variables).map(([key, value]) => [key, JSON.stringify(value)]));
 
     const existingVariables = await context.redis.global.hGetAll(EVALUATOR_VARIABLES_KEY);
     const keysToRemove = Object.keys(existingVariables).filter(key => !(key in converted));
 
-    await context.redis.del(EVALUATOR_VARIABLES_KEY);
     await context.redis.global.hSet(EVALUATOR_VARIABLES_KEY, converted);
     if (keysToRemove.length > 0) {
         await context.redis.global.hDel(EVALUATOR_VARIABLES_KEY, keysToRemove);
     }
-    await context.redis.set(EVALUATOR_VARIABLES_LAST_REVISION_KEY, wikiPage.revisionId);
+
+    const newRevisions = _.fromPairs(pages.map(page => [page.name, page.revisionId]));
+    await context.redis.hSet(EVALUATOR_VARIABLES_LAST_REVISIONS_KEY, newRevisions);
 
     const variablesCount = Object.keys(converted).length;
-    console.log(`Evaluator Variables: Updated ${variablesCount} variables and removed ${keysToRemove.length} from wiki revision ${wikiPage.revisionId}`);
+    console.log(`Evaluator Variables: Updated ${variablesCount} variables and removed ${keysToRemove.length} from wiki edit by /u/${event.data?.username as string | undefined ?? "unknown"}.`);
+
+    const compressedVariables = compressData(variables);
 
     // Write back to parsed wiki page for older client subreddits and observer subreddits
     await context.reddit.updateWikiPage({
         subredditName: CONTROL_SUBREDDIT,
         page: EVALUATOR_VARIABLES_WIKI_PAGE,
-        content: JSON.stringify(variables),
+        content: compressedVariables,
         reason: `Updating evaluator variables from wiki on /r/${context.subredditName}`,
     });
 
-    const controlSubSettings = await getControlSubSettings(context);
     if (controlSubSettings.observerSubreddits?.length) {
         for (const subreddit of controlSubSettings.observerSubreddits) {
             await context.reddit.updateWikiPage({
                 subredditName: subreddit,
                 page: EVALUATOR_VARIABLES_WIKI_PAGE,
-                content: JSON.stringify(variables),
+                content: compressedVariables,
             });
             console.log(`Evaluator Variables: Updated wiki page on /r/${subreddit}`);
         }
@@ -220,7 +240,7 @@ export function invalidEvaluatorVariableCondition (variables: Record<string, JSO
     for (const key of Object.keys(variables)) {
         const value = variables[key];
         if (Array.isArray(value)) {
-            const distinctTypes = uniq(value.map(item => typeof item));
+            const distinctTypes = _.uniq(value.map(item => typeof item));
             if (distinctTypes.length > 1) {
                 results.push({ severity: "error", message: `Inconsistent types for ${key} which may be a result of an undoubled single quote: ${distinctTypes.join(", ")}` });
             }
@@ -242,4 +262,8 @@ export function invalidEvaluatorVariableCondition (variables: Record<string, JSO
     }
 
     return results;
+}
+
+function compressData (value: Record<string, JSONValue>): string {
+    return Buffer.from(Pako.deflate(JSON.stringify(value), { level: 9 })).toString("base64");
 }

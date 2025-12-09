@@ -1,12 +1,12 @@
 import { Comment, JobContext, JSONObject, JSONValue, Post, ScheduledJobEvent, SubredditInfo, TriggerContext, UserSocialLink } from "@devvit/public-api";
-import { ALL_EVALUATORS, UserEvaluatorBase } from "@fsvreddit/bot-bouncer-evaluation";
+import { ALL_EVALUATORS, HitReason, UserEvaluatorBase } from "@fsvreddit/bot-bouncer-evaluation";
 import { getUserStatus, UserStatus } from "./dataStore.js";
 import { CONTROL_SUBREDDIT, PostFlairTemplate } from "./constants.js";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { createUserSummary } from "./UserSummary/userSummary.js";
 import { addMonths, addWeeks, subMonths } from "date-fns";
 import { getUserExtended } from "./extendedDevvit.js";
-import { uniq } from "lodash";
+import _ from "lodash";
 import { getSubmitterSuccessRate } from "./statistics/submitterStatistics.js";
 
 export interface EvaluatorStats {
@@ -16,7 +16,7 @@ export interface EvaluatorStats {
 
 export interface EvaluationResult {
     botName: string;
-    hitReason?: string;
+    hitReason?: HitReason;
     canAutoBan: boolean;
     metThreshold: boolean;
 }
@@ -92,7 +92,7 @@ export async function evaluateUserAccount (username: string, variables: Record<s
         if (isABot) {
             console.log(`Evaluator: ${username} appears to be a bot via the evaluator: ${evaluator.name} 💥`);
             if (evaluator.name.includes("Bot Group") && evaluator.hitReasons && evaluator.hitReasons.length > 0) {
-                console.log(`Evaluator: Hit reasons: ${evaluator.hitReasons.join(", ")}`);
+                console.log(`Evaluator: Hit reasons: ${evaluator.hitReasons.map(item => typeof item === "string" ? item : item.reason).join(", ")}`);
             }
             detectedBots.push(evaluator);
         }
@@ -192,6 +192,23 @@ function getEvaluationResultsKey (username: string): string {
     return `evaluationResults:${username}`;
 }
 
+function truncatedHitReason (hitReason?: HitReason): HitReason | undefined {
+    if (!hitReason) {
+        return;
+    }
+    if (typeof hitReason === "string") {
+        return hitReason.length > 500 ? `${hitReason.substring(0, 500)}...` : hitReason;
+    } else {
+        return {
+            reason: hitReason.reason.length > 500 ? `${hitReason.reason.substring(0, 500)}...` : hitReason.reason,
+            details: hitReason.details.map(detail => ({
+                key: detail.key,
+                value: detail.value.length > 500 ? `${detail.value.substring(0, 500)}...` : detail.value,
+            })),
+        };
+    }
+}
+
 export async function storeAccountInitialEvaluationResults (username: string, results: EvaluationResult[], context: TriggerContext) {
     if (results.length === 0) {
         return;
@@ -199,7 +216,7 @@ export async function storeAccountInitialEvaluationResults (username: string, re
 
     const resultsToStore: EvaluationResult[] = results.map(result => ({
         botName: result.botName,
-        hitReason: result.hitReason && result.hitReason.length > 500 ? `${result.hitReason.substring(0, 500)}...` : result.hitReason,
+        hitReason: truncatedHitReason(result.hitReason),
         canAutoBan: result.canAutoBan,
         metThreshold: result.metThreshold,
     }));
@@ -268,7 +285,7 @@ export async function userHasContinuousNSFWHistory (username: string, context: T
             continue;
         }
 
-        for (const subreddit of uniq(postsInMonth.map(post => post.subredditName))) {
+        for (const subreddit of _.uniq(postsInMonth.map(post => post.subredditName))) {
             subNSFW[subreddit] ??= await subIsNSFW(subreddit, context);
             if (subNSFW[subreddit]) {
                 continue;

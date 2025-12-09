@@ -2,14 +2,14 @@ import { Comment, JobContext, JSONObject, Post, RedisClient, ScheduledJobEvent, 
 import { addDays, addHours, addSeconds, formatDuration, intervalToDuration, subDays, subMinutes, subSeconds } from "date-fns";
 import { CONTROL_SUBREDDIT, PostFlairTemplate, UniversalJob } from "./constants.js";
 import { deleteUserStatus, getUserStatus, removeRecordOfSubmitterOrMod, updateAggregate, UserStatus, writeUserStatus } from "./dataStore.js";
-import { getUserOrUndefined } from "./utility.js";
+import { getUserExtended } from "./extendedDevvit.js";
 import { removeRecordOfBan, removeWhitelistUnban } from "./handleClientSubredditClassificationChanges.js";
-import { max } from "lodash";
+import _ from "lodash";
 import { getControlSubSettings } from "./settings.js";
 
 export const CLEANUP_LOG_KEY = "CleanupLog";
 const SUB_OR_MOD_LOG_KEY = "SubOrModLog";
-const DAYS_BETWEEN_CHECKS = 7;
+const DAYS_BETWEEN_CHECKS = 28;
 
 export async function userHasCleanupEntry (username: string, context: JobContext | TriggerContext): Promise<boolean> {
     return await context.redis.zScore(CLEANUP_LOG_KEY, username).then(score => score !== undefined);
@@ -44,7 +44,11 @@ enum UserActiveStatus {
 }
 
 async function userActive (username: string, context: TriggerContext): Promise<UserActiveStatus> {
-    const user = await getUserOrUndefined(username, context);
+    const user = await getUserExtended(username, context);
+    if (user?.isSuspended) {
+        return UserActiveStatus.Suspended;
+    }
+
     if (user) {
         return UserActiveStatus.Active;
     }
@@ -114,6 +118,9 @@ export async function cleanupDeletedAccounts (event: ScheduledJobEvent<JSONObjec
 
         totalProcessed++;
 
+        // Push forward cleanup by one day in case retrieving user fails catastrophically.
+        await setCleanupForUser(username, context.redis, addDays(new Date(), 1));
+
         const currentUserStatus = await userActive(username, context);
 
         if (currentUserStatus === UserActiveStatus.Deleted) {
@@ -175,19 +182,12 @@ export async function cleanupDeletedAccounts (event: ScheduledJobEvent<JSONObjec
                 }
             }
 
-            const latestContent = await getLatestContentDate(username, context);
-            const latestActivity = latestContent ?? currentStatus.reportedAt;
-            if (latestActivity) {
-                // Store the latest activity date.
-                currentStatus.mostRecentActivity = latestActivity;
-                await writeUserStatus(username, currentStatus, context);
-
-                if (latestContent && new Date(latestContent) > subDays(new Date(), 14) && currentStatus.userStatus === UserStatus.Inactive) {
-                    // User flagged as "Inactive", but with recent activity. Set to "Pending".
+            if (currentStatus.userStatus === UserStatus.Inactive) {
+                // Check for recent activity to potentially change status from Inactive to Pending.
+                const latestContent = await getLatestContentDate(username, context);
+                if (latestContent && new Date(latestContent) > subDays(new Date(), 14)) {
                     newFlair = PostFlairTemplate.Pending;
                 }
-            } else {
-                console.log(`Cleanup: Unable to get latest activity for ${username}`);
             }
         } else {
             suspendedCount++;
@@ -200,16 +200,22 @@ export async function cleanupDeletedAccounts (event: ScheduledJobEvent<JSONObjec
                 // Change the post flair to Purged.
                 newFlair = PostFlairTemplate.Purged;
             } else {
+                // eslint-disable-next-line @typescript-eslint/no-deprecated
+                delete currentStatus.mostRecentActivity;
                 await writeUserStatus(username, currentStatus, context);
             }
 
             // Recheck suspended users every day for the first week
             if (new Date(currentStatus.lastUpdate) > subDays(new Date(), 8)) {
                 overrideCleanupDate = addDays(new Date(), 1);
-            } else if (new Date(currentStatus.lastUpdate) < subDays(new Date(), 28)) {
-                // If the user has been suspended for more than 28 days, set the cleanup date to 28 days from now.
-                overrideCleanupDate = addDays(new Date(), 28);
             }
+        }
+
+        // eslint-disable-next-line @typescript-eslint/no-deprecated
+        if (currentStatus.mostRecentActivity) {
+            // eslint-disable-next-line @typescript-eslint/no-deprecated
+            delete currentStatus.mostRecentActivity;
+            await writeUserStatus(username, currentStatus, context);
         }
 
         await setCleanupForUser(username, context.redis, overrideCleanupDate);
@@ -332,5 +338,5 @@ async function getLatestContentDate (username: string, context: JobContext): Pro
         return;
     }
 
-    return max(content.map(content => content.createdAt.getTime()));
+    return _.max(content.map(content => content.createdAt.getTime()));
 }

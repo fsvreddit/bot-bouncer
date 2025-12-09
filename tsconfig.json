@@ -1,8 +1,12 @@
 {
     "extends": "@devvit/public-api/devvit.tsconfig.json",
     "compilerOptions": {
-        "lib": ["ES2021", "WebWorker"],
-        "allowJs": false,
-        "checkJs": false
-    }
+        "lib": ["ES2021", "WebWorker"]
+    },
+    "exclude": [
+        "**/node_modules",
+        "dist",
+        "**/.*/",
+        "eslint.config.mjs"
+    ],
 }
