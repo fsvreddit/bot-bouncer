@@ -111,6 +111,12 @@ export async function handleReportUser (event: MenuItemOnPressEvent, context: Co
         return;
     }
 
+    const reportingUserStatus = await getUserStatus(currentUser.username, context);
+    if (reportingUserStatus?.userStatus === UserStatus.Banned) {
+        context.ui.showToast("You are currently listed as a bot on r/BotBouncer, so you cannot report other users.");
+        return;
+    }
+
     if (await isModeratorWithCache(target.authorName, context)) {
         context.ui.showToast("You cannot report a moderator of this subreddit.");
         return;
