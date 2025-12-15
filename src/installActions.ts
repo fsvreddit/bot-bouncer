@@ -2,7 +2,6 @@ import { AppInstall, AppUpgrade } from "@devvit/protos";
 import { TriggerContext } from "@devvit/public-api";
 import { ClientSubredditJob, CONTROL_SUBREDDIT, ControlSubredditJob, UniversalJob } from "./constants.js";
 import { handleExternalSubmissionsPageUpdate } from "./externalSubmissions.js";
-import { removeRetiredEvaluatorsFromStats } from "./userEvaluation/evaluatorHelpers.js";
 import { getControlSubSettings } from "./settings.js";
 import { addDays, addMinutes } from "date-fns";
 import { migrationToGlobalRedis } from "./dataStore.js";
@@ -36,6 +35,7 @@ export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, contex
     await context.redis.del("clientSubWikiUpdateCron");
     await context.redis.del("ReclassificationQueue");
     await context.redis.del("oneOffReaffirmation");
+    await context.redis.del("EvaluatorStats");
 
     await setInstallDateIfNotSet(context);
 }
@@ -82,7 +82,6 @@ async function addControlSubredditJobs (context: TriggerContext) {
 
     await Promise.all([
         handleExternalSubmissionsPageUpdate(context),
-        removeRetiredEvaluatorsFromStats(context),
     ]);
 
     console.log("App Install: Control subreddit jobs added");

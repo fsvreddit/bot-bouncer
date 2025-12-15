@@ -1,7 +1,6 @@
 import { JobContext, TriggerContext } from "@devvit/public-api";
 import { updateMainStatisticsPage } from "../statistics/mainStatistics.js";
 import { updateSubmitterStatistics } from "../statistics/submitterStatistics.js";
-import { updateEvaluatorHitsWikiPage } from "../statistics/evaluatorHitsStatistics.js";
 import { createTimeOfSubmissionStatistics } from "../statistics/timeOfSubmissionStatistics.js";
 import { checkDataStoreIntegrity, getFullDataStore, removeStaleRecentChangesEntries, UserDetails, UserFlag } from "../dataStore.js";
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "../constants.js";
@@ -68,7 +67,6 @@ export async function perform6HourlyJobs (_: unknown, context: JobContext) {
     await Promise.all([
         updateMainStatisticsPage(allValues, context),
         updateSubmitterStatistics(allValues, context),
-        updateEvaluatorHitsWikiPage(context),
         createTimeOfSubmissionStatistics(allValues, context),
         updateClassificationStatistics(context),
         updateAppealStatistics(context),

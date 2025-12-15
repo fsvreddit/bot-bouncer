@@ -21,27 +21,7 @@ export interface EvaluationResult {
     metThreshold: boolean;
 }
 
-export async function storeEvaluationStatistics (results: EvaluationResult[], context: JobContext) {
-    if (results.length === 0) {
-        return;
-    }
-
-    const redisKey = "EvaluatorStats";
-    const existingStatsVal = await context.redis.get(redisKey);
-
-    const allStats: Record<string, EvaluatorStats> = existingStatsVal ? JSON.parse(existingStatsVal) as Record<string, EvaluatorStats> : {};
-
-    for (const result of results.filter(result => result.botName !== "CQS Tester")) {
-        const botStats = allStats[result.botName] ?? { hitCount: 0, lastHit: 0 };
-        botStats.hitCount++;
-        botStats.lastHit = new Date().getTime();
-        allStats[result.botName] = botStats;
-    }
-
-    await context.redis.set(redisKey, JSON.stringify(allStats));
-}
-
-export async function evaluateUserAccount (username: string, variables: Record<string, JSONValue>, context: JobContext, storeStats: boolean): Promise<EvaluationResult[]> {
+export async function evaluateUserAccount (username: string, variables: Record<string, JSONValue>, context: JobContext): Promise<EvaluationResult[]> {
     const user = await getUserExtended(username, context);
     if (!user) {
         return [];
@@ -120,10 +100,6 @@ export async function evaluateUserAccount (username: string, variables: Record<s
         }
     }
 
-    if (storeStats) {
-        await storeEvaluationStatistics(results, context);
-    }
-
     return results;
 }
 
@@ -140,7 +116,7 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
     }
 
     const variables = await getEvaluatorVariables(context);
-    const evaluationResults = await evaluateUserAccount(username, variables, context, true);
+    const evaluationResults = await evaluateUserAccount(username, variables, context);
 
     const evaluationResultsToStore = evaluationResults.filter(result => result.canAutoBan);
     await storeAccountInitialEvaluationResults(username, evaluationResultsToStore, context);
