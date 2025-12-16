@@ -77,8 +77,8 @@ export async function checkPermissionQueueItems (event: ScheduledJobEvent<JSONOb
         if (!isMod) {
             problemFound.push([
                 { p: `/u/bot-bouncer is not a moderator of ${subredditName}. This means that most functions of Bot Bouncer will not work correctly.` },
-                { p: `Unfortunately it is not possible to add Dev Platform apps back as moderators once they have been removed. ` },
-                { p: `Please **uninstall Bot Bouncer** from your subreddit's [app configuration page](https://developers.reddit.com/r/${subredditName}/apps/bot-bouncer), it can then be reinstalled from the [app directory page](https://developers.reddit.com/apps/${context.appName}) if you wish to continue using the service.` },
+                { p: `Please check that you have the latest version of Bot Bouncer on your subreddit's [app configuration page](https://developers.reddit.com/r/${subredditName}/apps/bot-bouncer), and then re-invite /u/bot-bouncer to the mod team with full permissions` },
+                { p: "If you no longer wish to use Bot Bouncer, it can be uninstalled from the same page." },
             ]);
         } else {
             const hasPerms = await hasPermissions(context.reddit, {
