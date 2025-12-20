@@ -75,7 +75,7 @@ async function addControlSubredditJobs (context: TriggerContext) {
 
         context.scheduler.runJob({
             name: ControlSubredditJob.UpdateEvaluatorVariables,
-            cron: "0 0/3 * * *",
+            cron: "5 * * * *",
             data: {
                 username: context.appName,
                 updateExtraVariables: true,

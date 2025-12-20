@@ -22,6 +22,13 @@ export async function setRedisSubstititionValue (variableName: string, value: st
     await context.redis.set(EXTRA_VARIABLES_UPDATED_KEY, "true");
 }
 
+export async function getRedisSubstitionValue<T> (variableName: string, context: TriggerContext | JobContext): Promise<T | undefined> {
+    const variable = await context.redis.hGet(EXTRA_VARIABLES_KEY, variableName);
+    if (variable) {
+        return JSON.parse(variable) as T;
+    }
+}
+
 async function getExtraSubstititionValues (context: TriggerContext | JobContext): Promise<Record<string, string | string[]>> {
     const extraVariables = await context.redis.hGetAll(EXTRA_VARIABLES_KEY);
     return _.fromPairs(Object.entries(extraVariables).map(([key, value]) => [`redis:${key}`, JSON.parse(value)]));

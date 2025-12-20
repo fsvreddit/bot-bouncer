@@ -1,8 +1,8 @@
 import { JobContext, UserSocialLink } from "@devvit/public-api";
-import { format, subWeeks } from "date-fns";
+import { format, subMonths } from "date-fns";
 import json2md from "json2md";
 import _ from "lodash";
-import { getEvaluatorVariable } from "../userEvaluation/evaluatorVariables.js";
+import { getEvaluatorVariable, getRedisSubstitionValue, setRedisSubstititionValue } from "../userEvaluation/evaluatorVariables.js";
 import { SOCIAL_LINKS_STORE, UserDetails } from "../dataStore.js";
 import { StatsUserEntry } from "../scheduler/sixHourlyJobs.js";
 import { userIsBanned } from "./statsHelpers.js";
@@ -27,6 +27,12 @@ export function cleanLink (input: string): string {
         newString = matches[1];
     }
 
+    const snapchatRegex = /(https:\/\/www\.snapchat\.com\/add\/[\w\d]+)(?:\?share.*)?/;
+    const snapchatMatches = snapchatRegex.exec(newString);
+    if (snapchatMatches?.[1]) {
+        newString = snapchatMatches[1];
+    }
+
     if (!newString.endsWith("/")) {
         newString += "/";
     }
@@ -44,25 +50,27 @@ interface SocialLinksEntry {
 }
 
 export async function updateSocialLinksStatistics (allEntries: StatsUserEntry[], context: JobContext) {
-    let recentData = allEntries
+    const recentDataInit = allEntries
         .map(item => ({ username: item.username, data: item.data as UserDetailsWithSocialLink }))
-        .filter(item => item.data.reportedAt && new Date(item.data.reportedAt) >= subWeeks(new Date(), 4))
+        .filter(item => item.data.reportedAt && new Date(item.data.reportedAt) >= subMonths(new Date(), 3))
         .filter(item => userIsBanned(item.data));
 
-    const socialLinks = await context.redis.hMGet(SOCIAL_LINKS_STORE, recentData.map(item => item.username));
+    const recentData: typeof recentDataInit = [];
 
-    for (let i = 0; i < recentData.length; i++) {
-        const socialLinksEntry = socialLinks[i];
-        if (!socialLinksEntry) {
-            continue;
+    const chunks = _.chunk(recentDataInit, 5000);
+    for (const chunk of chunks) {
+        const socialLinks = await context.redis.hMGet(SOCIAL_LINKS_STORE, chunk.map(item => item.username));
+        for (let i = 0; i < chunk.length; i++) {
+            const socialLinksEntry = socialLinks[i];
+            if (socialLinksEntry) {
+                const socialLinksData = JSON.parse(socialLinksEntry) as UserSocialLink[];
+                if (socialLinksData.length > 0) {
+                    chunk[i].data.socialLinks = _.uniq(socialLinksData.map(link => cleanLink(link.outboundUrl)));
+                    recentData.push(chunk[i]);
+                }
+            }
         }
-
-        const userSocialLinks = JSON.parse(socialLinksEntry) as UserSocialLink[];
-
-        recentData[i].data.socialLinks = _.uniq(userSocialLinks.map(link => cleanLink(link.outboundUrl)));
     }
-
-    recentData = recentData.filter(item => item.data.socialLinks && item.data.socialLinks.length > 0);
 
     const configuredLinks = await getEvaluatorVariable<string[]>("sociallinks:badlinks", context) ?? [];
     const ignoredLinks = await getEvaluatorVariable<string[]>("sociallinks:ignored", context) ?? [];
@@ -74,6 +82,10 @@ export async function updateSocialLinksStatistics (allEntries: StatsUserEntry[],
         }
 
         for (const link of item.data.socialLinks) {
+            if (ignoredLinks.some(ignoredLink => new RegExp(ignoredLink).test(link))) {
+                continue;
+            }
+
             const existingEntry = socialLinksCounts[link];
             // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
             if (existingEntry) {
@@ -96,7 +108,7 @@ export async function updateSocialLinksStatistics (allEntries: StatsUserEntry[],
         }
     }
 
-    const bareDomainRegex = /^https:\/\/\w+\.\w+\\?$/;
+    const bareDomainRegex = /^https?:\/\/\w+\.\w+\\?$/;
 
     const records = Object.entries(socialLinksCounts)
         .map(([link, value]) => ({ link, value }))
@@ -105,12 +117,12 @@ export async function updateSocialLinksStatistics (allEntries: StatsUserEntry[],
         .sort((a, b) => b.value.hits - a.value.hits);
 
     const wikiContent: json2md.DataObject[] = [
-        { p: "This page lists social links seen on more than one user, where it has been seen on a newly banned user in the last four weeks" },
+        { p: "This page lists social links seen on more than one user, where it has been seen on a newly banned user in the last three months" },
         { p: "Note: OnlyFans links have been cleaned to remove share codes and trial invites." },
     ];
 
     if (records.length === 0) {
-        wikiContent.push({ p: "No social links found more than once with a hit in the last four weeks." });
+        wikiContent.push({ p: "No social links found more than once with a hit in the last three months." });
     } else {
         const coveredByEvaluatorRows: string[][] = [];
         const notCoveredByEvaluatorRows: string[][] = [];
@@ -129,17 +141,16 @@ export async function updateSocialLinksStatistics (allEntries: StatsUserEntry[],
             if (record.value.coveredByEvaluator) {
                 coveredByEvaluatorRows.push(recordRow);
             } else {
-                if (!ignoredLinks.some(ignoredLink => new RegExp(ignoredLink).test(record.link))) {
-                    notCoveredByEvaluatorRows.push(recordRow);
-                }
+                notCoveredByEvaluatorRows.push(recordRow);
             }
         }
 
         wikiContent.push({ h2: "Links not covered by Evaluator configuration" });
         if (notCoveredByEvaluatorRows.length > 0) {
+            wikiContent.push({ p: "No action is needed on these. They will be automatically added to the config within an hour." });
             wikiContent.push({ table: { headers, rows: notCoveredByEvaluatorRows } });
         } else {
-            wikiContent.push({ p: "None! Well done!" });
+            wikiContent.push({ p: "None!" });
         }
 
         wikiContent.push({ h2: "Links covered by Evaluator configuration" });
@@ -172,4 +183,14 @@ export async function updateSocialLinksStatistics (allEntries: StatsUserEntry[],
         page: wikiPageName,
         content: json2md(wikiContent),
     });
+
+    const newSubstitionValue = new Set(records.map(record => record.link));
+    const existingSubstitionValue = new Set(await getRedisSubstitionValue<string[]>("sociallinks", context) ?? []);
+
+    if (newSubstitionValue.size === existingSubstitionValue.size && [...newSubstitionValue].every(value => existingSubstitionValue.has(value))) {
+        return;
+    }
+
+    await setRedisSubstititionValue("sociallinks", Array.from(newSubstitionValue), context);
+    console.log(`Updated social links substitution value with ${newSubstitionValue.size} entries`);
 }
