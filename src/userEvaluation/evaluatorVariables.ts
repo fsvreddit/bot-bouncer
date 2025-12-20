@@ -14,6 +14,18 @@ const EVALUATOR_VARIABLES_KEY = "evaluatorVariablesHash";
 const EVALUATOR_VARIABLES_YAML_PAGE_ROOT = "evaluator-config";
 const EVALUATOR_VARIABLES_WIKI_PAGE = "evaluatorvars";
 const EVALUATOR_VARIABLES_LAST_REVISIONS_KEY = "evaluatorVariablesLastRevisions";
+const EXTRA_VARIABLES_KEY = "extraEvaluatorVariablesHash";
+const EXTRA_VARIABLES_UPDATED_KEY = "extraEvaluatorVariablesUpdated";
+
+export async function setRedisSubstititionValue (variableName: string, value: string | string[], context: TriggerContext | JobContext) {
+    await context.redis.hSet(EXTRA_VARIABLES_KEY, { [variableName]: JSON.stringify(value) });
+    await context.redis.set(EXTRA_VARIABLES_UPDATED_KEY, "true");
+}
+
+async function getExtraSubstititionValues (context: TriggerContext | JobContext): Promise<Record<string, string | string[]>> {
+    const extraVariables = await context.redis.hGetAll(EXTRA_VARIABLES_KEY);
+    return _.fromPairs(Object.entries(extraVariables).map(([key, value]) => [`redis:${key}`, JSON.parse(value)]));
+}
 
 export async function getEvaluatorVariables (context: TriggerContext | JobContext): Promise<Record<string, JSONValue>> {
     let allVariables: Record<string, string>;
@@ -67,20 +79,29 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
         return;
     }
 
+    if (event.data?.updateExtraVariables && !await context.redis.exists(EXTRA_VARIABLES_UPDATED_KEY)) {
+        console.log("Evaluator Variables: No changes detected in extra substitution variables.");
+        return;
+    }
+
+    console.log(`Evaluator Variables: Starting update from wiki pages. Force update: ${event.data?.forceUpdate as boolean | undefined ?? false}`);
+
     const pageList = await context.reddit.getWikiPages(CONTROL_SUBREDDIT)
         .then(pages => pages.filter(page => page === EVALUATOR_VARIABLES_YAML_PAGE_ROOT || page.startsWith(`${EVALUATOR_VARIABLES_YAML_PAGE_ROOT}/`)));
 
     const pages = await Promise.all(pageList.map(page => context.reddit.getWikiPage(CONTROL_SUBREDDIT, page)));
 
     const recentRevisions = await context.redis.hGetAll(EVALUATOR_VARIABLES_LAST_REVISIONS_KEY);
-    if (!pages.some(page => recentRevisions[page.name] !== page.revisionId)) {
+    if (!event.data?.updateExtraVariables && !pages.some(page => recentRevisions[page.name] !== page.revisionId)) {
         console.log("Evaluator Variables: No changes detected in evaluator variable wiki pages.");
         return;
     }
 
     const yamlStr = pages.map(page => page.content).join("\n\n---\n\n");
 
-    const variables = yamlToVariables(yamlStr);
+    const extraVariables = await getExtraSubstititionValues(context);
+
+    const variables = yamlToVariables(yamlStr, extraVariables);
 
     const invalidEntries = invalidEvaluatorVariableCondition(variables);
     const errors = variables.errors as string[] | undefined;
@@ -231,6 +252,8 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
         const username = event.data?.username as string | undefined ?? "unknown";
         await sendMessageToWebhook(controlSubSettings.monitoringWebhook, `✅ Successfully updated evaluator variables from wiki edit by /u/${username}.`);
     }
+
+    await context.redis.del(EXTRA_VARIABLES_UPDATED_KEY);
 }
 
 export function invalidEvaluatorVariableCondition (variables: Record<string, JSONValue>): ValidationIssue[] {
