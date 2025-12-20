@@ -103,6 +103,14 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
 
     const variables = yamlToVariables(yamlStr, extraVariables);
 
+    for (const Evaluator of ALL_EVALUATORS) {
+        const evaluator = new Evaluator({} as unknown as TriggerContext, undefined, variables);
+        const overriddenVariables = evaluator.getVariableOverrides();
+        for (const [key, value] of Object.entries(overriddenVariables)) {
+            variables[`${evaluator.shortname}:${key}`] = value as JSONValue;
+        }
+    }
+
     const invalidEntries = invalidEvaluatorVariableCondition(variables);
     const errors = variables.errors as string[] | undefined;
     if (errors && errors.length > 0) {
