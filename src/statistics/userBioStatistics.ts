@@ -2,13 +2,14 @@ import { JobContext, JSONObject, ScheduledJobEvent, UpdateWikiPageOptions } from
 import { addSeconds, format, subDays, subWeeks } from "date-fns";
 import json2md from "json2md";
 import { BIO_TEXT_STORE } from "../dataStore.js";
-import { getEvaluatorVariable } from "../userEvaluation/evaluatorVariables.js";
+import { getEvaluatorVariable, setRedisSubstititionValue } from "../userEvaluation/evaluatorVariables.js";
 import { StatsUserEntry } from "../scheduler/sixHourlyJobs.js";
 import { ControlSubredditJob } from "../constants.js";
 import crypto from "crypto";
 import { userIsBanned } from "./statsHelpers.js";
 import { decodedText, encodedText } from "../utility.js";
 import { hMGetAsRecord, zRangeAsRecord } from "devvit-helpers";
+import escapeStringRegexp from "escape-string-regexp";
 
 const BIO_QUEUE = "BioTextQueue";
 const BIO_STATS_TEMP_STORE = "BioTextStatsTempStore";
@@ -45,7 +46,7 @@ export async function updateBioStatistics (allEntries: StatsUserEntry[], context
     }
 
     const recentData = allEntries
-        .filter(item => item.data.reportedAt && new Date(item.data.reportedAt) >= subWeeks(new Date(), 2))
+        .filter(item => item.data.reportedAt && new Date(item.data.reportedAt) >= subWeeks(new Date(), 4))
         .filter(item => userIsBanned(item.data));
 
     await clearDownTemporaryKeys(context);
@@ -108,6 +109,7 @@ export async function updateBioStatisticsJob (event: ScheduledJobEvent<JSONObjec
     const runLimit = addSeconds(new Date(), 10);
 
     const configuredBioRegexes = await getEvaluatorVariable<string[]>("biotext:bantext", context) ?? [];
+    const entriesToAllowlist = await getEvaluatorVariable<string[]>("biotext:entriesToAllowlist", context) ?? [];
 
     const successfulRetrievalsUsers = event.data?.successfulRetrievalsEntries as string [] | undefined ?? [];
     const usersWithSuccessfulRetrievals = new Set(successfulRetrievalsUsers);
@@ -160,6 +162,11 @@ export async function updateBioStatisticsJob (event: ScheduledJobEvent<JSONObjec
             continue;
         }
 
+        if (entriesToAllowlist.some(entry => new RegExp(entry, "u").test(bioText))) {
+            processed.push(username);
+            continue;
+        }
+
         const hashedText = sha1hash(bioText);
 
         let existingRecord: BioRecord;
@@ -205,7 +212,7 @@ export async function updateBioStatisticsJob (event: ScheduledJobEvent<JSONObjec
 
     await context.scheduler.runJob({
         name: ControlSubredditJob.BioStatsUpdate,
-        runAt: addSeconds(new Date(), 2),
+        runAt: addSeconds(new Date(), 1),
         data: {
             successfulRetrievalsEntries: successfulRetrievalsUsers,
             batch: batch + 1,
@@ -213,10 +220,16 @@ export async function updateBioStatisticsJob (event: ScheduledJobEvent<JSONObjec
     });
 }
 
-export async function generateBioStatisticsReport (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
+export async function generateBioStatisticsReport (_: unknown, context: JobContext) {
     console.log("Bio Stats: Generating bio statistics report");
 
-    const itemsWithMoreThanOne = await zRangeAsRecord(context.redis, BIO_STATS_COUNTS, 2, "+inf", { by: "score" });
+    const itemsWithMoreThanOne = await zRangeAsRecord(context.redis, BIO_STATS_COUNTS, 5, "+inf", { by: "score" });
+
+    for (let i = 4; i > 1; i--) {
+        const additionalItems = await zRangeAsRecord(context.redis, BIO_STATS_COUNTS, i, i, { by: "score" });
+        Object.assign(itemsWithMoreThanOne, additionalItems);
+    }
+
     const bioRecords = await hMGetAsRecord(context.redis, BIO_STATS_TEMP_STORE, Object.keys(itemsWithMoreThanOne));
     console.log(`Bio Stats: Retrieved ${Object.keys(bioRecords).length} bio records for report generation`);
 
@@ -241,10 +254,15 @@ export async function generateBioStatisticsReport (event: ScheduledJobEvent<JSON
     const notCoveredByEvaluatorData: json2md.DataObject[] = [];
     const coveredByEvaluatorData: json2md.DataObject[] = [];
 
+    const distinctBiosSet = new Set<string>();
+
     content.push({ h1: "User Bio Text" });
+    content.push({ p: "You generally don't need to action any of these directly. The exception is for short bios which are not added to th configuration for safety reasons. " });
     for (const record of reusedRecords) {
         const currentContent: json2md.DataObject[] = [];
-        currentContent.push({ blockquote: decodedText(record.record.bioText) });
+        const bioText = decodedText(record.record.bioText);
+        currentContent.push({ blockquote: bioText });
+        distinctBiosSet.add(bioText);
         const listRows: string[] = [];
 
         listRows.push(
@@ -272,7 +290,7 @@ export async function generateBioStatisticsReport (event: ScheduledJobEvent<JSON
         content.push(...notCoveredByEvaluatorData);
     }
 
-    content.push({ h2: "Bio text covered by Evaluator configuration and seen in the last two weeks" });
+    content.push({ h2: "Bio text covered by Evaluator configuration and seen in the last four weeks" });
     if (coveredByEvaluatorData.length === 0) {
         content.push({ p: "None" });
     } else {
@@ -309,4 +327,11 @@ export async function generateBioStatisticsReport (event: ScheduledJobEvent<JSON
     });
     await clearDownTemporaryKeys(context);
     console.log("Bio Stats: Completed bio statistics report generation and cleanup");
+
+    const distinctBios = Array.from(distinctBiosSet)
+        .filter(bio => bio.split(" ").length > 3 || bio.length > 15)
+        .map(bio => `^${escapeStringRegexp(bio)}$`);
+
+    await setRedisSubstititionValue("biotext", distinctBios, context);
+    console.log(`Bio Stats: Updated biotext substitution value with ${distinctBios.length} entries`);
 }
