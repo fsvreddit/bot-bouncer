@@ -91,7 +91,7 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
         return;
     }
 
-    console.log(`Evaluator Variables: Starting update from wiki pages. Force update: ${event.data?.forceUpdate as boolean | undefined ?? false}`);
+    console.log(`Evaluator Variables: Starting update from wiki pages. Variables update: ${event.data?.updateExtraVariables as boolean | undefined ?? false}`);
 
     const pageList = await context.reddit.getWikiPages(CONTROL_SUBREDDIT)
         .then(pages => pages.filter(page => page === EVALUATOR_VARIABLES_YAML_PAGE_ROOT || page.startsWith(`${EVALUATOR_VARIABLES_YAML_PAGE_ROOT}/`)));

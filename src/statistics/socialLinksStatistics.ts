@@ -8,7 +8,7 @@ import { StatsUserEntry } from "../scheduler/sixHourlyJobs.js";
 import { userIsBanned } from "./statsHelpers.js";
 
 export function cleanLink (input: string): string {
-    if (!input.includes("onlyfans.com") && !input.includes("fans.ly") && !input.includes("fans.ly")) {
+    if (!input.includes("onlyfans.com") && !input.includes("fansly.com") && !input.includes("fans.ly") && !input.includes("snapchat.com")) {
         return input;
     }
 
@@ -21,13 +21,13 @@ export function cleanLink (input: string): string {
         return newString;
     }
 
-    const linkRegex = /(https:\/\/(?:onlyfans\.com|fansly\.com|fans\.ly)\/[\w\d]+\/)(?:[ct]\d+|trial)/;
+    const linkRegex = /(https:\/\/(?:onlyfans\.com|fansly\.com|fans\.ly)\/[\w\d.-]+\/)(?:[ct]\d+|trial)/;
     const matches = linkRegex.exec(newString);
     if (matches?.[1]) {
         newString = matches[1];
     }
 
-    const snapchatRegex = /(https:\/\/www\.snapchat\.com\/add\/[\w\d]+)(?:\?share.*)?/;
+    const snapchatRegex = /(https:\/\/(?:www\.)?snapchat\.com\/add\/[\w\d._-]+)(?:\?share.*)?/;
     const snapchatMatches = snapchatRegex.exec(newString);
     if (snapchatMatches?.[1]) {
         newString = snapchatMatches[1];
@@ -184,13 +184,13 @@ export async function updateSocialLinksStatistics (allEntries: StatsUserEntry[],
         content: json2md(wikiContent),
     });
 
-    const newSubstitionValue = new Set(records.map(record => record.link));
+    const newSubstitionValue = records.map(record => record.link);
     const existingSubstitionValue = new Set(await getRedisSubstitionValue<string[]>("sociallinks", context) ?? []);
 
-    if (newSubstitionValue.size === existingSubstitionValue.size && [...newSubstitionValue].every(value => existingSubstitionValue.has(value))) {
+    if (newSubstitionValue.length === existingSubstitionValue.size && newSubstitionValue.every(value => existingSubstitionValue.has(value))) {
         return;
     }
 
-    await setRedisSubstititionValue("sociallinks", Array.from(newSubstitionValue), context);
-    console.log(`Updated social links substitution value with ${newSubstitionValue.size} entries`);
+    await setRedisSubstititionValue("sociallinks", newSubstitionValue, context);
+    console.log(`Updated social links substitution value with ${newSubstitionValue.length} entries`);
 }

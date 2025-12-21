@@ -2,7 +2,7 @@ import { JobContext, JSONObject, ScheduledJobEvent, UpdateWikiPageOptions } from
 import { addSeconds, format, subDays, subWeeks } from "date-fns";
 import json2md from "json2md";
 import { BIO_TEXT_STORE } from "../dataStore.js";
-import { getEvaluatorVariable, setRedisSubstititionValue } from "../userEvaluation/evaluatorVariables.js";
+import { getEvaluatorVariable, getRedisSubstitionValue, setRedisSubstititionValue } from "../userEvaluation/evaluatorVariables.js";
 import { StatsUserEntry } from "../scheduler/sixHourlyJobs.js";
 import { ControlSubredditJob } from "../constants.js";
 import crypto from "crypto";
@@ -331,6 +331,12 @@ export async function generateBioStatisticsReport (_: unknown, context: JobConte
     const distinctBios = Array.from(distinctBiosSet)
         .filter(bio => bio.split(" ").length > 3 || bio.length > 15)
         .map(bio => `^${escapeStringRegexp(bio)}$`);
+
+    const existingSubstitionValue = new Set(await getRedisSubstitionValue<string[]>("biotext", context) ?? []);
+
+    if (distinctBios.length === existingSubstitionValue.size && distinctBios.every(value => existingSubstitionValue.has(value))) {
+        return;
+    }
 
     await setRedisSubstititionValue("biotext", distinctBios, context);
     console.log(`Bio Stats: Updated biotext substitution value with ${distinctBios.length} entries`);
