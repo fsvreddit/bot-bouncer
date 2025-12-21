@@ -257,7 +257,7 @@ export async function generateBioStatisticsReport (_: unknown, context: JobConte
     const distinctBiosSet = new Set<string>();
 
     content.push({ h1: "User Bio Text" });
-    content.push({ p: "You generally don't need to action any of these directly. The exception is for short bios which are not added to th configuration for safety reasons. " });
+    content.push({ p: "You generally don't need to action any of these directly. The exception is for short bios which are not added to the configuration automatically for safety reasons. " });
     for (const record of reusedRecords) {
         const currentContent: json2md.DataObject[] = [];
         const bioText = decodedText(record.record.bioText);
