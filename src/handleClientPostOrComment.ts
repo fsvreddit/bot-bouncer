@@ -224,24 +224,6 @@ async function handleContentCreation (username: string, currentStatus: UserDetai
     const target = await getPostOrCommentById(targetId, context);
 
     if (actionToTake === ActionType.Ban) {
-        const removedByMod = await context.redis.exists(`removedbymod:${targetId}`);
-        if (!removedByMod && !target.spam && !target.removed) {
-            promises.push(context.reddit.remove(targetId, true));
-            console.log(`Content Create: ${targetId} removed for ${user.username}`);
-            promises.push(context.redis.set(`removed:${username}`, targetId, { expiration: addWeeks(new Date(), 2) }));
-        } else {
-            // Might be in the modqueue.
-            const modQueue = await context.reddit.getModQueue({
-                subreddit: subredditName,
-                type: "all",
-            }).all();
-            const foundInModQueue = modQueue.find(item => item.id === targetId);
-            if (foundInModQueue) {
-                promises.push(context.reddit.remove(foundInModQueue.id, true));
-                console.log(`Content Create: ${foundInModQueue.id} removed via mod queue for ${user.username}`);
-            }
-        }
-
         const isCurrentlyBanned = await isBanned(context.reddit, subredditName, user.username);
 
         if (!isCurrentlyBanned) {
@@ -264,6 +246,12 @@ async function handleContentCreation (username: string, currentStatus: UserDetai
             promises.push(recordBan(username, context.redis));
             promises.push(recordBanForSummary(username, context.redis));
             console.log(`Content Create: ${user.username} banned from ${subredditName}`);
+        }
+
+        const removedByMod = await context.redis.exists(`removedbymod:${targetId}`);
+        if (!removedByMod) {
+            promises.push(context.reddit.remove(targetId, true));
+            console.log(`Content Create: ${targetId} removed for ${user.username}`);
         }
     } else {
         // Report, not ban.
