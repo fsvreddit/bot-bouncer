@@ -58,6 +58,7 @@ While you can unban the user yourself, this only affects the user on your subred
 ## v1.24 (coming soon)
 
 * Add new evaluator type
+* Improved performance (reducing Dev Platform resource usage)
 * Internal changes to support operations on /r/BotBouncer
 
 ## v1.23.1
