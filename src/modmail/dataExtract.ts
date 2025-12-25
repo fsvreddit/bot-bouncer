@@ -505,7 +505,7 @@ async function createDataExtract (
         markdown.push({ ul: criteriaBullets });
     }
 
-    if (data.length > 0 && request.status?.includes(UserStatus.Banned) && request.since && new Date(request.since) > subDays(new Date(), 2)) {
+    if (data.length > 0 && request.status?.includes(UserStatus.Banned) && request.since && new Date(request.since) > subDays(new Date(), 7)) {
         // Generate a random four-character string for reversing classifications
         const randomString = Math.random().toString(36).substring(2, 6);
 
