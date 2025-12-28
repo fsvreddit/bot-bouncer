@@ -426,16 +426,14 @@ async function createDataExtract (
             body: `The data to export includes ${keys.length} records which exceeds the maximum of 5000. Detailed data cannot be shown.`,
         });
 
-        await context.redis.del(getExtractTempStoreKey(extractId));
-        await context.redis.del(getExtractTempQueueKey(extractId));
+        await context.redis.del(getExtractTempStoreKey(extractId), getExtractTempQueueKey(extractId));
     }
 
     const rawData = await context.redis.hGetAll(getExtractTempStoreKey(extractId));
     const data = Object.entries(rawData)
         .map(([username, data]) => ({ username, data: JSON.parse(data) as UserDetailsWithBioAndSocialLinks }));
 
-    await context.redis.del(getExtractTempStoreKey(extractId));
-    await context.redis.del(getExtractTempQueueKey(extractId));
+    await context.redis.del(getExtractTempStoreKey(extractId), getExtractTempQueueKey(extractId));
 
     if (data.length === 0) {
         await context.reddit.modMail.reply({

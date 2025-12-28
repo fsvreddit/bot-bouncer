@@ -73,8 +73,7 @@ function getEvaluationResultsKey (evaluationResult: EvaluationResult): string {
 export async function buildEvaluatorAccuracyStatistics (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
     if (event.data?.firstRun) {
         console.log("Evaluator Accuracy Statistics: First run, gathering usernames.");
-        await context.redis.del(ACCURACY_QUEUE);
-        await context.redis.del(ACCURACY_STORE);
+        await context.redis.del(ACCURACY_QUEUE, ACCURACY_STORE);
         await gatherUsernames(context);
         await context.scheduler.runJob({
             name: ControlSubredditJob.EvaluatorAccuracyStatistics,
@@ -226,8 +225,7 @@ export async function buildEvaluatorAccuracyStatistics (event: ScheduledJobEvent
         content: json2md(output),
     });
 
-    await context.redis.del(ACCURACY_QUEUE);
-    await context.redis.del(ACCURACY_STORE);
+    await context.redis.del(ACCURACY_QUEUE, ACCURACY_STORE);
 
     console.log(`Evaluator Accuracy Statistics: Generated statistics page.`);
 }

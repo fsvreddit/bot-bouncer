@@ -227,14 +227,16 @@ export async function processQueuedSubmission (context: JobContext) {
 
     const alertKey = "postCreationQueueAlertSent";
 
-    if (controlSubSettings.backlogWebhook && remainingItemsInQueue > (controlSubSettings.postCreationQueueAlertLevel ?? 100) && !await context.redis.exists(alertKey)) {
-        await sendMessageToWebhook(controlSubSettings.backlogWebhook, `⚠️ Post creation queue is backlogged. There are currently ${remainingItemsInQueue} ${pluralize("submission", remainingItemsInQueue)} waiting to be processed.`);
-        await context.redis.set(alertKey, "sent");
-    }
-
-    if (remainingItemsInQueue === 0 && await context.redis.exists(alertKey) && controlSubSettings.backlogWebhook) {
-        await sendMessageToWebhook(controlSubSettings.backlogWebhook, `✅ Post creation queue has been cleared.`);
-        await context.redis.del(alertKey);
+    if (controlSubSettings.backlogWebhook) {
+        if (remainingItemsInQueue > (controlSubSettings.postCreationQueueAlertLevel ?? 100) && !await context.redis.exists(alertKey)) {
+            await sendMessageToWebhook(controlSubSettings.backlogWebhook, `⚠️ Post creation queue is backlogged. There are currently ${remainingItemsInQueue} ${pluralize("submission", remainingItemsInQueue)} waiting to be processed.`);
+            await context.redis.set(alertKey, "sent");
+        } else if (remainingItemsInQueue % (controlSubSettings.postCreationQueueAlertLevel ?? 100) === 0 && remainingItemsInQueue > 0 && await context.redis.exists(alertKey)) {
+            await sendMessageToWebhook(controlSubSettings.backlogWebhook, `⚠️ Post creation queue is still backlogged. There are currently ${remainingItemsInQueue} ${pluralize("submission", remainingItemsInQueue)} waiting to be processed.`);
+        } else if (remainingItemsInQueue === 0 && await context.redis.exists(alertKey)) {
+            await sendMessageToWebhook(controlSubSettings.backlogWebhook, `✅ Post creation queue has been cleared.`);
+            await context.redis.del(alertKey);
+        }
     }
 
     await context.redis.del(cooldownKey);

@@ -284,19 +284,6 @@ export async function getRecentlyChangedUsers (since: Date, now: Date, context: 
     return await context.redis.global.zRange(RECENT_CHANGES_STORE, since.getTime(), now.getTime(), { by: "score" });
 }
 
-export async function migrationToGlobalRedis (context: TriggerContext) {
-    const migrationDoneKey = "oneOffDataMigrationDone";
-    if (await context.redis.exists(migrationDoneKey)) {
-        console.log("Data Store: One-off data migration already completed.");
-        return;
-    }
-
-    await context.redis.del("UserStore");
-
-    console.log("One-off data migration completed.");
-    await context.redis.set(migrationDoneKey, "true");
-}
-
 export async function checkDataStoreIntegrity (context: TriggerContext) {
     const misplacedEntries: { username: string; actualPrefix: string; inCorrectStore: boolean }[] = [];
 

@@ -33,10 +33,7 @@ function appendedArray (existing: string[], newItem: string, limit = 5): string[
 }
 
 async function clearDownTemporaryKeys (context: JobContext) {
-    await context.redis.del(BIO_QUEUE);
-    await context.redis.del(BIO_STATS_TEMP_STORE);
-    await context.redis.del(BIO_STATS_COUNTS);
-    await context.redis.del(BIO_STATS_UPDATE_IN_PROGRESS);
+    await context.redis.del(BIO_QUEUE, BIO_STATS_TEMP_STORE, BIO_STATS_COUNTS, BIO_STATS_UPDATE_IN_PROGRESS);
 }
 
 export async function updateBioStatistics (allEntries: StatsUserEntry[], context: JobContext) {

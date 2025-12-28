@@ -4,7 +4,6 @@ import { ClientSubredditJob, CONTROL_SUBREDDIT, ControlSubredditJob, UniversalJo
 import { handleExternalSubmissionsPageUpdate } from "./externalSubmissions.js";
 import { getControlSubSettings } from "./settings.js";
 import { addDays, addMinutes, isSameDay } from "date-fns";
-import { migrationToGlobalRedis } from "./dataStore.js";
 import { forceEvaluatorVariablesRefresh } from "./userEvaluation/evaluatorVariables.js";
 import { storeRecordOfContentCreationGracePeriod } from "./handleClientSubredditClassificationChanges.js";
 import { isModerator } from "devvit-helpers";
@@ -16,8 +15,6 @@ export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, contex
     const currentJobs = await context.scheduler.listJobs();
     await Promise.all(currentJobs.map(job => context.scheduler.cancelJob(job.id)));
     console.log(`App Install: Cancelled ${currentJobs.length} existing jobs.`);
-
-    await migrationToGlobalRedis(context);
 
     if (context.subredditName === CONTROL_SUBREDDIT) {
         await addControlSubredditJobs(context);
@@ -33,11 +30,17 @@ export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, contex
     await checkJobsAreApplicable(context);
 
     // Remove legacy redis keys
-    await context.redis.del("evaluatorVariables");
-    await context.redis.del("clientSubWikiUpdateCron");
-    await context.redis.del("ReclassificationQueue");
-    await context.redis.del("oneOffReaffirmation");
-    await context.redis.del("EvaluatorStats");
+    const obsoleteKeys = [
+        "evaluatorVariables",
+        "clientSubWikiUpdateCron",
+        "ReclassificationQueue",
+        "oneOffReaffirmation",
+        "EvaluatorStats",
+        "UserStore",
+        "oneOffDataMigrationDone",
+    ];
+
+    await context.redis.del(...obsoleteKeys);
 
     await setInstallDateIfNotSet(context);
     if (context.subredditName !== CONTROL_SUBREDDIT) {

@@ -29,8 +29,7 @@ interface UserDefinedHandlePost {
 }
 
 export async function updateDefinedHandlesStats (allEntries: StatsUserEntry[], context: JobContext) {
-    await context.redis.del(DEFINED_HANDLES_QUEUE);
-    await context.redis.del(DEFINED_HANDLES_DATA);
+    await context.redis.del(DEFINED_HANDLES_QUEUE, DEFINED_HANDLES_DATA);
     const lastMonthData = allEntries
         .filter(item => item.data.reportedAt && item.data.reportedAt > subMonths(new Date(), 3).getTime() && (userIsBanned(item.data)))
         .map(item => ({ member: item.username, score: item.data.reportedAt ?? 0 }));
@@ -51,8 +50,7 @@ export async function gatherDefinedHandlesStats (event: ScheduledJobEvent<JSONOb
     if (queuedHandles.length === 0) {
         console.log("No defined handles found in the queue.");
         await buildDefinedHandlesWikiPage(context);
-        await context.redis.del(DEFINED_HANDLES_QUEUE);
-        await context.redis.del(DEFINED_HANDLES_DATA);
+        await context.redis.del(DEFINED_HANDLES_QUEUE, DEFINED_HANDLES_DATA);
         return;
     }
 
