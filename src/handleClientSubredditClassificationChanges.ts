@@ -4,11 +4,11 @@ import pluralize from "pluralize";
 import { getRecentlyChangedUsers, getUserStatus, isUserInTempDeclineStore, UserDetails, UserStatus } from "./dataStore.js";
 import { setCleanupForUser } from "./cleanup.js";
 import { ActionType, AppSetting, CONFIGURATION_DEFAULTS } from "./settings.js";
-import { getUserOrUndefined, isModeratorWithCache } from "./utility.js";
+import { getPostOrCommentById, getUserOrUndefined, isModeratorWithCache } from "./utility.js";
 import { ClientSubredditJob } from "./constants.js";
 import _ from "lodash";
 import { recordBanForSummary, recordUnbanForSummary, removeRecordOfBanForSummary } from "./modmail/actionSummary.js";
-import { hasPermissions, isBanned, isContributor } from "devvit-helpers";
+import { expireKeyAt, hasPermissions, isBanned, isContributor } from "devvit-helpers";
 
 const UNBAN_WHITELIST = "UnbanWhitelist";
 const BAN_STORE = "BanStore";
@@ -81,6 +81,19 @@ async function handleSetOrganic (username: string, subredditName: string, settin
         await Promise.all(contentToReinstate.map(id => approveIfNotRemovedByMod(id, context)));
         await context.redis.del(`removedItems:${username}`);
         console.log(`Classification Update: Reinstated ${contentToReinstate.length} ${pluralize("item", contentToReinstate.length)} for ${username}`);
+    }
+
+    const lockedItems = await context.redis.hGetAll(`lockedItems:${username}`);
+    const lockedItemIds = Object.keys(lockedItems);
+    if (lockedItemIds.length > 0) {
+        await Promise.all(lockedItemIds.map(async (id) => {
+            const item = await getPostOrCommentById(id, context);
+            if (item.locked) {
+                await item.unlock();
+            }
+        }));
+        await context.redis.del(`lockedItems:${username}`);
+        console.log(`Classification Update: Unlocked ${lockedItemIds.length} ${pluralize("item", lockedItemIds.length)} for ${username}`);
     }
 
     const userBannedByApp = await wasUserBannedByApp(username, context);
@@ -170,7 +183,7 @@ async function handleSetBanned (username: string, subredditName: string, setting
             .replaceAll("{me}", context.appName)
             .replaceAll("{date}", formatDate(new Date(), "yyyy-MM-dd"));
 
-        const results = await Promise.allSettled([
+        const promises = [
             context.reddit.banUser({
                 subredditName,
                 username,
@@ -178,7 +191,13 @@ async function handleSetBanned (username: string, subredditName: string, setting
                 note: banNote,
             }),
             ...removableContent.map(item => item.remove()),
-        ]);
+        ];
+
+        if (settings[AppSetting.LockContentWhenRemoving]) {
+            promises.push(...removableContent.filter(item => !item.locked).map(item => item.lock()));
+        }
+
+        const results = await Promise.allSettled(promises);
 
         await recordBan(username, context.redis);
         await recordBanForSummary(username, context.redis);
@@ -187,7 +206,12 @@ async function handleSetBanned (username: string, subredditName: string, setting
         if (reinstatableContent.length > 0) {
             await context.redis.hSet(`removedItems:${username}`, _.fromPairs(reinstatableContent.map(item => ([item.id, item.id]))));
             // Expire key after 14 days
-            await context.redis.expire(`removedItems:${username}`, 60 * 60 * 24 * 14);
+            await expireKeyAt(context.redis, `removedItems:${username}`, addDays(new Date(), 14));
+
+            if (settings[AppSetting.LockContentWhenRemoving]) {
+                await context.redis.hSet(`lockedItems:${username}`, _.fromPairs(reinstatableContent.map(item => ([item.id, item.id]))));
+                await expireKeyAt(context.redis, `lockedItems:${username}`, addDays(new Date(), 14));
+            }
         }
 
         const failedPromises = results.filter(result => result.status === "rejected");

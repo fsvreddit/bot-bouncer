@@ -50,6 +50,8 @@ Users who have been unfairly banned by Bot Bouncer should be encouraged to modma
 
 * Add new evaluator type
 * Improved performance (reducing Dev Platform resource usage)
+* Improve reliability of banning users already classified as bots when they post or comment
+* Add option (disabled by default) to lock posts/comments when the app removes them
 * Internal changes to support operations on /r/BotBouncer
 
 ## v1.23.1

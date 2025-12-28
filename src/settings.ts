@@ -46,6 +46,7 @@ If you are removing Bot Bouncer because of concerns about how it works, we would
 
 export enum AppSetting {
     Action = "action",
+    LockContentWhenRemoving = "lockContentWhenRemoving",
     BanMessage = "banMessage",
     AutoWhitelist = "autoWhitelist",
     ModmailNote = "clientModmailNote",
@@ -82,7 +83,7 @@ export const appSettings: SettingsFormField[] = [
                 label: "Action to take when a banned account posts or comments",
                 helpText: "This action applies to accounts that are listed on /r/BotBouncer as a bot",
                 options: [
-                    { label: "Ban", value: ActionType.Ban },
+                    { label: "Ban and remove content", value: ActionType.Ban },
                     { label: "Report content", value: ActionType.Report },
                 ],
                 multiSelect: false,
@@ -92,6 +93,13 @@ export const appSettings: SettingsFormField[] = [
                         return "You must select an action.";
                     }
                 },
+            },
+            {
+                type: "boolean",
+                name: AppSetting.LockContentWhenRemoving,
+                label: "Lock content when removing",
+                helpText: "If banning and removing content, also lock the post/comment to prevent further engagement",
+                defaultValue: false,
             },
             {
                 type: "paragraph",

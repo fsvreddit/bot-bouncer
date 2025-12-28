@@ -12,7 +12,7 @@ import { isLinkId } from "@devvit/public-api/types/tid.js";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { recordBanForSummary, recordReportForSummary } from "./modmail/actionSummary.js";
 import { getUserExtended } from "./extendedDevvit.js";
-import { isBanned, isContributor } from "devvit-helpers";
+import { expireKeyAt, isBanned, isContributor } from "devvit-helpers";
 
 export async function handleClientPostCreate (event: PostCreate, context: TriggerContext) {
     if (context.subredditName === CONTROL_SUBREDDIT) {
@@ -251,6 +251,14 @@ async function handleContentCreation (username: string, currentStatus: UserDetai
         const removedByMod = await context.redis.exists(`removedbymod:${targetId}`);
         if (!removedByMod) {
             promises.push(context.reddit.remove(targetId, true));
+            if (settings[AppSetting.LockContentWhenRemoving]) {
+                const target = await getPostOrCommentById(targetId, context);
+                if (!target.locked) {
+                    promises.push(target.lock());
+                    await context.redis.hSet(`lockedItems:${username}`, { [targetId]: targetId });
+                    promises.push(expireKeyAt(context.redis, `lockedItems:${username}`, addDays(new Date(), 14)));
+                }
+            }
             console.log(`Content Create: ${targetId} removed for ${user.username}`);
         }
     } else {
@@ -258,7 +266,7 @@ async function handleContentCreation (username: string, currentStatus: UserDetai
         promises.push(context.reddit.report(target, { reason: "User is listed as a bot on /r/BotBouncer" }));
     }
 
-    await Promise.all(promises);
+    await Promise.allSettled(promises);
 }
 
 async function checkAndReportPotentialBot (username: string, target: Post | CommentCreate, settings: SettingsValues, variables: Record<string, JSONValue>, context: TriggerContext) {
@@ -379,6 +387,14 @@ async function checkAndReportPotentialBot (username: string, target: Post | Comm
                 context.redis.set(`removed:${targetItem.authorName}`, targetItem.id, { expiration: addWeeks(new Date(), 2) }),
                 targetItem.remove(),
             );
+
+            if (settings[AppSetting.LockContentWhenRemoving]) {
+                if (!targetItem.locked) {
+                    promises.push(targetItem.lock());
+                    await context.redis.hSet(`lockedItems:${username}`, { [targetItem.id]: targetItem.id });
+                    promises.push(expireKeyAt(context.redis, `lockedItems:${username}`, addDays(new Date(), 14)));
+                }
+            }
         }
     } else if (actionToTake === ActionType.Report) {
         const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();

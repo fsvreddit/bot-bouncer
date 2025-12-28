@@ -323,8 +323,7 @@ async function handleDeletedAccountControlSub (username: string, context: Trigge
 async function handleDeletedAccountClientSub (username: string, redis: RedisClient) {
     await removeRecordOfBan(username, redis);
     await removeWhitelistUnban(username, redis);
-    await redis.del(`removed:${username}`);
-    await redis.del(`removedItems:${username}`);
+    await redis.del(`removed:${username}`, `removedItems:${username}`, `lockedItems:${username}`);
 }
 
 async function getLatestContentDate (username: string, context: JobContext): Promise<number | undefined> {
