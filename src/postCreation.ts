@@ -232,7 +232,11 @@ export async function processQueuedSubmission (context: JobContext) {
             await sendMessageToWebhook(controlSubSettings.backlogWebhook, `⚠️ Post creation queue is backlogged. There are currently ${remainingItemsInQueue} ${pluralize("submission", remainingItemsInQueue)} waiting to be processed.`);
             await context.redis.set(alertKey, "sent");
         } else if (remainingItemsInQueue % (controlSubSettings.postCreationQueueAlertLevel ?? 100) === 0 && remainingItemsInQueue > 0 && await context.redis.exists(alertKey)) {
-            await sendMessageToWebhook(controlSubSettings.backlogWebhook, `⚠️ Post creation queue is still backlogged. There are currently ${remainingItemsInQueue} ${pluralize("submission", remainingItemsInQueue)} waiting to be processed.`);
+            const sentAtLevelKey = `postCreationQueueAlertLevel:${remainingItemsInQueue}`;
+            if (!await context.redis.exists(sentAtLevelKey)) {
+                await sendMessageToWebhook(controlSubSettings.backlogWebhook, `⚠️ Post creation queue is still backlogged. There are currently ${remainingItemsInQueue} ${pluralize("submission", remainingItemsInQueue)} waiting to be processed.`);
+                await context.redis.set(sentAtLevelKey, "sent", { expiration: addMinutes(new Date(), 30) });
+            }
         } else if (remainingItemsInQueue === 0 && await context.redis.exists(alertKey)) {
             await sendMessageToWebhook(controlSubSettings.backlogWebhook, `✅ Post creation queue has been cleared.`);
             await context.redis.del(alertKey);
