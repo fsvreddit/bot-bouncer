@@ -3,7 +3,7 @@ import { addDays, addSeconds, formatDate, subDays, subWeeks } from "date-fns";
 import pluralize from "pluralize";
 import { getRecentlyChangedUsers, getUserStatus, isUserInTempDeclineStore, UserDetails, UserStatus } from "./dataStore.js";
 import { setCleanupForUser } from "./cleanup.js";
-import { ActionType, AppSetting, CONFIGURATION_DEFAULTS } from "./settings.js";
+import { ActionType, AppSetting, CONFIGURATION_DEFAULTS, getControlSubSettings } from "./settings.js";
 import { getPostOrCommentById, getUserOrUndefined, isModeratorWithCache, postIdToShortLink } from "./utility.js";
 import { ClientSubredditJob } from "./constants.js";
 import _ from "lodash";
@@ -326,6 +326,12 @@ export async function handleClassificationChanges (event: ScheduledJobEvent<JSON
 
     if (!await appAccountHasPermissions(context)) {
         console.warn(`Classification Update: Bot Bouncer does not have sufficient permissions on r/${subredditName} to process classification changes.`);
+        return;
+    }
+
+    const controlSubSettings = await getControlSubSettings(context);
+    if (controlSubSettings.clientReclassificationDisabled) {
+        console.log(`Classification Update: Client subreddit reclassification is disabled.`);
         return;
     }
 

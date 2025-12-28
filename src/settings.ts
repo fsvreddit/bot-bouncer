@@ -222,6 +222,7 @@ export const appSettings: SettingsFormField[] = [
 
 export interface ControlSubSettings {
     evaluationDisabled: boolean;
+    clientReclassificationDisabled?: boolean;
     proactiveEvaluationEnabled?: boolean;
     maxInactivityMonths?: number;
     trustedSubmitters: string[];
@@ -251,6 +252,7 @@ const schema: JSONSchemaType<ControlSubSettings> = {
     type: "object",
     properties: {
         evaluationDisabled: { type: "boolean" },
+        clientReclassificationDisabled: { type: "boolean", nullable: true },
         proactiveEvaluationEnabled: { type: "boolean", nullable: true },
         maxInactivityMonths: { type: "number", nullable: true },
         trustedSubmitters: { type: "array", items: { type: "string" } },
