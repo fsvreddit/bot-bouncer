@@ -218,6 +218,7 @@ export interface ControlSubSettings {
     maxInactivityMonths?: number;
     trustedSubmitters: string[];
     trustedSubmitterAutoThreshold?: number;
+    trustedSubmitterAutoExcludedUsers?: string[];
     reporterBlacklist: string[];
     numberOfWikiPages?: number;
     bulkSubmitters?: string[];
@@ -246,6 +247,7 @@ const schema: JSONSchemaType<ControlSubSettings> = {
         maxInactivityMonths: { type: "number", nullable: true },
         trustedSubmitters: { type: "array", items: { type: "string" } },
         trustedSubmitterAutoThreshold: { type: "number", nullable: true },
+        trustedSubmitterAutoExcludedUsers: { type: "array", items: { type: "string" }, nullable: true },
         reporterBlacklist: { type: "array", items: { type: "string" } },
         numberOfWikiPages: { type: "number", nullable: true },
         bulkSubmitters: { type: "array", items: { type: "string" }, nullable: true },
