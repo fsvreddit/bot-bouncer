@@ -1,10 +1,8 @@
 import { JobContext, JSONObject, ScheduledJobEvent, TriggerContext } from "@devvit/public-api";
 import { addDays, addMinutes, addSeconds } from "date-fns";
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "./constants.js";
-import { ExternalSubmission, getSubredditsFromExternalSubmissions } from "./externalSubmissions.js";
 import { hasPermissions, isModerator } from "devvit-helpers";
 import json2md from "json2md";
-import pluralize from "pluralize";
 
 const PERMISSION_CHECKS_QUEUE = "permissionChecksQueue";
 const PERMISSION_MESSAGE_SENT_HASH = "permissionsMessageSent";
@@ -28,17 +26,6 @@ async function addSubToPermissionChecksQueue (subredditName: string, context: Tr
     await context.redis.global.zAdd(PERMISSION_CHECKS_QUEUE, { member: subredditName, score: Date.now() });
     await context.redis.global.set(recentCheckKey, "true", { expiration: addDays(new Date(), 7) });
     console.log(`Permission Checks: Added /r/${subredditName} to permission checks queue.`);
-}
-
-export async function addSubsToPermissionChecksQueueFromExternalSubmissions (externalSubmissions: ExternalSubmission[], context: TriggerContext) {
-    if (context.subredditName !== CONTROL_SUBREDDIT) {
-        throw new Error("addSubsToPermissionChecksQueueFromExternalSubmissions should only be called from control subreddit");
-    }
-
-    const subreddits = await getSubredditsFromExternalSubmissions(externalSubmissions, context);
-
-    await Promise.all(subreddits.map(subreddit => addSubToPermissionChecksQueue(subreddit, context)));
-    console.log(`Permission Checks: Added ${subreddits.length} ${pluralize("subreddit", subreddits.length)} to permission checks queue from external submissions.`);
 }
 
 export async function checkPermissionQueueItems (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
