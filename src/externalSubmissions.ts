@@ -31,8 +31,6 @@ export interface ExternalSubmission {
     publicContext?: boolean;
     targetId?: string;
     initialStatus?: UserStatus;
-    evaluatorName?: string;
-    hitReason?: string;
     evaluationResults?: EvaluationResult[];
     sendFeedback?: boolean;
     proactive?: boolean;
@@ -152,7 +150,7 @@ export async function addExternalSubmissionToPostCreationQueue (item: ExternalSu
         immediate,
         commentToAdd,
         removeComment: item.publicContext === false,
-        evaluatorsChecked: item.evaluatorName !== undefined || (item.evaluationResults !== undefined && item.evaluationResults.length > 0),
+        evaluatorsChecked: item.evaluationResults !== undefined && item.evaluationResults.length > 0,
     };
 
     const result = await queuePostCreation(submission, context);
@@ -170,15 +168,7 @@ export async function addExternalSubmissionToPostCreationQueue (item: ExternalSu
             await context.redis.set(`sendFeedback:${item.username}`, "true", { expiration: addDays(new Date(), 7) });
         }
 
-        if (item.evaluatorName) {
-            const evaluationResult = {
-                botName: item.evaluatorName,
-                hitReason: item.hitReason,
-                canAutoBan: true,
-                metThreshold: true,
-            } as EvaluationResult;
-            await storeAccountInitialEvaluationResults(item.username, [evaluationResult], context);
-        } else if (item.evaluationResults) {
+        if (item.evaluationResults) {
             await storeAccountInitialEvaluationResults(item.username, item.evaluationResults, context);
         }
     } else {
