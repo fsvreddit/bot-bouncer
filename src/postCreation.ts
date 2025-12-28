@@ -232,11 +232,9 @@ export async function processQueuedSubmission (context: JobContext) {
         await context.redis.set(alertKey, "sent");
     }
 
-    if (remainingItemsInQueue === 0) {
-        if (await context.redis.exists(alertKey) && controlSubSettings.backlogWebhook) {
-            await sendMessageToWebhook(controlSubSettings.backlogWebhook, `✅ Post creation queue has been cleared.`);
-            await context.redis.del(alertKey);
-        }
+    if (remainingItemsInQueue === 0 && await context.redis.exists(alertKey) && controlSubSettings.backlogWebhook) {
+        await sendMessageToWebhook(controlSubSettings.backlogWebhook, `✅ Post creation queue has been cleared.`);
+        await context.redis.del(alertKey);
     }
 
     await context.redis.del(cooldownKey);
