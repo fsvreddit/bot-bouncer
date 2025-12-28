@@ -4,7 +4,7 @@ import pluralize from "pluralize";
 import { getRecentlyChangedUsers, getUserStatus, isUserInTempDeclineStore, UserDetails, UserStatus } from "./dataStore.js";
 import { setCleanupForUser } from "./cleanup.js";
 import { ActionType, AppSetting, CONFIGURATION_DEFAULTS } from "./settings.js";
-import { getPostOrCommentById, getUserOrUndefined, isModeratorWithCache } from "./utility.js";
+import { getPostOrCommentById, getUserOrUndefined, isModeratorWithCache, postIdToShortLink } from "./utility.js";
 import { ClientSubredditJob } from "./constants.js";
 import _ from "lodash";
 import { recordBanForSummary, recordUnbanForSummary, removeRecordOfBanForSummary } from "./modmail/actionSummary.js";
@@ -110,8 +110,14 @@ async function handleSetOrganic (username: string, subredditName: string, settin
     await recordUnbanForSummary(username, context.redis);
 
     if (settings[AppSetting.AddModNoteOnClassificationChange]) {
+        let modNoteText = "User unbanned by Bot Bouncer after classification was changed";
+        const currentStatus = await getUserStatus(username, context);
+        if (currentStatus?.trackingPostId) {
+            modNoteText += `. Tracking post: ${postIdToShortLink(currentStatus.trackingPostId)}`;
+        }
+
         await context.reddit.addModNote({
-            note: "User unbanned by Bot Bouncer after classification was changed",
+            note: modNoteText,
             subreddit: subredditName,
             user: username,
         });
@@ -223,8 +229,14 @@ async function handleSetBanned (username: string, subredditName: string, setting
         }
 
         if (settings[AppSetting.AddModNoteOnClassificationChange]) {
+            let modNoteText = "User banned by Bot Bouncer";
+            const currentStatus = await getUserStatus(username, context);
+            if (currentStatus?.trackingPostId) {
+                modNoteText += `. Tracking post: ${postIdToShortLink(currentStatus.trackingPostId)}`;
+            }
+
             await context.reddit.addModNote({
-                note: "User banned by Bot Bouncer",
+                note: modNoteText,
                 subreddit: subredditName,
                 user: username,
                 label: "BOT_BAN",

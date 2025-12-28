@@ -107,3 +107,7 @@ export function encodedText (input: string): string {
 export function decodedText (input: string): string {
     return Buffer.from(input, "base64").toString("utf-8");
 }
+
+export function postIdToShortLink (postId: string): string {
+    return `https://redd.it/${postId.replace("t3_", "")}`;
+}
