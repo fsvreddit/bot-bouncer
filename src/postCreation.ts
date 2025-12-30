@@ -235,14 +235,12 @@ export async function processQueuedSubmission (context: JobContext) {
                 await context.redis.set(alertKey, messageId);
                 await context.redis.set(maxQueueLengthKey, remainingItemsInQueue.toString());
             }
-        } else if (remainingItemsInQueue === 0 && await context.redis.exists(alertKey)) {
-            await sendMessageToWebhook(controlSubSettings.backlogWebhook, `✅ Post creation queue has been cleared.`);
-            await context.redis.del(alertKey, maxQueueLengthKey);
-        } else if (remainingItemsInQueue > 0) {
+        } else {
             const messageId = await context.redis.get(alertKey);
             const maxQueueLengthVal = await context.redis.get(maxQueueLengthKey);
             let maxQueueLength = maxQueueLengthVal ? parseInt(maxQueueLengthVal, 10) : 0;
-            if (messageId) {
+
+            if (remainingItemsInQueue > 0 && messageId) {
                 if (remainingItemsInQueue > maxQueueLength) {
                     maxQueueLength = remainingItemsInQueue;
                     await context.redis.set(maxQueueLengthKey, maxQueueLength.toString());
@@ -253,6 +251,11 @@ export async function processQueuedSubmission (context: JobContext) {
                     messageId,
                     `⚠️ Post creation queue is backlogged. There ${pluralize("is", remainingItemsInQueue)} currently ${remainingItemsInQueue} ${pluralize("submission", remainingItemsInQueue)} waiting to be processed. (Max observed: ${maxQueueLength})`,
                 );
+            } else if (remainingItemsInQueue === 0) {
+                if (messageId) {
+                    await updateWebhookMessage(controlSubSettings.backlogWebhook, messageId, `✅ Post creation queue has been cleared. The maximum queue length observed was ${maxQueueLength}.`);
+                }
+                await context.redis.del(alertKey, maxQueueLengthKey);
             }
         }
     }
