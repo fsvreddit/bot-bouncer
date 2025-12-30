@@ -78,14 +78,17 @@ export function median (numbers: number[]): number {
     return sorted[middle];
 }
 
-export async function sendMessageToWebhook (webhookUrl: string, message: string) {
+export async function sendMessageToWebhook (webhookUrl: string, message: string): Promise<string | undefined> {
     const params = {
         content: message.replaceAll("\n\n\n", "\n\n").replaceAll("\n\n", "\n"),
     };
 
+    const pathParams = new URLSearchParams();
+    pathParams.append("wait", "true");
+
     try {
         const result = await fetch(
-            webhookUrl,
+            `${webhookUrl}?${pathParams}`,
             {
                 method: "post",
                 headers: {
@@ -95,8 +98,35 @@ export async function sendMessageToWebhook (webhookUrl: string, message: string)
             },
         );
         console.log("Webhook message sent, status:", result.status);
+
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        const json = await result.json();
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
+        return json.id;
     } catch (error) {
         console.error("Error sending message to webhook:", error);
+    }
+}
+
+export async function updateWebhookMessage (webhookUrl: string, messageId: string, newMessage: string): Promise<void> {
+    const params = {
+        content: newMessage.replaceAll("\n\n\n", "\n\n").replaceAll("\n\n", "\n"),
+    };
+
+    try {
+        const result = await fetch(
+            `${webhookUrl}/messages/${messageId}`,
+            {
+                method: "patch",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(params),
+            },
+        );
+        console.log("Webhook message updated, status:", result.status);
+    } catch (error) {
+        console.error("Error updating message to webhook:", error);
     }
 }
 

@@ -6,7 +6,7 @@ import { addHours, addMinutes, addSeconds } from "date-fns";
 import { getControlSubSettings } from "./settings.js";
 import pluralize from "pluralize";
 import { queueSendFeedback } from "./submissionFeedback.js";
-import { sendMessageToWebhook } from "./utility.js";
+import { sendMessageToWebhook, updateWebhookMessage } from "./utility.js";
 
 export const statusToFlair: Record<UserStatus, PostFlairTemplate> = {
     [UserStatus.Pending]: PostFlairTemplate.Pending,
@@ -226,20 +226,34 @@ export async function processQueuedSubmission (context: JobContext) {
     }
 
     const alertKey = "postCreationQueueAlertSent";
+    const maxQueueLengthKey = "postCreationQueueAlertMaxQueueLength";
 
     if (controlSubSettings.backlogWebhook) {
         if (remainingItemsInQueue > (controlSubSettings.postCreationQueueAlertLevel ?? 100) && !await context.redis.exists(alertKey)) {
-            await sendMessageToWebhook(controlSubSettings.backlogWebhook, `⚠️ Post creation queue is backlogged. There are currently ${remainingItemsInQueue} ${pluralize("submission", remainingItemsInQueue)} waiting to be processed.`);
-            await context.redis.set(alertKey, "sent");
-        } else if (remainingItemsInQueue % (controlSubSettings.postCreationQueueAlertLevel ?? 100) === 0 && remainingItemsInQueue > 0 && await context.redis.exists(alertKey)) {
-            const sentAtLevelKey = `postCreationQueueAlertLevel:${remainingItemsInQueue}`;
-            if (!await context.redis.exists(sentAtLevelKey)) {
-                await sendMessageToWebhook(controlSubSettings.backlogWebhook, `⚠️ Post creation queue is still backlogged. There are currently ${remainingItemsInQueue} ${pluralize("submission", remainingItemsInQueue)} waiting to be processed.`);
-                await context.redis.set(sentAtLevelKey, "sent", { expiration: addMinutes(new Date(), 30) });
+            const messageId = await sendMessageToWebhook(controlSubSettings.backlogWebhook, `⚠️ Post creation queue is backlogged. There are currently ${remainingItemsInQueue} ${pluralize("submission", remainingItemsInQueue)} waiting to be processed.`);
+            if (messageId) {
+                await context.redis.set(alertKey, messageId);
+                await context.redis.set(maxQueueLengthKey, remainingItemsInQueue.toString());
             }
         } else if (remainingItemsInQueue === 0 && await context.redis.exists(alertKey)) {
             await sendMessageToWebhook(controlSubSettings.backlogWebhook, `✅ Post creation queue has been cleared.`);
-            await context.redis.del(alertKey);
+            await context.redis.del(alertKey, maxQueueLengthKey);
+        } else if (remainingItemsInQueue > 0) {
+            const messageId = await context.redis.get(alertKey);
+            const maxQueueLengthVal = await context.redis.get(maxQueueLengthKey);
+            let maxQueueLength = maxQueueLengthVal ? parseInt(maxQueueLengthVal, 10) : 0;
+            if (messageId) {
+                if (remainingItemsInQueue > maxQueueLength) {
+                    maxQueueLength = remainingItemsInQueue;
+                    await context.redis.set(maxQueueLengthKey, maxQueueLength.toString());
+                }
+
+                await updateWebhookMessage(
+                    controlSubSettings.backlogWebhook,
+                    messageId,
+                    `⚠️ Post creation queue is backlogged. There ${pluralize("is", remainingItemsInQueue)} currently ${remainingItemsInQueue} ${pluralize("submission", remainingItemsInQueue)} waiting to be processed. (Max observed: ${maxQueueLength})`,
+                );
+            }
         }
     }
 
