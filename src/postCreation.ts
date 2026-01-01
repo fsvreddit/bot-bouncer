@@ -2,7 +2,7 @@ import { JobContext, TriggerContext } from "@devvit/public-api";
 import { getUserStatus, setUserStatus, storeInitialAccountProperties, UserDetails, UserStatus } from "./dataStore.js";
 import { CONTROL_SUBREDDIT, ControlSubredditJob, INTERNAL_BOT, PostFlairTemplate } from "./constants.js";
 import { UserExtended } from "./extendedDevvit.js";
-import { addHours, addMinutes, addSeconds } from "date-fns";
+import { addDays, addHours, addMinutes, addSeconds } from "date-fns";
 import { getControlSubSettings } from "./settings.js";
 import pluralize from "pluralize";
 import { queueSendFeedback } from "./submissionFeedback.js";
@@ -110,6 +110,7 @@ async function createNewSubmission (submission: AsyncSubmission, context: Trigge
             const commentText = submission.callback.comment.replace("{{permalink}}", newPost.permalink);
             const newComment = await callbackPost.addComment({ text: commentText });
             await newComment.distinguish(true);
+            await context.redis.set(`callbackCommentPosted:${submission.user.username}`, newComment.id, { expiration: addDays(new Date(), 7) });
         }
     }
 
