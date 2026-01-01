@@ -148,7 +148,7 @@ async function handleSetBanned (username: string, subredditName: string, setting
     }
 
     const userContext = await context.redis.get(`userContext:${username}`);
-    if (userContext && userContent.some(item => item.id === userContext)) {
+    if (userContext && !userContent.some(item => item.id === userContext)) {
         console.log(`Classification Update: Adding context item ${userContext} for ${username}`);
         userContent.unshift(await getPostOrCommentById(userContext, context));
     }
