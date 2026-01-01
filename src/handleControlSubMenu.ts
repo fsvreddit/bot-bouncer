@@ -279,7 +279,10 @@ async function reevaluateUserAccount (username: string, context: Context) {
     const fields: FormField[] = [];
 
     const variables = await getEvaluatorVariables(context);
-    const evaluationResults = await evaluateUserAccount(username, variables, context);
+    const evaluationResults = await evaluateUserAccount({
+        username,
+        variables,
+    }, context);
     if (evaluationResults.length === 0) {
         fields.push({
             type: "string",

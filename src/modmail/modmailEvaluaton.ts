@@ -23,7 +23,10 @@ export async function evaluateAccountFromModmail (modmail: ModmailMessage, conte
     const output: json2md.DataObject[] = [];
 
     try {
-        evaluationResults = await evaluateUserAccount(username, variables, context);
+        evaluationResults = await evaluateUserAccount({
+            username,
+            variables,
+        }, context);
         console.log(`Modmail: Evaluation results for ${username}: ${JSON.stringify(evaluationResults)}`);
         if (evaluationResults.length === 0) {
             output.push({ p: `No evaluation results for ${username}` });

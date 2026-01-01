@@ -135,7 +135,10 @@ export async function analyseBioText (context: TriggerContext) {
             const rows: string[][] = [];
             for (const bioTextEntry of similarTexts) {
                 const currentStatus = await getUserStatus(bioTextEntry.username, context);
-                const evaluatorsMatched = await evaluateUserAccount(bioTextEntry.username, variables, context);
+                const evaluatorsMatched = await evaluateUserAccount({
+                    username: bioTextEntry.username,
+                    variables,
+                }, context);
                 const evaluators = evaluatorsMatched.map(evaluator => evaluator.botName).join(", ");
                 rows.push([`/u/${bioTextEntry.username}`, currentStatus?.userStatus ?? "", evaluators, bioTextEntry.bioText]);
                 if (!currentStatus && evaluators === "") {
