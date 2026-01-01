@@ -147,10 +147,12 @@ async function handleSetBanned (username: string, subredditName: string, setting
         return;
     }
 
-    const userContext = await context.redis.get(`userContext:${username}`);
-    if (userContext && !userContent.some(item => item.id === userContext)) {
-        console.log(`Classification Update: Adding context item ${userContext} for ${username}`);
-        userContent.unshift(await getPostOrCommentById(userContext, context));
+    const userContextItems = await context.redis.hKeys(`userContextItems:${username}`);
+    for (const itemId of userContextItems) {
+        if (!userContent.some(item => item.id === itemId)) {
+            console.log(`Classification Update: Adding context item ${itemId} for ${username}`);
+            userContent.unshift(await getPostOrCommentById(itemId, context));
+        }
     }
 
     const recentLocalContent = userContent.filter(item => item.subredditName === subredditName && item.createdAt > subWeeks(new Date(), 1));

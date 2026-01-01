@@ -14,6 +14,7 @@ import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { queueKarmaFarmingAccounts } from "./karmaFarmingSubsCheck.js";
 import { userIsTrustedSubmitter } from "./trustedSubmitterHelpers.js";
 import { queueUpgradeNotificationsForLegacySubs } from "./upgradeNotifierForLegacySubs.js";
+import { expireKeyAt } from "devvit-helpers";
 
 const WIKI_PAGE = "externalsubmissions";
 
@@ -42,18 +43,25 @@ export async function addExternalSubmissionFromClientSub (data: ExternalSubmissi
         throw new Error("This function must be called from a client subreddit, not the control subreddit.");
     }
 
+    const alreadyInQueue = await context.redis.global.zScore(EXTERNAL_SUBMISSION_QUEUE_KEY, data.username);
     if (await context.redis.global.zScore(EXTERNAL_SUBMISSION_QUEUE_KEY, data.username)) {
         console.log(`External Submissions: User ${data.username} is already in the external submissions queue.`);
         return;
     }
 
-    await context.redis.global.zAdd(EXTERNAL_SUBMISSION_QUEUE_KEY, { member: data.username, score: new Date().getTime() });
-    await context.redis.global.set(getExternalSubmissionDataKey(data.username), JSON.stringify(data), { expiration: addDays(new Date(), 7) });
-    if (data.targetId) {
-        await context.redis.set(`userContext:${data.username}`, data.targetId, { expiration: addWeeks(new Date(), 2) });
+    if (alreadyInQueue) {
+        console.log(`External Submissions: User ${data.username} is already in the external submissions queue.`);
+    } else {
+        await context.redis.global.zAdd(EXTERNAL_SUBMISSION_QUEUE_KEY, { member: data.username, score: new Date().getTime() });
+        await context.redis.global.set(getExternalSubmissionDataKey(data.username), JSON.stringify(data), { expiration: addDays(new Date(), 7) });
+        console.log(`External Submissions: Added external submission for ${data.username} to the queue.`);
     }
 
-    console.log(`External Submissions: Added external submission for ${data.username} to the queue.`);
+    if (data.targetId) {
+        const redisKey = `userContextItems:${data.username}`;
+        await context.redis.hSet(redisKey, { [data.targetId]: data.targetId });
+        await expireKeyAt(context.redis, redisKey, addWeeks(new Date(), 2));
+    }
 }
 
 export async function addExternalSubmissionToPostCreationQueue (item: ExternalSubmission, immediate: boolean, context: TriggerContext): Promise<boolean> {
