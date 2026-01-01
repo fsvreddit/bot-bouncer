@@ -276,6 +276,9 @@ export function invalidEvaluatorVariableCondition (variables: Record<string, JSO
 
     // Now check for inconsistent types.
     for (const key of Object.keys(variables)) {
+        if (key.startsWith("int-")) {
+            continue;
+        }
         const value = variables[key];
         if (Array.isArray(value)) {
             const distinctTypes = _.uniq(value.map(item => typeof item));
