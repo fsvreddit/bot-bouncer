@@ -67,6 +67,7 @@ export async function evaluateUserAccount (options: EvaluateUserAccountOptions, 
         }
 
         if (options.targetId && !userItems.some(item => item.id === options.targetId)) {
+            console.log(`Evaluator: Adding target item ${options.targetId} to evaluation for ${options.username}`);
             userItems.unshift(await getPostOrCommentById(options.targetId, context));
         }
 

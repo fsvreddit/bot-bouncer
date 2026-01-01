@@ -2,7 +2,7 @@ import { JobContext, TriggerContext, User, WikiPage } from "@devvit/public-api";
 import { CONTROL_SUBREDDIT, INTERNAL_BOT } from "./constants.js";
 import { addUserToTempDeclineStore, getUserStatus, UserStatus } from "./dataStore.js";
 import { getControlSubSettings } from "./settings.js";
-import { addDays, addMinutes, addSeconds } from "date-fns";
+import { addDays, addMinutes, addSeconds, addWeeks } from "date-fns";
 import { getPostOrCommentById, getUserOrUndefined } from "./utility.js";
 import { isLinkId } from "@devvit/public-api/types/tid.js";
 import { AsyncSubmission, isUserAlreadyQueued, PostCreationQueueResult, promotePositionInQueue, queuePostCreation } from "./postCreation.js";
@@ -49,6 +49,10 @@ export async function addExternalSubmissionFromClientSub (data: ExternalSubmissi
 
     await context.redis.global.zAdd(EXTERNAL_SUBMISSION_QUEUE_KEY, { member: data.username, score: new Date().getTime() });
     await context.redis.global.set(getExternalSubmissionDataKey(data.username), JSON.stringify(data), { expiration: addDays(new Date(), 7) });
+    if (data.targetId) {
+        await context.redis.set(`userContext:${data.username}`, data.targetId, { expiration: addWeeks(new Date(), 2) });
+    }
+
     console.log(`External Submissions: Added external submission for ${data.username} to the queue.`);
 }
 

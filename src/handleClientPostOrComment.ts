@@ -401,8 +401,6 @@ async function checkAndReportPotentialBot (username: string, target: Post | Comm
                 }
             }
         }
-
-        await context.redis.set(`userContext:${username}`, targetItem.id, { expiration: addWeeks(new Date(), 2) });
     } else if (actionToTake === ActionType.Report) {
         const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
         const isApprovedUser = await isContributor(context.reddit, subredditName, user.username);
