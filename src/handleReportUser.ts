@@ -157,16 +157,19 @@ export async function reportFormHandler (event: FormOnSubmitEvent<JSONObject>, c
     }
 
     const controlSubSettings = await getControlSubSettings(context);
+    const contentAgeLimit = subMonths(new Date(), controlSubSettings.maxInactivityMonths ?? 3);
 
-    const userContent = await context.reddit.getCommentsAndPostsByUser({
-        username: target.authorName,
-        limit: 100,
-        sort: "new",
-    }).all();
+    if (target.createdAt < contentAgeLimit) {
+        const userContent = await context.reddit.getCommentsAndPostsByUser({
+            username: target.authorName,
+            limit: 100,
+            sort: "new",
+        }).all();
 
-    if (userContent.filter(item => item.createdAt > subMonths(new Date(), controlSubSettings.maxInactivityMonths ?? 3)).length === 0) {
-        context.ui.showToast("You can only report users with recent content on their history.");
-        return;
+        if (!userContent.some(item => item.createdAt > contentAgeLimit)) {
+            context.ui.showToast("You can only report users with recent content on their history.");
+            return;
+        }
     }
 
     const currentUser = await context.reddit.getCurrentUser();

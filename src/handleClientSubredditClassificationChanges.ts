@@ -147,6 +147,11 @@ async function handleSetBanned (username: string, subredditName: string, setting
         return;
     }
 
+    const userContext = await context.redis.get(`userContext:${username}`);
+    if (userContext && userContent.some(item => item.id === userContext)) {
+        userContent.unshift(await getPostOrCommentById(userContext, context));
+    }
+
     const recentLocalContent = userContent.filter(item => item.subredditName === subredditName && item.createdAt > subWeeks(new Date(), 1));
 
     if (recentLocalContent.length === 0) {

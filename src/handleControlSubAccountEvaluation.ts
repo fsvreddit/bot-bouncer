@@ -8,6 +8,7 @@ import { addMonths, addWeeks, subMonths } from "date-fns";
 import { getUserExtended } from "./extendedDevvit.js";
 import _ from "lodash";
 import { getSubmitterSuccessRate } from "./statistics/submitterStatistics.js";
+import { getPostOrCommentById } from "./utility.js";
 
 export interface EvaluatorStats {
     hitCount: number;
@@ -21,8 +22,14 @@ export interface EvaluationResult {
     metThreshold: boolean;
 }
 
-export async function evaluateUserAccount (username: string, variables: Record<string, JSONValue>, context: JobContext): Promise<EvaluationResult[]> {
-    const user = await getUserExtended(username, context);
+interface EvaluateUserAccountOptions {
+    username: string;
+    variables: Record<string, JSONValue>;
+    targetId?: string;
+}
+
+export async function evaluateUserAccount (options: EvaluateUserAccountOptions, context: JobContext): Promise<EvaluationResult[]> {
+    const user = await getUserExtended(options.username, context);
     if (!user) {
         return [];
     }
@@ -32,7 +39,7 @@ export async function evaluateUserAccount (username: string, variables: Record<s
     const detectedBots: UserEvaluatorBase[] = [];
 
     for (const Evaluator of ALL_EVALUATORS) {
-        const evaluator = new Evaluator(context, socialLinks, variables);
+        const evaluator = new Evaluator(context, socialLinks, options.variables);
         if (evaluator.evaluatorDisabled()) {
             continue;
         }
@@ -49,7 +56,7 @@ export async function evaluateUserAccount (username: string, variables: Record<s
         if (userItems === undefined) {
             try {
                 userItems = await context.reddit.getCommentsAndPostsByUser({
-                    username,
+                    username: options.username,
                     sort: "new",
                     limit: 100,
                 }).all();
@@ -59,6 +66,10 @@ export async function evaluateUserAccount (username: string, variables: Record<s
             }
         }
 
+        if (options.targetId && !userItems.some(item => item.id === options.targetId)) {
+            userItems.unshift(await getPostOrCommentById(options.targetId, context));
+        }
+
         let isABot;
         try {
             isABot = await Promise.resolve(evaluator.evaluate(user, userItems));
@@ -66,11 +77,11 @@ export async function evaluateUserAccount (username: string, variables: Record<s
                 socialLinks = evaluator.socialLinks;
             }
         } catch (error) {
-            console.error(`Evaluator: ${username} threw an error during evaluation of ${evaluator.name}: ${error}`);
+            console.error(`Evaluator: ${options.username} threw an error during evaluation of ${evaluator.name}: ${error}`);
             return [];
         }
         if (isABot) {
-            console.log(`Evaluator: ${username} appears to be a bot via the evaluator: ${evaluator.name} 💥`);
+            console.log(`Evaluator: ${options.username} appears to be a bot via the evaluator: ${evaluator.name} 💥`);
             if (evaluator.name.includes("Bot Group") && evaluator.hitReasons && evaluator.hitReasons.length > 0) {
                 console.log(`Evaluator: Hit reasons: ${evaluator.hitReasons.map(item => typeof item === "string" ? item : item.reason).join(", ")}`);
             }
@@ -116,7 +127,10 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
     }
 
     const variables = await getEvaluatorVariables(context);
-    const evaluationResults = await evaluateUserAccount(username, variables, context);
+    const evaluationResults = await evaluateUserAccount({
+        username,
+        variables,
+    }, context);
 
     const evaluationResultsToStore = evaluationResults.filter(result => result.canAutoBan);
     await storeAccountInitialEvaluationResults(username, evaluationResultsToStore, context);

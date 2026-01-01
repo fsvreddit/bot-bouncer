@@ -48,6 +48,7 @@ Users who have been unfairly banned by Bot Bouncer should be encouraged to modma
 
 ## v1.24 (coming soon)
 
+* Fixed erroneous errors referencing no recent posts/comments when reporting users
 * Add new evaluator type
 * Improved performance (reducing Dev Platform resource usage)
 * Improve reliability of banning users already classified as bots when they post or comment

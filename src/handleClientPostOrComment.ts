@@ -326,6 +326,10 @@ async function checkAndReportPotentialBot (username: string, target: Post | Comm
             }
         }
 
+        if (!userItems.some(item => item.id === targetId)) {
+            userItems.unshift(await getPostOrCommentById(targetId, context));
+        }
+
         anyEvaluatorsChecked = true;
         const evaluationResult = await Promise.resolve(evaluator.evaluate(user, userItems));
         if (!socialLinks && evaluator.socialLinks) {
@@ -373,6 +377,7 @@ async function checkAndReportPotentialBot (username: string, target: Post | Comm
             submitter: currentUser?.username,
             reportContext,
             immediate: true,
+            targetId: targetItem.id,
         }, context),
         recordReportForSummary(user.username, "automatically", context.redis),
     );
@@ -396,6 +401,8 @@ async function checkAndReportPotentialBot (username: string, target: Post | Comm
                 }
             }
         }
+
+        await context.redis.set(`userContext:${username}`, targetItem.id, { expiration: addWeeks(new Date(), 2) });
     } else if (actionToTake === ActionType.Report) {
         const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
         const isApprovedUser = await isContributor(context.reddit, subredditName, user.username);

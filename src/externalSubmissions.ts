@@ -94,7 +94,11 @@ export async function addExternalSubmissionToPostCreationQueue (item: ExternalSu
     if (!item.submitter || item.submitter === INTERNAL_BOT) {
         // Automatic submission. Check if any evaluators match.
         const variables = await getEvaluatorVariables(context);
-        const evaluationResults = await evaluateUserAccount(item.username, variables, context);
+        const evaluationResults = await evaluateUserAccount({
+            username: item.username,
+            variables,
+            targetId: item.targetId,
+        }, context);
 
         if (item.submitter === INTERNAL_BOT) {
             if (item.evaluationResults) {
