@@ -47,7 +47,7 @@ export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, contex
         await checkForBotSwatter(context);
     }
 
-    console.log("App Install: Install or upgrade actions complete");
+    console.log(`App Install: Install or upgrade actions complete, now running version ${context.appVersion}`);
 }
 
 async function addControlSubredditJobs (context: TriggerContext) {

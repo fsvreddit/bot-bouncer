@@ -1,6 +1,6 @@
 import { JSONValue, Post, TriggerContext } from "@devvit/public-api";
 import { getUserExtended } from "../extendedDevvit.js";
-import { addDays } from "date-fns";
+import { addDays, addHours } from "date-fns";
 import _ from "lodash";
 import { SequenceMatcher } from "./difflib.js";
 import { getSubstitutedText } from "./substitutions.js";
@@ -71,6 +71,13 @@ interface Match {
 }
 
 export async function analyseBioText (context: TriggerContext) {
+    const recentlyRunKey = "BioTextAnalysisRecentlyRun";
+    if (await context.redis.exists(recentlyRunKey)) {
+        console.log("Bio text analysis recently run, skipping this execution.");
+        return;
+    }
+    await context.redis.set(recentlyRunKey, "true", { expiration: addHours(new Date(), 12) });
+
     const BIO_TEXT_STORAGE_KEY = "BioTextSimilarity";
     const BIO_TEXT_MODMAIL_SENT = "BioTextModmailSent";
 
