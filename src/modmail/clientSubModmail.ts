@@ -21,7 +21,7 @@ export async function handleClientSubredditModmail (modmail: ModmailMessage, con
 
     const currentStatus = await getUserStatus(username, context);
 
-    if (!currentStatus || currentStatus.userStatus !== UserStatus.Banned) {
+    if (currentStatus?.userStatus !== UserStatus.Banned) {
         return;
     }
 
