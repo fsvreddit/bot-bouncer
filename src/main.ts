@@ -31,6 +31,7 @@ import { redosChecker } from "./userEvaluation/redosChecker.js";
 import { checkPermissionQueueItems, handlePermissionCheckEnqueueJob } from "./permissionChecks.js";
 import { handleFiveMinutelyJob } from "./scheduler/fiveMinutelyJobs.js";
 import { processLegacySubUpgradeNotifications } from "./upgradeNotifierForLegacySubs.js";
+import { checkAccountsForReview } from "./modmail/accountReview.js";
 
 Devvit.addSettings(appSettings);
 
@@ -229,6 +230,11 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: ControlSubredditJob.CheckUpgradeNotifierForLegacySubs,
     onRun: processLegacySubUpgradeNotifications,
+});
+
+Devvit.addSchedulerJob({
+    name: ControlSubredditJob.AccountReview,
+    onRun: checkAccountsForReview,
 });
 
 /**

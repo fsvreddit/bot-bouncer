@@ -12,7 +12,7 @@ import { isLinkId } from "@devvit/public-api/types/tid.js";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { recordBanForSummary, recordReportForSummary } from "./modmail/actionSummary.js";
 import { getUserExtended } from "./extendedDevvit.js";
-import { isBanned, isContributor } from "devvit-helpers";
+import { expireKeyAt, isBanned, isContributor } from "devvit-helpers";
 
 export async function handleClientPostCreate (event: PostCreate, context: TriggerContext) {
     if (context.subredditName === CONTROL_SUBREDDIT) {
@@ -224,24 +224,6 @@ async function handleContentCreation (username: string, currentStatus: UserDetai
     const target = await getPostOrCommentById(targetId, context);
 
     if (actionToTake === ActionType.Ban) {
-        const removedByMod = await context.redis.exists(`removedbymod:${targetId}`);
-        if (!removedByMod && !target.spam && !target.removed) {
-            promises.push(context.reddit.remove(targetId, true));
-            console.log(`Content Create: ${targetId} removed for ${user.username}`);
-            promises.push(context.redis.set(`removed:${username}`, targetId, { expiration: addWeeks(new Date(), 2) }));
-        } else {
-            // Might be in the modqueue.
-            const modQueue = await context.reddit.getModQueue({
-                subreddit: subredditName,
-                type: "all",
-            }).all();
-            const foundInModQueue = modQueue.find(item => item.id === targetId);
-            if (foundInModQueue) {
-                promises.push(context.reddit.remove(foundInModQueue.id, true));
-                console.log(`Content Create: ${foundInModQueue.id} removed via mod queue for ${user.username}`);
-            }
-        }
-
         const isCurrentlyBanned = await isBanned(context.reddit, subredditName, user.username);
 
         if (!isCurrentlyBanned) {
@@ -265,12 +247,26 @@ async function handleContentCreation (username: string, currentStatus: UserDetai
             promises.push(recordBanForSummary(username, context.redis));
             console.log(`Content Create: ${user.username} banned from ${subredditName}`);
         }
+
+        const removedByMod = await context.redis.exists(`removedbymod:${targetId}`);
+        if (!removedByMod) {
+            promises.push(context.reddit.remove(targetId, true));
+            if (settings[AppSetting.LockContentWhenRemoving]) {
+                const target = await getPostOrCommentById(targetId, context);
+                if (!target.locked) {
+                    promises.push(target.lock());
+                    await context.redis.hSet(`lockedItems:${username}`, { [targetId]: targetId });
+                    promises.push(expireKeyAt(context.redis, `lockedItems:${username}`, addDays(new Date(), 14)));
+                }
+            }
+            console.log(`Content Create: ${targetId} removed for ${user.username}`);
+        }
     } else {
         // Report, not ban.
         promises.push(context.reddit.report(target, { reason: "User is listed as a bot on /r/BotBouncer" }));
     }
 
-    await Promise.all(promises);
+    await Promise.allSettled(promises);
 }
 
 async function checkAndReportPotentialBot (username: string, target: Post | CommentCreate, settings: SettingsValues, variables: Record<string, JSONValue>, context: TriggerContext) {
@@ -330,6 +326,10 @@ async function checkAndReportPotentialBot (username: string, target: Post | Comm
             }
         }
 
+        if (!userItems.some(item => item.id === targetId)) {
+            userItems.unshift(await getPostOrCommentById(targetId, context));
+        }
+
         anyEvaluatorsChecked = true;
         const evaluationResult = await Promise.resolve(evaluator.evaluate(user, userItems));
         if (!socialLinks && evaluator.socialLinks) {
@@ -377,6 +377,7 @@ async function checkAndReportPotentialBot (username: string, target: Post | Comm
             submitter: currentUser?.username,
             reportContext,
             immediate: true,
+            targetId: targetItem.id,
         }, context),
         recordReportForSummary(user.username, "automatically", context.redis),
     );
@@ -391,6 +392,14 @@ async function checkAndReportPotentialBot (username: string, target: Post | Comm
                 context.redis.set(`removed:${targetItem.authorName}`, targetItem.id, { expiration: addWeeks(new Date(), 2) }),
                 targetItem.remove(),
             );
+
+            if (settings[AppSetting.LockContentWhenRemoving]) {
+                if (!targetItem.locked) {
+                    promises.push(targetItem.lock());
+                    await context.redis.hSet(`lockedItems:${username}`, { [targetItem.id]: targetItem.id });
+                    promises.push(expireKeyAt(context.redis, `lockedItems:${username}`, addDays(new Date(), 14)));
+                }
+            }
         }
     } else if (actionToTake === ActionType.Report) {
         const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();

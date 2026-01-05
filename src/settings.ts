@@ -46,6 +46,7 @@ If you are removing Bot Bouncer because of concerns about how it works, we would
 
 export enum AppSetting {
     Action = "action",
+    LockContentWhenRemoving = "lockContentWhenRemoving",
     BanMessage = "banMessage",
     AutoWhitelist = "autoWhitelist",
     ModmailNote = "clientModmailNote",
@@ -82,7 +83,7 @@ export const appSettings: SettingsFormField[] = [
                 label: "Action to take when a banned account posts or comments",
                 helpText: "This action applies to accounts that are listed on /r/BotBouncer as a bot",
                 options: [
-                    { label: "Ban", value: ActionType.Ban },
+                    { label: "Ban and remove content", value: ActionType.Ban },
                     { label: "Report content", value: ActionType.Report },
                 ],
                 multiSelect: false,
@@ -92,6 +93,13 @@ export const appSettings: SettingsFormField[] = [
                         return "You must select an action.";
                     }
                 },
+            },
+            {
+                type: "boolean",
+                name: AppSetting.LockContentWhenRemoving,
+                label: "Lock content when removing",
+                helpText: "If banning and removing content, also lock the post/comment to prevent further engagement",
+                defaultValue: false,
             },
             {
                 type: "paragraph",
@@ -214,10 +222,12 @@ export const appSettings: SettingsFormField[] = [
 
 export interface ControlSubSettings {
     evaluationDisabled: boolean;
+    clientReclassificationDisabled?: boolean;
     proactiveEvaluationEnabled?: boolean;
     maxInactivityMonths?: number;
     trustedSubmitters: string[];
     trustedSubmitterAutoThreshold?: number;
+    trustedSubmitterAutoExcludedUsers?: string[];
     reporterBlacklist: string[];
     numberOfWikiPages?: number;
     bulkSubmitters?: string[];
@@ -242,10 +252,12 @@ const schema: JSONSchemaType<ControlSubSettings> = {
     type: "object",
     properties: {
         evaluationDisabled: { type: "boolean" },
+        clientReclassificationDisabled: { type: "boolean", nullable: true },
         proactiveEvaluationEnabled: { type: "boolean", nullable: true },
         maxInactivityMonths: { type: "number", nullable: true },
         trustedSubmitters: { type: "array", items: { type: "string" } },
         trustedSubmitterAutoThreshold: { type: "number", nullable: true },
+        trustedSubmitterAutoExcludedUsers: { type: "array", items: { type: "string" }, nullable: true },
         reporterBlacklist: { type: "array", items: { type: "string" } },
         numberOfWikiPages: { type: "number", nullable: true },
         bulkSubmitters: { type: "array", items: { type: "string" }, nullable: true },

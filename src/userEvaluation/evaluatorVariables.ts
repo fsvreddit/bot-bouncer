@@ -14,6 +14,25 @@ const EVALUATOR_VARIABLES_KEY = "evaluatorVariablesHash";
 const EVALUATOR_VARIABLES_YAML_PAGE_ROOT = "evaluator-config";
 const EVALUATOR_VARIABLES_WIKI_PAGE = "evaluatorvars";
 const EVALUATOR_VARIABLES_LAST_REVISIONS_KEY = "evaluatorVariablesLastRevisions";
+const EXTRA_VARIABLES_KEY = "extraEvaluatorVariablesHash";
+const EXTRA_VARIABLES_UPDATED_KEY = "extraEvaluatorVariablesUpdated";
+
+export async function setRedisSubstititionValue (variableName: string, value: string | string[], context: TriggerContext | JobContext) {
+    await context.redis.hSet(EXTRA_VARIABLES_KEY, { [variableName]: JSON.stringify(value) });
+    await context.redis.set(EXTRA_VARIABLES_UPDATED_KEY, "true");
+}
+
+export async function getRedisSubstitionValue<T> (variableName: string, context: TriggerContext | JobContext): Promise<T | undefined> {
+    const variable = await context.redis.hGet(EXTRA_VARIABLES_KEY, variableName);
+    if (variable) {
+        return JSON.parse(variable) as T;
+    }
+}
+
+async function getExtraSubstititionValues (context: TriggerContext | JobContext): Promise<Record<string, string | string[]>> {
+    const extraVariables = await context.redis.hGetAll(EXTRA_VARIABLES_KEY);
+    return _.fromPairs(Object.entries(extraVariables).map(([key, value]) => [`redis:${key}`, JSON.parse(value)]));
+}
 
 export async function getEvaluatorVariables (context: TriggerContext | JobContext): Promise<Record<string, JSONValue>> {
     let allVariables: Record<string, string>;
@@ -67,20 +86,37 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
         return;
     }
 
+    if (event.data?.updateExtraVariables && !await context.redis.exists(EXTRA_VARIABLES_UPDATED_KEY)) {
+        console.log("Evaluator Variables: No changes detected in extra substitution variables.");
+        return;
+    }
+
+    console.log(`Evaluator Variables: Starting update from wiki pages. Variables update: ${event.data?.updateExtraVariables as boolean | undefined ?? false}`);
+
     const pageList = await context.reddit.getWikiPages(CONTROL_SUBREDDIT)
         .then(pages => pages.filter(page => page === EVALUATOR_VARIABLES_YAML_PAGE_ROOT || page.startsWith(`${EVALUATOR_VARIABLES_YAML_PAGE_ROOT}/`)));
 
     const pages = await Promise.all(pageList.map(page => context.reddit.getWikiPage(CONTROL_SUBREDDIT, page)));
 
     const recentRevisions = await context.redis.hGetAll(EVALUATOR_VARIABLES_LAST_REVISIONS_KEY);
-    if (!pages.some(page => recentRevisions[page.name] !== page.revisionId)) {
+    if (!event.data?.updateExtraVariables && !pages.some(page => recentRevisions[page.name] !== page.revisionId)) {
         console.log("Evaluator Variables: No changes detected in evaluator variable wiki pages.");
         return;
     }
 
     const yamlStr = pages.map(page => page.content).join("\n\n---\n\n");
 
-    const variables = yamlToVariables(yamlStr);
+    const extraVariables = await getExtraSubstititionValues(context);
+
+    const variables = yamlToVariables(yamlStr, extraVariables);
+
+    for (const Evaluator of ALL_EVALUATORS) {
+        const evaluator = new Evaluator({} as unknown as TriggerContext, undefined, variables);
+        const overriddenVariables = evaluator.getVariableOverrides();
+        for (const [key, value] of Object.entries(overriddenVariables)) {
+            variables[`${evaluator.shortname}:${key}`] = value as JSONValue;
+        }
+    }
 
     const invalidEntries = invalidEvaluatorVariableCondition(variables);
     const errors = variables.errors as string[] | undefined;
@@ -231,6 +267,8 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
         const username = event.data?.username as string | undefined ?? "unknown";
         await sendMessageToWebhook(controlSubSettings.monitoringWebhook, `✅ Successfully updated evaluator variables from wiki edit by /u/${username}.`);
     }
+
+    await context.redis.del(EXTRA_VARIABLES_UPDATED_KEY);
 }
 
 export function invalidEvaluatorVariableCondition (variables: Record<string, JSONValue>): ValidationIssue[] {
@@ -238,6 +276,9 @@ export function invalidEvaluatorVariableCondition (variables: Record<string, JSO
 
     // Now check for inconsistent types.
     for (const key of Object.keys(variables)) {
+        if (key.startsWith("int-")) {
+            continue;
+        }
         const value = variables[key];
         if (Array.isArray(value)) {
             const distinctTypes = _.uniq(value.map(item => typeof item));

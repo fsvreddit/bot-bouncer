@@ -43,8 +43,7 @@ export async function redosChecker (event: ScheduledJobEvent<JSONObject | undefi
             return;
         }
 
-        await context.redis.del(REDOS_QUEUE_KEY);
-        await context.redis.del(REDOS_HITS_KEY);
+        await context.redis.del(REDOS_QUEUE_KEY, REDOS_HITS_KEY);
 
         await queueRedosCheckEntries(context);
         await context.scheduler.runJob({
@@ -171,6 +170,5 @@ async function finaliseReDosReport (context: JobContext) {
         reason: "Updating ReDoS Detections Report",
     });
 
-    await context.redis.del(REDOS_QUEUE_KEY);
-    await context.redis.del(REDOS_HITS_KEY);
+    await context.redis.del(REDOS_QUEUE_KEY, REDOS_HITS_KEY);
 }

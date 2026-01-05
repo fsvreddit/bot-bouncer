@@ -13,8 +13,23 @@ interface FailedFeedbackItem {
     countFailed: number;
 }
 
+const statusToExplanation: Record<UserStatus, string> = {
+    [UserStatus.Organic]: "seems likely to be a human run account rather than a bot.",
+    [UserStatus.Banned]: "has been classified as a bot and will be banned from any subreddit using Bot Bouncer if they post or comment there.",
+    [UserStatus.Declined]: "is potentially problematic, but there is not enough information to definitively classify it as a bot at this time.",
+    [UserStatus.Service]: "is considered a bot, but performs a useful function such as moderation or is invoked explicitly by users, so will not be banned automatically.",
+    [UserStatus.Retired]: "was deleted, suspended or shadowbanned before it could be classified by a human moderator.",
+    [UserStatus.Purged]: "was deleted, suspended or shadowbanned after it was classified as a bot.",
+    [UserStatus.Inactive]: "has no recent activity and so has not been classified explicitly.",
+    [UserStatus.Pending]: "is still being evaluated and has not been classified yet.",
+};
+
 export async function queueSendFeedback (username: string, context: TriggerContext) {
-    const feedbackRequested = await context.redis.exists(`sendFeedback:${username}`);
+    if (context.subredditName !== CONTROL_SUBREDDIT) {
+        throw new Error("queueSendFeedback can only be run in the control subreddit context");
+    }
+
+    const feedbackRequested = await context.redis.exists(`sendFeedback:${username}`, `callbackCommentPosted:${username}`);
     if (!feedbackRequested) {
         return;
     }
@@ -23,11 +38,17 @@ export async function queueSendFeedback (username: string, context: TriggerConte
         return;
     }
 
-    const failedFeedbackItem = await context.redis.global.hGet(FAILED_FEEDBACK_STORE, username);
+    const currentStatus = await getUserStatus(username, context);
+    if (!currentStatus?.submitter) {
+        console.log(`No submitter found for ${username}, not queuing feedback.`);
+        return;
+    }
+
+    const failedFeedbackItem = await context.redis.global.hGet(FAILED_FEEDBACK_STORE, currentStatus.submitter);
     if (failedFeedbackItem) {
         const parsedItem = JSON.parse(failedFeedbackItem) as FailedFeedbackItem;
         if (parsedItem.countFailed >= 5) {
-            console.log(`Not sending feedback to ${username} as there have been ${parsedItem.countFailed} previous failures`);
+            console.log(`Not sending feedback to ${currentStatus.submitter} as there have been ${parsedItem.countFailed} previous failures`);
             return;
         }
     }
@@ -36,6 +57,10 @@ export async function queueSendFeedback (username: string, context: TriggerConte
 }
 
 export async function processFeedbackQueue (context: TriggerContext) {
+    if (context.subredditName !== CONTROL_SUBREDDIT) {
+        throw new Error("processFeedbackQueue can only be run in the control subreddit context");
+    }
+
     const pendingFeedback = await context.redis.zRange(FEEDBACK_QUEUE, 0, Date.now(), { by: "score" });
 
     if (pendingFeedback.length === 0) {
@@ -51,25 +76,22 @@ export async function processFeedbackQueue (context: TriggerContext) {
     }
 
     await context.redis.zRem(FEEDBACK_QUEUE, [firstUser]);
-    await sendFeedback(firstUser, currentStatus.submitter, currentStatus.operator, currentStatus.userStatus, context);
+
+    if (await context.redis.exists(`sendFeedback:${firstUser}`)) {
+        await sendFeedbackViaMessage(firstUser, currentStatus.submitter, currentStatus.operator, currentStatus.userStatus, context);
+    } else {
+        const commentId = await context.redis.get(`callbackCommentPosted:${firstUser}`);
+        if (commentId) {
+            await updateCommentWithFeedback(firstUser, commentId, currentStatus.userStatus, context);
+        }
+    }
 
     if (pendingFeedback.length > 1) {
         console.log(`Processed feedback for ${firstUser}, ${pendingFeedback.length - 1} remaining.`);
     }
 }
 
-async function sendFeedback (username: string, submitter: string, operator: string | undefined, userStatus: UserStatus, context: TriggerContext) {
-    const statusToExplanation: Record<UserStatus, string> = {
-        [UserStatus.Organic]: "seems likely to be a human run account rather than a bot.",
-        [UserStatus.Banned]: "has been classified as a bot and will be banned from any subreddit using Bot Bouncer if they post or comment there.",
-        [UserStatus.Declined]: "is potentially problematic, but there is not enough information to definitively classify it as a bot at this time.",
-        [UserStatus.Service]: "is considered a bot, but performs a useful function such as moderation or is invoked explicitly by users, so will not be banned automatically.",
-        [UserStatus.Retired]: "was deleted, suspended or shadowbanned before it could be classified by a human moderator.",
-        [UserStatus.Purged]: "was deleted, suspended or shadowbanned after it was classified as a bot.",
-        [UserStatus.Inactive]: "has no recent activity and so has not been classified explicitly.",
-        [UserStatus.Pending]: "is still being evaluated and has not been classified yet.",
-    };
-
+async function sendFeedbackViaMessage (username: string, submitter: string, operator: string | undefined, userStatus: UserStatus, context: TriggerContext) {
     const automaticText = operator === context.appName ? "automatically" : "manually";
     const message: json2md.DataObject[] = [
         { p: `Hi ${submitter}, you recently reported /u/${username} to /r/${CONTROL_SUBREDDIT}.` },
@@ -155,4 +177,23 @@ export async function canUserReceiveFeedback (username: string, context: Trigger
         .then(item => item === undefined);
 
     return userCanReceiveFeedback;
+}
+
+async function updateCommentWithFeedback (username: string, commentId: string, userStatus: UserStatus, context: TriggerContext) {
+    const comment = await context.reddit.getCommentById(commentId);
+    if (comment.authorName !== context.appName) {
+        console.warn(`Comment ${commentId} has been deleted, cannot update with feedback.`);
+        return;
+    }
+
+    let commentText = comment.body;
+    commentText += `\n\nEdit: This account has now been classified as **${userStatus}**. This means that the account ${statusToExplanation[userStatus]}`;
+    if (userStatus === UserStatus.Organic || userStatus === UserStatus.Declined || userStatus === UserStatus.Service) {
+        commentText += `\n\nIf you have any more information to help us understand why this may be a harmful or disruptive bot, please [message /r/${CONTROL_SUBREDDIT}](https://www.reddit.com/message/compose?to=/r/${CONTROL_SUBREDDIT}&subject=More%20information%20about%20/u/${username})`;
+    }
+
+    await comment.edit({ text: commentText });
+
+    console.log(`Updated comment ${commentId} with feedback about ${username} being classified as ${userStatus}`);
+    await context.redis.del(`callbackCommentPosted:${username}`);
 }

@@ -2,7 +2,7 @@ import { JobContext, TriggerContext, User, WikiPage } from "@devvit/public-api";
 import { CONTROL_SUBREDDIT, INTERNAL_BOT } from "./constants.js";
 import { addUserToTempDeclineStore, getUserStatus, UserStatus } from "./dataStore.js";
 import { getControlSubSettings } from "./settings.js";
-import { addDays, addMinutes, addSeconds } from "date-fns";
+import { addDays, addMinutes, addSeconds, addWeeks } from "date-fns";
 import { getPostOrCommentById, getUserOrUndefined } from "./utility.js";
 import { isLinkId } from "@devvit/public-api/types/tid.js";
 import { AsyncSubmission, isUserAlreadyQueued, PostCreationQueueResult, promotePositionInQueue, queuePostCreation } from "./postCreation.js";
@@ -13,8 +13,8 @@ import json2md from "json2md";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { queueKarmaFarmingAccounts } from "./karmaFarmingSubsCheck.js";
 import { userIsTrustedSubmitter } from "./trustedSubmitterHelpers.js";
-import { addSubsToPermissionChecksQueueFromExternalSubmissions } from "./permissionChecks.js";
 import { queueUpgradeNotificationsForLegacySubs } from "./upgradeNotifierForLegacySubs.js";
+import { expireKeyAt } from "devvit-helpers";
 
 const WIKI_PAGE = "externalsubmissions";
 
@@ -32,8 +32,6 @@ export interface ExternalSubmission {
     publicContext?: boolean;
     targetId?: string;
     initialStatus?: UserStatus;
-    evaluatorName?: string;
-    hitReason?: string;
     evaluationResults?: EvaluationResult[];
     sendFeedback?: boolean;
     proactive?: boolean;
@@ -45,14 +43,25 @@ export async function addExternalSubmissionFromClientSub (data: ExternalSubmissi
         throw new Error("This function must be called from a client subreddit, not the control subreddit.");
     }
 
+    const alreadyInQueue = await context.redis.global.zScore(EXTERNAL_SUBMISSION_QUEUE_KEY, data.username);
     if (await context.redis.global.zScore(EXTERNAL_SUBMISSION_QUEUE_KEY, data.username)) {
         console.log(`External Submissions: User ${data.username} is already in the external submissions queue.`);
         return;
     }
 
-    await context.redis.global.zAdd(EXTERNAL_SUBMISSION_QUEUE_KEY, { member: data.username, score: new Date().getTime() });
-    await context.redis.global.set(getExternalSubmissionDataKey(data.username), JSON.stringify(data), { expiration: addDays(new Date(), 7) });
-    console.log(`External Submissions: Added external submission for ${data.username} to the queue.`);
+    if (alreadyInQueue) {
+        console.log(`External Submissions: User ${data.username} is already in the external submissions queue.`);
+    } else {
+        await context.redis.global.zAdd(EXTERNAL_SUBMISSION_QUEUE_KEY, { member: data.username, score: new Date().getTime() });
+        await context.redis.global.set(getExternalSubmissionDataKey(data.username), JSON.stringify(data), { expiration: addDays(new Date(), 7) });
+        console.log(`External Submissions: Added external submission for ${data.username} to the queue.`);
+    }
+
+    if (data.targetId) {
+        const redisKey = `userContextItems:${data.username}`;
+        await context.redis.hSet(redisKey, { [data.targetId]: data.targetId });
+        await expireKeyAt(context.redis, redisKey, addWeeks(new Date(), 2));
+    }
 }
 
 export async function addExternalSubmissionToPostCreationQueue (item: ExternalSubmission, immediate: boolean, context: TriggerContext): Promise<boolean> {
@@ -97,7 +106,11 @@ export async function addExternalSubmissionToPostCreationQueue (item: ExternalSu
     if (!item.submitter || item.submitter === INTERNAL_BOT) {
         // Automatic submission. Check if any evaluators match.
         const variables = await getEvaluatorVariables(context);
-        const evaluationResults = await evaluateUserAccount(item.username, variables, context, item.submitter === INTERNAL_BOT);
+        const evaluationResults = await evaluateUserAccount({
+            username: item.username,
+            variables,
+            targetId: item.targetId,
+        }, context);
 
         if (item.submitter === INTERNAL_BOT) {
             if (item.evaluationResults) {
@@ -153,7 +166,7 @@ export async function addExternalSubmissionToPostCreationQueue (item: ExternalSu
         immediate,
         commentToAdd,
         removeComment: item.publicContext === false,
-        evaluatorsChecked: item.evaluatorName !== undefined || (item.evaluationResults !== undefined && item.evaluationResults.length > 0),
+        evaluatorsChecked: item.evaluationResults !== undefined && item.evaluationResults.length > 0,
     };
 
     const result = await queuePostCreation(submission, context);
@@ -171,15 +184,7 @@ export async function addExternalSubmissionToPostCreationQueue (item: ExternalSu
             await context.redis.set(`sendFeedback:${item.username}`, "true", { expiration: addDays(new Date(), 7) });
         }
 
-        if (item.evaluatorName) {
-            const evaluationResult = {
-                botName: item.evaluatorName,
-                hitReason: item.hitReason,
-                canAutoBan: true,
-                metThreshold: true,
-            } as EvaluationResult;
-            await storeAccountInitialEvaluationResults(item.username, [evaluationResult], context);
-        } else if (item.evaluationResults) {
+        if (item.evaluationResults) {
             await storeAccountInitialEvaluationResults(item.username, item.evaluationResults, context);
         }
     } else {
@@ -259,7 +264,6 @@ export async function handleExternalSubmissionsPageUpdate (context: TriggerConte
 
     // For items enqueued from a client subreddit, enqueue for permissions checks.
     if (context.subredditName === CONTROL_SUBREDDIT) {
-        await addSubsToPermissionChecksQueueFromExternalSubmissions(currentSubmissionList, context);
         await queueUpgradeNotificationsForLegacySubs(currentSubmissionList, context);
     }
 }

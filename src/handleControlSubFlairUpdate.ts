@@ -7,6 +7,8 @@ import { queueSendFeedback } from "./submissionFeedback.js";
 import _ from "lodash";
 import { addHours } from "date-fns";
 import { addToReversalsQueue } from "./modmail/evaluatorReversals.js";
+import { statusToFlair } from "./postCreation.js";
+import { submitAccountForReview } from "./modmail/accountReview.js";
 
 interface FlairMapping {
     postFlair: string;
@@ -90,6 +92,24 @@ export async function handleControlSubFlairUpdate (event: PostFlairUpdate, conte
 
         console.log(`Flair Update: Mapped flair ${postFlair} to flag ${mapping.flagToSet} for user ${username}.`);
 
+        return;
+    }
+
+    // Handle flairs with review periods specified
+    const regex = `^(${Object.values(UserStatus).join("|")}):(\\d+)$`;
+    const match = new RegExp(regex).exec(postFlair);
+    if (event.author.name !== context.appName && match) {
+        const status = match[1] as UserStatus;
+        const reviewPeriod = parseInt(match[2], 10);
+        await context.redis.set(`userStatusOverride~${username}`, event.author.name, { expiration: addHours(new Date(), 1) });
+
+        await context.reddit.setPostFlair({
+            postId: event.post.id,
+            subredditName: CONTROL_SUBREDDIT,
+            flairTemplateId: statusToFlair[status],
+        });
+
+        await submitAccountForReview(event.post.id, event.author.name, reviewPeriod, undefined, context);
         return;
     }
 

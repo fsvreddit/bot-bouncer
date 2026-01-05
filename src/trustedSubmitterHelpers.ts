@@ -9,6 +9,10 @@ export async function userIsTrustedSubmitter (username: string, context: Trigger
     }
 
     if (controlSubSettings.trustedSubmitterAutoThreshold) {
+        if (controlSubSettings.trustedSubmitterAutoExcludedUsers?.some(excludedUser => excludedUser.toLowerCase() === username.toLowerCase())) {
+            return false;
+        }
+
         const submitterSuccessRate = await getSubmitterSuccessRate(username, context);
         if (submitterSuccessRate && submitterSuccessRate >= controlSubSettings.trustedSubmitterAutoThreshold) {
             console.log(`User ${username} is a trusted submitter based on success rate of ${submitterSuccessRate}%`);

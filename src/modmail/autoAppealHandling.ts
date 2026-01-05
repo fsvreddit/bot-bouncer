@@ -28,7 +28,7 @@ interface AppealConfig {
     messageBodyRegex?: string[];
     banDateFrom?: string;
     banDateTo?: string;
-    evaluatorNameRegex?: string;
+    evaluatorNameRegex?: string[];
     evaluatorHitReasonRegex?: string[];
     bioRegex?: string[];
     "~bioRegex"?: string[];
@@ -60,7 +60,7 @@ const appealConfigSchema: JSONSchemaType<AppealConfig[]> = {
             messageBodyRegex: { type: "array", items: { type: "string" }, nullable: true },
             banDateFrom: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$", nullable: true },
             banDateTo: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$", nullable: true },
-            evaluatorNameRegex: { type: "string", nullable: true },
+            evaluatorNameRegex: { type: "array", items: { type: "string" }, nullable: true },
             evaluatorHitReasonRegex: { type: "array", items: { type: "string" }, nullable: true },
             bioRegex: { type: "array", items: { type: "string" }, nullable: true },
             "~bioRegex": { type: "array", items: { type: "string" }, nullable: true },
@@ -274,7 +274,7 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
         if (config.evaluatorNameRegex || config.evaluatorHitReasonRegex) {
             let anyMatched = false;
             for (const evaluationResult of initialAccountEvaluationResults) {
-                if (config.evaluatorNameRegex && !new RegExp(config.evaluatorNameRegex, "i").test(evaluationResult.botName)) {
+                if (config.evaluatorNameRegex && !config.evaluatorNameRegex.some(regex => new RegExp(regex, "i").test(evaluationResult.botName))) {
                     continue;
                 }
 

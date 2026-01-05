@@ -2,12 +2,12 @@ import { AppInstall, AppUpgrade } from "@devvit/protos";
 import { TriggerContext } from "@devvit/public-api";
 import { ClientSubredditJob, CONTROL_SUBREDDIT, ControlSubredditJob, UniversalJob } from "./constants.js";
 import { handleExternalSubmissionsPageUpdate } from "./externalSubmissions.js";
-import { removeRetiredEvaluatorsFromStats } from "./userEvaluation/evaluatorHelpers.js";
 import { getControlSubSettings } from "./settings.js";
-import { addDays, addMinutes } from "date-fns";
-import { migrationToGlobalRedis } from "./dataStore.js";
+import { addDays, addMinutes, isSameDay } from "date-fns";
 import { forceEvaluatorVariablesRefresh } from "./userEvaluation/evaluatorVariables.js";
 import { storeRecordOfContentCreationGracePeriod } from "./handleClientSubredditClassificationChanges.js";
+import { isModerator } from "devvit-helpers";
+import json2md from "json2md";
 
 export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, context: TriggerContext) {
     console.log("App Install: Detected an app install or update event");
@@ -15,8 +15,6 @@ export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, contex
     const currentJobs = await context.scheduler.listJobs();
     await Promise.all(currentJobs.map(job => context.scheduler.cancelJob(job.id)));
     console.log(`App Install: Cancelled ${currentJobs.length} existing jobs.`);
-
-    await migrationToGlobalRedis(context);
 
     if (context.subredditName === CONTROL_SUBREDDIT) {
         await addControlSubredditJobs(context);
@@ -32,12 +30,24 @@ export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, contex
     await checkJobsAreApplicable(context);
 
     // Remove legacy redis keys
-    await context.redis.del("evaluatorVariables");
-    await context.redis.del("clientSubWikiUpdateCron");
-    await context.redis.del("ReclassificationQueue");
-    await context.redis.del("oneOffReaffirmation");
+    const obsoleteKeys = [
+        "evaluatorVariables",
+        "clientSubWikiUpdateCron",
+        "ReclassificationQueue",
+        "oneOffReaffirmation",
+        "EvaluatorStats",
+        "UserStore",
+        "oneOffDataMigrationDone",
+    ];
+
+    await context.redis.del(...obsoleteKeys);
 
     await setInstallDateIfNotSet(context);
+    if (context.subredditName !== CONTROL_SUBREDDIT) {
+        await checkForBotSwatter(context);
+    }
+
+    console.log(`App Install: Install or upgrade actions complete, now running version ${context.appVersion}`);
 }
 
 async function addControlSubredditJobs (context: TriggerContext) {
@@ -74,6 +84,15 @@ async function addControlSubredditJobs (context: TriggerContext) {
         }),
 
         context.scheduler.runJob({
+            name: ControlSubredditJob.UpdateEvaluatorVariables,
+            cron: "0/10 * * * *",
+            data: {
+                username: context.appName,
+                updateExtraVariables: true,
+            },
+        }),
+
+        context.scheduler.runJob({
             name: UniversalJob.Cleanup,
             cron: "* * * * *",
             data: { firstRun: true },
@@ -82,7 +101,6 @@ async function addControlSubredditJobs (context: TriggerContext) {
 
     await Promise.all([
         handleExternalSubmissionsPageUpdate(context),
-        removeRetiredEvaluatorsFromStats(context),
     ]);
 
     console.log("App Install: Control subreddit jobs added");
@@ -210,4 +228,44 @@ export async function getInstallDate (context: TriggerContext): Promise<Date | u
         return undefined;
     }
     return new Date(installDateMillis);
+}
+
+async function checkForBotSwatter (context: TriggerContext) {
+    if (!context.subredditName || context.subredditName === CONTROL_SUBREDDIT) {
+        throw new Error("checkForBotSwatter must not be called in the control subreddit");
+        return;
+    }
+
+    const botSwatterCheckDoneKey = "botSwatterCheckDone";
+    if (await context.redis.exists(botSwatterCheckDoneKey)) {
+        return;
+    }
+
+    const installDate = await getInstallDate(context);
+    if (!installDate) {
+        // Should be impossible.
+        return;
+    }
+
+    if (!await isModerator(context.reddit, context.subredditName, "bot-swatter")) {
+        await context.redis.set(botSwatterCheckDoneKey, "true");
+        return;
+    }
+
+    const actionVerbage = isSameDay(installDate, new Date()) ? "installing" : "upgrading";
+
+    const message: json2md.DataObject[] = [
+        { p: `Hi, thanks for ${actionVerbage} Bot Bouncer.` },
+        { p: `It looks like you have my earlier app, LLM Bot Swatter, installed in this subreddit. Bot Swatter is now deprecated, and is unlikely to catch genuine bots any longer. It may also have false positives.` },
+        { p: `We recommend that you uninstall Bot Swatter. If you wish to do so, please see its settings page here: https://developers.reddit.com/r/${context.subredditName}/apps/bot-swatter` },
+        { p: `If you have any questions, please reach out to the mods of Bot Bouncer by modmail.` },
+    ];
+
+    await context.reddit.modMail.createModInboxConversation({
+        subredditId: context.subredditId,
+        subject: `Thanks for ${actionVerbage} Bot Bouncer - Bot Swatter detected`,
+        bodyMarkdown: json2md(message),
+    });
+
+    await context.redis.set(botSwatterCheckDoneKey, "true");
 }

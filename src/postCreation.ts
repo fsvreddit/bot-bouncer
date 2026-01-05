@@ -2,11 +2,11 @@ import { JobContext, TriggerContext } from "@devvit/public-api";
 import { getUserStatus, setUserStatus, storeInitialAccountProperties, UserDetails, UserStatus } from "./dataStore.js";
 import { CONTROL_SUBREDDIT, ControlSubredditJob, INTERNAL_BOT, PostFlairTemplate } from "./constants.js";
 import { UserExtended } from "./extendedDevvit.js";
-import { addHours, addMinutes, addSeconds } from "date-fns";
+import { addDays, addHours, addMinutes, addSeconds } from "date-fns";
 import { getControlSubSettings } from "./settings.js";
 import pluralize from "pluralize";
 import { queueSendFeedback } from "./submissionFeedback.js";
-import { sendMessageToWebhook } from "./utility.js";
+import { sendMessageToWebhook, updateWebhookMessage } from "./utility.js";
 
 export const statusToFlair: Record<UserStatus, PostFlairTemplate> = {
     [UserStatus.Pending]: PostFlairTemplate.Pending,
@@ -110,6 +110,7 @@ async function createNewSubmission (submission: AsyncSubmission, context: Trigge
             const commentText = submission.callback.comment.replace("{{permalink}}", newPost.permalink);
             const newComment = await callbackPost.addComment({ text: commentText });
             await newComment.distinguish(true);
+            await context.redis.set(`callbackCommentPosted:${submission.user.username}`, newComment.id, { expiration: addDays(new Date(), 7) });
         }
     }
 
@@ -226,16 +227,37 @@ export async function processQueuedSubmission (context: JobContext) {
     }
 
     const alertKey = "postCreationQueueAlertSent";
+    const maxQueueLengthKey = "postCreationQueueAlertMaxQueueLength";
 
-    if (controlSubSettings.backlogWebhook && remainingItemsInQueue > (controlSubSettings.postCreationQueueAlertLevel ?? 100) && !await context.redis.exists(alertKey)) {
-        await sendMessageToWebhook(controlSubSettings.backlogWebhook, `⚠️ Post creation queue is backlogged. There are currently ${remainingItemsInQueue} ${pluralize("submission", remainingItemsInQueue)} waiting to be processed.`);
-        await context.redis.set(alertKey, "sent");
-    }
+    if (controlSubSettings.backlogWebhook) {
+        if (remainingItemsInQueue > (controlSubSettings.postCreationQueueAlertLevel ?? 100) && !await context.redis.exists(alertKey)) {
+            const messageId = await sendMessageToWebhook(controlSubSettings.backlogWebhook, `⚠️ Post creation queue is backlogged. There are currently ${remainingItemsInQueue} ${pluralize("submission", remainingItemsInQueue)} waiting to be processed.`);
+            if (messageId) {
+                await context.redis.set(alertKey, messageId);
+                await context.redis.set(maxQueueLengthKey, remainingItemsInQueue.toString());
+            }
+        } else {
+            const messageId = await context.redis.get(alertKey);
+            const maxQueueLengthVal = await context.redis.get(maxQueueLengthKey);
+            let maxQueueLength = maxQueueLengthVal ? parseInt(maxQueueLengthVal, 10) : 0;
 
-    if (remainingItemsInQueue === 0) {
-        if (await context.redis.exists(alertKey) && controlSubSettings.backlogWebhook) {
-            await sendMessageToWebhook(controlSubSettings.backlogWebhook, `✅ Post creation queue has been cleared.`);
-            await context.redis.del(alertKey);
+            if (remainingItemsInQueue > 0 && messageId) {
+                if (remainingItemsInQueue > maxQueueLength) {
+                    maxQueueLength = remainingItemsInQueue;
+                    await context.redis.set(maxQueueLengthKey, maxQueueLength.toString());
+                }
+
+                await updateWebhookMessage(
+                    controlSubSettings.backlogWebhook,
+                    messageId,
+                    `⚠️ Post creation queue is backlogged. There ${pluralize("is", remainingItemsInQueue)} currently ${remainingItemsInQueue} ${pluralize("submission", remainingItemsInQueue)} waiting to be processed. (Max observed: ${maxQueueLength})`,
+                );
+            } else if (remainingItemsInQueue === 0) {
+                if (messageId) {
+                    await updateWebhookMessage(controlSubSettings.backlogWebhook, messageId, `✅ Post creation queue has been cleared. The maximum queue length observed was ${maxQueueLength}.`);
+                }
+                await context.redis.del(alertKey, maxQueueLengthKey);
+            }
         }
     }
 

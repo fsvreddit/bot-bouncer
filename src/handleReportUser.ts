@@ -111,6 +111,12 @@ export async function handleReportUser (event: MenuItemOnPressEvent, context: Co
         return;
     }
 
+    const reportingUserStatus = await getUserStatus(currentUser.username, context);
+    if (reportingUserStatus?.userStatus === UserStatus.Banned) {
+        context.ui.showToast("You are currently listed as a bot on r/BotBouncer, so you cannot report other users.");
+        return;
+    }
+
     if (await isModeratorWithCache(target.authorName, context)) {
         context.ui.showToast("You cannot report a moderator of this subreddit.");
         return;
@@ -151,16 +157,19 @@ export async function reportFormHandler (event: FormOnSubmitEvent<JSONObject>, c
     }
 
     const controlSubSettings = await getControlSubSettings(context);
+    const contentAgeLimit = subMonths(new Date(), controlSubSettings.maxInactivityMonths ?? 3);
 
-    const userContent = await context.reddit.getCommentsAndPostsByUser({
-        username: target.authorName,
-        limit: 100,
-        sort: "new",
-    }).all();
+    if (target.createdAt < contentAgeLimit) {
+        const userContent = await context.reddit.getCommentsAndPostsByUser({
+            username: target.authorName,
+            limit: 100,
+            sort: "new",
+        }).all();
 
-    if (userContent.filter(item => item.createdAt > subMonths(new Date(), controlSubSettings.maxInactivityMonths ?? 3)).length === 0) {
-        context.ui.showToast("You can only report users with recent content on their history.");
-        return;
+        if (!userContent.some(item => item.createdAt > contentAgeLimit)) {
+            context.ui.showToast("You can only report users with recent content on their history.");
+            return;
+        }
     }
 
     const currentUser = await context.reddit.getCurrentUser();

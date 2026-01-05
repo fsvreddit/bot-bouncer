@@ -1,10 +1,8 @@
 import { JobContext, JSONObject, ScheduledJobEvent, TriggerContext } from "@devvit/public-api";
 import { addDays, addMinutes, addSeconds } from "date-fns";
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "./constants.js";
-import { ExternalSubmission, getSubredditsFromExternalSubmissions } from "./externalSubmissions.js";
 import { hasPermissions, isModerator } from "devvit-helpers";
 import json2md from "json2md";
-import pluralize from "pluralize";
 
 const PERMISSION_CHECKS_QUEUE = "permissionChecksQueue";
 const PERMISSION_MESSAGE_SENT_HASH = "permissionsMessageSent";
@@ -28,17 +26,6 @@ async function addSubToPermissionChecksQueue (subredditName: string, context: Tr
     await context.redis.global.zAdd(PERMISSION_CHECKS_QUEUE, { member: subredditName, score: Date.now() });
     await context.redis.global.set(recentCheckKey, "true", { expiration: addDays(new Date(), 7) });
     console.log(`Permission Checks: Added /r/${subredditName} to permission checks queue.`);
-}
-
-export async function addSubsToPermissionChecksQueueFromExternalSubmissions (externalSubmissions: ExternalSubmission[], context: TriggerContext) {
-    if (context.subredditName !== CONTROL_SUBREDDIT) {
-        throw new Error("addSubsToPermissionChecksQueueFromExternalSubmissions should only be called from control subreddit");
-    }
-
-    const subreddits = await getSubredditsFromExternalSubmissions(externalSubmissions, context);
-
-    await Promise.all(subreddits.map(subreddit => addSubToPermissionChecksQueue(subreddit, context)));
-    console.log(`Permission Checks: Added ${subreddits.length} ${pluralize("subreddit", subreddits.length)} to permission checks queue from external submissions.`);
 }
 
 export async function checkPermissionQueueItems (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
@@ -77,8 +64,8 @@ export async function checkPermissionQueueItems (event: ScheduledJobEvent<JSONOb
         if (!isMod) {
             problemFound.push([
                 { p: `/u/bot-bouncer is not a moderator of ${subredditName}. This means that most functions of Bot Bouncer will not work correctly.` },
-                { p: `Unfortunately it is not possible to add Dev Platform apps back as moderators once they have been removed. ` },
-                { p: `Please **uninstall Bot Bouncer** from your subreddit's [app configuration page](https://developers.reddit.com/r/${subredditName}/apps/bot-bouncer), it can then be reinstalled from the [app directory page](https://developers.reddit.com/apps/${context.appName}) if you wish to continue using the service.` },
+                { p: `Please check that you have the latest version of Bot Bouncer on your subreddit's [app configuration page](https://developers.reddit.com/r/${subredditName}/apps/bot-bouncer), and then re-invite /u/bot-bouncer to the mod team with full permissions` },
+                { p: "If you no longer wish to use Bot Bouncer, it can be uninstalled from the same page." },
             ]);
         } else {
             const hasPerms = await hasPermissions(context.reddit, {

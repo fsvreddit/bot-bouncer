@@ -126,8 +126,8 @@ async function handleModActionControlSub (event: ModAction, context: TriggerCont
                     data: { username: event.moderator.name },
                 }),
 
-                queueConfigWikiCheck(ConfigWikiPage.AutoAppealHandling, 5, context),
-                queueConfigWikiCheck(ConfigWikiPage.ControlSubSettings, 5, context),
+                queueConfigWikiCheck(ConfigWikiPage.AutoAppealHandling, event.moderator.name, 1, context),
+                queueConfigWikiCheck(ConfigWikiPage.ControlSubSettings, event.moderator.name, 1, context),
             ]);
         }
     }
@@ -171,7 +171,7 @@ async function handleModActionControlSub (event: ModAction, context: TriggerCont
     }
 }
 
-async function queueConfigWikiCheck (configWikiPage: ConfigWikiPage, delay: number, context: JobContext) {
+async function queueConfigWikiCheck (configWikiPage: ConfigWikiPage, updatedBy: string, delay: number, context: JobContext) {
     const redisKey = `configWikiQueued:${configWikiPage}`;
     const alreadyQueued = await context.redis.exists(redisKey);
     if (alreadyQueued) {
@@ -184,20 +184,24 @@ async function queueConfigWikiCheck (configWikiPage: ConfigWikiPage, delay: numb
     await context.scheduler.runJob({
         name: ControlSubredditJob.HandleConfigWikiChange,
         runAt: addSeconds(new Date(), delay),
-        data: { page: configWikiPage },
+        data: {
+            page: configWikiPage,
+            updatedBy,
+        },
     });
 }
 
 export async function handleConfigWikiChange (event: ScheduledJobEvent<JSONObject>, context: JobContext) {
     const configWikiPage = event.data.page as ConfigWikiPage;
+    const updatedBy = event.data.updatedBy as string;
     const redisKey = `configWikiQueued:${configWikiPage}`;
 
     switch (configWikiPage) {
         case ConfigWikiPage.AutoAppealHandling:
-            await validateAndSaveAppealConfig(context.appName, context);
+            await validateAndSaveAppealConfig(updatedBy, context);
             break;
         case ConfigWikiPage.ControlSubSettings:
-            await validateControlSubConfigChange(context.appName, context);
+            await validateControlSubConfigChange(updatedBy, context);
             break;
         default:
             console.error(`handleConfigWikiChange: Unknown config wiki page: ${configWikiPage}`);
