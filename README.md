@@ -46,7 +46,7 @@ Users who have been unfairly banned by Bot Bouncer should be encouraged to modma
 
 # Change History
 
-## v1.24 (coming soon)
+## v1.24.0
 
 * Fixed erroneous errors referencing no recent posts/comments when reporting users
 * Add new evaluator type
