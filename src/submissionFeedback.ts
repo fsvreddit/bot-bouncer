@@ -189,7 +189,7 @@ async function updateCommentWithFeedback (username: string, commentId: string, u
     let commentText = comment.body;
     commentText += `\n\nEdit: This account has now been classified as **${userStatus}**. This means that the account ${statusToExplanation[userStatus]}`;
     if (userStatus === UserStatus.Organic || userStatus === UserStatus.Declined || userStatus === UserStatus.Service) {
-        commentText += `\n\nIf you have any more information to help us understand why this may be a harmful or disruptive bot, please [message /r/${CONTROL_SUBREDDIT}](https://www.reddit.com/message/compose?to=/r/${CONTROL_SUBREDDIT}&subject=More%20information%20about%20/u/${username})`;
+        commentText += `\n\nIf you have any more information to help us understand why this may be a harmful or disruptive bot, please [message /r/${CONTROL_SUBREDDIT}](https://www.reddit.com/message/compose?to=/r/${CONTROL_SUBREDDIT}&subject=More%20information%20about%20${username})`;
     }
 
     await comment.edit({ text: commentText });
