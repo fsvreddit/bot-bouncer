@@ -1,6 +1,6 @@
 import { JobContext, JSONObject, Post, ScheduledJobEvent } from "@devvit/public-api";
 import { BIO_TEXT_STORE, DISPLAY_NAME_STORE } from "../dataStore.js";
-import { addSeconds, format, subMonths } from "date-fns";
+import { addMinutes, addSeconds, format, subMonths } from "date-fns";
 import { getEvaluatorVariable } from "../userEvaluation/evaluatorVariables.js";
 import _ from "lodash";
 import { ControlSubredditJob } from "../constants.js";
@@ -8,6 +8,7 @@ import json2md from "json2md";
 import { StatsUserEntry } from "../scheduler/sixHourlyJobs.js";
 import { userIsBanned } from "./statsHelpers.js";
 import { parse } from "regjsparser";
+import { expireKeyAt } from "devvit-helpers";
 
 const DEFINED_HANDLES_QUEUE = "definedHandlesQueue";
 const DEFINED_HANDLES_DATA = "definedHandlesData";
@@ -28,7 +29,16 @@ interface UserDefinedHandlePost {
     seen?: number;
 }
 
+const definedHandlesRecentlyRunKey = "definedHandlesStatsLastRun";
+
 export async function updateDefinedHandlesStats (allEntries: StatsUserEntry[], context: JobContext) {
+    if (await context.redis.exists(definedHandlesRecentlyRunKey)) {
+        console.log("Defined handles statistics job ran recently; skipping this run.");
+        return;
+    }
+    await context.redis.set(definedHandlesRecentlyRunKey, "1", { expiration: addMinutes(new Date(), 10) });
+    await expireKeyAt(context.redis, definedHandlesRecentlyRunKey, addMinutes(new Date(), 10));
+
     await context.redis.del(DEFINED_HANDLES_QUEUE, DEFINED_HANDLES_DATA);
     const lastMonthData = allEntries
         .filter(item => item.data.reportedAt && item.data.reportedAt > subMonths(new Date(), 3).getTime() && (userIsBanned(item.data)))
@@ -36,6 +46,7 @@ export async function updateDefinedHandlesStats (allEntries: StatsUserEntry[], c
 
     const lastMonthDataChunked = _.chunk(lastMonthData, 10000);
     await Promise.all(lastMonthDataChunked.map(chunk => context.redis.zAdd(DEFINED_HANDLES_QUEUE, ...chunk)));
+    await expireKeyAt(context.redis, DEFINED_HANDLES_QUEUE, addMinutes(new Date(), 30));
 
     await context.scheduler.runJob({
         name: ControlSubredditJob.DefinedHandlesStatistics,
@@ -45,7 +56,7 @@ export async function updateDefinedHandlesStats (allEntries: StatsUserEntry[], c
 }
 
 export async function gatherDefinedHandlesStats (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
-    const queuedHandles = await context.redis.zRange(DEFINED_HANDLES_QUEUE, 0, 9999);
+    const queuedHandles = await context.redis.zRange(DEFINED_HANDLES_QUEUE, 0, 1999);
 
     if (queuedHandles.length === 0) {
         console.log("No defined handles found in the queue.");
@@ -142,8 +153,10 @@ export async function gatherDefinedHandlesStats (event: ScheduledJobEvent<JSONOb
 
     await context.redis.zRem(DEFINED_HANDLES_QUEUE, processedUsers);
     await context.redis.hSet(DEFINED_HANDLES_DATA, _.fromPairs(Object.entries(existingDefinedHandles).map(([handle, data]) => ([handle, JSON.stringify(data)]))));
+    await expireKeyAt(context.redis, DEFINED_HANDLES_DATA, addMinutes(new Date(), 30));
 
-    console.log(`Processed ${processedCount} defined handles. Remaining in queue: ${queuedHandles.length}.`);
+    const remainingHandles = await context.redis.zCard(DEFINED_HANDLES_QUEUE);
+    console.log(`Processed ${processedCount} defined handles. Remaining in queue: ${remainingHandles}.`);
 
     await context.scheduler.runJob({
         name: ControlSubredditJob.DefinedHandlesStatistics,
@@ -225,6 +238,8 @@ async function buildDefinedHandlesWikiPage (context: JobContext) {
         page: "statistics/definedhandles",
         content: json2md(wikiContent),
     });
+
+    await context.redis.del(definedHandlesRecentlyRunKey, DEFINED_HANDLES_DATA, DEFINED_HANDLES_QUEUE);
 }
 
 async function getDefinedHandles (context: JobContext): Promise<string[]> {
