@@ -1,5 +1,5 @@
 import { JobContext, JSONObject, ScheduledJobEvent } from "@devvit/public-api";
-import { getFullDataStore, UserDetails, UserStatus } from "../dataStore.js";
+import { getFullDataStore, UserStatus } from "../dataStore.js";
 import _ from "lodash";
 import { addSeconds, format, subDays } from "date-fns";
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "../constants.js";
@@ -7,6 +7,7 @@ import { EvaluationResult, getAccountInitialEvaluationResults } from "../handleC
 import json2md from "json2md";
 import { ALL_EVALUATORS } from "@fsvreddit/bot-bouncer-evaluation";
 import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
+import { FLAGS_TO_EXCLUDE_FROM_STATS } from "../scheduler/sixHourlyJobs.js";
 
 const ACCURACY_QUEUE = "evaluatorAccuracyQueue";
 const ACCURACY_STORE = "evaluatorAccuracyStore";
@@ -16,25 +17,13 @@ interface AccuracyQueueItem {
     reportedAt?: number;
 }
 
-function dateInRange (date: Date): boolean {
-    return date > subDays(new Date(), 14);
-}
-
 async function gatherUsernames (context: JobContext) {
-    const fullDataStore = await getFullDataStore(context);
-    const parsed = _.toPairs(fullDataStore).map(([username, data]) => ({ username, data: JSON.parse(data) as UserDetails }));
-    const relevantData = parsed.filter((item) => {
-        const date = item.data.reportedAt ? new Date(item.data.reportedAt) : undefined;
-        if (!date) {
-            return false;
-        }
-
-        if (!dateInRange(date)) {
-            return false;
-        }
-
-        return true;
+    const fullDataStore = await getFullDataStore(context, {
+        since: subDays(new Date(), 14),
+        omitFlags: FLAGS_TO_EXCLUDE_FROM_STATS,
     });
+
+    const relevantData = _.toPairs(fullDataStore).map(([username, data]) => ({ username, data }));
 
     const recordsToQueue = _.fromPairs(relevantData.map((item) => {
         let itemToQueue: AccuracyQueueItem;

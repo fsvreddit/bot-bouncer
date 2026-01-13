@@ -53,6 +53,7 @@ export enum ControlSubredditJob {
     CheckPermissionQueueItems = "checkPermissionQueueItems",
     CheckUpgradeNotifierForLegacySubs = "checkUpgradeNotifierForLegacySubs",
     AccountReview = "accountReview",
+    PendingUserFinder = "pendingUserFinder",
 }
 
 /**

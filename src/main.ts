@@ -32,6 +32,7 @@ import { checkPermissionQueueItems, handlePermissionCheckEnqueueJob } from "./pe
 import { handleFiveMinutelyJob } from "./scheduler/fiveMinutelyJobs.js";
 import { processLegacySubUpgradeNotifications } from "./upgradeNotifierForLegacySubs.js";
 import { checkAccountsForReview } from "./modmail/accountReview.js";
+import { pendingUserFinder } from "./statistics/pendingUserFinder.js";
 
 Devvit.addSettings(appSettings);
 
@@ -235,6 +236,11 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: ControlSubredditJob.AccountReview,
     onRun: checkAccountsForReview,
+});
+
+Devvit.addSchedulerJob({
+    name: ControlSubredditJob.PendingUserFinder,
+    onRun: pendingUserFinder,
 });
 
 /**

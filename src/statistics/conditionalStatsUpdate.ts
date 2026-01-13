@@ -2,11 +2,12 @@ import { JobContext, JSONValue } from "@devvit/public-api";
 import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
 import { updateSocialLinksStatistics } from "./socialLinksStatistics.js";
 import { updateBioStatistics } from "./userBioStatistics.js";
-import { getAllValuesForStats, StatsUserEntry } from "../scheduler/sixHourlyJobs.js";
-import { addDays } from "date-fns";
+import { FLAGS_TO_EXCLUDE_FROM_STATS, StatsUserEntry } from "../scheduler/sixHourlyJobs.js";
+import { addDays, subMonths } from "date-fns";
 import { updateUsernameStatistics } from "./usernameStatistics.js";
 import { updateDisplayNameStatistics } from "./displayNameStats.js";
 import { updateDefinedHandlesStats } from "./definedHandlesStatistics.js";
+import { getFullDataStore } from "../dataStore.js";
 
 interface ConditionalStatsUpdateConfig {
     statName: string;
@@ -61,7 +62,13 @@ export async function conditionalStatsUpdate (_: unknown, context: JobContext) {
 
     console.log(`Conditional Stats Update: Preparing to update statistics for ${configsToUpdate.map(c => c.statName).join(", ")}.`);
 
-    const { allEntries } = await getAllValuesForStats(context);
+    const allData = await getFullDataStore(context, {
+        since: subMonths(new Date(), 3),
+        omitFlags: FLAGS_TO_EXCLUDE_FROM_STATS,
+    });
+
+    const allEntries = Object.entries(allData)
+        .map(([key, value]) => ({ username: key, data: value } as StatsUserEntry));
 
     const promises: Promise<unknown>[] = [];
     for (const config of configsToUpdate) {

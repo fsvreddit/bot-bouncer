@@ -168,14 +168,14 @@ export async function dataExtract (message: ModmailMessage, conversationId: stri
     }
 
     // Get all data from database.
-    const allData = await getFullDataStore(context);
-    const data = Object.entries(allData)
-        .map(([username, data]) => ({ username, data: JSON.parse(data) as UserDetailsWithBioAndSocialLinks }))
-        .filter((entry) => {
-            if (request.status && !request.status.includes(entry.data.userStatus)) {
-                return false;
-            }
+    const allData = await getFullDataStore(context, {
+        since: request.since ? new Date(request.since) : undefined,
+        statuses: request.status,
+    });
 
+    const data = Object.entries(allData)
+        .map(([username, data]) => ({ username, data: data as UserDetailsWithBioAndSocialLinks }))
+        .filter((entry) => {
             if (request.submitter && entry.data.submitter !== request.submitter) {
                 return false;
             }
@@ -198,13 +198,6 @@ export async function dataExtract (message: ModmailMessage, conversationId: stri
 
             if (request["~flags"]) {
                 if (request["~flags"].some(flag => entry.data.flags?.includes(flag))) {
-                    return false;
-                }
-            }
-
-            if (request.since && entry.data.reportedAt) {
-                const sinceDate = new Date(request.since);
-                if (new Date(entry.data.reportedAt) <= sinceDate) {
                     return false;
                 }
             }

@@ -1,10 +1,24 @@
-import { JobContext } from "@devvit/public-api";
-import { UserStatus } from "../dataStore.js";
-import { addDays, format, subDays } from "date-fns";
+import { JobContext, JSONObject, ScheduledJobEvent } from "@devvit/public-api";
+import { getFullDataStore, UserStatus } from "../dataStore.js";
+import { addDays, addHours, format, subDays } from "date-fns";
 import json2md from "json2md";
 import { StatsUserEntry } from "../scheduler/sixHourlyJobs.js";
 
-export async function pendingUserFinder (allEntries: StatsUserEntry[], context: JobContext) {
+export async function pendingUserFinder (_event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
+    const runRecentlyKey = "pendingUserFinderLastRun";
+    if (await context.redis.exists(runRecentlyKey)) {
+        return;
+    }
+
+    await context.redis.set(runRecentlyKey, "true", { expiration: addHours(new Date(), 1) });
+
+    const allData = await getFullDataStore(context, {
+        statuses: [UserStatus.Pending],
+    });
+
+    const allEntries = Object.entries(allData)
+        .map(([key, value]) => ({ username: key, data: value } as StatsUserEntry));
+
     const cutoff = subDays(new Date(), 2).getTime();
     const pendingUsersOverOneDay = allEntries.filter((item) => {
         if (item.data.userStatus !== UserStatus.Pending) {
