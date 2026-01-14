@@ -43,6 +43,7 @@ interface AppealConfig {
     reply?: string;
     archive?: boolean;
     mute?: number;
+    highlight?: boolean;
 }
 
 const acceptableMuteDurations = [3, 7, 28];
@@ -75,6 +76,7 @@ const appealConfigSchema: JSONSchemaType<AppealConfig[]> = {
             reply: { type: "string", nullable: true },
             archive: { type: "boolean", nullable: true },
             mute: { type: "number", enum: acceptableMuteDurations, nullable: true },
+            highlight: { type: "boolean", nullable: true },
         },
         additionalProperties: false,
         required: ["name"],
@@ -88,6 +90,7 @@ interface AppealOutcome {
     reply?: string;
     archive?: boolean;
     mute?: number;
+    highlight?: boolean;
 }
 
 const defaultAppealOutcome: AppealOutcome = {
@@ -376,6 +379,7 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
             reply: matchedAppealConfig.reply,
             archive: matchedAppealConfig.archive,
             mute: matchedAppealConfig.mute,
+            highlight: matchedAppealConfig.highlight,
         };
     } else {
         console.log(`Appeals: No specific appeal config matched for user ${username}, using default reply.`);
@@ -437,6 +441,10 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
             conversationId: modmail.conversationId,
             numHours: muteDuration,
         });
+    }
+
+    if (appealOutcome.highlight) {
+        await context.reddit.modMail.highlightConversation(modmail.conversationId);
     }
 
     if (appealOutcome.archive) {
