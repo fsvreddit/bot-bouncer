@@ -2,13 +2,12 @@ import { JobContext, JSONObject, JSONValue, ScheduledJobEvent, TriggerContext } 
 import { ALL_EVALUATORS, ValidationIssue, yamlToVariables } from "@fsvreddit/bot-bouncer-evaluation";
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "../constants.js";
 import _ from "lodash";
-import { sendMessageToWebhook } from "../utility.js";
+import { compressData, sendMessageToWebhook } from "../utility.js";
 import json2md from "json2md";
 import { getControlSubSettings } from "../settings.js";
 import { EvaluateBotGroupAdvanced } from "@fsvreddit/bot-bouncer-evaluation/dist/userEvaluation/EvaluateBotGroupAdvanced.js";
 import { getUserExtended } from "../extendedDevvit.js";
 import { addSeconds } from "date-fns";
-import Pako from "pako";
 
 const EVALUATOR_VARIABLES_KEY = "evaluatorVariablesHash";
 const EVALUATOR_VARIABLES_YAML_PAGE_ROOT = "evaluator-config";
@@ -303,8 +302,4 @@ export function invalidEvaluatorVariableCondition (variables: Record<string, JSO
     }
 
     return results;
-}
-
-function compressData (value: Record<string, JSONValue>): string {
-    return Buffer.from(Pako.deflate(JSON.stringify(value), { level: 9 })).toString("base64");
 }

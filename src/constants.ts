@@ -54,6 +54,7 @@ export enum ControlSubredditJob {
     CheckUpgradeNotifierForLegacySubs = "checkUpgradeNotifierForLegacySubs",
     AccountReview = "accountReview",
     PendingUserFinder = "pendingUserFinder",
+    BotSleuthBotExtract = "botSleuthBotExtract",
 }
 
 /**

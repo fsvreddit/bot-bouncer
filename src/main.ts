@@ -33,6 +33,7 @@ import { handleFiveMinutelyJob } from "./scheduler/fiveMinutelyJobs.js";
 import { processLegacySubUpgradeNotifications } from "./upgradeNotifierForLegacySubs.js";
 import { checkAccountsForReview } from "./modmail/accountReview.js";
 import { pendingUserFinder } from "./statistics/pendingUserFinder.js";
+import { doBotSleuthBotExtract } from "./botSleuthBotExtract.js";
 
 Devvit.addSettings(appSettings);
 
@@ -241,6 +242,11 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: ControlSubredditJob.PendingUserFinder,
     onRun: pendingUserFinder,
+});
+
+Devvit.addSchedulerJob({
+    name: ControlSubredditJob.BotSleuthBotExtract,
+    onRun: doBotSleuthBotExtract,
 });
 
 /**

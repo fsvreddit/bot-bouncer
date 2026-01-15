@@ -73,6 +73,7 @@ function getStoreKey (username: string): string {
 
 interface DataStoreExtractFilter {
     since?: Date;
+    lastUpdateSince?: Date;
     statuses?: UserStatus[];
     omitFlags?: UserFlag[];
 }
@@ -84,13 +85,18 @@ async function getDataStoreFiltered (prefix: string, context: TriggerContext, fi
     }
 
     const sinceTime = filter.since ? filter.since.getTime() : undefined;
+    const lastUpdateSinceTime = filter.lastUpdateSince ? filter.lastUpdateSince.getTime() : undefined;
     const omitFlags = filter.omitFlags ?? [];
 
     const filteredData: Record<string, UserDetails> = {};
 
     Object.entries(data).forEach(([key, value]) => {
         const details = JSON.parse(value) as UserDetails;
-        if (sinceTime && details.lastUpdate < sinceTime) {
+        if (sinceTime && details.reportedAt && details.reportedAt < sinceTime) {
+            return;
+        }
+
+        if (lastUpdateSinceTime && details.lastUpdate < lastUpdateSinceTime) {
             return;
         }
 

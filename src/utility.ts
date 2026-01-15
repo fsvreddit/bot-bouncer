@@ -2,6 +2,7 @@ import { Comment, Post, TriggerContext, User } from "@devvit/public-api";
 import { isCommentId, isLinkId } from "@devvit/public-api/types/tid.js";
 import { addHours } from "date-fns";
 import { isModerator } from "devvit-helpers";
+import Pako from "pako";
 
 export function getUsernameFromUrl (url: string) {
     const urlRegex = /reddit\.com\/u(?:ser)?\/([\w_-]+)\/?(?:[?/].+)?$/i;
@@ -140,4 +141,8 @@ export function decodedText (input: string): string {
 
 export function postIdToShortLink (postId: string): string {
     return `https://redd.it/${postId.replace("t3_", "")}`;
+}
+
+export function compressData (value: unknown): string {
+    return Buffer.from(Pako.deflate(JSON.stringify(value), { level: 9 })).toString("base64");
 }
