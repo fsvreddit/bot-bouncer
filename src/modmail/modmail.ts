@@ -14,6 +14,7 @@ export interface ModmailMessage {
     bodyMarkdown: string;
     isFirstMessage: boolean;
     isInternal: boolean;
+    isHighlighted?: boolean;
 }
 
 export async function handleModmail (event: ModMail, context: TriggerContext) {
@@ -63,6 +64,7 @@ export async function handleModmail (event: ModMail, context: TriggerContext) {
         bodyMarkdown: currentMessage.bodyMarkdown,
         isFirstMessage,
         isInternal: currentMessage.isInternal ?? false,
+        isHighlighted: conversationResponse.conversation.isHighlighted,
     };
 
     if (context.subredditName === CONTROL_SUBREDDIT) {

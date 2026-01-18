@@ -20,6 +20,7 @@ import { CHECK_DATE_KEY } from "../karmaFarmingSubsCheck.js";
 import { evaluateAccountFromModmail } from "./modmailEvaluaton.js";
 import { isBanned } from "devvit-helpers";
 import { handleReversalCommand } from "./evaluatorReversals.js";
+import { handleHighlightedModmail } from "./unhighlighter.js";
 
 export function getPossibleSetStatusValues (): string[] {
     return _.uniq([...FLAIR_MAPPINGS.map(entry => entry.postFlair), ...Object.values(UserStatus)]);
@@ -27,6 +28,8 @@ export function getPossibleSetStatusValues (): string[] {
 
 export async function handleControlSubredditModmail (modmail: ModmailMessage, context: TriggerContext) {
     const controlSubSettings = await getControlSubSettings(context);
+
+    await handleHighlightedModmail(modmail, context);
 
     if (controlSubSettings.bulkSubmitters?.includes(modmail.messageAuthor) && modmail.bodyMarkdown.startsWith("{")) {
         const isTrusted = controlSubSettings.trustedSubmitters.includes(modmail.messageAuthor);
