@@ -301,5 +301,20 @@ export function invalidEvaluatorVariableCondition (variables: Record<string, JSO
         }
     }
 
+    // Now check karma farming link subs for non-retrivable subreddits
+    const subs = new Set(variables["generic:karmafarminglinksubs"] as string[] | undefined ?? []);
+    const nsfwsubs = new Set(variables["generic:karmafarminglinksubsnsfw"] as string[] | undefined ?? []);
+    const nonretrievable = variables["generic:nonretrievablesubs"] as string[] | undefined ?? [];
+
+    for (const sub of nonretrievable) {
+        if (subs.has(sub)) {
+            results.push({ severity: "warning", message: `Subreddit ${sub} is marked as non-retrievable but is also in the SFW sweep list.` });
+        }
+
+        if (nsfwsubs.has(sub)) {
+            results.push({ severity: "warning", message: `Subreddit ${sub} is marked as non-retrievable but is also in the NSFW sweep list.` });
+        }
+    }
+
     return results;
 }
