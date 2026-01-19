@@ -1,6 +1,6 @@
 import { JobContext, JSONObject, ScheduledJobEvent, TriggerContext } from "@devvit/public-api";
 import { deleteUserStatus, getUserStatus, updateAggregate, UserStatus } from "../dataStore.js";
-import { addDays, addSeconds } from "date-fns";
+import { addDays, addMinutes, addSeconds } from "date-fns";
 import { CONTROL_SUBREDDIT, ControlSubredditJob, PostFlairTemplate } from "../constants.js";
 import { deleteAccountInitialEvaluationResults, getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
 import { CLEANUP_LOG_KEY } from "../cleanup.js";
@@ -323,7 +323,7 @@ export async function deleteRecordsForRemovedUsers (_: unknown, context: JobCont
     if (removedUsers.length > 0) {
         await context.scheduler.runJob({
             name: ControlSubredditJob.DeleteRecordsForRemovedUsers,
-            runAt: addSeconds(new Date(), 5),
+            runAt: addMinutes(new Date(), 2),
         });
     }
 }
