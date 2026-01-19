@@ -316,5 +316,18 @@ export function invalidEvaluatorVariableCondition (variables: Record<string, JSO
         }
     }
 
+    const validSubNameRegex = /^[A-Za-z0-9_]{3,21}$/;
+    for (const sub of subs) {
+        if (!validSubNameRegex.test(sub)) {
+            results.push({ severity: "warning", message: `Subreddit \`${sub}\` in SFW karma farming list is not a valid subreddit name.` });
+        }
+    }
+
+    for (const sub of nsfwsubs) {
+        if (!validSubNameRegex.test(sub)) {
+            results.push({ severity: "warning", message: `Subreddit \`${sub}\` in NSFW karma farming list is not a valid subreddit name.` });
+        }
+    }
+
     return results;
 }
