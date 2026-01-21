@@ -21,6 +21,9 @@ async function subExists (sub: string, context: JobContext): Promise<boolean> {
 
 export async function checkNonexistentSubs (subreddits: string[], context: JobContext): Promise<string[]> {
     const uniqueSubs = Array.from(new Set(subreddits));
+    if (uniqueSubs.length === 0) {
+        return [];
+    }
 
     const subsThatExist = await context.redis.hKeys(SUB_EXISTENCE_CACHE_KEY).then(keys => new Set(keys));
 
