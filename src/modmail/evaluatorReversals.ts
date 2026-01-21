@@ -66,6 +66,12 @@ async function reverseExtract (message: ModmailMessage, context: TriggerContext)
             conversationId: message.conversationId,
         },
     });
+
+    await context.reddit.modMail.reply({
+        conversationId: message.conversationId,
+        body: `Scheduled reversal of classifications for ${users.length} ${pluralize("user", users.length)}. You will receive a confirmation message when the process is complete. Note - large reversal batches are done slowly to ensure that subreddits pick up on new classifications.`,
+        isInternal: true,
+    });
 }
 
 export async function classificationReversalsJob (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
@@ -87,8 +93,9 @@ export async function classificationReversalsJob (event: ScheduledJobEvent<JSONO
     }
 
     const runLimit = addSeconds(new Date(), 10);
+    let reversedInBatch = 0;
 
-    while (usersToReverse.length > 0 && new Date() < runLimit) {
+    while (usersToReverse.length > 0 && reversedInBatch < 100 && new Date() < runLimit) {
         const username = usersToReverse.shift();
         if (!username) {
             break;
@@ -107,12 +114,13 @@ export async function classificationReversalsJob (event: ScheduledJobEvent<JSONO
             });
             await addToReversalsQueue(username, 7, context);
             reversedTotal++;
+            reversedInBatch++;
         }
     }
 
     await context.scheduler.runJob({
         name: ControlSubredditJob.ClassificationReversals,
-        runAt: new Date(),
+        runAt: addMinutes(new Date(), 1),
         data: {
             usersToReverse,
             conversationId,
@@ -323,7 +331,7 @@ export async function deleteRecordsForRemovedUsers (_: unknown, context: JobCont
     if (removedUsers.length > 0) {
         await context.scheduler.runJob({
             name: ControlSubredditJob.DeleteRecordsForRemovedUsers,
-            runAt: addMinutes(new Date(), 2),
+            runAt: addSeconds(new Date(), 5),
         });
     }
 }
