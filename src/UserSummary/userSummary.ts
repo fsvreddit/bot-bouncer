@@ -14,6 +14,7 @@ import markdownEscape from "markdown-escape";
 import { ALL_EVALUATORS } from "@fsvreddit/bot-bouncer-evaluation";
 import { BIO_TEXT_STORE, getUserStatus } from "../dataStore.js";
 import { getUserSocialLinks } from "devvit-helpers";
+import { getSubmitterSuccessRate } from "../statistics/submitterStatistics.js";
 
 function formatDifferenceInDates (start: Date, end: Date) {
     const units: (keyof Duration)[] = ["years", "months", "days"];
@@ -199,8 +200,18 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
 
     if (userStatus && (source === "modmail")) {
         const post = await context.reddit.getPostById(userStatus.trackingPostId);
+
+        let firstLine = `/u/${username} is currently listed as ${userStatus.userStatus}, set by ${userStatus.operator} at ${new Date(userStatus.lastUpdate).toUTCString()}`;
+        if (userStatus.submitter) {
+            firstLine += ` and reported by ${userStatus.submitter}`;
+            const successRate = await getSubmitterSuccessRate(userStatus.submitter, context);
+            if (successRate !== undefined) {
+                firstLine += ` (${successRate}%)`;
+            }
+        }
+
         summary.push(
-            { p: `/u/${username} is currently listed as ${userStatus.userStatus}, set by ${userStatus.operator} at ${new Date(userStatus.lastUpdate).toUTCString()} and reported by ${userStatus.submitter ?? "unknown"}` },
+            { p: firstLine },
             { p: `[Link to submission](https://www.reddit.com${post.permalink})` },
         );
     }
