@@ -251,14 +251,14 @@ export async function processQueuedSubmission (context: JobContext) {
                     await context.redis.set(maxQueueLengthKey, maxQueueLength.toString());
                 }
 
-                let message = `⚠️ Post creation queue is backlogged. As at <t:${Math.round(Date.now() / 1000)}:t> there ${pluralize("is", remainingItemsInQueue)} currently ${remainingItemsInQueue} ${pluralize("submission", remainingItemsInQueue)} waiting to be processed. (Max observed: ${maxQueueLength})`;
+                let message = `⚠️ Post creation queue is backlogged. As at <t:${Math.round(Date.now() / 1000)}:t> there ${pluralize("is", remainingItemsInQueue)} currently ${remainingItemsInQueue} ${pluralize("submission", remainingItemsInQueue)} waiting to be processed. (Max observed: ${maxQueueLength}).`;
                 if (firstItemNonUrgent) {
                     message += `\n\nOldest non-urgent item: ${formatTimeSince(new Date(firstItemNonUrgent.score))} ago.`;
                 }
 
                 const immediateCount = queuedSubmissions.filter(item => item.score <= subWeeks(new Date(), 1).getTime()).length;
                 if (immediateCount > 0) {
-                    message += `\n\nThere ${pluralize("is", immediateCount)} ${immediateCount} immediate ${pluralize("submission", immediateCount)} in the queue.`;
+                    message += ` There ${pluralize("is", immediateCount)} ${immediateCount} immediate ${pluralize("submission", immediateCount)} in the queue.`;
                 }
 
                 await updateWebhookMessage(
