@@ -2,7 +2,7 @@ import { JobContext, TriggerContext } from "@devvit/public-api";
 import { getUserStatus, setUserStatus, storeInitialAccountProperties, UserDetails, UserStatus } from "./dataStore.js";
 import { CONTROL_SUBREDDIT, ControlSubredditJob, INTERNAL_BOT, PostFlairTemplate } from "./constants.js";
 import { UserExtended } from "./extendedDevvit.js";
-import { addDays, addHours, addMinutes, addSeconds } from "date-fns";
+import { addDays, addHours, addMinutes, addSeconds, formatDistanceToNow, subWeeks } from "date-fns";
 import { getControlSubSettings } from "./settings.js";
 import pluralize from "pluralize";
 import { queueSendFeedback } from "./submissionFeedback.js";
@@ -220,9 +220,13 @@ export async function processQueuedSubmission (context: JobContext) {
     await createNewSubmission(JSON.parse(submissionDetails) as AsyncSubmission, context);
 
     const remainingItemsInQueue = queuedSubmissions.length - 1;
+    const firstItemNonUrgent = queuedSubmissions.find(item => item.score > subWeeks(new Date(), 1).getTime());
 
     if (remainingItemsInQueue > 0) {
-        const message = `Post Creation: ${remainingItemsInQueue} ${pluralize("submission", remainingItemsInQueue)} still in the queue.`;
+        let message = `Post Creation: ${remainingItemsInQueue} ${pluralize("submission", remainingItemsInQueue)} still in the queue.`;
+        if (firstItemNonUrgent) {
+            message += ` Backlog: ${formatDistanceToNow(firstItemNonUrgent.score)}`;
+        }
         console.log(message);
     }
 
@@ -247,10 +251,20 @@ export async function processQueuedSubmission (context: JobContext) {
                     await context.redis.set(maxQueueLengthKey, maxQueueLength.toString());
                 }
 
+                let message = `⚠️ Post creation queue is backlogged. As at <t:${Math.round(Date.now() / 1000)}:t> there ${pluralize("is", remainingItemsInQueue)} currently ${remainingItemsInQueue} ${pluralize("submission", remainingItemsInQueue)} waiting to be processed. (Max observed: ${maxQueueLength})`;
+                if (firstItemNonUrgent) {
+                    message += `\n\nOldest non-urgent item: ${formatDistanceToNow(firstItemNonUrgent.score)}`;
+                }
+
+                const immediateCount = queuedSubmissions.filter(item => item.score <= subWeeks(new Date(), 1).getTime()).length;
+                if (immediateCount > 0) {
+                    message += `\n\nThere ${pluralize("is", immediateCount)} ${immediateCount} immediate ${pluralize("submission", immediateCount)} in the queue.`;
+                }
+
                 await updateWebhookMessage(
                     controlSubSettings.backlogWebhook,
                     messageId,
-                    `⚠️ Post creation queue is backlogged. There ${pluralize("is", remainingItemsInQueue)} currently ${remainingItemsInQueue} ${pluralize("submission", remainingItemsInQueue)} waiting to be processed. (Max observed: ${maxQueueLength})`,
+                    message,
                 );
             } else if (remainingItemsInQueue === 0) {
                 if (messageId) {
