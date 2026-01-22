@@ -76,6 +76,7 @@ interface DataStoreExtractFilter {
     lastUpdateSince?: Date;
     statuses?: UserStatus[];
     omitFlags?: UserFlag[];
+    submitter?: string;
 }
 
 async function getDataStoreFiltered (prefix: string, context: TriggerContext, filter?: DataStoreExtractFilter): Promise<Record<string, UserDetails>> {
@@ -105,6 +106,10 @@ async function getDataStoreFiltered (prefix: string, context: TriggerContext, fi
         }
 
         if (omitFlags.length > 0 && details.flags?.some(flag => omitFlags.includes(flag))) {
+            return;
+        }
+
+        if (filter.submitter && details.submitter !== filter.submitter) {
             return;
         }
 
@@ -250,7 +255,10 @@ export async function updateAggregate (type: UserStatus, incrBy: number, redis: 
 
 export async function removeRecordOfSubmitterOrMod (username: string, context: TriggerContext) {
     console.log(`Cleanup: Removing records of ${username} as submitter or operator`);
-    const data = await getFullDataStore(context);
+    const data = await getFullDataStore(context, {
+        submitter: username,
+    });
+
     const entries = Object.entries(data).map(([key, value]) => ({ username: key, details: value }));
 
     let entriesUpdated = 0;

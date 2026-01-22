@@ -70,7 +70,7 @@ async function handleBulkItem (username: string, initialStatus: UserStatus, subm
     }
 
     if (initialStatus === UserStatus.Banned) {
-        const overrideStatus = await trustedSubmitterInitialStatus(user, context);
+        const overrideStatus = await trustedSubmitterInitialStatus(submitter, user, context);
         if (overrideStatus && initialStatus !== overrideStatus) {
             initialStatus = overrideStatus;
         }
@@ -170,18 +170,22 @@ export async function handleBulkSubmission (submitter: string, trusted: boolean,
     return true;
 }
 
-async function trustedSubmitterInitialStatus (user: UserExtended, context: TriggerContext): Promise<UserStatus | undefined> {
-    console.log(`Checking trusted submitter status for ${user.username}`);
+async function trustedSubmitterInitialStatus (submitter: string, submittedAccount: UserExtended, context: TriggerContext): Promise<UserStatus | undefined> {
+    if (submitter !== "HelpfulJanitor") {
+        return UserStatus.Banned;
+    }
 
-    if (user.commentKarma > 10000 || user.linkKarma > 10000 || user.createdAt < subMonths(new Date(), 6)) {
-        console.log(`Trusted submitter override: ${user.username} has high karma or is older than 6 months`);
+    console.log(`Checking trusted submitter status for ${submittedAccount.username}`);
+
+    if (submittedAccount.commentKarma > 10000 || submittedAccount.linkKarma > 10000 || submittedAccount.createdAt < subMonths(new Date(), 6)) {
+        console.log(`Trusted submitter override: ${submittedAccount.username} has high karma or is older than 6 months`);
         return UserStatus.Pending;
     }
 
     let history: (Post | Comment)[];
     try {
         history = await context.reddit.getCommentsAndPostsByUser({
-            username: user.username,
+            username: submittedAccount.username,
             limit: 100,
         }).all();
     } catch {
@@ -191,14 +195,14 @@ async function trustedSubmitterInitialStatus (user: UserExtended, context: Trigg
     const recentHistory = history.filter(item => item.createdAt > subMonths(new Date(), 3));
 
     if (recentHistory.some(item => item.edited)) {
-        console.log(`Trusted submitter override: ${user.username} has edited comments or posts`);
+        console.log(`Trusted submitter override: ${submittedAccount.username} has edited comments or posts`);
         return UserStatus.Pending;
     }
 
     const recentComments = recentHistory.filter(item => item instanceof Comment);
     const commentPosts = _.countBy(recentComments.map(comment => comment.postId));
     if (Object.values(commentPosts).some(count => count > 1)) {
-        console.log(`Trusted submitter override: ${user.username} has commented multiple times in the same post`);
+        console.log(`Trusted submitter override: ${submittedAccount.username} has commented multiple times in the same post`);
         return UserStatus.Pending;
     }
 
