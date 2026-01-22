@@ -268,7 +268,7 @@ export async function processQueuedSubmission (context: JobContext) {
                 );
             } else if (remainingItemsInQueue === 0) {
                 if (messageId) {
-                    await updateWebhookMessage(controlSubSettings.backlogWebhook, messageId, `✅ Post creation queue has been cleared. The maximum queue length observed was ${maxQueueLength}.`);
+                    await updateWebhookMessage(controlSubSettings.backlogWebhook, messageId, `✅ Post creation queue was cleared at <t:${Math.round(Date.now() / 1000)}:f>. The maximum queue length observed was ${maxQueueLength}.`);
                 }
                 await context.redis.del(alertKey, maxQueueLengthKey);
             }
