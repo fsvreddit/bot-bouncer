@@ -2,11 +2,11 @@ import { JobContext, TriggerContext } from "@devvit/public-api";
 import { getUserStatus, setUserStatus, storeInitialAccountProperties, UserDetails, UserStatus } from "./dataStore.js";
 import { CONTROL_SUBREDDIT, ControlSubredditJob, INTERNAL_BOT, PostFlairTemplate } from "./constants.js";
 import { UserExtended } from "./extendedDevvit.js";
-import { addDays, addHours, addMinutes, addSeconds, formatDistanceToNow, subWeeks } from "date-fns";
+import { addDays, addHours, addMinutes, addSeconds, subWeeks } from "date-fns";
 import { getControlSubSettings } from "./settings.js";
 import pluralize from "pluralize";
 import { queueSendFeedback } from "./submissionFeedback.js";
-import { sendMessageToWebhook, updateWebhookMessage } from "./utility.js";
+import { formatTimeSince, sendMessageToWebhook, updateWebhookMessage } from "./utility.js";
 
 export const statusToFlair: Record<UserStatus, PostFlairTemplate> = {
     [UserStatus.Pending]: PostFlairTemplate.Pending,
@@ -225,7 +225,7 @@ export async function processQueuedSubmission (context: JobContext) {
     if (remainingItemsInQueue > 0) {
         let message = `Post Creation: ${remainingItemsInQueue} ${pluralize("submission", remainingItemsInQueue)} still in the queue.`;
         if (firstItemNonUrgent) {
-            message += ` Backlog: ${formatDistanceToNow(firstItemNonUrgent.score)}`;
+            message += ` Backlog: ${formatTimeSince(new Date(firstItemNonUrgent.score))}`;
         }
         console.log(message);
     }
@@ -253,7 +253,7 @@ export async function processQueuedSubmission (context: JobContext) {
 
                 let message = `⚠️ Post creation queue is backlogged. As at <t:${Math.round(Date.now() / 1000)}:t> there ${pluralize("is", remainingItemsInQueue)} currently ${remainingItemsInQueue} ${pluralize("submission", remainingItemsInQueue)} waiting to be processed. (Max observed: ${maxQueueLength})`;
                 if (firstItemNonUrgent) {
-                    message += `\n\nOldest non-urgent item: ${formatDistanceToNow(firstItemNonUrgent.score)}`;
+                    message += `\n\nOldest non-urgent item: ${formatTimeSince(new Date(firstItemNonUrgent.score))} ago.`;
                 }
 
                 const immediateCount = queuedSubmissions.filter(item => item.score <= subWeeks(new Date(), 1).getTime()).length;

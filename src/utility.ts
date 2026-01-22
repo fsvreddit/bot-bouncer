@@ -1,6 +1,6 @@
 import { Comment, Post, TriggerContext, User } from "@devvit/public-api";
 import { isCommentId, isLinkId } from "@devvit/public-api/types/tid.js";
-import { addHours } from "date-fns";
+import { addHours, formatDuration, intervalToDuration } from "date-fns";
 import { isModerator } from "devvit-helpers";
 import Pako from "pako";
 
@@ -145,4 +145,9 @@ export function postIdToShortLink (postId: string): string {
 
 export function compressData (value: unknown): string {
     return Buffer.from(Pako.deflate(JSON.stringify(value), { level: 9 })).toString("base64");
+}
+
+export function formatTimeSince (date: Date): string {
+    const interval = intervalToDuration({ start: date, end: new Date() });
+    return formatDuration(interval, { format: ["days", "hours", "minutes"] });
 }

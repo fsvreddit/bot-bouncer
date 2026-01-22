@@ -1,11 +1,12 @@
 import { Comment, JobContext, JSONObject, Post, RedisClient, ScheduledJobEvent, TriggerContext, TxClientLike } from "@devvit/public-api";
-import { addDays, addHours, addSeconds, formatDuration, intervalToDuration, subDays, subMinutes, subSeconds } from "date-fns";
+import { addDays, addHours, addSeconds, subDays, subMinutes, subSeconds } from "date-fns";
 import { CONTROL_SUBREDDIT, PostFlairTemplate, UniversalJob } from "./constants.js";
 import { deleteUserStatus, getUserStatus, removeRecordOfSubmitterOrMod, updateAggregate, UserStatus, writeUserStatus } from "./dataStore.js";
 import { getUserExtended } from "./extendedDevvit.js";
 import { removeRecordOfBan, removeWhitelistUnban } from "./handleClientSubredditClassificationChanges.js";
 import _ from "lodash";
 import { getControlSubSettings } from "./settings.js";
+import { formatTimeSince } from "./utility.js";
 
 export const CLEANUP_LOG_KEY = "CleanupLog";
 const SUB_OR_MOD_LOG_KEY = "SubOrModLog";
@@ -231,8 +232,7 @@ export async function cleanupDeletedAccounts (event: ScheduledJobEvent<JSONObjec
 
     let message = `Cleanup: Active ${activeCount}, Deleted ${deletedCount}, Suspended ${suspendedCount}.`;
     if (firstCleanupDate < subMinutes(new Date(), 2)) {
-        const interval = intervalToDuration({ start: firstCleanupDate, end: new Date() });
-        message += ` Backlogged: ${formatDuration(interval, { format: ["days", "hours", "minutes"] })}.`;
+        message += ` Backlogged: ${formatTimeSince(firstCleanupDate)}.`;
     }
 
     console.log(message);
