@@ -171,6 +171,7 @@ export async function dataExtract (message: ModmailMessage, conversationId: stri
     const allData = await getFullDataStore(context, {
         since: request.since ? new Date(request.since) : undefined,
         statuses: request.status,
+        submitter: request.submitter,
     });
 
     const data = Object.entries(allData)
