@@ -79,12 +79,14 @@ export async function handleControlSubredditModmail (modmail: ModmailMessage, co
         return;
     }
 
-    if (modmail.bodyMarkdown.startsWith("!summary") && modmail.participant) {
+    if (modmail.bodyMarkdown.startsWith("!summary")) {
         const regex = /^!summary(?: ([\w\d_-]+))?/;
         const match = regex.exec(modmail.bodyMarkdown);
         const username = match?.[1] ?? modmail.participant;
-        await addSummaryForUser(modmail.conversationId, username, context);
-        return;
+        if (username) {
+            await addSummaryForUser(modmail.conversationId, username, context);
+            return;
+        }
     }
 
     if (modmail.bodyMarkdown.startsWith("!checkban") && modmail.participant) {
