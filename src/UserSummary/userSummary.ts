@@ -15,6 +15,7 @@ import { ALL_EVALUATORS } from "@fsvreddit/bot-bouncer-evaluation";
 import { BIO_TEXT_STORE, getUserStatus } from "../dataStore.js";
 import { getUserSocialLinks } from "devvit-helpers";
 import { getSubmitterSuccessRate } from "../statistics/submitterStatistics.js";
+import { getSummaryExtras } from "./summaryExtras.js";
 
 function formatDifferenceInDates (start: Date, end: Date) {
     const units: (keyof Duration)[] = ["years", "months", "days"];
@@ -386,6 +387,8 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
         // This seems to fail a fair bit. Just ignore it if mod notes don't load.
     }
 
+    const extras = getSummaryExtras(evaluatorVariables);
+
     if (userComments.length > 0) {
         summary.push({ h2: "Comments" });
         summary.push({ p: `User has ${userComments.length} ${pluralize("comment", userComments.length)}` });
@@ -395,7 +398,15 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
         bullets.push(`Length: ${minMaxAvg(userComments.map(comment => comment.body.length))}`);
         bullets.push(`Word count: ${minMaxAvg(userComments.map(comment => count(comment.body, "words", {})))}`);
         bullets.push(`Paragraphs: ${minMaxAvg(userComments.map(comment => comment.body.split("\n\n").length))}`);
-        bullets.push(`Comments with em-dashes: ${Math.round(100 * userComments.filter(comment => comment.body.includes("—")).length / userComments.length)}%`);
+
+        const commentsExtras = extras.filter(extra => extra.type === "comment");
+        for (const extra of commentsExtras) {
+            const regex = new RegExp(extra.regex, "u");
+            const matchCount = userComments.filter(comment => regex.test(comment.body)).length;
+            if (matchCount > 0) {
+                bullets.push(`${extra.title}: ${matchCount} (${Math.round(100 * matchCount / userComments.length)}%)`);
+            }
+        }
 
         const topLevelPercentage = Math.floor(100 * userComments.filter(comment => isLinkId(comment.parentId)).length / userComments.length);
         bullets.push(`Top level comments: ${topLevelPercentage}% of total`);
@@ -431,6 +442,15 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
         const editedPostPercentage = Math.round(100 * userPosts.filter(post => post.edited).length / userPosts.length);
         if (editedPostPercentage > 0) {
             bullets.push(`Edited posts: ${editedPostPercentage}% of total`);
+        }
+
+        const postsExtras = extras.filter(extra => extra.type === "post");
+        for (const extra of postsExtras) {
+            const regex = new RegExp(extra.regex, "u");
+            const matchCount = userPosts.filter(post => post.body && regex.test(post.body)).length;
+            if (matchCount > 0) {
+                bullets.push(`${extra.title}: ${matchCount} (${Math.round(100 * matchCount / userPosts.length)}%)`);
+            }
         }
 
         const subreddits = _.countBy(_.compact(userPosts.map(post => post.subredditName)));
