@@ -213,7 +213,7 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
 
         summary.push(
             { p: firstLine },
-            { p: `[Link to submission](https://www.reddit.com${post.permalink})` },
+            { p: `[Link to submission](https://www.reddit.com${post.permalink}) | [Pushshift](https://shiruken.github.io/chearch/?kind=comment&author=${username}&limit=100) | [Arctic Shift](https://arctic-shift.photon-reddit.com/search?fun=posts_search&author=${username}&limit=50&sort=desc)` },
         );
     }
 
