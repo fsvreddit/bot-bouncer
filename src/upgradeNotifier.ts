@@ -22,14 +22,14 @@ export async function getNewVersionInfo (context: JobContext): Promise<AppUpdate
     }
 
     const updates = JSON.parse(wikiPage.content) as AppUpdate[];
-    const updatesForThisApp = updates.filter(update => update.appname === context.appName);
+    const updatesForThisApp = updates.filter(update => update.appname === context.appSlug);
     if (updatesForThisApp.length === 0) {
-        console.log(`Update Checker: No updates found for app ${context.appName}`);
+        console.log(`Update Checker: No updates found for app ${context.appSlug}`);
         return;
     }
 
     if (updatesForThisApp.length > 1) {
-        console.error(`Update Checker: Multiple updates found for app ${context.appName}`);
+        console.error(`Update Checker: Multiple updates found for app ${context.appSlug}`);
         return;
     }
 
@@ -69,7 +69,7 @@ export async function checkForUpdates (_: unknown, context: JobContext) {
         message.push({ ul: update.whatsNewBullets });
     }
 
-    message.push({ p: `To install this update, or to disable these notifications, visit the [**Bot Bouncer Configuration Page**](https://developers.reddit.com/r/${subredditName}/apps/${context.appName}) for /r/${subredditName}.` });
+    message.push({ p: `To install this update, or to disable these notifications, visit the [**Bot Bouncer Configuration Page**](https://developers.reddit.com/r/${subredditName}/apps/${context.appSlug}) for /r/${subredditName}.` });
 
     await context.reddit.modMail.createModNotification({
         subredditId: context.subredditId,

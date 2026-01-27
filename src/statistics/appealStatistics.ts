@@ -9,7 +9,7 @@ function getKeyForDate (date = new Date()): string {
 }
 
 export async function markAppealAsHandled (modmail: ModmailMessage, context: TriggerContext) {
-    if (modmail.isInternal || !modmail.messageAuthorIsMod || modmail.messageAuthor === context.appName) {
+    if (modmail.isInternal || !modmail.messageAuthorIsMod || modmail.messageAuthor === context.appSlug) {
         return;
     }
 

@@ -17,7 +17,7 @@ async function isAppModOfSub (subredditName: string, context: TriggerContext): P
     try {
         const modList = await context.reddit.getModerators({
             subredditName,
-            username: context.appName,
+            username: context.appSlug,
         }).all();
         isModOfSub = modList.length > 0;
     } catch {

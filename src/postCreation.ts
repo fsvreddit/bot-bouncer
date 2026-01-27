@@ -152,7 +152,7 @@ export async function queuePostCreation (submission: AsyncSubmission, context: T
     let score = submission.immediate ? new Date().getTime() / 1000 : new Date().getTime();
 
     // Hacky workaround to promote private bot submissions
-    if (submission.details.submitter?.startsWith(`${context.appName}-`) && submission.details.submitter !== INTERNAL_BOT) {
+    if (submission.details.submitter?.startsWith(`${context.appSlug}-`) && submission.details.submitter !== INTERNAL_BOT) {
         score /= 2;
     }
 

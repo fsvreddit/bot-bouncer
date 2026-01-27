@@ -18,7 +18,7 @@ export interface ModmailMessage {
 }
 
 export async function handleModmail (event: ModMail, context: TriggerContext) {
-    if (event.messageAuthor?.name === context.appName) {
+    if (event.messageAuthor?.name === context.appSlug) {
         return;
     }
 

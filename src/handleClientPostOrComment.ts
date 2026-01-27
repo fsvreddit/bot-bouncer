@@ -233,7 +233,7 @@ async function handleContentCreation (username: string, currentStatus: UserDetai
                 .replaceAll("{link}", user.username);
 
             const banNote = CONFIGURATION_DEFAULTS.banNote
-                .replaceAll("{me}", context.appName)
+                .replaceAll("{me}", context.appSlug)
                 .replaceAll("{date}", formatDate(new Date(), "yyyy-MM-dd"));
 
             promises.push(context.reddit.banUser({

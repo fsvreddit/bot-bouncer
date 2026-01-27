@@ -159,7 +159,7 @@ export async function addExternalSubmissionToPostCreationQueue (item: ExternalSu
             userStatus: initialStatus,
             lastUpdate: new Date().getTime(),
             submitter: item.submitter,
-            operator: context.appName,
+            operator: context.appSlug,
             trackingPostId: "",
             reportedAt: new Date().getTime(),
         },

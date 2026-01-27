@@ -76,7 +76,7 @@ export async function handleControlSubFlairUpdate (event: PostFlairUpdate, conte
             await writeUserStatus(username, currentStatus, context);
         }
 
-        if (event.author.name !== context.appName) {
+        if (event.author.name !== context.appSlug) {
             await context.redis.set(`userStatusOverride~${username}`, event.author.name, { expiration: addHours(new Date(), 1) });
         }
 
@@ -98,7 +98,7 @@ export async function handleControlSubFlairUpdate (event: PostFlairUpdate, conte
     // Handle flairs with review periods specified
     const regex = `^(${Object.values(UserStatus).join("|")}):(\\d+)$`;
     const match = new RegExp(regex).exec(postFlair);
-    if (event.author.name !== context.appName && match) {
+    if (event.author.name !== context.appSlug && match) {
         const status = match[1] as UserStatus;
         const reviewPeriod = parseInt(match[2], 10);
         await context.redis.set(`userStatusOverride~${username}`, event.author.name, { expiration: addHours(new Date(), 1) });
@@ -151,7 +151,7 @@ export async function handleControlSubFlairUpdate (event: PostFlairUpdate, conte
     // Look for Account Properties comment and delete it.
     if (postFlair !== UserStatus.Pending) {
         const comment = await post.comments.all();
-        const commentToDelete = comment.find(c => c.authorName === context.appName && c.body.startsWith("## Account Properties"));
+        const commentToDelete = comment.find(c => c.authorName === context.appSlug && c.body.startsWith("## Account Properties"));
 
         if (commentToDelete) {
             await commentToDelete.delete();

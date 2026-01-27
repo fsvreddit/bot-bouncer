@@ -92,7 +92,7 @@ export async function processFeedbackQueue (context: TriggerContext) {
 }
 
 async function sendFeedbackViaMessage (username: string, submitter: string, operator: string | undefined, userStatus: UserStatus, context: TriggerContext) {
-    const automaticText = operator === context.appName ? "automatically" : "manually";
+    const automaticText = operator === context.appSlug ? "automatically" : "manually";
     const message: json2md.DataObject[] = [
         { p: `Hi ${submitter}, you recently reported /u/${username} to /r/${CONTROL_SUBREDDIT}.` },
     ];
@@ -181,7 +181,7 @@ export async function canUserReceiveFeedback (username: string, context: Trigger
 
 async function updateCommentWithFeedback (username: string, commentId: string, userStatus: UserStatus, context: TriggerContext) {
     const comment = await context.reddit.getCommentById(commentId);
-    if (comment.authorName !== context.appName) {
+    if (comment.authorName !== context.appSlug) {
         console.warn(`Comment ${commentId} has been deleted, cannot update with feedback.`);
         return;
     }

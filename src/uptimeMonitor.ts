@@ -42,7 +42,7 @@ async function checkUptime (settings: ControlSubSettings, context: JobContext) {
         if (existingState) {
             // App was down previously. Notify that all is well.
             const downSince = new Date(parseInt(existingState));
-            const messageToSend = `${context.appName} is back up! Approximate downtime: ${formatDistanceToNow(downSince)}`;
+            const messageToSend = `${context.appSlug} is back up! Approximate downtime: ${formatDistanceToNow(downSince)}`;
             await sendMessageToWebhook(webhookUrl, messageToSend);
             await context.redis.del(redisKey);
         }
@@ -67,7 +67,7 @@ async function checkUptime (settings: ControlSubSettings, context: JobContext) {
     }
 
     // App is newly down. Send a Discord notification if webhook is defined
-    const messageToSend = `${context.appName} appears to be down! A 403 Forbidden error was encountered when checking modmail.`;
+    const messageToSend = `${context.appSlug} appears to be down! A 403 Forbidden error was encountered when checking modmail.`;
     await sendMessageToWebhook(webhookUrl, messageToSend);
 
     await context.redis.set(redisKey, new Date().getTime().toString());
@@ -118,7 +118,7 @@ async function checkMessages (settings: ControlSubSettings, context: JobContext)
         }
 
         const alertMessage: json2md.DataObject[] = [
-            { p: `Uh-oh! ${context.appName} has a message from Reddit Admin in the inbox, sent at ${message.created.toUTCString()}.` },
+            { p: `Uh-oh! ${context.appSlug} has a message from Reddit Admin in the inbox, sent at ${message.created.toUTCString()}.` },
             { blockquote: message.body },
         ];
 

@@ -290,7 +290,7 @@ async function handleDeletedAccountControlSub (username: string, context: Trigge
 
         try {
             const post = await context.reddit.getPostById(status.trackingPostId);
-            if (post.authorName === context.appName) {
+            if (post.authorName === context.appSlug) {
                 await post.delete();
                 const deletedPosts = await context.redis.incrBy("deletedPosts", 1);
                 console.log(`Cleanup: Post deleted for ${username}. Now deleted ${deletedPosts} posts.`);

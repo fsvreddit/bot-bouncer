@@ -125,8 +125,8 @@ async function evaluateAndHandleUser (username: string, variables: Record<string
     const newDetails: UserDetails = {
         userStatus: hasContinuousNSFWHistory ? UserStatus.Pending : UserStatus.Banned,
         lastUpdate: new Date().getTime(),
-        submitter: context.appName,
-        operator: context.appName,
+        submitter: context.appSlug,
+        operator: context.appSlug,
         trackingPostId: "",
     };
 

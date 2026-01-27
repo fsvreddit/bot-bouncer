@@ -53,7 +53,7 @@ export async function handleControlSubReportUser (target: Post | Comment, contex
     if (currentStatus.userStatus === UserStatus.Pending) {
         actions.push({ label: "Regenerate Summary", value: ControlSubAction.RegenerateSummary });
 
-        if (currentStatus.submitter && currentStatus.submitter !== context.appName) {
+        if (currentStatus.submitter && currentStatus.submitter !== context.appSlug) {
             actions.push({ label: "Query Submission", value: ControlSubAction.QuerySubmission });
         }
 
@@ -63,7 +63,7 @@ export async function handleControlSubReportUser (target: Post | Comment, contex
         });
     }
 
-    if (currentStatus.submitter && currentStatus.submitter !== context.appName) {
+    if (currentStatus.submitter && currentStatus.submitter !== context.appSlug) {
         actions.push({ label: "Query Submission", value: ControlSubAction.QuerySubmission });
     }
 
@@ -182,7 +182,7 @@ export async function handleControlSubForm (event: FormOnSubmitEvent<JSONObject>
 
 async function handleRegenerateSummary (username: string, post: Post, context: Context) {
     const comment = await post.comments.all();
-    const commentToDelete = comment.find(c => c.authorName === context.appName && c.body.startsWith("## Account Properties"));
+    const commentToDelete = comment.find(c => c.authorName === context.appSlug && c.body.startsWith("## Account Properties"));
 
     if (commentToDelete) {
         await commentToDelete.delete();
@@ -264,7 +264,7 @@ async function handleRemoveRecordForUser (username: string, post: Post, context:
     await txn.zRem(CLEANUP_LOG_KEY, [username]);
     await txn.exec();
 
-    if (post.authorName === context.appName) {
+    if (post.authorName === context.appSlug) {
         await post.delete();
     } else {
         await post.remove();

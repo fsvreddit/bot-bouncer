@@ -91,7 +91,7 @@ async function handleBulkItem (username: string, initialStatus: UserStatus, subm
             userStatus: initialStatus,
             lastUpdate: new Date().getTime(),
             submitter,
-            operator: context.appName,
+            operator: context.appSlug,
             trackingPostId: "",
         },
         commentToAdd,
