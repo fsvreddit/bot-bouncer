@@ -215,6 +215,8 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
             { p: firstLine },
             { p: `[Link to submission](https://www.reddit.com${post.permalink}) | [Pushshift](https://shiruken.github.io/chearch/?kind=comment&author=${username}&limit=100) | [Arctic Shift](https://arctic-shift.photon-reddit.com/search?fun=posts_search&author=${username}&limit=50&sort=desc)` },
         );
+    } else if (source === "submission") {
+        summary.push({ p: `[Pushshift](https://shiruken.github.io/chearch/?kind=comment&author=${username}&limit=100) | [Arctic Shift](https://arctic-shift.photon-reddit.com/search?fun=posts_search&author=${username}&limit=50&sort=desc)` });
     }
 
     const extendedUser = await getUserExtended(username, context);
