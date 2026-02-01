@@ -151,7 +151,7 @@ export async function handleControlSubFlairUpdate (event: PostFlairUpdate, conte
     // Look for Account Properties comment and delete it.
     if (postFlair !== UserStatus.Pending) {
         const comment = await post.comments.all();
-        const commentToDelete = comment.find(c => c.authorName === context.appSlug && c.body.startsWith("## Account Properties"));
+        const commentToDelete = comment.find(c => c.authorName === context.appSlug && c.body.includes("## Account Properties"));
 
         if (commentToDelete) {
             await commentToDelete.delete();
