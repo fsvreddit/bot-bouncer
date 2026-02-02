@@ -199,6 +199,8 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
     const userStatus = await getUserStatus(username, context);
     const summary: json2md.DataObject[] = [];
 
+    const altSources = `[Pushshift](https://shiruken.github.io/chearch/?kind=comment&author=${username}&limit=100) | [Arctic Shift](https://fsvreddit.github.io/arcticredir/?author=${username}&type=posts)`;
+
     if (userStatus && (source === "modmail")) {
         const post = await context.reddit.getPostById(userStatus.trackingPostId);
 
@@ -213,10 +215,10 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
 
         summary.push(
             { p: firstLine },
-            { p: `[Link to submission](https://www.reddit.com${post.permalink}) | [Pushshift](https://shiruken.github.io/chearch/?kind=comment&author=${username}&limit=100) | [Arctic Shift](https://arctic-shift.photon-reddit.com/search?fun=posts_search&author=${username}&limit=50&sort=desc)` },
+            { p: `[Link to submission](https://www.reddit.com${post.permalink}) | ${altSources}` },
         );
     } else if (source === "submission") {
-        summary.push({ p: `[Pushshift](https://shiruken.github.io/chearch/?kind=comment&author=${username}&limit=100) | [Arctic Shift](https://arctic-shift.photon-reddit.com/search?fun=posts_search&author=${username}&limit=50&sort=desc)` });
+        summary.push({ p: altSources });
     }
 
     const extendedUser = await getUserExtended(username, context);
