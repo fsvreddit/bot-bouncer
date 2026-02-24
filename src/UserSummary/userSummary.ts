@@ -201,7 +201,7 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
 
     const altSources = `[Pushshift](https://shiruken.github.io/chearch/?kind=comment&author=${username}&limit=100) | [Arctic Shift](https://fsvreddit.github.io/arcticredir/?author=${username}&type=posts)`;
 
-    if (userStatus && (source === "modmail")) {
+    if (userStatus && source === "modmail") {
         const post = await context.reddit.getPostById(userStatus.trackingPostId);
 
         let firstLine = `/u/${username} is currently listed as ${userStatus.userStatus}, set by ${userStatus.operator} at ${new Date(userStatus.lastUpdate).toUTCString()}`;
