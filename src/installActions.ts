@@ -84,6 +84,11 @@ async function addControlSubredditJobs (context: TriggerContext) {
         }),
 
         context.scheduler.runJob({
+            name: ControlSubredditJob.PerformMinutelyJobs,
+            cron: "* * * * *",
+        }),
+
+        context.scheduler.runJob({
             name: ControlSubredditJob.UpdateEvaluatorVariables,
             cron: "0/10 * * * *",
             data: {
