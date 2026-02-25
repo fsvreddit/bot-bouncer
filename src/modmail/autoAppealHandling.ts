@@ -82,8 +82,8 @@ const appealConfigSchema: JSONSchemaType<AppealConfig[]> = {
             replyDelay: {
                 type: "object",
                 properties: {
-                    minMinutes: { type: "number", minimum: 0 },
-                    maxMinutes: { type: "number" },
+                    minMinutes: { type: "number", minimum: 0, maximum: 60 },
+                    maxMinutes: { type: "number", minimum: 0, maximum: 1440 },
                 },
                 required: ["minMinutes", "maxMinutes"],
                 additionalProperties: false,
