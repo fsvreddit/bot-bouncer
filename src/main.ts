@@ -18,7 +18,7 @@ import { checkForUpdates } from "./upgradeNotifier.js";
 import { sendDailySummary } from "./modmail/actionSummary.js";
 import { perform6HourlyJobs, perform6HourlyJobsPart2 } from "./scheduler/sixHourlyJobs.js";
 import { checkUptimeAndMessages } from "./uptimeMonitor.js";
-import { handleRapidJob } from "./handleRapidJob.js";
+import { handleRapidJob } from "./scheduler/handleRapidJob.js";
 import { buildEvaluatorAccuracyStatistics } from "./statistics/evaluatorAccuracyStatistics.js";
 import { gatherDefinedHandlesStats, storeDefinedHandlesDataJob } from "./statistics/definedHandlesStatistics.js";
 import { deleteRecordsForRemovedUsers, classificationReversalsJob, reversePostCreationQueue } from "./modmail/evaluatorReversals.js";
