@@ -24,6 +24,7 @@ interface ModmailDataExtract {
     socialLinkTitleRegex?: string;
     evaluator?: string;
     hitReason?: string;
+    hitReasonRegex?: string;
     flags?: UserFlag[];
     "~flags"?: UserFlag[];
     since?: string;
@@ -50,6 +51,7 @@ const schema: JSONSchemaType<ModmailDataExtract> = {
         socialLinkTitleRegex: { type: "string", nullable: true },
         evaluator: { type: "string", nullable: true },
         hitReason: { type: "string", nullable: true },
+        hitReasonRegex: { type: "string", nullable: true },
         flags: {
             type: "array",
             items: { type: "string", enum: Object.values(UserFlag) },
@@ -167,6 +169,19 @@ export async function dataExtract (message: ModmailMessage, conversationId: stri
         }
     }
 
+    if (request.hitReasonRegex) {
+        try {
+            new RegExp(request.hitReasonRegex);
+        } catch {
+            await context.reddit.modMail.reply({
+                conversationId,
+                body: "Invalid regex provided for `hitReasonRegex`.",
+                isAuthorHidden: false,
+            });
+            return;
+        }
+    }
+
     // Get all data from database.
     const allData = await getFullDataStore(context, {
         since: request.since ? new Date(request.since) : undefined,
@@ -240,7 +255,7 @@ export async function dataExtract (message: ModmailMessage, conversationId: stri
     });
 
     let complicatedExtract = false;
-    if (request.bioRegex || request.displayNameRegex || request.socialLinkStartsWith || request.socialLinkTitleRegex || request.socialLinkUrlRegex || request.evaluator || request.hitReason) {
+    if (request.bioRegex || request.displayNameRegex || request.socialLinkStartsWith || request.socialLinkTitleRegex || request.socialLinkUrlRegex || request.evaluator || request.hitReason || request.hitReasonRegex) {
         complicatedExtract = true;
     }
 
@@ -264,14 +279,14 @@ export async function continueDataExtract (event: ScheduledJobEvent<JSONObject |
         return;
     }
 
-    if (!request.bioRegex && !request.displayNameRegex && !request.socialLinkStartsWith && !request.evaluator && !request.hitReason && !request.socialLinkUrlRegex && !request.socialLinkTitleRegex) {
+    if (!request.bioRegex && !request.displayNameRegex && !request.socialLinkStartsWith && !request.evaluator && !request.hitReason && !request.hitReasonRegex && !request.socialLinkUrlRegex && !request.socialLinkTitleRegex) {
         await createDataExtract(extractId, request, conversationId, context);
         return;
     }
 
     const entriesToRemove = new Set<string>();
     const entriesToRewrite = new Set<string>();
-    const batchSize = request.evaluator || request.hitReason ? 400 : 2000;
+    const batchSize = request.evaluator || request.hitReason || request.hitReasonRegex ? 400 : 2000;
     const processingQueueData = await context.redis.zRange(getExtractTempQueueKey(extractId), 0, batchSize - 1);
     const processingQueue = processingQueueData.map(entry => entry.member);
 
@@ -351,7 +366,7 @@ export async function continueDataExtract (event: ScheduledJobEvent<JSONObject |
         }
     }
 
-    if (request.evaluator || request.hitReason) {
+    if (request.evaluator || request.hitReason || request.hitReasonRegex) {
         await Promise.all(processingQueue.map(async (username) => {
             const results = await getAccountInitialEvaluationResults(username, context);
             if (results.length === 0) {
@@ -377,6 +392,23 @@ export async function continueDataExtract (event: ScheduledJobEvent<JSONObject |
 
                 // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
                 return result.hitReason.reason.toLowerCase().includes(request.hitReason!.toLowerCase());
+            })) {
+                entriesToRemove.add(username);
+                return;
+            }
+
+            if (request.hitReasonRegex && !results.some((result) => {
+                // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+                const regex = new RegExp(request.hitReasonRegex!, "u");
+                if (!result.hitReason) {
+                    return false;
+                }
+
+                if (typeof result.hitReason === "string") {
+                    return regex.test(result.hitReason);
+                }
+
+                return regex.test(result.hitReason.reason);
             })) {
                 entriesToRemove.add(username);
                 return;
