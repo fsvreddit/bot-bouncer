@@ -20,6 +20,7 @@ import { CHECK_DATE_KEY } from "../karmaFarmingSubsCheck.js";
 import { evaluateAccountFromModmail } from "./modmailEvaluaton.js";
 import { isBanned } from "devvit-helpers";
 import { handleReversalCommand } from "./evaluatorReversals.js";
+import { handleHighlightedModmail } from "./unhighlighter.js";
 
 export function getPossibleSetStatusValues (): string[] {
     return _.uniq([...FLAIR_MAPPINGS.map(entry => entry.postFlair), ...Object.values(UserStatus)]);
@@ -27,6 +28,8 @@ export function getPossibleSetStatusValues (): string[] {
 
 export async function handleControlSubredditModmail (modmail: ModmailMessage, context: TriggerContext) {
     const controlSubSettings = await getControlSubSettings(context);
+
+    await handleHighlightedModmail(modmail, context);
 
     if (controlSubSettings.bulkSubmitters?.includes(modmail.messageAuthor) && modmail.bodyMarkdown.startsWith("{")) {
         const isTrusted = controlSubSettings.trustedSubmitters.includes(modmail.messageAuthor);
@@ -76,12 +79,14 @@ export async function handleControlSubredditModmail (modmail: ModmailMessage, co
         return;
     }
 
-    if (modmail.bodyMarkdown.startsWith("!summary") && modmail.participant) {
+    if (modmail.bodyMarkdown.startsWith("!summary")) {
         const regex = /^!summary(?: ([\w\d_-]+))?/;
         const match = regex.exec(modmail.bodyMarkdown);
         const username = match?.[1] ?? modmail.participant;
-        await addSummaryForUser(modmail.conversationId, username, context);
-        return;
+        if (username) {
+            await addSummaryForUser(modmail.conversationId, username, context);
+            return;
+        }
     }
 
     if (modmail.bodyMarkdown.startsWith("!checkban") && modmail.participant) {
@@ -89,7 +94,7 @@ export async function handleControlSubredditModmail (modmail: ModmailMessage, co
         return;
     }
 
-    if (!modmail.isInternal && modmail.messageAuthor !== context.appName) {
+    if (!modmail.isInternal && modmail.messageAuthor !== context.appSlug) {
         await markAppealAsHandled(modmail, context);
     }
 
@@ -108,7 +113,7 @@ export async function handleControlSubredditModmail (modmail: ModmailMessage, co
         return;
     }
 
-    if (modmail.participant && modmail.participant !== context.appName) {
+    if (modmail.participant && modmail.participant !== context.appSlug) {
         const statusChangeRegex = new RegExp(`!setstatus (${getPossibleSetStatusValues().join("|")})`);
         const statusChangeMatch = statusChangeRegex.exec(modmail.bodyMarkdown);
         if (statusChangeMatch?.length === 2) {
@@ -195,7 +200,7 @@ async function handleModmailFromUser (modmail: ModmailMessage, context: TriggerC
 
     await context.redis.set(conversationHandledKey, "true", { expiration: addDays(new Date(), 28) });
 
-    if (username === INTERNAL_BOT || username.startsWith(context.appName)) {
+    if (username === INTERNAL_BOT || username.startsWith(context.appSlug)) {
         return;
     }
 
@@ -344,7 +349,7 @@ async function checkBanOnSub (modmail: ModmailMessage, context: TriggerContext) 
         const isBannedOnSub = await isBanned(context.reddit, subredditName, modmail.participant);
         message.push({ p: `User /u/${modmail.participant} is currently ${isBannedOnSub ? "banned" : "not banned"} on /r/${subredditName}.` });
     } catch (error) {
-        const isMod = await isModeratorWithCache(context.appName, context, subredditName);
+        const isMod = await isModeratorWithCache(context.appSlug, context, subredditName);
         if (!isMod) {
             message.push({ p: `Bot Bouncer is not a moderator of /r/${subredditName}, so it cannot check the ban status of /u/${modmail.participant}.` });
         } else {

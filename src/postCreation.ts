@@ -2,11 +2,11 @@ import { JobContext, TriggerContext } from "@devvit/public-api";
 import { getUserStatus, setUserStatus, storeInitialAccountProperties, UserDetails, UserStatus } from "./dataStore.js";
 import { CONTROL_SUBREDDIT, ControlSubredditJob, INTERNAL_BOT, PostFlairTemplate } from "./constants.js";
 import { UserExtended } from "./extendedDevvit.js";
-import { addDays, addHours, addMinutes, addSeconds } from "date-fns";
+import { addDays, addHours, addMinutes, addSeconds, subWeeks } from "date-fns";
 import { getControlSubSettings } from "./settings.js";
 import pluralize from "pluralize";
 import { queueSendFeedback } from "./submissionFeedback.js";
-import { sendMessageToWebhook, updateWebhookMessage } from "./utility.js";
+import { formatTimeSince, sendMessageToWebhook, updateWebhookMessage } from "./utility.js";
 
 export const statusToFlair: Record<UserStatus, PostFlairTemplate> = {
     [UserStatus.Pending]: PostFlairTemplate.Pending,
@@ -152,7 +152,7 @@ export async function queuePostCreation (submission: AsyncSubmission, context: T
     let score = submission.immediate ? new Date().getTime() / 1000 : new Date().getTime();
 
     // Hacky workaround to promote private bot submissions
-    if (submission.details.submitter?.startsWith(`${context.appName}-`) && submission.details.submitter !== INTERNAL_BOT) {
+    if (submission.details.submitter?.startsWith(`${context.appSlug}-`) && submission.details.submitter !== INTERNAL_BOT) {
         score /= 2;
     }
 
@@ -220,9 +220,13 @@ export async function processQueuedSubmission (context: JobContext) {
     await createNewSubmission(JSON.parse(submissionDetails) as AsyncSubmission, context);
 
     const remainingItemsInQueue = queuedSubmissions.length - 1;
+    const firstItemNonUrgent = queuedSubmissions.find(item => item.score > subWeeks(new Date(), 1).getTime());
 
     if (remainingItemsInQueue > 0) {
-        const message = `Post Creation: ${remainingItemsInQueue} ${pluralize("submission", remainingItemsInQueue)} still in the queue.`;
+        let message = `Post Creation: ${remainingItemsInQueue} ${pluralize("submission", remainingItemsInQueue)} still in the queue.`;
+        if (firstItemNonUrgent) {
+            message += ` Backlog: ${formatTimeSince(new Date(firstItemNonUrgent.score))}`;
+        }
         console.log(message);
     }
 
@@ -247,14 +251,24 @@ export async function processQueuedSubmission (context: JobContext) {
                     await context.redis.set(maxQueueLengthKey, maxQueueLength.toString());
                 }
 
+                let message = `⚠️ Post creation queue is backlogged. As at <t:${Math.round(Date.now() / 1000)}:t> there ${pluralize("is", remainingItemsInQueue)} currently ${remainingItemsInQueue.toLocaleString()} ${pluralize("submission", remainingItemsInQueue)} waiting to be processed. (Max observed: ${maxQueueLength.toLocaleString()}).`;
+                if (firstItemNonUrgent) {
+                    message += `\n\nOldest non-urgent item: ${formatTimeSince(new Date(firstItemNonUrgent.score))} ago.`;
+                }
+
+                const immediateCount = queuedSubmissions.filter(item => item.score <= subWeeks(new Date(), 1).getTime()).length;
+                if (immediateCount > 0) {
+                    message += ` There ${pluralize("is", immediateCount)} ${immediateCount.toLocaleString()} immediate ${pluralize("submission", immediateCount)} in the queue.`;
+                }
+
                 await updateWebhookMessage(
                     controlSubSettings.backlogWebhook,
                     messageId,
-                    `⚠️ Post creation queue is backlogged. There ${pluralize("is", remainingItemsInQueue)} currently ${remainingItemsInQueue} ${pluralize("submission", remainingItemsInQueue)} waiting to be processed. (Max observed: ${maxQueueLength})`,
+                    message,
                 );
             } else if (remainingItemsInQueue === 0) {
                 if (messageId) {
-                    await updateWebhookMessage(controlSubSettings.backlogWebhook, messageId, `✅ Post creation queue has been cleared. The maximum queue length observed was ${maxQueueLength}.`);
+                    await updateWebhookMessage(controlSubSettings.backlogWebhook, messageId, `✅ Post creation queue was cleared at <t:${Math.round(Date.now() / 1000)}:f>. The maximum queue length observed was ${maxQueueLength}.`);
                 }
                 await context.redis.del(alertKey, maxQueueLengthKey);
             }

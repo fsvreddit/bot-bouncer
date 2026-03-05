@@ -18,7 +18,7 @@ import { checkForUpdates } from "./upgradeNotifier.js";
 import { sendDailySummary } from "./modmail/actionSummary.js";
 import { perform6HourlyJobs, perform6HourlyJobsPart2 } from "./scheduler/sixHourlyJobs.js";
 import { checkUptimeAndMessages } from "./uptimeMonitor.js";
-import { handleRapidJob } from "./handleRapidJob.js";
+import { handleRapidJob } from "./scheduler/handleRapidJob.js";
 import { buildEvaluatorAccuracyStatistics } from "./statistics/evaluatorAccuracyStatistics.js";
 import { gatherDefinedHandlesStats, storeDefinedHandlesDataJob } from "./statistics/definedHandlesStatistics.js";
 import { deleteRecordsForRemovedUsers, classificationReversalsJob, reversePostCreationQueue } from "./modmail/evaluatorReversals.js";
@@ -32,6 +32,9 @@ import { checkPermissionQueueItems, handlePermissionCheckEnqueueJob } from "./pe
 import { handleFiveMinutelyJob } from "./scheduler/fiveMinutelyJobs.js";
 import { processLegacySubUpgradeNotifications } from "./upgradeNotifierForLegacySubs.js";
 import { checkAccountsForReview } from "./modmail/accountReview.js";
+import { pendingUserFinder } from "./statistics/pendingUserFinder.js";
+import { doBotSleuthBotExtract } from "./botSleuthBotExtract.js";
+import { handleMinutelyJob } from "./scheduler/handleMinutelyJob.js";
 
 Devvit.addSettings(appSettings);
 
@@ -130,6 +133,11 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: ControlSubredditJob.Perform5MinutelyJobs,
     onRun: handleFiveMinutelyJob,
+});
+
+Devvit.addSchedulerJob({
+    name: ControlSubredditJob.PerformMinutelyJobs,
+    onRun: handleMinutelyJob,
 });
 
 Devvit.addSchedulerJob({
@@ -235,6 +243,16 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: ControlSubredditJob.AccountReview,
     onRun: checkAccountsForReview,
+});
+
+Devvit.addSchedulerJob({
+    name: ControlSubredditJob.PendingUserFinder,
+    onRun: pendingUserFinder,
+});
+
+Devvit.addSchedulerJob({
+    name: ControlSubredditJob.BotSleuthBotExtract,
+    onRun: doBotSleuthBotExtract,
 });
 
 /**

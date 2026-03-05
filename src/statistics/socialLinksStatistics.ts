@@ -8,7 +8,7 @@ import { StatsUserEntry } from "../scheduler/sixHourlyJobs.js";
 import { userIsBanned } from "./statsHelpers.js";
 
 export function cleanLink (input: string): string {
-    if (!input.includes("onlyfans.com") && !input.includes("fansly.com") && !input.includes("fans.ly") && !input.includes("snapchat.com")) {
+    if (!input.includes("onlyfans.com") && !input.includes("fansly.com") && !input.includes("fans.ly") && !input.includes("snapchat.com") && !input.includes("fanvue.com")) {
         return input;
     }
 
@@ -21,13 +21,13 @@ export function cleanLink (input: string): string {
         return newString;
     }
 
-    const linkRegex = /(https:\/\/(?:onlyfans\.com|fansly\.com|fans\.ly)\/[\w\d.-]+\/)(?:[ct]\d+|trial)/;
+    const linkRegex = /^(https:\/\/(?:onlyfans\.com|fansly\.com|fans\.ly)\/[\w\d.-]+\/)(?:[ct]\d+|trial)/;
     const matches = linkRegex.exec(newString);
     if (matches?.[1]) {
         newString = matches[1];
     }
 
-    const snapchatRegex = /(https:\/\/(?:www\.)?snapchat\.com\/add\/[\w\d._-]+)(?:\?share.*)?/;
+    const snapchatRegex = /^(https:\/\/(?:www\.)?snapchat\.com\/add\/[\w\d._-]+)(?:\?share.*)?/;
     const snapchatMatches = snapchatRegex.exec(newString);
     if (snapchatMatches?.[1]) {
         newString = snapchatMatches[1];
@@ -36,6 +36,19 @@ export function cleanLink (input: string): string {
     if (!newString.endsWith("/")) {
         newString += "/";
     }
+
+    const fanvueRegex1 = /^(https:\/\/www.fanvue.com\/[\w.-]+\/).+/;
+    const fanvueMatches = fanvueRegex1.exec(input);
+    if (fanvueMatches?.[1]) {
+        newString = fanvueMatches[1];
+    }
+
+    const fanvueRegex2 = /^(https:\/\/www.fanvue.com\/[\w.-]+)\?.+/;
+    const fanvueMatches2 = fanvueRegex2.exec(input);
+    if (fanvueMatches2?.[1]) {
+        newString = fanvueMatches2[1];
+    }
+
     return newString;
 }
 

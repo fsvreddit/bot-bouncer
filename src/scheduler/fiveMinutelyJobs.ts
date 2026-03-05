@@ -1,5 +1,6 @@
 import { JobContext } from "@devvit/public-api";
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "../constants.js";
+import { processHighlightedModmailQueue } from "../modmail/unhighlighter.js";
 
 export async function handleFiveMinutelyJob (_: unknown, context: JobContext) {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
@@ -23,4 +24,6 @@ export async function handleFiveMinutelyJob (_: unknown, context: JobContext) {
         runAt: new Date(),
         data: { firstRun: true },
     });
+
+    await processHighlightedModmailQueue(context);
 }

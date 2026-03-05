@@ -92,7 +92,7 @@ export async function processFeedbackQueue (context: TriggerContext) {
 }
 
 async function sendFeedbackViaMessage (username: string, submitter: string, operator: string | undefined, userStatus: UserStatus, context: TriggerContext) {
-    const automaticText = operator === context.appName ? "automatically" : "manually";
+    const automaticText = operator === context.appSlug ? "automatically" : "manually";
     const message: json2md.DataObject[] = [
         { p: `Hi ${submitter}, you recently reported /u/${username} to /r/${CONTROL_SUBREDDIT}.` },
     ];
@@ -181,7 +181,7 @@ export async function canUserReceiveFeedback (username: string, context: Trigger
 
 async function updateCommentWithFeedback (username: string, commentId: string, userStatus: UserStatus, context: TriggerContext) {
     const comment = await context.reddit.getCommentById(commentId);
-    if (comment.authorName !== context.appName) {
+    if (comment.authorName !== context.appSlug) {
         console.warn(`Comment ${commentId} has been deleted, cannot update with feedback.`);
         return;
     }
@@ -189,7 +189,7 @@ async function updateCommentWithFeedback (username: string, commentId: string, u
     let commentText = comment.body;
     commentText += `\n\nEdit: This account has now been classified as **${userStatus}**. This means that the account ${statusToExplanation[userStatus]}`;
     if (userStatus === UserStatus.Organic || userStatus === UserStatus.Declined || userStatus === UserStatus.Service) {
-        commentText += `\n\nIf you have any more information to help us understand why this may be a harmful or disruptive bot, please [message /r/${CONTROL_SUBREDDIT}](https://www.reddit.com/message/compose?to=/r/${CONTROL_SUBREDDIT}&subject=More%20information%20about%20/u/${username})`;
+        commentText += `\n\nIf you have any more information to help us understand why this may be a harmful or disruptive bot, please [message /r/${CONTROL_SUBREDDIT}](https://www.reddit.com/message/compose?to=/r/${CONTROL_SUBREDDIT}&subject=More%20information%20about%20${username})`;
     }
 
     await comment.edit({ text: commentText });

@@ -12,9 +12,10 @@ import { ModmailMessage } from "./modmail.js";
 import { getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
 import { getUserExtended } from "../extendedDevvit.js";
 import { statusToFlair } from "../postCreation.js";
-import { format, getYear } from "date-fns";
+import { addMinutes, format, getYear } from "date-fns";
 import { getPossibleSetStatusValues } from "./controlSubModmail.js";
 import { getUserSocialLinks } from "devvit-helpers";
+import { sendMessageOnDelay } from "./delayedSend.js";
 
 const APPEAL_CONFIG_WIKI_PAGE = "appeal-config";
 const APPEAL_CONFIG_REDIS_KEY = "AppealConfig";
@@ -41,8 +42,13 @@ interface AppealConfig {
     setStatus?: string;
     privateReply?: string;
     reply?: string;
+    replyDelay?: {
+        minMinutes: number;
+        maxMinutes: number;
+    };
     archive?: boolean;
     mute?: number;
+    highlight?: boolean;
 }
 
 const acceptableMuteDurations = [3, 7, 28];
@@ -73,8 +79,19 @@ const appealConfigSchema: JSONSchemaType<AppealConfig[]> = {
             setStatus: { type: "string", enum: getPossibleSetStatusValues(), nullable: true },
             privateReply: { type: "string", nullable: true },
             reply: { type: "string", nullable: true },
+            replyDelay: {
+                type: "object",
+                properties: {
+                    minMinutes: { type: "number", minimum: 0, maximum: 60 },
+                    maxMinutes: { type: "number", minimum: 0, maximum: 1440 },
+                },
+                required: ["minMinutes", "maxMinutes"],
+                additionalProperties: false,
+                nullable: true,
+            },
             archive: { type: "boolean", nullable: true },
             mute: { type: "number", enum: acceptableMuteDurations, nullable: true },
+            highlight: { type: "boolean", nullable: true },
         },
         additionalProperties: false,
         required: ["name"],
@@ -86,8 +103,13 @@ interface AppealOutcome {
     newStatus?: string;
     privateReply?: string;
     reply?: string;
+    replyDelay?: {
+        minMinutes: number;
+        maxMinutes: number;
+    };
     archive?: boolean;
     mute?: number;
+    highlight?: boolean;
 }
 
 const defaultAppealOutcome: AppealOutcome = {
@@ -374,8 +396,10 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
             newStatus: matchedAppealConfig.setStatus,
             privateReply: matchedAppealConfig.privateReply,
             reply: matchedAppealConfig.reply,
+            replyDelay: matchedAppealConfig.replyDelay,
             archive: matchedAppealConfig.archive,
             mute: matchedAppealConfig.mute,
+            highlight: matchedAppealConfig.highlight,
         };
     } else {
         console.log(`Appeals: No specific appeal config matched for user ${username}, using default reply.`);
@@ -403,20 +427,38 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
 
     if (appealOutcome.reply) {
         let replyMessage = `${formatPlaceholders(appealOutcome.reply, userDetails)}\n\n`;
-        if (appealOutcome.mute) {
-            replyMessage += "*This is an automated response.*";
-        } else if (matchedAppealConfig) {
-            replyMessage += "*This is an automated response, but replies will be read. Please allow 24 hours for a response.*";
-        } else {
-            replyMessage += "*This is an automated response. Please allow 24 hours for a response but we will aim to respond sooner.*";
-        }
 
-        await context.reddit.modMail.reply({
-            conversationId: modmail.conversationId,
-            body: replyMessage,
-            isInternal: false,
-            isAuthorHidden: true,
-        });
+        if (appealOutcome.replyDelay) {
+            let sendAt: Date;
+            if (appealOutcome.replyDelay.minMinutes >= appealOutcome.replyDelay.maxMinutes) {
+                sendAt = addMinutes(new Date(), appealOutcome.replyDelay.minMinutes);
+            } else {
+                const delayMinutes = Math.floor(Math.random() * (appealOutcome.replyDelay.maxMinutes - appealOutcome.replyDelay.minMinutes + 1)) + appealOutcome.replyDelay.minMinutes;
+                sendAt = addMinutes(new Date(), delayMinutes);
+            }
+
+            await sendMessageOnDelay(context, {
+                conversationId: modmail.conversationId,
+                message: replyMessage,
+                archive: appealOutcome.archive,
+                sendAt,
+            });
+        } else {
+            if (appealOutcome.mute) {
+                replyMessage += "*This is an automated response.*";
+            } else if (matchedAppealConfig) {
+                replyMessage += "*This is an automated response, but replies will be read. Please allow 24 hours for a response.*";
+            } else {
+                replyMessage += "*This is an automated response. Please allow 24 hours for a response but we will aim to respond sooner.*";
+            }
+
+            await context.reddit.modMail.reply({
+                conversationId: modmail.conversationId,
+                body: replyMessage,
+                isInternal: false,
+                isAuthorHidden: true,
+            });
+        }
     }
 
     if (appealOutcome.mute === 3 || appealOutcome.mute === 7 || appealOutcome.mute === 28) {
@@ -439,7 +481,11 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
         });
     }
 
-    if (appealOutcome.archive) {
+    if (appealOutcome.highlight) {
+        await context.reddit.modMail.highlightConversation(modmail.conversationId);
+    }
+
+    if (appealOutcome.archive && !appealOutcome.replyDelay) {
         await context.reddit.modMail.archiveConversation(modmail.conversationId);
     }
 }

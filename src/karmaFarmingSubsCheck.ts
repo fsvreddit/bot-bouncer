@@ -101,6 +101,7 @@ async function evaluateAndHandleUser (username: string, variables: Record<string
     const evaluationResults = await evaluateUserAccount({
         username,
         variables,
+        throwOnError: true,
     }, context);
 
     if (evaluationResults.length === 0) {
@@ -125,8 +126,8 @@ async function evaluateAndHandleUser (username: string, variables: Record<string
     const newDetails: UserDetails = {
         userStatus: hasContinuousNSFWHistory ? UserStatus.Pending : UserStatus.Banned,
         lastUpdate: new Date().getTime(),
-        submitter: context.appName,
-        operator: context.appName,
+        submitter: context.appSlug,
+        operator: context.appSlug,
         trackingPostId: "",
     };
 
@@ -310,7 +311,7 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
 
         await context.scheduler.runJob({
             name: ControlSubredditJob.EvaluateKarmaFarmingSubs,
-            runAt: new Date(),
+            runAt: addSeconds(new Date(), 2),
             data: { firstRun: false, cohort },
         });
     } else {

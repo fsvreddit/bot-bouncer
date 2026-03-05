@@ -214,7 +214,7 @@ export async function addAllUsersFromModmail (conversationId: string, submitter:
                 userStatus: initialStatus,
                 lastUpdate: new Date().getTime(),
                 submitter,
-                operator: context.appName,
+                operator: context.appSlug,
                 trackingPostId: "",
                 reportedAt: new Date().getTime(),
             },

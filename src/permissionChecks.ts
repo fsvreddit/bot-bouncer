@@ -59,7 +59,7 @@ export async function checkPermissionQueueItems (event: ScheduledJobEvent<JSONOb
     await context.redis.global.zRem(PERMISSION_CHECKS_QUEUE, [subredditName]);
 
     try {
-        const isMod = await isModerator(context.reddit, subredditName, context.appName);
+        const isMod = await isModerator(context.reddit, subredditName, context.appSlug);
 
         if (!isMod) {
             problemFound.push([
@@ -70,7 +70,7 @@ export async function checkPermissionQueueItems (event: ScheduledJobEvent<JSONOb
         } else {
             const hasPerms = await hasPermissions(context.reddit, {
                 subredditName,
-                username: context.appName,
+                username: context.appSlug,
                 requiredPerms: ["access", "posts", "mail"],
             });
 

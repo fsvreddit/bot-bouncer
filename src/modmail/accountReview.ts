@@ -83,7 +83,7 @@ export async function checkAccountsForReview (event: ScheduledJobEvent<JSONObjec
                     message.push({ p: `Current user status: **${post.flair.text}**` });
                 }
 
-                message.push({ p: `[Link to user profile](https://www.reddit.com/user/${username})` });
+                message.push({ p: `[Link to user profile](https://www.reddit.com/user/${username}) | [Arctic Shift](https://fsvreddit.github.io/arcticredir/?author=${username}&type=posts)` });
 
                 const subject = username ? `Account review reminder for /u/${username}` : "Account review reminder";
                 await context.reddit.modMail.createModInboxConversation({

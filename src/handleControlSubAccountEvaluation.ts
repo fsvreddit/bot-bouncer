@@ -25,6 +25,7 @@ export interface EvaluationResult {
 interface EvaluateUserAccountOptions {
     username: string;
     variables: Record<string, JSONValue>;
+    throwOnError?: boolean;
     targetId?: string;
 }
 
@@ -79,6 +80,9 @@ export async function evaluateUserAccount (options: EvaluateUserAccountOptions, 
             }
         } catch (error) {
             console.error(`Evaluator: ${options.username} threw an error during evaluation of ${evaluator.name}: ${error}`);
+            if (options.throwOnError) {
+                throw error;
+            }
             return [];
         }
         if (isABot) {
@@ -155,7 +159,7 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
     }
 
     if (reportReason) {
-        if (currentStatus?.submitter && !currentStatus.submitter.startsWith(context.appName)) {
+        if (currentStatus?.submitter && !currentStatus.submitter.startsWith(context.appSlug)) {
             reportReason += ` Submitted by ${currentStatus.submitter}`;
             const submitterSuccessRate = await getSubmitterSuccessRate(currentStatus.submitter, context);
             if (submitterSuccessRate !== undefined) {

@@ -46,6 +46,11 @@ Users who have been unfairly banned by Bot Bouncer should be encouraged to modma
 
 # Change History
 
+## v1.25.0
+
+* Fixed issue that could result in posts/comments being removed or reported for users not classified as bots
+* Enhanced detection capabilities
+
 ## v1.24.0
 
 * Fixed erroneous errors referencing no recent posts/comments when reporting users

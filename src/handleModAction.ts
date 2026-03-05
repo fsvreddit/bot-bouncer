@@ -28,7 +28,7 @@ async function handleModActionClientSub (event: ModAction, context: TriggerConte
     /**
      * If a user is unbanned on a client subreddit, remove the record of their ban.
      */
-    if (event.action === "unbanuser" && event.moderator?.name !== context.appName && event.targetUser) {
+    if (event.action === "unbanuser" && event.moderator?.name !== context.appSlug && event.targetUser) {
         await removeRecordOfBan(event.targetUser.name, context.redis);
         await recordWhitelistUnban(event.targetUser.name, context);
     }
@@ -39,7 +39,7 @@ async function handleModActionClientSub (event: ModAction, context: TriggerConte
      * be set when the CommentCreate or PostCreate trigger is fired, this is a failsafe.
      */
     const actions = ["removecomment", "removelink", "spamcomment", "spamlink"];
-    if (actions.includes(event.action) && event.moderator?.name !== context.appName && event.targetUser) {
+    if (actions.includes(event.action) && event.moderator?.name !== context.appSlug && event.targetUser) {
         await context.redis.del(`removed:${event.targetUser.name}`);
         let targetId: string | undefined;
         if (event.action === "removecomment" || event.action === "spamcomment") {
@@ -53,7 +53,7 @@ async function handleModActionClientSub (event: ModAction, context: TriggerConte
         }
     }
 
-    if (event.action === "removemoderator" && event.targetUser?.name === context.appName) {
+    if (event.action === "removemoderator" && event.targetUser?.name === context.appSlug) {
         // Bot Bouncer has been demodded - notify the mod team after one minute.
         // This delay allows for intentional uninstalls to proceed without the notification.
         await context.scheduler.runJob({
@@ -65,7 +65,7 @@ async function handleModActionClientSub (event: ModAction, context: TriggerConte
         console.warn(`handleModActionClientSub: Bot Bouncer has been removed as a moderator from r/${context.subredditName} by u/${event.moderator?.name}`);
     }
 
-    if (event.action === "invitemoderator" && event.targetUser?.name === context.appName) {
+    if (event.action === "invitemoderator" && event.targetUser?.name === context.appSlug) {
         // Bot Bouncer has been re-invited as a mod. Accept the invitation.
         const installDate = await getInstallDate(context);
         if (!installDate) {
@@ -84,13 +84,13 @@ async function handleModActionClientSub (event: ModAction, context: TriggerConte
         console.log(`handleModActionClientSub: Bot Bouncer has been re-invited as a moderator to r/${context.subredditName} by u/${event.moderator?.name}`);
     }
 
-    if (event.action === "setpermissions" && event.targetUser?.name === context.appName) {
+    if (event.action === "setpermissions" && event.targetUser?.name === context.appSlug) {
         await clearAppPermissionsCache(context);
         console.log(`handleModActionClientSub: Bot Bouncer's moderator permissions have been changed on r/${context.subredditName} by u/${event.moderator?.name}`);
     }
 
     // Special actions for observer subreddits
-    if (event.action === "wikirevise" && event.moderator?.name.startsWith(context.appName) && event.moderator.name !== context.appName && event.moderator.name !== INTERNAL_BOT) {
+    if (event.action === "wikirevise" && event.moderator?.name.startsWith(context.appSlug) && event.moderator.name !== context.appSlug && event.moderator.name !== INTERNAL_BOT) {
         await handleBannedSubredditsModAction(event, context);
         await handleExternalSubmissionsPageUpdate(context);
     }
@@ -110,7 +110,7 @@ async function handleModActionControlSub (event: ModAction, context: TriggerCont
      * check that too.
      */
     if (event.action === "wikirevise" && event.moderator) {
-        if (event.moderator.name === context.appName || event.moderator.name === INTERNAL_BOT) {
+        if (event.moderator.name === context.appSlug || event.moderator.name === INTERNAL_BOT) {
             await handleExternalSubmissionsPageUpdate(context);
         }
 
@@ -118,7 +118,7 @@ async function handleModActionControlSub (event: ModAction, context: TriggerCont
             await checkIfStatsNeedUpdating(context);
         }
 
-        if (event.moderator.name !== context.appName && event.moderator.name !== INTERNAL_BOT) {
+        if (event.moderator.name !== context.appSlug && event.moderator.name !== INTERNAL_BOT) {
             await Promise.all([
                 context.scheduler.runJob({
                     name: ControlSubredditJob.UpdateEvaluatorVariables,
@@ -136,7 +136,7 @@ async function handleModActionControlSub (event: ModAction, context: TriggerCont
      * When a link is approved on the control subreddit, check to see if it's a post from a non-mod.
      * If so, alert on Discord.
      */
-    if (event.action === "approvelink" && event.moderator?.name !== context.appName && event.targetPost) {
+    if (event.action === "approvelink" && event.moderator?.name !== context.appSlug && event.targetPost) {
         const post = await context.reddit.getPostById(event.targetPost.id);
         if (await isModeratorWithCache(post.authorName, context)) {
             return;
@@ -153,9 +153,9 @@ async function handleModActionControlSub (event: ModAction, context: TriggerCont
         await sendMessageToWebhook(controlSubSettings.monitoringWebhook, message);
     }
 
-    if (event.action === "removelink" && event.moderator?.name !== context.appName && event.targetPost) {
+    if (event.action === "removelink" && event.moderator?.name !== context.appSlug && event.targetPost) {
         const post = await context.reddit.getPostById(event.targetPost.id);
-        if (post.authorName !== context.appName) {
+        if (post.authorName !== context.appSlug) {
             return;
         }
 
@@ -222,7 +222,7 @@ export async function notifyModTeamOnDemod (event: ScheduledJobEvent<JSONObject 
 
     const moderators = await context.reddit.getModerators({
         subredditName,
-        username: context.appName,
+        username: context.appSlug,
     }).all();
 
     if (moderators.length > 0) {

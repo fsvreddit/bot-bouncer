@@ -47,7 +47,7 @@ export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, contex
         await checkForBotSwatter(context);
     }
 
-    console.log(`App Install: Install or upgrade actions complete, now running version ${context.appVersion}`);
+    console.log(`App Install: Install or upgrade actions complete for ${context.appSlug}, now running version ${context.appVersion}`);
 }
 
 async function addControlSubredditJobs (context: TriggerContext) {
@@ -70,7 +70,7 @@ async function addControlSubredditJobs (context: TriggerContext) {
 
         context.scheduler.runJob({
             name: ControlSubredditJob.RapidJob,
-            cron: "*/20 * * * * *",
+            cron: "*/10 * * * * *",
         }),
 
         context.scheduler.runJob({
@@ -84,12 +84,22 @@ async function addControlSubredditJobs (context: TriggerContext) {
         }),
 
         context.scheduler.runJob({
+            name: ControlSubredditJob.PerformMinutelyJobs,
+            cron: "* * * * *",
+        }),
+
+        context.scheduler.runJob({
             name: ControlSubredditJob.UpdateEvaluatorVariables,
             cron: "0/10 * * * *",
             data: {
-                username: context.appName,
+                username: context.appSlug,
                 updateExtraVariables: true,
             },
+        }),
+
+        context.scheduler.runJob({
+            name: ControlSubredditJob.BotSleuthBotExtract,
+            cron: "0 3 * * *",
         }),
 
         context.scheduler.runJob({

@@ -113,13 +113,13 @@ export async function sendDailySummary (_: unknown, context: JobContext) {
 
         try {
             if (await getNewVersionInfo(context)) {
-                message.push({ p: `A new version of Bot Bouncer is available. Please check the [app configuration page](https://developers.reddit.com/r/${subredditName}/apps/${context.appName}) for more details.` });
+                message.push({ p: `A new version of Bot Bouncer is available. Please check the [app configuration page](https://developers.reddit.com/r/${subredditName}/apps/${context.appSlug}) for more details.` });
             }
         } catch (e) {
             console.error("Failed to check for new version info:", e);
         }
 
-        message.push({ p: `These notifications can be customised or turned off on the [app configuration page](https://developers.reddit.com/r/${subredditName}/apps/${context.appName}).` });
+        message.push({ p: `These notifications can be customised or turned off on the [app configuration page](https://developers.reddit.com/r/${subredditName}/apps/${context.appSlug}).` });
 
         const params = {
             subredditId: context.subredditId,

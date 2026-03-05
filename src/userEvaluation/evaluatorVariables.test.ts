@@ -1,5 +1,6 @@
 import { yamlToVariables } from "@fsvreddit/bot-bouncer-evaluation";
 import { invalidEvaluatorVariableCondition } from "./evaluatorVariables.js";
+import { JobContext } from "@devvit/public-api";
 
 test("Parsing YAML", () => {
     const yamlString = `
@@ -47,30 +48,30 @@ regexes:
     ]);
 });
 
-test("Invalid regex", () => {
+test("Invalid regex", async () => {
     const variables = {
         "biotext:bantext": [
             "(?:addison|adele|allie",
         ],
     };
 
-    const result = invalidEvaluatorVariableCondition(variables);
+    const result = await invalidEvaluatorVariableCondition(variables, {} as unknown as JobContext);
     expect(result.length).toBe(1);
 });
 
-test("Regex with || condition", () => {
+test("Regex with || condition", async () => {
     const variables = {
         "biotext:bantext": [
             "(?:addison|adele||allie)",
         ],
     };
 
-    const result = invalidEvaluatorVariableCondition(variables);
+    const result = await invalidEvaluatorVariableCondition(variables, {} as unknown as JobContext);
     expect(result.length).toBe(1);
     console.log(result);
 });
 
-test("Regex with badly formed array", () => {
+test("Regex with badly formed array", async () => {
     const variables = {
         "randommodule:thing": [
             "(?:addison|adele|allie)",
@@ -81,11 +82,11 @@ test("Regex with badly formed array", () => {
         ],
     };
 
-    const result = invalidEvaluatorVariableCondition(variables);
+    const result = await invalidEvaluatorVariableCondition(variables, {} as unknown as JobContext);
     expect(result.length).toBe(1);
 });
 
-test("Bot Groups test", () => {
+test("Bot Groups test", async () => {
     const yaml = `
 name: botgroup
 killswitch: false
@@ -99,6 +100,6 @@ group1:
         - AccidentalSlapstick
 `;
     const variables = yamlToVariables(yaml);
-    const results = invalidEvaluatorVariableCondition(variables);
+    const results = await invalidEvaluatorVariableCondition(variables, {} as unknown as JobContext);
     expect(results.length).toBe(0);
 });

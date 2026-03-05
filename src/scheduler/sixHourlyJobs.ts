@@ -6,35 +6,22 @@ import { checkDataStoreIntegrity, getFullDataStore, removeStaleRecentChangesEntr
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "../constants.js";
 import { updateClassificationStatistics } from "../statistics/classificationStatistics.js";
 import { updateAppealStatistics } from "../statistics/appealStatistics.js";
-import { addMinutes } from "date-fns";
+import { addMinutes, subMonths } from "date-fns";
 import { updateUsernameStatistics } from "../statistics/usernameStatistics.js";
 import { updateDisplayNameStatistics } from "../statistics/displayNameStats.js";
 import { updateSocialLinksStatistics } from "../statistics/socialLinksStatistics.js";
 import { updateBioStatistics } from "../statistics/userBioStatistics.js";
 import { updateDefinedHandlesStats } from "../statistics/definedHandlesStatistics.js";
-import { pendingUserFinder } from "../statistics/pendingUserFinder.js";
 import { updateFailedFeedbackStorage } from "../submissionFeedback.js";
 import { analyseBioText } from "../similarBioTextFinder/bioTextFinder.js";
 
-const FLAGS_TO_EXCLUDE_FROM_STATS: UserFlag[] = [
+export const FLAGS_TO_EXCLUDE_FROM_STATS: UserFlag[] = [
     UserFlag.HackedAndRecovered,
 ];
 
 export interface StatsUserEntry {
     username: string;
     data: UserDetails;
-}
-
-export async function getAllValuesForStats (context: TriggerContext) {
-    const allDataRaw = await getFullDataStore(context);
-
-    const allEntries = Object.entries(allDataRaw)
-        .map(([key, value]) => ({ username: key, data: JSON.parse(value) as UserDetails } as StatsUserEntry))
-        .filter(entry => !FLAGS_TO_EXCLUDE_FROM_STATS.some(flag => entry.data.flags?.includes(flag)));
-
-    const allValues = allEntries.map(({ data }) => data);
-
-    return { allEntries, allValues };
 }
 
 export async function perform6HourlyJobs (_: unknown, context: JobContext) {
@@ -44,7 +31,11 @@ export async function perform6HourlyJobs (_: unknown, context: JobContext) {
 
     await removeStaleRecentChangesEntries(context);
 
-    const { allValues } = await getAllValuesForStats(context);
+    const allData = await getFullDataStore(context, {
+        omitFlags: FLAGS_TO_EXCLUDE_FROM_STATS,
+    });
+
+    const allValues = Object.values(allData);
 
     await Promise.all([
         context.scheduler.runJob({
@@ -61,6 +52,11 @@ export async function perform6HourlyJobs (_: unknown, context: JobContext) {
         context.scheduler.runJob({
             name: ControlSubredditJob.Perform6HourlyJobsPart2,
             runAt: addMinutes(new Date(), 1),
+        }),
+
+        context.scheduler.runJob({
+            name: ControlSubredditJob.PendingUserFinder,
+            runAt: addMinutes(new Date(), 3),
         }),
     ]);
 
@@ -79,14 +75,20 @@ export async function perform6HourlyJobs (_: unknown, context: JobContext) {
 }
 
 export async function perform6HourlyJobsPart2 (_: unknown, context: JobContext) {
-    const { allEntries } = await getAllValuesForStats(context);
+    const allData = await getFullDataStore(context, {
+        since: subMonths(new Date(), 3),
+        omitFlags: FLAGS_TO_EXCLUDE_FROM_STATS,
+    });
+
+    const allEntries = Object.entries(allData)
+        .map(([key, value]) => ({ username: key, data: value } as StatsUserEntry));
+
     await Promise.all([
         updateUsernameStatistics(allEntries, context),
         updateDisplayNameStatistics(allEntries, context),
         updateSocialLinksStatistics(allEntries, context),
         updateBioStatistics(allEntries, context),
         updateDefinedHandlesStats(allEntries, context),
-        pendingUserFinder(allEntries, context),
     ]);
 }
 

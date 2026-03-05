@@ -19,7 +19,7 @@ export async function handleControlSubPostCreate (event: PostCreate, context: Tr
         return;
     }
 
-    if (event.author.name === context.appName) {
+    if (event.author.name === context.appSlug) {
         if (event.post.spam) {
             await context.reddit.approve(event.post.id);
         }
@@ -102,7 +102,7 @@ export async function handleControlSubPostCreate (event: PostCreate, context: Tr
                 userStatus: newStatus,
                 lastUpdate: new Date().getTime(),
                 submitter: event.author.name,
-                operator: context.appName,
+                operator: context.appSlug,
                 trackingPostId: "",
             };
 

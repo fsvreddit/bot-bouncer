@@ -31,7 +31,7 @@ export async function handleBannedSubredditsModAction (_: unknown, context: Trig
         subredditName: CONTROL_SUBREDDIT,
         page: WIKI_PAGE_NAME,
         content: wikiPage.content,
-        reason: `Updated by ${context.appName} based on changes in /r/${subredditName}`,
+        reason: `Updated by ${context.appSlug} based on changes in /r/${subredditName}`,
     });
 
     console.log(`Updated ${WIKI_PAGE_NAME} in /r/${CONTROL_SUBREDDIT} based on changes in /r/${subredditName}`);

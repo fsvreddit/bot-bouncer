@@ -16,7 +16,7 @@ export async function handleControlSubPostDelete (event: PostDelete, context: Tr
     const post = await context.reddit.getPostById(event.postId);
     const comments = await post.comments.all();
 
-    const appComments = comments.filter(comment => comment.authorName === context.appName);
+    const appComments = comments.filter(comment => comment.authorName === context.appSlug);
     if (appComments.length === 0) {
         return;
     }

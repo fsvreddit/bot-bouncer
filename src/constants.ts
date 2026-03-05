@@ -32,6 +32,7 @@ export enum ControlSubredditJob {
     Perform6HourlyJobs = "performDailyJobs",
     Perform6HourlyJobsPart2 = "performDailyJobsPart2",
     Perform5MinutelyJobs = "perform5MinutelyJobs",
+    PerformMinutelyJobs = "performMinutelyJobs",
     EvaluateKarmaFarmingSubs = "evaluateKarmaFarmingSubs",
     QueueKarmaFarmingSubs = "queueKarmaFarmingSubs",
     UptimeAndMessageCheck = "uptimeAndMessageCheck",
@@ -53,6 +54,8 @@ export enum ControlSubredditJob {
     CheckPermissionQueueItems = "checkPermissionQueueItems",
     CheckUpgradeNotifierForLegacySubs = "checkUpgradeNotifierForLegacySubs",
     AccountReview = "accountReview",
+    PendingUserFinder = "pendingUserFinder",
+    BotSleuthBotExtract = "botSleuthBotExtract",
 }
 
 /**

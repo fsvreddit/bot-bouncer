@@ -2,13 +2,13 @@ import { JobContext, JSONObject, JSONValue, ScheduledJobEvent, TriggerContext } 
 import { ALL_EVALUATORS, ValidationIssue, yamlToVariables } from "@fsvreddit/bot-bouncer-evaluation";
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "../constants.js";
 import _ from "lodash";
-import { sendMessageToWebhook } from "../utility.js";
+import { compressData, sendMessageToWebhook } from "../utility.js";
 import json2md from "json2md";
 import { getControlSubSettings } from "../settings.js";
 import { EvaluateBotGroupAdvanced } from "@fsvreddit/bot-bouncer-evaluation/dist/userEvaluation/EvaluateBotGroupAdvanced.js";
 import { getUserExtended } from "../extendedDevvit.js";
 import { addSeconds } from "date-fns";
-import Pako from "pako";
+import { checkNonexistentSubs } from "./subExistenceChecks.js";
 
 const EVALUATOR_VARIABLES_KEY = "evaluatorVariablesHash";
 const EVALUATOR_VARIABLES_YAML_PAGE_ROOT = "evaluator-config";
@@ -118,7 +118,7 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
         }
     }
 
-    const invalidEntries = invalidEvaluatorVariableCondition(variables);
+    const invalidEntries = await invalidEvaluatorVariableCondition(variables, context);
     const errors = variables.errors as string[] | undefined;
     if (errors && errors.length > 0) {
         invalidEntries.push({ severity: "error", message: errors.join(", ") });
@@ -271,7 +271,7 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
     await context.redis.del(EXTRA_VARIABLES_UPDATED_KEY);
 }
 
-export function invalidEvaluatorVariableCondition (variables: Record<string, JSONValue>): ValidationIssue[] {
+export async function invalidEvaluatorVariableCondition (variables: Record<string, JSONValue>, context: JobContext): Promise<ValidationIssue[]> {
     const results: ValidationIssue[] = [];
 
     // Now check for inconsistent types.
@@ -302,9 +302,41 @@ export function invalidEvaluatorVariableCondition (variables: Record<string, JSO
         }
     }
 
-    return results;
-}
+    // Now check karma farming link subs for non-retrivable subreddits
+    const subs = new Set(variables["generic:karmafarminglinksubs"] as string[] | undefined ?? []);
+    const nsfwsubs = new Set(variables["generic:karmafarminglinksubsnsfw"] as string[] | undefined ?? []);
+    const nonretrievable = variables["generic:nonretrievablesubs"] as string[] | undefined ?? [];
 
-function compressData (value: Record<string, JSONValue>): string {
-    return Buffer.from(Pako.deflate(JSON.stringify(value), { level: 9 })).toString("base64");
+    for (const sub of nonretrievable) {
+        if (subs.has(sub)) {
+            results.push({ severity: "warning", message: `Subreddit ${sub} is marked as non-retrievable but is also in the SFW sweep list.` });
+        }
+
+        if (nsfwsubs.has(sub)) {
+            results.push({ severity: "warning", message: `Subreddit ${sub} is marked as non-retrievable but is also in the NSFW sweep list.` });
+        }
+    }
+
+    const validSubNameRegex = /^[A-Za-z0-9_]{3,21}$/;
+    for (const sub of subs) {
+        if (!validSubNameRegex.test(sub)) {
+            results.push({ severity: "warning", message: `Subreddit \`${sub}\` in SFW karma farming list is not a valid subreddit name.` });
+        }
+    }
+
+    for (const sub of nsfwsubs) {
+        if (!validSubNameRegex.test(sub)) {
+            results.push({ severity: "warning", message: `Subreddit \`${sub}\` in NSFW karma farming list is not a valid subreddit name.` });
+        }
+    }
+
+    for (const sub of await checkNonexistentSubs(Array.from(subs), context)) {
+        results.push({ severity: "warning", message: `Subreddit r/${sub} in SFW karma farming list does not exist.` });
+    }
+
+    for (const sub of await checkNonexistentSubs(Array.from(nsfwsubs), context)) {
+        results.push({ severity: "warning", message: `Subreddit r/${sub} in NSFW karma farming list does not exist.` });
+    }
+
+    return results;
 }

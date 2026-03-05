@@ -71,9 +71,57 @@ function getStoreKey (username: string): string {
     return `UserStore~${username[0]}`;
 }
 
-export async function getFullDataStore (context: TriggerContext): Promise<Record<string, string>> {
-    const dataArray = await Promise.all(ALL_POTENTIAL_USER_PREFIXES.map(prefix => hMGetAllChunked(context.redis.global as RedisClient, getStoreKey(prefix), 10000)));
-    const data = Object.assign({}, ...dataArray) as Record<string, string>;
+interface DataStoreExtractFilter {
+    since?: Date;
+    lastUpdateSince?: Date;
+    statuses?: UserStatus[];
+    omitFlags?: UserFlag[];
+    submitter?: string;
+}
+
+async function getDataStoreFiltered (prefix: string, context: TriggerContext, filter?: DataStoreExtractFilter): Promise<Record<string, UserDetails>> {
+    const data = await hMGetAllChunked(context.redis.global as RedisClient, getStoreKey(prefix), 10000);
+    if (!filter) {
+        return _.fromPairs(Object.entries(data).map(([key, value]) => [key, JSON.parse(value) as UserDetails]));
+    }
+
+    const sinceTime = filter.since ? filter.since.getTime() : undefined;
+    const lastUpdateSinceTime = filter.lastUpdateSince ? filter.lastUpdateSince.getTime() : undefined;
+    const omitFlags = filter.omitFlags ?? [];
+
+    const filteredData: Record<string, UserDetails> = {};
+
+    Object.entries(data).forEach(([key, value]) => {
+        const details = JSON.parse(value) as UserDetails;
+        if (sinceTime && details.reportedAt && details.reportedAt < sinceTime) {
+            return;
+        }
+
+        if (lastUpdateSinceTime && details.lastUpdate < lastUpdateSinceTime) {
+            return;
+        }
+
+        if (filter.statuses && !filter.statuses.includes(details.userStatus)) {
+            return;
+        }
+
+        if (omitFlags.length > 0 && details.flags?.some(flag => omitFlags.includes(flag))) {
+            return;
+        }
+
+        if (filter.submitter && details.submitter !== filter.submitter) {
+            return;
+        }
+
+        filteredData[key] = details;
+    });
+
+    return filteredData;
+}
+
+export async function getFullDataStore (context: TriggerContext, filter?: DataStoreExtractFilter): Promise<Record<string, UserDetails>> {
+    const dataArray = await Promise.all(ALL_POTENTIAL_USER_PREFIXES.map(prefix => getDataStoreFiltered(prefix, context, filter)));
+    const data = Object.assign({}, ...dataArray) as Record<string, UserDetails>;
 
     return { ...data };
 }
@@ -167,7 +215,7 @@ export async function setUserStatus (username: string, details: UserDetails, con
         }, context);
     }
 
-    if (currentStatus?.userStatus === UserStatus.Pending && details.userStatus !== UserStatus.Pending && details.operator && details.operator !== context.appName) {
+    if (currentStatus?.userStatus === UserStatus.Pending && details.userStatus !== UserStatus.Pending && details.operator && details.operator !== context.appSlug) {
         await storeClassificationEvent(details.operator, context);
     }
 
@@ -207,8 +255,11 @@ export async function updateAggregate (type: UserStatus, incrBy: number, redis: 
 
 export async function removeRecordOfSubmitterOrMod (username: string, context: TriggerContext) {
     console.log(`Cleanup: Removing records of ${username} as submitter or operator`);
-    const data = await getFullDataStore(context);
-    const entries = Object.entries(data).map(([key, value]) => ({ username: key, details: JSON.parse(value) as UserDetails }));
+    const data = await getFullDataStore(context, {
+        submitter: username,
+    });
+
+    const entries = Object.entries(data).map(([key, value]) => ({ username: key, details: value }));
 
     let entriesUpdated = 0;
     for (const entry of entries.filter(item => item.details.operator === username || item.details.submitter === username)) {

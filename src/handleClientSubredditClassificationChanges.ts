@@ -194,7 +194,7 @@ async function handleSetBanned (username: string, subredditName: string, setting
             .replaceAll("{account}", username);
 
         const banNote = CONFIGURATION_DEFAULTS.banNote
-            .replaceAll("{me}", context.appName)
+            .replaceAll("{me}", context.appSlug)
             .replaceAll("{date}", formatDate(new Date(), "yyyy-MM-dd"));
 
         const promises = [
@@ -390,7 +390,7 @@ async function appAccountHasPermissions (context: TriggerContext): Promise<boole
 
     const hasPerms = await hasPermissions(context.reddit, {
         subredditName: context.subredditName ?? await context.reddit.getCurrentSubredditName(),
-        username: context.appName,
+        username: context.appSlug,
         requiredPerms: ["access", "posts"],
     });
 

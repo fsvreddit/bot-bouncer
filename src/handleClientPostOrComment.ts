@@ -1,7 +1,7 @@
 import { Post, Comment, TriggerContext, SettingsValues, JSONValue, UserSocialLink } from "@devvit/public-api";
 import { CommentCreate, CommentUpdate, PostCreate } from "@devvit/protos";
 import { ALL_EVALUATORS } from "@fsvreddit/bot-bouncer-evaluation";
-import { addDays, addWeeks, formatDate, subMinutes } from "date-fns";
+import { addDays, formatDate, subMinutes } from "date-fns";
 import { getUserStatus, UserDetails, UserStatus } from "./dataStore.js";
 import { isUserWhitelisted, recordBan, recordUserContentCreation } from "./handleClientSubredditClassificationChanges.js";
 import { CONTROL_SUBREDDIT } from "./constants.js";
@@ -233,7 +233,7 @@ async function handleContentCreation (username: string, currentStatus: UserDetai
                 .replaceAll("{link}", user.username);
 
             const banNote = CONFIGURATION_DEFAULTS.banNote
-                .replaceAll("{me}", context.appName)
+                .replaceAll("{me}", context.appSlug)
                 .replaceAll("{date}", formatDate(new Date(), "yyyy-MM-dd"));
 
             promises.push(context.reddit.banUser({
@@ -383,31 +383,6 @@ async function checkAndReportPotentialBot (username: string, target: Post | Comm
     );
 
     console.log(`Created external submission via automated evaluation for ${user.username} for bot style ${botName}`);
-
-    const [actionToTake] = settings[AppSetting.Action] as ActionType[] | undefined ?? [ActionType.Ban];
-    if (actionToTake === ActionType.Ban && settings[AppSetting.RemoveContentWhenReporting]) {
-        const removedByMod = await context.redis.exists(`removedbymod:${targetItem.id}`);
-        if (!removedByMod && !targetItem.spam) {
-            promises.push(
-                context.redis.set(`removed:${targetItem.authorName}`, targetItem.id, { expiration: addWeeks(new Date(), 2) }),
-                targetItem.remove(),
-            );
-
-            if (settings[AppSetting.LockContentWhenRemoving]) {
-                if (!targetItem.locked) {
-                    promises.push(targetItem.lock());
-                    await context.redis.hSet(`lockedItems:${username}`, { [targetItem.id]: targetItem.id });
-                    promises.push(expireKeyAt(context.redis, `lockedItems:${username}`, addDays(new Date(), 14)));
-                }
-            }
-        }
-    } else if (actionToTake === ActionType.Report) {
-        const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
-        const isApprovedUser = await isContributor(context.reddit, subredditName, user.username);
-        if (!isApprovedUser) {
-            promises.push(context.redis.set(`reported:${targetItem.id}`, "true", { expiration: addWeeks(new Date(), 2) }));
-        }
-    }
 
     await Promise.allSettled(promises);
 }
