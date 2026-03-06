@@ -1,6 +1,6 @@
 import { Comment, JSONValue, Post, TriggerContext } from "@devvit/public-api";
 import { median } from "../utility.js";
-import { addMilliseconds, differenceInDays, differenceInHours, differenceInMilliseconds, differenceInMinutes, Duration, format, formatDuration, intervalToDuration, startOfDecade } from "date-fns";
+import { addMilliseconds, differenceInDays, differenceInHours, differenceInMilliseconds, differenceInMinutes, differenceInSeconds, Duration, format, formatDuration, intervalToDuration, startOfDecade } from "date-fns";
 import _ from "lodash";
 import { count } from "@wordpress/wordcount";
 import { isUserPotentiallyBlockingBot } from "./blockChecker.js";
@@ -27,6 +27,9 @@ function formatDifferenceInDates (start: Date, end: Date) {
     }
     if (differenceInMinutes(end, start) < 4) {
         units.push("seconds");
+    }
+    if (differenceInSeconds(end, start) < 1) {
+        return "less than a second";
     }
 
     const duration = intervalToDuration({ start, end });
