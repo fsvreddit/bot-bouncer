@@ -196,7 +196,9 @@ export function evaluationResultsToBullets (results: EvaluationResult[]) {
 }
 
 export async function getSummaryForUser (username: string, source: "modmail" | "submission", context: TriggerContext): Promise<json2md.DataObject[]> {
-    const userStatus = await getUserStatus(username, context);
+    const extendedUser = await getUserExtended(username, context);
+
+    const userStatus = await getUserStatus(extendedUser?.username ?? username, context);
     const summary: json2md.DataObject[] = [];
 
     const altSources = `[Pushshift](https://shiruken.github.io/chearch/?kind=comment&author=${username}&limit=100) | [Arctic Shift](https://fsvreddit.github.io/arcticredir/?author=${username}&type=posts)`;
@@ -220,8 +222,6 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
     } else if (source === "submission") {
         summary.push({ p: altSources });
     }
-
-    const extendedUser = await getUserExtended(username, context);
 
     if (!extendedUser) {
         summary.push({ p: `User Summary: User ${username} is already shadowbanned or suspended, so summary will not be created.` });
