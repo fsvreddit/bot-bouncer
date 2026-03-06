@@ -3,7 +3,7 @@ import { addDays, addSeconds, formatDate, subDays, subWeeks } from "date-fns";
 import pluralize from "pluralize";
 import { getRecentlyChangedUsers, getUserStatus, isUserInTempDeclineStore, UserDetails, UserStatus } from "./dataStore.js";
 import { setCleanupForUser } from "./cleanup.js";
-import { ActionType, AppSetting, CONFIGURATION_DEFAULTS, getControlSubSettings } from "./settings.js";
+import { ActionType, AppSetting, CONFIGURATION_DEFAULTS, ControlSubSettings, getControlSubSettings } from "./settings.js";
 import { getPostOrCommentById, getUserOrUndefined, isModeratorWithCache, postIdToShortLink } from "./utility.js";
 import { ClientSubredditJob } from "./constants.js";
 import _ from "lodash";
@@ -124,7 +124,7 @@ async function handleSetOrganic (username: string, subredditName: string, settin
     }
 }
 
-async function handleSetBanned (username: string, subredditName: string, settings: SettingsValues, context: TriggerContext) {
+async function handleSetBanned (username: string, subredditName: string, settings: SettingsValues, controlSubSettings: ControlSubSettings, context: TriggerContext) {
     const isCurrentlyBanned = await isBanned(context.reddit, subredditName, username);
     if (isCurrentlyBanned) {
         console.log(`Classification Update: ${username} is already banned on ${subredditName}.`);
@@ -250,6 +250,18 @@ async function handleSetBanned (username: string, subredditName: string, setting
                 label: "BOT_BAN",
             });
         }
+
+        if (settings[AppSetting.RemoveQueuedItemsWhenBanning] && controlSubSettings.enableModQueueRemoval) {
+            const modQueue = await context.reddit.getModQueue({
+                subreddit: subredditName,
+                limit: 1000,
+                type: "all",
+            }).all();
+
+            const userItemsInQueue = modQueue.filter(item => item.authorName === username);
+            await Promise.all(userItemsInQueue.map(item => item.remove()));
+            console.log(`Classification Update: Removed ${userItemsInQueue.length} ${pluralize("item", userItemsInQueue.length)} from mod queue for ${username}`);
+        }
     } else {
         // Report content instead of banning.
         await Promise.all(removableContent.map(async (item) => {
@@ -364,7 +376,7 @@ export async function handleClassificationChanges (event: ScheduledJobEvent<JSON
         if (status === "human") {
             await handleSetOrganic(username, subredditName, settings, context);
         } else if (status === "bot") {
-            await handleSetBanned(username, subredditName, settings, context);
+            await handleSetBanned(username, subredditName, settings, controlSubSettings, context);
         } else if (await isUserInTempDeclineStore(username, context)) {
             await handleSetOrganic(username, subredditName, settings, context);
         }

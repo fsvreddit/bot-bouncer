@@ -47,6 +47,7 @@ If you are removing Bot Bouncer because of concerns about how it works, we would
 export enum AppSetting {
     Action = "action",
     LockContentWhenRemoving = "lockContentWhenRemoving",
+    RemoveQueuedItemsWhenBanning = "removeQueuedItemsWhenBanning",
     BanMessage = "banMessage",
     AutoWhitelist = "autoWhitelist",
     ModmailNote = "clientModmailNote",
@@ -99,6 +100,13 @@ export const appSettings: SettingsFormField[] = [
                 label: "Lock content when removing",
                 helpText: "If banning and removing content, also lock the post/comment to prevent further engagement",
                 defaultValue: false,
+            },
+            {
+                type: "boolean",
+                name: AppSetting.RemoveQueuedItemsWhenBanning,
+                label: "Remove queued posts or comments when banning",
+                helpText: "If banning a user, also remove any posts or comments they have in the mod queue",
+                defaultValue: true,
             },
             {
                 type: "paragraph",
@@ -235,6 +243,7 @@ export interface ControlSubSettings {
     allowClassificationQueries?: boolean;
     redosCheckerEnabled?: boolean;
     evaluatorVariableUpdatesEnabled?: boolean;
+    enableModQueueRemoval?: boolean;
     appRemovedMessage?: string;
 }
 
@@ -266,6 +275,7 @@ const schema: JSONSchemaType<ControlSubSettings> = {
         legacyWikiPageUpdateFrequencyMinutes: { type: "number" },
         redosCheckerEnabled: { type: "boolean", nullable: true },
         evaluatorVariableUpdatesEnabled: { type: "boolean", nullable: true },
+        enableModQueueRemoval: { type: "boolean", nullable: true },
         appRemovedMessage: { type: "string", nullable: true },
     },
     required: ["evaluationDisabled", "trustedSubmitters", "reporterBlacklist"],
