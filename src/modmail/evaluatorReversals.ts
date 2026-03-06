@@ -146,7 +146,7 @@ export async function classificationReversalsJob (event: ScheduledJobEvent<JSONO
                 // User has an active appeal, so we should reply to the modmail conversation to notify them of the reversal.
                 await context.reddit.modMail.reply({
                     conversationId: userConversationId,
-                    body: "We apologize; Bot Bouncer was experiencing a short-term error that is now fixed. We have reclassified the accounts that were erroneously caught by this error. **Your subreddit bans should now be lifted.**",
+                    body: "We apologize; Bot Bouncer was experiencing a short-term error that is now fixed. We have reclassified the accounts that were erroneously caught by this error. **Your subreddit bans will lift within a few minutes.**",
                     isAuthorHidden: true,
                 });
 
