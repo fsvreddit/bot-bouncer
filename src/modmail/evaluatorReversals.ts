@@ -132,6 +132,7 @@ export async function classificationReversalsJob (event: ScheduledJobEvent<JSONO
 interface PostCreationQueueData {
     submitter?: string;
     hitReason?: string;
+    hitReasonRegex?: string;
 }
 
 const schema: JSONSchemaType<PostCreationQueueData> = {
@@ -139,6 +140,7 @@ const schema: JSONSchemaType<PostCreationQueueData> = {
     properties: {
         submitter: { type: "string", nullable: true },
         hitReason: { type: "string", nullable: true },
+        hitReasonRegex: { type: "string", nullable: true },
     },
     additionalProperties: false,
 };
@@ -171,10 +173,10 @@ async function reverseQueue (message: ModmailMessage, context: TriggerContext) {
         return;
     }
 
-    if (!data.submitter && !data.hitReason) {
+    if (!data.submitter && !data.hitReason && !data.hitReasonRegex) {
         await context.reddit.modMail.reply({
             conversationId: message.conversationId,
-            body: "❌ You must specify at least a submitter or a hitReason to reverse entries in the post creation queue.",
+            body: "❌ You must specify at least a submitter, hitReason, or hitReasonRegex to reverse entries in the post creation queue.",
             isInternal: true,
         });
         return;
@@ -188,6 +190,7 @@ async function reverseQueue (message: ModmailMessage, context: TriggerContext) {
             conversationId: message.conversationId,
             submitter: data.submitter ?? "",
             hitReason: data.hitReason ?? "",
+            hitReasonRegex: data.hitReasonRegex ?? "",
             reversedTotal: 0,
         },
     });
@@ -200,6 +203,8 @@ export async function reversePostCreationQueue (event: ScheduledJobEvent<JSONObj
     const conversationId = event.data?.conversationId as string | undefined;
     const submitterFilter = event.data?.submitter as string | undefined ?? "";
     const hitReasonFilter = event.data?.hitReason as string | undefined ?? "";
+    const hitReasonRegexFilter = event.data?.hitReasonRegex as string | undefined ?? "";
+
     let reversedTotal = event.data?.reversedTotal as number | undefined ?? 0;
 
     if (!conversationId) {
@@ -254,9 +259,21 @@ export async function reversePostCreationQueue (event: ScheduledJobEvent<JSONObj
             }
         }
 
-        if (hitReasonFilter) {
+        if (hitReasonFilter || hitReasonRegexFilter) {
             const evaluatorData = await getAccountInitialEvaluationResults(username, context);
-            if (!evaluatorData.some(entry => entry.hitReason === hitReasonFilter)) {
+            if (!evaluatorData.some((entry) => {
+                if (!entry.hitReason) {
+                    return false;
+                }
+
+                let hitReason: string;
+                if (typeof entry.hitReason === "string") {
+                    hitReason = entry.hitReason;
+                } else {
+                    hitReason = entry.hitReason.reason;
+                }
+                return hitReason === hitReasonFilter || (hitReasonRegexFilter && new RegExp(hitReasonRegexFilter).test(hitReason));
+            })) {
                 continue;
             }
         }
