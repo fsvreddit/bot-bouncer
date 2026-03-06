@@ -265,15 +265,18 @@ export async function queueRecentReclassifications (_: unknown, context: JobCont
     const now = new Date();
     const lastCheckKey = "lastUpdateDateKey";
     const lastCheckData = await context.redis.get(lastCheckKey);
-    const lastCheckDate = lastCheckData ? new Date(parseInt(lastCheckData, 10)) : subDays(now, 1);
+    const lastCheckDate = lastCheckData ? new Date(parseInt(lastCheckData, 10)) : subDays(now, 7);
 
     const recentlyChangedUsers = await getRecentlyChangedUsers(lastCheckDate, now, context);
+    let processedUntil = now;
+
     if (recentlyChangedUsers.length > 0) {
         await context.redis.zAdd(RECLASSIFICATION_QUEUE, ...recentlyChangedUsers);
         console.log(`Classification Update: Queued ${recentlyChangedUsers.length} ${pluralize("user", recentlyChangedUsers.length)} for reclassification.`);
+        processedUntil = new Date(Math.max(...recentlyChangedUsers.map(u => u.score)) + 1);
     }
 
-    await context.redis.set(lastCheckKey, now.getTime().toString());
+    await context.redis.set(lastCheckKey, processedUntil.getTime().toString());
 
     await context.scheduler.runJob({
         name: ClientSubredditJob.HandleClassificationChanges,
