@@ -329,10 +329,11 @@ export async function handleClassificationChanges (event: ScheduledJobEvent<JSON
     const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
 
     const items = await context.redis.zRange(RECLASSIFICATION_QUEUE, 0, Date.now(), { by: "score" });
+    const totalCount = await context.redis.zCard(RECLASSIFICATION_QUEUE);
     if (items.length === 0) {
         return;
     } else if (!event.data?.firstRun) {
-        console.log(`Classification Update: Processing ${items.length} ${pluralize("user", items.length)} in reclassification queue for ${subredditName}.`);
+        console.log(`Classification Update: Processing ${items.length} of ${totalCount} ${pluralize("user", totalCount)} in reclassification queue for ${subredditName}.`);
     }
 
     if (!await appAccountHasPermissions(context)) {
