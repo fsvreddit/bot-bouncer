@@ -1,6 +1,6 @@
 import { JobContext, JSONObject, ScheduledJobEvent, TriggerContext } from "@devvit/public-api";
 import { deleteUserStatus, getUserStatus, updateAggregate, UserStatus } from "../dataStore.js";
-import { addDays, addHours, addMinutes, addSeconds } from "date-fns";
+import { addDays, addMinutes, addSeconds } from "date-fns";
 import { CONTROL_SUBREDDIT, ControlSubredditJob, PostFlairTemplate } from "../constants.js";
 import { deleteAccountInitialEvaluationResults, getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
 import { CLEANUP_LOG_KEY } from "../cleanup.js";
@@ -8,8 +8,6 @@ import { ModmailMessage } from "./modmail.js";
 import Ajv, { JSONSchemaType } from "ajv";
 import { AsyncSubmission } from "../postCreation.js";
 import pluralize from "pluralize";
-import { expireKeyAt } from "devvit-helpers";
-import { isActiveAppeal } from "./controlSubModmail.js";
 
 const REVERSED_USERS = "ReversedUsers";
 
@@ -74,28 +72,6 @@ async function reverseExtract (message: ModmailMessage, context: TriggerContext)
         body: `Scheduled reversal of classifications for ${users.length} ${pluralize("user", users.length)}. You will receive a confirmation message when the process is complete. Note - large reversal batches are done slowly to ensure that subreddits pick up on new classifications.`,
         isInternal: true,
     });
-
-    const allConversations = await context.reddit.modMail.getConversations({
-        state: "all",
-        limit: 1000,
-        subreddits: [CONTROL_SUBREDDIT],
-    });
-
-    const relevantConversations = Object.values(allConversations.conversations)
-        .filter(conversation => users.includes(conversation.participant?.name ?? ""))
-        .map(conversation => ({ username: conversation.participant?.name, conversationId: conversation.id }))
-        .filter(entry => entry.username !== undefined);
-
-    const modmailConversationsKey = `modmailConversations:${message.conversationId}`;
-    const entriesToAdd: Record<string, string> = {};
-    for (const entry of relevantConversations) {
-        if (entry.username && entry.conversationId) {
-            entriesToAdd[entry.username] = entry.conversationId;
-        }
-    }
-
-    await context.redis.hSet(modmailConversationsKey, entriesToAdd);
-    await expireKeyAt(context.redis, modmailConversationsKey, addHours(new Date(), 1));
 }
 
 export async function classificationReversalsJob (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
@@ -107,15 +83,12 @@ export async function classificationReversalsJob (event: ScheduledJobEvent<JSONO
         throw new Error("Classification reversals job must be run with a conversation ID.");
     }
 
-    const modmailConversationsKey = `modmailConversations:${conversationId}`;
-
     if (usersToReverse.length === 0 && conversationId) {
         await context.reddit.modMail.reply({
             conversationId,
             body: `✅ Completed reversals. A total of ${reversedTotal} ${pluralize("user", reversedTotal)} had their classifications reversed.`,
             isInternal: true,
         });
-        await context.redis.del(modmailConversationsKey);
         return;
     }
 
@@ -140,19 +113,6 @@ export async function classificationReversalsJob (event: ScheduledJobEvent<JSONO
                 flairTemplateId: PostFlairTemplate.Declined,
             });
             await addToReversalsQueue(username, 7, context);
-
-            const userConversationId = await context.redis.hGet(modmailConversationsKey, username);
-            if (userConversationId && await isActiveAppeal(userConversationId, context)) {
-                // User has an active appeal, so we should reply to the modmail conversation to notify them of the reversal.
-                await context.reddit.modMail.reply({
-                    conversationId: userConversationId,
-                    body: "We apologize; Bot Bouncer was experiencing a short-term error that is now fixed. We have reclassified the accounts that were erroneously caught by this error. **Your subreddit bans will lift within a few minutes.**",
-                    isAuthorHidden: true,
-                });
-
-                await context.reddit.modMail.archiveConversation(userConversationId);
-                console.log(`Classification Reversals: Notified user ${username} of reversal in modmail conversation ${userConversationId}.`);
-            }
 
             reversedTotal++;
             reversedInBatch++;
