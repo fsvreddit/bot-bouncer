@@ -219,7 +219,10 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
             { p: firstLine },
             { p: `[Link to submission](https://www.reddit.com${post.permalink}) | ${altSources}` },
         );
-    } else if (source === "submission") {
+    } else if (source === "modmail") {
+        summary.push({ p: `/u/${username} is not currently in r/BotBouncer's data store.` });
+        summary.push({ p: altSources });
+    } else /* source === "submission" */ {
         summary.push({ p: altSources });
     }
 
