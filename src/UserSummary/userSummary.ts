@@ -206,9 +206,9 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
     if (userStatus && source === "modmail") {
         const post = await context.reddit.getPostById(userStatus.trackingPostId);
 
-        let firstLine = `/u/${username} is currently listed as ${userStatus.userStatus}, set by ${userStatus.operator} at ${new Date(userStatus.lastUpdate).toUTCString()}`;
+        let firstLine = `/u/${username} is currently listed as ${userStatus.userStatus}, set by ${markdownEscape(userStatus.operator ?? "unknown")} at ${new Date(userStatus.lastUpdate).toUTCString()}`;
         if (userStatus.submitter) {
-            firstLine += ` and reported by ${userStatus.submitter}`;
+            firstLine += ` and reported by ${markdownEscape(userStatus.submitter)}`;
             const successRate = await getSubmitterSuccessRate(userStatus.submitter, context);
             if (successRate !== undefined) {
                 firstLine += ` (${successRate}%)`;

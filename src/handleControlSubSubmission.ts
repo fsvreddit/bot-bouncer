@@ -9,6 +9,7 @@ import { AsyncSubmission, PostCreationQueueResult, queuePostCreation } from "./p
 import { getUserExtendedFromUser } from "./extendedDevvit.js";
 import json2md from "json2md";
 import { userIsTrustedSubmitter } from "./trustedSubmitterHelpers.js";
+import markdownEscape from "markdown-escape";
 
 export async function handleControlSubPostCreate (event: PostCreate, context: TriggerContext) {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
@@ -79,7 +80,7 @@ export async function handleControlSubPostCreate (event: PostCreate, context: Tr
             }).all();
 
             if (userContent.filter(item => item.createdAt > subMonths(new Date(), controlSubSettings.maxInactivityMonths ?? 3)).length === 0) {
-                submissionResponse.push({ p: `${username} has no recent content on their history, so may be retired. Submissions can only be made for active users.` });
+                submissionResponse.push({ p: `${markdownEscape(user.username)} has no recent content on their history, so may be retired. Submissions can only be made for active users.` });
             }
         } catch (error) {
             console.error(`Error retrieving content for user ${username}:`, error);
@@ -90,7 +91,7 @@ export async function handleControlSubPostCreate (event: PostCreate, context: Tr
         const currentStatus = await getUserStatus(user.username, context);
         if (currentStatus) {
             const post = await context.reddit.getPostById(currentStatus.trackingPostId);
-            submissionResponse.push({ p: `${username} is already tracked by Bot Bouncer with a current status of ${currentStatus.userStatus}, you can see the submission [here](${post.permalink}).` });
+            submissionResponse.push({ p: `${markdownEscape(user.username)} is already tracked by Bot Bouncer with a current status of ${currentStatus.userStatus}, you can see the submission [here](${post.permalink}).` });
 
             if (currentStatus.userStatus === UserStatus.Organic) {
                 submissionResponse.push({ p: `If you have information about how this user is a bot that we may have missed, please [modmail us](https://www.reddit.com/message/compose?to=/r/BotBouncer&subject=More%20information%20about%20/u/${user.username}) with the details, so that we can review again.` });
@@ -129,7 +130,7 @@ export async function handleControlSubPostCreate (event: PostCreate, context: Tr
                         postId: event.post.id,
                         comment: json2md([
                             { p: "Hi, thanks for your submission." },
-                            { p: `The post tracking ${user.username} can be found [here]({{permalink}}).` },
+                            { p: `The post tracking ${markdownEscape(user.username)} can be found [here]({{permalink}}).` },
                             { p: `Your post has been removed, and can be deleted. Consider reporting the account for Spam->Bots, as this may result in the account being suspended or shadowbanned.` },
                         ]),
                     },
