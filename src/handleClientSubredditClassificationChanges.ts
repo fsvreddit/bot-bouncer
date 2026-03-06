@@ -343,6 +343,7 @@ export async function handleClassificationChanges (event: ScheduledJobEvent<JSON
     const items = await context.redis.zRange(RECLASSIFICATION_QUEUE, 0, Date.now(), { by: "score" });
     const totalCount = await context.redis.zCard(RECLASSIFICATION_QUEUE);
     if (items.length === 0) {
+        console.log("Classification Update: No users in reclassification queue.");
         return;
     } else if (!event.data?.firstRun) {
         console.log(`Classification Update: Processing ${items.length} of ${totalCount} ${pluralize("user", totalCount)} in reclassification queue for ${subredditName}.`);
@@ -391,7 +392,7 @@ export async function handleClassificationChanges (event: ScheduledJobEvent<JSON
             runAt: addSeconds(new Date(), 5),
         });
     } else {
-        console.log("Classification Update: All users in reclassification queue processed.");
+        console.log(`Classification Update: All ${processed} ${pluralize("user", processed)} in reclassification queue processed.`);
         await context.redis.del(recentlyRunKey);
     }
 }
