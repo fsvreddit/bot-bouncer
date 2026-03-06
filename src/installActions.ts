@@ -38,6 +38,9 @@ export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, contex
         "EvaluatorStats",
         "UserStore",
         "oneOffDataMigrationDone",
+        "BioTextQueue",
+        "BioTextStatsTempStore",
+        "BioTextStatsCounts",
     ];
 
     await context.redis.del(...obsoleteKeys);

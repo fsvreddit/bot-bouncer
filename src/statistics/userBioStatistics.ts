@@ -1,5 +1,5 @@
 import { JobContext, JSONObject, ScheduledJobEvent, UpdateWikiPageOptions } from "@devvit/public-api";
-import { addSeconds, format, subDays, subWeeks } from "date-fns";
+import { addHours, addSeconds, format, subDays, subWeeks } from "date-fns";
 import json2md from "json2md";
 import { BIO_TEXT_STORE } from "../dataStore.js";
 import { getEvaluatorVariable, getRedisSubstitionValue, setRedisSubstititionValue } from "../userEvaluation/evaluatorVariables.js";
@@ -8,14 +8,23 @@ import { ControlSubredditJob } from "../constants.js";
 import crypto from "crypto";
 import { userIsBanned } from "./statsHelpers.js";
 import { decodedText, encodedText } from "../utility.js";
-import { hMGetAsRecord, zRangeAsRecord } from "devvit-helpers";
+import { expireKeyAt, hMGetAsRecord, zRangeAsRecord } from "devvit-helpers";
 import escapeStringRegexp from "escape-string-regexp";
 
-const BIO_QUEUE = "BioTextQueue";
-const BIO_STATS_TEMP_STORE = "BioTextStatsTempStore";
-const BIO_STATS_COUNTS = "BioTextStatsCounts";
 const BIO_STATS_SUCCESSFUL_RETRIEVALS = "BioTextStatsSuccessfulRetrievals";
 const BIO_STATS_UPDATE_IN_PROGRESS = "BioTextStatsUpdateInProgress";
+
+function getBioQueueKey (statsId: string): string {
+    return `bioTextQueue:${statsId}`;
+}
+
+function getBioStatsTempStoreKey (statsId: string): string {
+    return `bioTextStatsTempStore:${statsId}`;
+}
+
+function getBioStatsCountsKey (statsId: string): string {
+    return `bioTextStatsCounts:${statsId}`;
+}
 
 interface BioRecord {
     bioText: string;
@@ -32,8 +41,8 @@ function appendedArray (existing: string[], newItem: string, limit = 5): string[
     return [...existing, newItem].slice(-limit);
 }
 
-async function clearDownTemporaryKeys (context: JobContext) {
-    await context.redis.del(BIO_QUEUE, BIO_STATS_TEMP_STORE, BIO_STATS_COUNTS, BIO_STATS_UPDATE_IN_PROGRESS);
+async function clearDownTemporaryKeys (statsId: string, context: JobContext) {
+    await context.redis.del(getBioQueueKey(statsId), getBioStatsTempStoreKey(statsId), getBioStatsCountsKey(statsId));
 }
 
 export async function updateBioStatistics (allEntries: StatsUserEntry[], context: JobContext) {
@@ -42,11 +51,13 @@ export async function updateBioStatistics (allEntries: StatsUserEntry[], context
         return;
     }
 
+    const statsId = Date.now().toString();
+
     const recentData = allEntries
         .filter(item => item.data.reportedAt && new Date(item.data.reportedAt) >= subWeeks(new Date(), 4))
         .filter(item => userIsBanned(item.data));
 
-    await clearDownTemporaryKeys(context);
+    await clearDownTemporaryKeys(statsId, context);
 
     const removedEntries = await context.redis.zRemRangeByScore(BIO_STATS_SUCCESSFUL_RETRIEVALS, 0, subDays(new Date(), 2).getTime());
     if (removedEntries > 0) {
@@ -60,14 +71,16 @@ export async function updateBioStatistics (allEntries: StatsUserEntry[], context
     const nonretrievableUsers = new Set(await getEvaluatorVariable<string[]>("biotext:nonretrievable", context) ?? []);
 
     const itemsToProcess = recentData.filter(item => usersWithBios.has(item.username) && !nonretrievableUsers.has(item.username));
-    await context.redis.zAdd(BIO_QUEUE, ...itemsToProcess.map(item => ({ member: item.username, score: item.data.reportedAt ?? 0 })));
+    await context.redis.zAdd(getBioQueueKey(statsId), ...itemsToProcess.map(item => ({ member: item.username, score: item.data.reportedAt ?? 0 })));
+    await expireKeyAt(context.redis, getBioQueueKey(statsId), addHours(new Date(), 1));
+
     console.log(`Bio Stats: queued ${itemsToProcess.length} users for bio stats processing`);
 
     console.log("Bio Stats: Queueing first bio stats update job");
     await context.scheduler.runJob({
         name: ControlSubredditJob.BioStatsUpdate,
         runAt: addSeconds(new Date(), 5),
-        data: { successfulRetrievalsEntries: successfulRetrievalsEntries.map(item => item.member) },
+        data: { successfulRetrievalsEntries: successfulRetrievalsEntries.map(item => item.member), statsId },
     });
 }
 
@@ -89,13 +102,20 @@ export async function updateBioStatisticsJob (event: ScheduledJobEvent<JSONObjec
 
     let batchSize = 500;
 
-    const queueItems = await context.redis.zRange(BIO_QUEUE, 0, batchSize - 1);
+    const statsId = event.data?.statsId as string | undefined;
+    if (!statsId) {
+        console.error("Bio Stats: No statsId provided in job data, cannot process bio statistics update");
+        return;
+    }
+
+    const queueItems = await context.redis.zRange(getBioQueueKey(statsId), 0, batchSize - 1);
     if (Object.keys(queueItems).length === 0) {
         console.log("Bio Stats: No users in queue, generating report");
 
         await context.scheduler.runJob({
             name: ControlSubredditJob.BioStatsGenerateReport,
             runAt: addSeconds(new Date(), 2),
+            data: { statsId },
         });
         return;
     }
@@ -124,7 +144,7 @@ export async function updateBioStatisticsJob (event: ScheduledJobEvent<JSONObjec
 
     const userBios = await hMGetAsRecord(context.redis, BIO_TEXT_STORE, queuedUsersWithSuccessfulRetrievals);
 
-    const recordsToStore = await context.redis.hGetAll(BIO_STATS_TEMP_STORE);
+    const recordsToStore = await context.redis.hGetAll(getBioStatsTempStoreKey(statsId));
 
     console.log(`Bio Stats: Processing user bios (batch ${batch})`);
 
@@ -191,18 +211,20 @@ export async function updateBioStatisticsJob (event: ScheduledJobEvent<JSONObjec
     }
 
     if (processed.length > 0) {
-        await context.redis.zRem(BIO_QUEUE, processed);
+        await context.redis.zRem(getBioQueueKey(statsId), processed);
         await context.redis.zAdd(BIO_STATS_SUCCESSFUL_RETRIEVALS, ...processed.map(username => ({ member: username, score: Date.now() })));
     }
 
     const bioTextCountEntries = Object.entries(bioTextCounts).map(([encodedBioText, count]) => ({ member: encodedBioText, score: count }));
     if (bioTextCountEntries.length > 0) {
         console.log(`Bio Stats: Updating counts for ${bioTextCountEntries.length} bio texts with multiple hits`);
-        await context.redis.zAdd(BIO_STATS_COUNTS, ...bioTextCountEntries);
+        await context.redis.zAdd(getBioStatsCountsKey(statsId), ...bioTextCountEntries);
+        await expireKeyAt(context.redis, getBioStatsCountsKey(statsId), addHours(new Date(), 1));
     }
 
     if (Object.keys(recordsToStore).length > 0) {
-        await context.redis.hSet(BIO_STATS_TEMP_STORE, recordsToStore);
+        await context.redis.hSet(getBioStatsTempStoreKey(statsId), recordsToStore);
+        await expireKeyAt(context.redis, getBioStatsTempStoreKey(statsId), addHours(new Date(), 1));
     }
 
     console.log(`Bio Stats: Processed ${processed.length} users, stored bios for ${biosStored} users, batch ${batch} complete.`);
@@ -213,21 +235,28 @@ export async function updateBioStatisticsJob (event: ScheduledJobEvent<JSONObjec
         data: {
             successfulRetrievalsEntries: successfulRetrievalsUsers,
             batch: batch + 1,
+            statsId,
         },
     });
 }
 
-export async function generateBioStatisticsReport (_: unknown, context: JobContext) {
+export async function generateBioStatisticsReport (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
     console.log("Bio Stats: Generating bio statistics report");
 
-    const itemsWithMoreThanOne = await zRangeAsRecord(context.redis, BIO_STATS_COUNTS, 5, "+inf", { by: "score" });
+    const statsId = event.data?.statsId as string | undefined;
+    if (!statsId) {
+        console.error("Bio Stats: No statsId provided in job data, cannot generate report");
+        return;
+    }
+
+    const itemsWithMoreThanOne = await zRangeAsRecord(context.redis, getBioStatsCountsKey(statsId), 5, "+inf", { by: "score" });
 
     for (let i = 4; i > 1; i--) {
-        const additionalItems = await zRangeAsRecord(context.redis, BIO_STATS_COUNTS, i, i, { by: "score" });
+        const additionalItems = await zRangeAsRecord(context.redis, getBioStatsCountsKey(statsId), i, i, { by: "score" });
         Object.assign(itemsWithMoreThanOne, additionalItems);
     }
 
-    const bioRecords = await hMGetAsRecord(context.redis, BIO_STATS_TEMP_STORE, Object.keys(itemsWithMoreThanOne));
+    const bioRecords = await hMGetAsRecord(context.redis, getBioStatsTempStoreKey(statsId), Object.keys(itemsWithMoreThanOne));
     console.log(`Bio Stats: Retrieved ${Object.keys(bioRecords).length} bio records for report generation`);
 
     const configuredBioRegexes = await getEvaluatorVariable<string[]>("biotext:bantext", context) ?? [];
@@ -322,7 +351,9 @@ export async function generateBioStatisticsReport (_: unknown, context: JobConte
         data: wikiUpdateData,
         runAt: new Date(),
     });
-    await clearDownTemporaryKeys(context);
+
+    await clearDownTemporaryKeys(statsId, context);
+    await context.redis.del(BIO_STATS_UPDATE_IN_PROGRESS);
     console.log("Bio Stats: Completed bio statistics report generation and cleanup");
 
     const distinctBios = Array.from(distinctBiosSet)
