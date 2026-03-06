@@ -186,7 +186,7 @@ export async function reportFormHandler (event: FormOnSubmitEvent<JSONObject>, c
             sendFeedback: event.values[ReportFormField.SendFeedback] as boolean | undefined,
             immediate: true,
         }, context),
-        recordReportForSummary(target.authorName, "manually", context.redis),
+        recordReportForSummary(target.authorName, context.redis),
     ]);
 
     await setAlreadyReported(target.authorName, context);
