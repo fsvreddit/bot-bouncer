@@ -42,6 +42,7 @@ enum UserActiveStatus {
     Active = "active",
     Deleted = "deleted",
     Suspended = "suspended",
+    Shadowbanned = "shadowbanned",
 }
 
 async function userActive (username: string, context: TriggerContext): Promise<UserActiveStatus> {
@@ -70,7 +71,7 @@ async function userActive (username: string, context: TriggerContext): Promise<U
             user: username,
         }).all();
         // User is either suspended or shadowbanned.
-        return UserActiveStatus.Suspended;
+        return UserActiveStatus.Shadowbanned;
     } catch {
         // User is deleted.
         return UserActiveStatus.Deleted;
