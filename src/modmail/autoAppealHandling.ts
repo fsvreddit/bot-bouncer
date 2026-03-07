@@ -12,7 +12,7 @@ import { ModmailMessage } from "./modmail.js";
 import { getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
 import { getUserExtended } from "../extendedDevvit.js";
 import { statusToFlair } from "../postCreation.js";
-import { addMinutes, format, getYear } from "date-fns";
+import { addMinutes, differenceInMonths, format } from "date-fns";
 import { getPossibleSetStatusValues } from "./controlSubModmail.js";
 import { getUserSocialLinks } from "devvit-helpers";
 import { sendMessageOnDelay } from "./delayedSend.js";
@@ -241,7 +241,7 @@ function formatPlaceholders (input: string, userDetails: UserDetails): string {
     let output = input;
     let dateFormat: string;
     const date = new Date(userDetails.reportedAt ?? userDetails.lastUpdate);
-    if (getYear(date) !== getYear(new Date())) {
+    if (differenceInMonths(new Date(), date) > 6) {
         dateFormat = "MMMM do, yyyy";
     } else {
         dateFormat = "MMMM do";
