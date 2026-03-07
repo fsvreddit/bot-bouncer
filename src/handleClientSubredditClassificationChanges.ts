@@ -1,5 +1,5 @@
 import { Comment, JobContext, JSONObject, Post, RedisClient, ScheduledJobEvent, SettingsValues, TriggerContext } from "@devvit/public-api";
-import { addDays, addSeconds, formatDate, subDays, subWeeks } from "date-fns";
+import { addDays, addSeconds, formatDate, subDays, subMinutes, subWeeks } from "date-fns";
 import pluralize from "pluralize";
 import { getRecentlyChangedUsers, getUserStatus, isUserInTempDeclineStore, UserDetails, UserStatus } from "./dataStore.js";
 import { setCleanupForUser } from "./cleanup.js";
@@ -340,7 +340,15 @@ export async function handleClassificationChanges (event: ScheduledJobEvent<JSON
     const runLimit = addSeconds(new Date(), 15);
     const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
 
-    const items = await context.redis.zRange(RECLASSIFICATION_QUEUE, 0, Date.now(), { by: "score" });
+    const fiveMinutesAgo = subMinutes(new Date(), 5).getTime();
+
+    // Prioritize users who were reclassified in the last 5 minutes, but also include any
+    // users who were reclassified while this job was running to ensure no users are missed.
+    const items = [
+        ...await context.redis.zRange(RECLASSIFICATION_QUEUE, fiveMinutesAgo, Date.now(), { by: "score" }),
+        ...await context.redis.zRange(RECLASSIFICATION_QUEUE, 0, fiveMinutesAgo - 1, { by: "score" }),
+    ];
+
     const totalCount = await context.redis.zCard(RECLASSIFICATION_QUEUE);
     if (items.length === 0) {
         console.log("Classification Update: No users in reclassification queue.");
