@@ -1,4 +1,4 @@
-import { getUsernameFromUrl, median } from "./utility.js";
+import { conditionallyCompressString, conditionallyDecompressString, getUsernameFromUrl, median } from "./utility.js";
 
 test("URL parsing", () => {
     const expected = [
@@ -42,4 +42,20 @@ test("Median with even numbers of inputs", () => {
     const expected = 2.5;
     const actual = median(input);
     expect(actual).toEqual(expected);
+});
+
+test("Conditionally compress and decompress string", () => {
+    const input = "a".repeat(10000);
+    const compressed = conditionallyCompressString(input);
+    const decompressed = conditionallyDecompressString(compressed);
+    expect(decompressed).toEqual(input);
+    expect(compressed).not.toEqual(input);
+});
+
+test("Conditionally compress and decompress string that is not large enough to compress", () => {
+    const input = "This is a short string.";
+    const compressed = conditionallyCompressString(input);
+    const decompressed = conditionallyDecompressString(compressed);
+    expect(decompressed).toEqual(input);
+    expect(compressed).toEqual(input);
 });

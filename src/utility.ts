@@ -147,6 +147,26 @@ export function compressData (value: unknown): string {
     return Buffer.from(Pako.deflate(JSON.stringify(value), { level: 9 })).toString("base64");
 }
 
+export function conditionallyCompressString (input: string): string {
+    const compressed = `c:${Buffer.from(Pako.deflate(input, { level: 9 })).toString("base64")}`;
+
+    // In the unlikely event that the input starts with c: (this is intended for JSON so not likely),
+    // return the compressed value to avoid errors in decompression.
+    if (input.startsWith("c:")) {
+        return compressed;
+    }
+
+    return compressed.length < input.length ? compressed : input;
+}
+
+export function conditionallyDecompressString (input: string): string {
+    if (input.startsWith("c:")) {
+        return Buffer.from(Pako.inflate(Buffer.from(input.substring(2), "base64"))).toString();
+    } else {
+        return input;
+    }
+}
+
 export function formatTimeSince (date: Date): string {
     const interval = intervalToDuration({ start: date, end: new Date() });
     return formatDuration(interval, { format: ["days", "hours", "minutes"] });
