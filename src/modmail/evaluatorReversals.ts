@@ -16,6 +16,13 @@ export async function addToReversalsQueue (username: string, days: number, conte
     await context.redis.zAdd(REVERSED_USERS, { member: username, score: removalDate });
 }
 
+export async function removeUserFromReversalsQueue (username: string, context: TriggerContext) {
+    const removedItems = await context.redis.zRem(REVERSED_USERS, [username]);
+    if (removedItems > 0) {
+        console.log(`Reversals Queue: Removed ${username} from reversals queue.`);
+    }
+}
+
 export async function handleReversalCommand (message: ModmailMessage, context: TriggerContext) {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
         throw new Error("Reversal commands can only be handled in the control subreddit.");
