@@ -1,5 +1,5 @@
 import { Comment, JobContext, JSONObject, Post, RedisClient, ScheduledJobEvent, TriggerContext, TxClientLike } from "@devvit/public-api";
-import { addDays, addHours, addSeconds, subDays, subMinutes, subSeconds } from "date-fns";
+import { addDays, addHours, addSeconds, addWeeks, subDays, subMinutes, subSeconds } from "date-fns";
 import { CONTROL_SUBREDDIT, PostFlairTemplate, UniversalJob } from "./constants.js";
 import { deleteUserStatus, getUserStatus, removeRecordOfSubmitterOrMod, updateAggregate, UserStatus, writeUserStatus } from "./dataStore.js";
 import { getUserExtended } from "./extendedDevvit.js";
@@ -188,6 +188,7 @@ export async function cleanupDeletedAccounts (event: ScheduledJobEvent<JSONObjec
                 // Check for recent activity to potentially change status from Inactive to Pending.
                 const latestContent = await getLatestContentDate(username, context);
                 if (latestContent && new Date(latestContent) > subDays(new Date(), 14)) {
+                    overrideCleanupDate = addWeeks(new Date(), 1);
                     newFlair = PostFlairTemplate.Pending;
                 }
             }
