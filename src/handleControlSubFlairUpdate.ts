@@ -33,6 +33,11 @@ export const FLAIR_MAPPINGS: FlairMapping[] = [
         flagToSet: UserFlag.Locked,
         destinationFlair: PostFlairTemplate.Banned,
     },
+    {
+        postFlair: "futurensfw",
+        flagToSet: UserFlag.FutureNSFW,
+        destinationFlair: PostFlairTemplate.Organic,
+    },
 ];
 
 export async function handleControlSubFlairUpdate (event: PostFlairUpdate, context: TriggerContext) {

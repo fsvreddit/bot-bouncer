@@ -1,12 +1,13 @@
 import { Comment, JobContext, JSONObject, Post, RedisClient, ScheduledJobEvent, TriggerContext, TxClientLike } from "@devvit/public-api";
 import { addDays, addHours, addSeconds, addWeeks, subDays, subMinutes, subSeconds } from "date-fns";
 import { CONTROL_SUBREDDIT, PostFlairTemplate, UniversalJob } from "./constants.js";
-import { deleteUserStatus, getUserStatus, removeRecordOfSubmitterOrMod, updateAggregate, UserStatus, writeUserStatus } from "./dataStore.js";
+import { deleteUserStatus, getUserStatus, removeRecordOfSubmitterOrMod, updateAggregate, UserFlag, UserStatus, writeUserStatus } from "./dataStore.js";
 import { getUserExtended } from "./extendedDevvit.js";
 import { removeRecordOfBan, removeWhitelistUnban } from "./handleClientSubredditClassificationChanges.js";
 import _ from "lodash";
 import { getControlSubSettings } from "./settings.js";
 import { formatTimeSince } from "./utility.js";
+import { submitAccountForReview } from "./modmail/accountReview.js";
 
 export const CLEANUP_LOG_KEY = "CleanupLog";
 const SUB_OR_MOD_LOG_KEY = "SubOrModLog";
@@ -191,6 +192,29 @@ export async function cleanupDeletedAccounts (event: ScheduledJobEvent<JSONObjec
                     newFlair = PostFlairTemplate.Pending;
                 }
                 overrideCleanupDate = addWeeks(new Date(), 1);
+            }
+
+            if (currentStatus.flags?.includes(UserFlag.FutureNSFW)) {
+                // Check to see if the user has any new NSFW content. If they do, set a reminder for the user.
+                const posts = await context.reddit.getPostsByUser({
+                    username,
+                    limit: 100,
+                    sort: "new",
+                }).all();
+
+                const hasNewNSFWContent = posts.some(post => post.nsfw && post.createdAt.getTime() > currentStatus.lastUpdate);
+                if (hasNewNSFWContent) {
+                    // Clear the flag.
+                    const newFlags = currentStatus.flags.filter(flag => flag !== UserFlag.FutureNSFW);
+                    const newStatus = {
+                        ...currentStatus,
+                        flags: newFlags.length > 0 ? newFlags : undefined,
+                    };
+                    await writeUserStatus(username, newStatus, context);
+                    await submitAccountForReview(currentStatus.trackingPostId, context.appSlug, 0, "User was flagged as a potential future adult content creator and now has NSFW content", context);
+                } else {
+                    overrideCleanupDate = addDays(new Date(), 3);
+                }
             }
         } else {
             suspendedCount++;
