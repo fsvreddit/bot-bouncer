@@ -207,7 +207,10 @@ async function handleContentCreation (username: string, currentStatus: UserDetai
         return;
     }
 
-    if (await isContributor(context.reddit, subredditName, user.username)) {
+    const settings = await context.settings.getAll();
+
+    const exemptApprovedUsers = settings[AppSetting.ExemptApprovedUsers] as boolean | undefined ?? true;
+    if (exemptApprovedUsers && await isContributor(context.reddit, subredditName, user.username)) {
         console.log(`Content Create: ${user.username} is allowlisted as an approved user`);
         return;
     }
@@ -217,7 +220,6 @@ async function handleContentCreation (username: string, currentStatus: UserDetai
         return;
     }
 
-    const settings = await context.settings.getAll();
     const [actionToTake] = settings[AppSetting.Action] as ActionType[] | undefined ?? [ActionType.Ban];
 
     const promises: Promise<unknown>[] = [];

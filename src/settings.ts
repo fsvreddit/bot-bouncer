@@ -50,6 +50,7 @@ export enum AppSetting {
     RemoveQueuedItemsWhenBanning = "removeQueuedItemsWhenBanning",
     BanMessage = "banMessage",
     AutoWhitelist = "autoWhitelist",
+    ExemptApprovedUsers = "exemptApprovedUsers",
     ReportPotentialBots = "reportPotentialBots",
     AddModNoteOnClassificationChange = "addModNoteOnClassificationChange",
     ModmailNote = "clientModmailNote",
@@ -122,6 +123,13 @@ export const appSettings: SettingsFormField[] = [
                 name: AppSetting.AutoWhitelist,
                 label: "Automatically exempt users banned by Bot Bouncer if they are then unbanned by you",
                 helpText: "If this is selected, and you unban a user that has been banned by Bot Bouncer, then the app will not act on that user again.",
+                defaultValue: true,
+            },
+            {
+                type: "boolean",
+                name: AppSetting.ExemptApprovedUsers,
+                label: "Exempt approved users from Bot Bouncer actions",
+                helpText: "If this is selected, users that have been marked as approved by a moderator will be exempt from Bot Bouncer's actions, even if they are listed on /r/BotBouncer.",
                 defaultValue: true,
             },
             {

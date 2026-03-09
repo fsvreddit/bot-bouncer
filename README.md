@@ -16,7 +16,7 @@ Mods can choose to configure the app to report users rather than ban and remove.
 
 By default, any bots that you unban are automatically allowlisted and will not be banned again (although this can be turned off).
 
-If you want to preemptively allowlist a user, add the account as an Approved Submitter to your subreddit - Bot Bouncer will never ban approved submitters or moderators.
+If you want to preemptively allowlist a user, add the account as an Approved Submitter to your subreddit - Bot Bouncer will never ban approved submitters or moderators unless you specifically choose to turn off that option in the app settings.
 
 You can also set a user flair with a CSS class that ends with `proof`. This is so that legacy flairs such as `botbustproof` will prevent a user from being banned.
 
