@@ -95,7 +95,7 @@ export async function handleControlSubFlairUpdate (event: PostFlairUpdate, conte
             await addToReversalsQueue(username, mapping.removeFromDatabaseAfterDays, context);
         }
 
-        console.log(`Flair Update: Mapped flair ${postFlair} to flag ${mapping.flagToSet} for user ${username}.`);
+        console.log(`Flair Update: Mapped flair ${postFlair} to flag ${mapping.flagToSet} for user ${username}, new status ${mapping.destinationFlair}.`);
 
         return;
     }

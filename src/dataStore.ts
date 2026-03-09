@@ -40,7 +40,7 @@ export enum UserFlag {
     HackedAndRecovered = "recovered",
     Scammed = "scammed",
     Locked = "locked",
-    FutureNSFW = "future_nsfw",
+    FutureNSFW = "futurensfw",
 }
 
 const eligibleFlagsForStatus: Record<UserFlag, UserStatus[]> = {
