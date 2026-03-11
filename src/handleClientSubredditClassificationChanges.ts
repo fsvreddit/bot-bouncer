@@ -250,18 +250,6 @@ async function handleSetBanned (username: string, subredditName: string, setting
                 label: "BOT_BAN",
             });
         }
-
-        if (settings[AppSetting.RemoveQueuedItemsWhenBanning] && controlSubSettings.enableModQueueRemoval) {
-            const modQueue = await context.reddit.getModQueue({
-                subreddit: subredditName,
-                limit: 1000,
-                type: "all",
-            }).all();
-
-            const userItemsInQueue = modQueue.filter(item => item.authorName === username);
-            await Promise.all(userItemsInQueue.map(item => item.remove()));
-            console.log(`Classification Update: Removed ${userItemsInQueue.length} ${pluralize("item", userItemsInQueue.length)} from mod queue for ${username}`);
-        }
     } else {
         // Report content instead of banning.
         await Promise.all(removableContent.map(async (item) => {

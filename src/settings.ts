@@ -47,7 +47,6 @@ If you are removing Bot Bouncer because of concerns about how it works, we would
 export enum AppSetting {
     Action = "action",
     LockContentWhenRemoving = "lockContentWhenRemoving",
-    RemoveQueuedItemsWhenBanning = "removeQueuedItemsWhenBanning",
     BanMessage = "banMessage",
     AutoWhitelist = "autoWhitelist",
     ExemptApprovedUsers = "exemptApprovedUsers",
@@ -102,13 +101,6 @@ export const appSettings: SettingsFormField[] = [
                 label: "Lock content when removing",
                 helpText: "If banning and removing content, also lock the post/comment to prevent further engagement",
                 defaultValue: false,
-            },
-            {
-                type: "boolean",
-                name: AppSetting.RemoveQueuedItemsWhenBanning,
-                label: "Remove queued posts or comments when banning",
-                helpText: "If banning a user, also remove any posts or comments they have in the mod queue",
-                defaultValue: true,
             },
             {
                 type: "paragraph",
