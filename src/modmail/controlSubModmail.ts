@@ -21,6 +21,7 @@ import { evaluateAccountFromModmail } from "./modmailEvaluaton.js";
 import { isBanned } from "devvit-helpers";
 import { handleReversalCommand } from "./evaluatorReversals.js";
 import { handleHighlightedModmail } from "./unhighlighter.js";
+import { getUserExtended } from "../extendedDevvit.js";
 
 export function getPossibleSetStatusValues (): string[] {
     return _.uniq([...FLAIR_MAPPINGS.map(entry => entry.postFlair), ...Object.values(UserStatus)]);
@@ -207,9 +208,15 @@ async function handleModmailFromUser (modmail: ModmailMessage, context: TriggerC
     const currentStatus = await getUserStatus(username, context);
 
     if (!currentStatus) {
+        const message: json2md.DataObject[] = [{ p: "This user is not currently listed in the Bot Bouncer database. This may be a general enquiry, mistaken appeal or a third party appeal from another sub's mods." }];
+        const user = await getUserExtended(username, context);
+        if (user?.isModerator) {
+            message.push({ p: "Note: This user is a subreddit moderator." });
+        }
+
         await context.reddit.modMail.reply({
             conversationId: modmail.conversationId,
-            body: "This user is not currently listed in the Bot Bouncer database. This may be a general enquiry, mistaken appeal or a third party appeal from another sub's mods.",
+            body: json2md(message),
             isInternal: true,
         });
         return;

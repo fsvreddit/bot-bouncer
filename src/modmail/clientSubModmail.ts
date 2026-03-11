@@ -1,9 +1,10 @@
 import { TriggerContext } from "@devvit/public-api";
 import { getUserStatus, UserStatus } from "../dataStore.js";
 import { wasUserBannedByApp } from "../handleClientSubredditClassificationChanges.js";
-import { CONFIGURATION_DEFAULTS } from "../settings.js";
+import { AppSetting, CONFIGURATION_DEFAULTS } from "../settings.js";
 import { ModmailMessage } from "./modmail.js";
 import { isBanned } from "devvit-helpers";
+import json2md from "json2md";
 
 export async function handleClientSubredditModmail (modmail: ModmailMessage, context: TriggerContext) {
     if (!modmail.isFirstMessage) {
@@ -25,14 +26,27 @@ export async function handleClientSubredditModmail (modmail: ModmailMessage, con
         return;
     }
 
-    const bannedByApp = await wasUserBannedByApp(username, context);
-    if (!bannedByApp) {
+    const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
+
+    const userIsBanned = await isBanned(context.reddit, subredditName, username);
+    if (!userIsBanned) {
+        if (await context.settings.get<boolean>(AppSetting.AddModmailIfNotBannedYet)) {
+            const message: json2md.DataObject[] = [
+                { p: `For info: User /u/${username} is currently listed on /r/${subredditName} as a bot or botlike account, but they aren't currently banned on /r/${subredditName}.` },
+                { p: `*I am a bot, and this action was performed automatically. To turn off this notification in the future, please adjust your settings.*` },
+            ];
+
+            await context.reddit.modMail.reply({
+                conversationId: modmail.conversationId,
+                body: json2md(message),
+                isInternal: true,
+            });
+        }
         return;
     }
 
-    const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
-    const userIsBanned = await isBanned(context.reddit, subredditName, username);
-    if (!userIsBanned) {
+    const bannedByApp = await wasUserBannedByApp(username, context);
+    if (!bannedByApp) {
         return;
     }
 

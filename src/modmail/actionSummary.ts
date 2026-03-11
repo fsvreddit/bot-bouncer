@@ -76,12 +76,12 @@ export async function sendDailySummary (_: unknown, context: JobContext) {
 
         if (reportedEnabled) {
             if (reports.length === 0) {
-                message.push({ p: `No new potential bots were detected or reported on /r/${subredditName} ${intervalText}.` });
+                message.push({ p: `No new potential bots were reported on /r/${subredditName} ${intervalText}.` });
             } else {
-                message.push({ p: `The following potential bots were detected or reported on /r/${subredditName} ${intervalText}:` });
+                message.push({ p: `The following potential bots were reported on /r/${subredditName} ${intervalText}:` });
 
                 const bullets: string[] = [];
-                for (const entry of reports) {
+                for (const entry of reports.filter(r => r.type === "manually")) {
                     const currentStatus = await getUserStatus(entry.username, context);
                     if (currentStatus) {
                         bullets.push(`/u/${entry.username} reported ${entry.type}: now listed as ${currentStatus.userStatus}`);
@@ -135,9 +135,9 @@ export async function sendDailySummary (_: unknown, context: JobContext) {
     }
 }
 
-export async function recordReportForSummary (username: string, type: "automatically" | "manually", redis: RedisClient) {
+export async function recordReportForSummary (username: string, redis: RedisClient) {
     const key = getReportsKey(new Date());
-    await redis.hSet(key, { [username]: type });
+    await redis.hSet(key, { [username]: "manually" });
     await expireKeyAt(redis, key, addDays(new Date(), 8));
 }
 

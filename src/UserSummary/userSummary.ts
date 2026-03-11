@@ -1,6 +1,6 @@
 import { Comment, JSONValue, Post, TriggerContext } from "@devvit/public-api";
 import { median } from "../utility.js";
-import { addMilliseconds, differenceInDays, differenceInHours, differenceInMilliseconds, differenceInMinutes, Duration, format, formatDuration, intervalToDuration, startOfDecade } from "date-fns";
+import { addMilliseconds, differenceInDays, differenceInHours, differenceInMilliseconds, differenceInMinutes, differenceInSeconds, Duration, format, formatDuration, getYear, intervalToDuration, startOfDecade } from "date-fns";
 import _ from "lodash";
 import { count } from "@wordpress/wordcount";
 import { isUserPotentiallyBlockingBot } from "./blockChecker.js";
@@ -27,6 +27,9 @@ function formatDifferenceInDates (start: Date, end: Date) {
     }
     if (differenceInMinutes(end, start) < 4) {
         units.push("seconds");
+    }
+    if (differenceInSeconds(end, start) < 1) {
+        return "less than a second";
     }
 
     const duration = intervalToDuration({ start, end });
@@ -196,17 +199,19 @@ export function evaluationResultsToBullets (results: EvaluationResult[]) {
 }
 
 export async function getSummaryForUser (username: string, source: "modmail" | "submission", context: TriggerContext): Promise<json2md.DataObject[]> {
-    const userStatus = await getUserStatus(username, context);
+    const extendedUser = await getUserExtended(username, context);
+
+    const userStatus = await getUserStatus(extendedUser?.username ?? username, context);
     const summary: json2md.DataObject[] = [];
 
-    const altSources = `[Pushshift](https://shiruken.github.io/chearch/?kind=comment&author=${username}&limit=100) | [Arctic Shift](https://fsvreddit.github.io/arcticredir/?author=${username}&type=posts)`;
+    const altSources = `[archive.org](https://web.archive.org/web/${getYear(new Date())}0000000000*/https://www.reddit.com/user/${username}) | [Pushshift](https://shiruken.github.io/chearch/?kind=comment&author=${username}&limit=100) | [Arctic Shift](https://fsvreddit.github.io/arcticredir/?author=${username}&type=posts)`;
 
     if (userStatus && source === "modmail") {
         const post = await context.reddit.getPostById(userStatus.trackingPostId);
 
-        let firstLine = `/u/${username} is currently listed as ${userStatus.userStatus}, set by ${userStatus.operator} at ${new Date(userStatus.lastUpdate).toUTCString()}`;
+        let firstLine = `/u/${username} is currently listed as ${userStatus.userStatus}, set by ${markdownEscape(userStatus.operator ?? "unknown")} at ${new Date(userStatus.lastUpdate).toUTCString()}`;
         if (userStatus.submitter) {
-            firstLine += ` and reported by ${userStatus.submitter}`;
+            firstLine += ` and reported by ${markdownEscape(userStatus.submitter)}`;
             const successRate = await getSubmitterSuccessRate(userStatus.submitter, context);
             if (successRate !== undefined) {
                 firstLine += ` (${successRate}%)`;
@@ -217,11 +222,12 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
             { p: firstLine },
             { p: `[Link to submission](https://www.reddit.com${post.permalink}) | ${altSources}` },
         );
-    } else if (source === "submission") {
+    } else if (source === "modmail") {
+        summary.push({ p: `/u/${username} is not currently in r/BotBouncer's data store.` });
+        summary.push({ p: altSources });
+    } else /* source === "submission" */ {
         summary.push({ p: altSources });
     }
-
-    const extendedUser = await getUserExtended(username, context);
 
     if (!extendedUser) {
         summary.push({ p: `User Summary: User ${username} is already shadowbanned or suspended, so summary will not be created.` });

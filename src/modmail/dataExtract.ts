@@ -10,7 +10,7 @@ import { getAccountInitialEvaluationResults } from "../handleControlSubAccountEv
 import { ModmailMessage } from "./modmail.js";
 import _ from "lodash";
 import { ControlSubredditJob } from "../constants.js";
-import { hMGetAsRecord } from "devvit-helpers";
+import { expireKeyAt, hMGetAsRecord } from "devvit-helpers";
 
 interface ModmailDataExtract {
     status?: UserStatus[];
@@ -238,8 +238,8 @@ export async function dataExtract (message: ModmailMessage, conversationId: stri
         await context.redis.zAdd(getExtractTempQueueKey(extractId), ...dataChunk.map(entry => ({ score: 0, member: entry.username })));
     }));
 
-    await context.redis.expire(getExtractTempStoreKey(extractId), 3600); // 1 hour expiry
-    await context.redis.expire(getExtractTempQueueKey(extractId), 3600); // 1 hour expiry
+    await expireKeyAt(context.redis, getExtractTempStoreKey(extractId), addHours(new Date(), 1));
+    await expireKeyAt(context.redis, getExtractTempQueueKey(extractId), addHours(new Date(), 1));
 
     console.log("Data Extract: Queuing data extract continuation job.");
 

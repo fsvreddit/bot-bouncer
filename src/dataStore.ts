@@ -14,6 +14,7 @@ import { storeClassificationEvent } from "./statistics/classificationStatistics.
 import { USER_DEFINED_HANDLES_POSTS } from "./statistics/definedHandlesStatistics.js";
 import { ZMember } from "@devvit/protos";
 import { getUserSocialLinks, hMGetAllChunked } from "devvit-helpers";
+import { removeUserFromReversalsQueue } from "./modmail/evaluatorReversals.js";
 
 const TEMP_DECLINE_STORE = "TempDeclineStore";
 const RECENT_CHANGES_STORE = "RecentChangesStore";
@@ -39,12 +40,14 @@ export enum UserFlag {
     HackedAndRecovered = "recovered",
     Scammed = "scammed",
     Locked = "locked",
+    FutureNSFW = "futurensfw",
 }
 
 const eligibleFlagsForStatus: Record<UserFlag, UserStatus[]> = {
     [UserFlag.HackedAndRecovered]: [UserStatus.Pending, UserStatus.Organic, UserStatus.Declined],
     [UserFlag.Scammed]: [UserStatus.Pending, UserStatus.Organic, UserStatus.Declined],
     [UserFlag.Locked]: [UserStatus.Banned],
+    [UserFlag.FutureNSFW]: [UserStatus.Organic, UserStatus.Declined],
 };
 
 export interface UserDetails {
@@ -220,6 +223,10 @@ export async function setUserStatus (username: string, details: UserDetails, con
     }
 
     await context.redis.global.zAdd(RECENT_CHANGES_STORE, { member: username, score: new Date().getTime() });
+
+    if (details.userStatus === UserStatus.Banned) {
+        await removeUserFromReversalsQueue(username, context);
+    }
 }
 
 export async function removeStaleRecentChangesEntries (context: TriggerContext) {

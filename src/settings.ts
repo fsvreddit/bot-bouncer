@@ -49,9 +49,11 @@ export enum AppSetting {
     LockContentWhenRemoving = "lockContentWhenRemoving",
     BanMessage = "banMessage",
     AutoWhitelist = "autoWhitelist",
-    ModmailNote = "clientModmailNote",
+    ExemptApprovedUsers = "exemptApprovedUsers",
     ReportPotentialBots = "reportPotentialBots",
     AddModNoteOnClassificationChange = "addModNoteOnClassificationChange",
+    ModmailNote = "clientModmailNote",
+    AddModmailIfNotBannedYet = "addModmailIfNotBannedYet",
     Digest = "dailyDigest",
     DigestFrequency = "dailyDigestFrequency",
     DigestAsModNotification = "dailyDigestAsModNotification",
@@ -116,6 +118,26 @@ export const appSettings: SettingsFormField[] = [
                 defaultValue: true,
             },
             {
+                type: "boolean",
+                name: AppSetting.ExemptApprovedUsers,
+                label: "Exempt approved users from Bot Bouncer actions",
+                helpText: "If this is selected, users that have been marked as approved by a moderator will be exempt from Bot Bouncer's actions, even if they are listed on /r/BotBouncer.",
+                defaultValue: true,
+            },
+            {
+                type: "boolean",
+                name: AppSetting.AddModNoteOnClassificationChange,
+                label: "Add a moderator note to users when they are banned or unbanned by Bot Bouncer",
+                helpText: "If this is turned on, a mod note will be added to the account when it is banned or unbanned by Bot Bouncer. The note will include the date and time of the action.",
+                defaultValue: false,
+            },
+        ],
+    },
+    {
+        type: "group",
+        label: "Modmail options",
+        fields: [
+            {
                 type: "paragraph",
                 name: AppSetting.ModmailNote,
                 lineHeight: 10,
@@ -125,9 +147,9 @@ export const appSettings: SettingsFormField[] = [
             },
             {
                 type: "boolean",
-                name: AppSetting.AddModNoteOnClassificationChange,
-                label: "Add a moderator note to users when they are banned or unbanned by Bot Bouncer",
-                helpText: "If this is turned on, a mod note will be added to the account when it is banned or unbanned by Bot Bouncer. The note will include the date and time of the action.",
+                name: AppSetting.AddModmailIfNotBannedYet,
+                label: "Add a private moderator note if a user listed on /r/BotBouncer sends a modmail but isn't currently banned",
+                helpText: "If this is turned on, when a user that is listed on /r/BotBouncer sends a message to modmail, if they aren't currently banned, the app will add a private moderator note to the conversation.",
                 defaultValue: false,
             },
         ],
@@ -235,6 +257,7 @@ export interface ControlSubSettings {
     allowClassificationQueries?: boolean;
     redosCheckerEnabled?: boolean;
     evaluatorVariableUpdatesEnabled?: boolean;
+    enableModQueueRemoval?: boolean;
     appRemovedMessage?: string;
 }
 
@@ -266,6 +289,7 @@ const schema: JSONSchemaType<ControlSubSettings> = {
         legacyWikiPageUpdateFrequencyMinutes: { type: "number" },
         redosCheckerEnabled: { type: "boolean", nullable: true },
         evaluatorVariableUpdatesEnabled: { type: "boolean", nullable: true },
+        enableModQueueRemoval: { type: "boolean", nullable: true },
         appRemovedMessage: { type: "string", nullable: true },
     },
     required: ["evaluationDisabled", "trustedSubmitters", "reporterBlacklist"],

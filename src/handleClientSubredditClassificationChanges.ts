@@ -1,9 +1,9 @@
 import { Comment, JobContext, JSONObject, Post, RedisClient, ScheduledJobEvent, SettingsValues, TriggerContext } from "@devvit/public-api";
-import { addDays, addSeconds, formatDate, subDays, subWeeks } from "date-fns";
+import { addDays, addSeconds, formatDate, subDays, subMinutes, subWeeks } from "date-fns";
 import pluralize from "pluralize";
 import { getRecentlyChangedUsers, getUserStatus, isUserInTempDeclineStore, UserDetails, UserStatus } from "./dataStore.js";
 import { setCleanupForUser } from "./cleanup.js";
-import { ActionType, AppSetting, CONFIGURATION_DEFAULTS, getControlSubSettings } from "./settings.js";
+import { ActionType, AppSetting, CONFIGURATION_DEFAULTS, ControlSubSettings, getControlSubSettings } from "./settings.js";
 import { getPostOrCommentById, getUserOrUndefined, isModeratorWithCache, postIdToShortLink } from "./utility.js";
 import { ClientSubredditJob } from "./constants.js";
 import _ from "lodash";
@@ -124,7 +124,7 @@ async function handleSetOrganic (username: string, subredditName: string, settin
     }
 }
 
-async function handleSetBanned (username: string, subredditName: string, settings: SettingsValues, context: TriggerContext) {
+async function handleSetBanned (username: string, subredditName: string, settings: SettingsValues, controlSubSettings: ControlSubSettings, context: TriggerContext) {
     const isCurrentlyBanned = await isBanned(context.reddit, subredditName, username);
     if (isCurrentlyBanned) {
         console.log(`Classification Update: ${username} is already banned on ${subredditName}.`);
@@ -265,15 +265,18 @@ export async function queueRecentReclassifications (_: unknown, context: JobCont
     const now = new Date();
     const lastCheckKey = "lastUpdateDateKey";
     const lastCheckData = await context.redis.get(lastCheckKey);
-    const lastCheckDate = lastCheckData ? new Date(parseInt(lastCheckData, 10)) : subDays(now, 1);
+    const lastCheckDate = lastCheckData ? new Date(parseInt(lastCheckData, 10)) : subDays(now, 7);
 
     const recentlyChangedUsers = await getRecentlyChangedUsers(lastCheckDate, now, context);
+    let processedUntil = now;
+
     if (recentlyChangedUsers.length > 0) {
         await context.redis.zAdd(RECLASSIFICATION_QUEUE, ...recentlyChangedUsers);
         console.log(`Classification Update: Queued ${recentlyChangedUsers.length} ${pluralize("user", recentlyChangedUsers.length)} for reclassification.`);
+        processedUntil = new Date(Math.max(...recentlyChangedUsers.map(u => u.score)) + 1);
     }
 
-    await context.redis.set(lastCheckKey, now.getTime().toString());
+    await context.redis.set(lastCheckKey, processedUntil.getTime().toString());
 
     await context.scheduler.runJob({
         name: ClientSubredditJob.HandleClassificationChanges,
@@ -325,11 +328,21 @@ export async function handleClassificationChanges (event: ScheduledJobEvent<JSON
     const runLimit = addSeconds(new Date(), 15);
     const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
 
-    const items = await context.redis.zRange(RECLASSIFICATION_QUEUE, 0, Date.now(), { by: "score" });
+    const fiveMinutesAgo = subMinutes(new Date(), 5).getTime();
+
+    // Prioritize users who were reclassified in the last 5 minutes, but also include any
+    // users who were reclassified while this job was running to ensure no users are missed.
+    const items = [
+        ...await context.redis.zRange(RECLASSIFICATION_QUEUE, fiveMinutesAgo, Date.now(), { by: "score" }),
+        ...await context.redis.zRange(RECLASSIFICATION_QUEUE, 0, fiveMinutesAgo - 1, { by: "score" }),
+    ];
+
+    const totalCount = await context.redis.zCard(RECLASSIFICATION_QUEUE);
     if (items.length === 0) {
+        console.log("Classification Update: No users in reclassification queue.");
         return;
     } else if (!event.data?.firstRun) {
-        console.log(`Classification Update: Processing ${items.length} ${pluralize("user", items.length)} in reclassification queue for ${subredditName}.`);
+        console.log(`Classification Update: Processing ${items.length} of ${totalCount} ${pluralize("user", totalCount)} in reclassification queue for ${subredditName}.`);
     }
 
     if (!await appAccountHasPermissions(context)) {
@@ -360,7 +373,7 @@ export async function handleClassificationChanges (event: ScheduledJobEvent<JSON
         if (status === "human") {
             await handleSetOrganic(username, subredditName, settings, context);
         } else if (status === "bot") {
-            await handleSetBanned(username, subredditName, settings, context);
+            await handleSetBanned(username, subredditName, settings, controlSubSettings, context);
         } else if (await isUserInTempDeclineStore(username, context)) {
             await handleSetOrganic(username, subredditName, settings, context);
         }
@@ -375,7 +388,7 @@ export async function handleClassificationChanges (event: ScheduledJobEvent<JSON
             runAt: addSeconds(new Date(), 5),
         });
     } else {
-        console.log("Classification Update: All users in reclassification queue processed.");
+        console.log(`Classification Update: All ${processed} ${pluralize("user", processed)} in reclassification queue processed.`);
         await context.redis.del(recentlyRunKey);
     }
 }

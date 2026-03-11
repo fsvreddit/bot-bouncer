@@ -10,7 +10,7 @@ import { ActionType, AppSetting, CONFIGURATION_DEFAULTS, getControlSubSettings }
 import { addExternalSubmissionFromClientSub } from "./externalSubmissions.js";
 import { isLinkId } from "@devvit/public-api/types/tid.js";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
-import { recordBanForSummary, recordReportForSummary } from "./modmail/actionSummary.js";
+import { recordBanForSummary } from "./modmail/actionSummary.js";
 import { getUserExtended } from "./extendedDevvit.js";
 import { expireKeyAt, isBanned, isContributor } from "devvit-helpers";
 
@@ -207,7 +207,10 @@ async function handleContentCreation (username: string, currentStatus: UserDetai
         return;
     }
 
-    if (await isContributor(context.reddit, subredditName, user.username)) {
+    const settings = await context.settings.getAll();
+
+    const exemptApprovedUsers = settings[AppSetting.ExemptApprovedUsers] as boolean | undefined ?? true;
+    if (exemptApprovedUsers && await isContributor(context.reddit, subredditName, user.username)) {
         console.log(`Content Create: ${user.username} is allowlisted as an approved user`);
         return;
     }
@@ -217,7 +220,6 @@ async function handleContentCreation (username: string, currentStatus: UserDetai
         return;
     }
 
-    const settings = await context.settings.getAll();
     const [actionToTake] = settings[AppSetting.Action] as ActionType[] | undefined ?? [ActionType.Ban];
 
     const promises: Promise<unknown>[] = [];
@@ -368,21 +370,15 @@ async function checkAndReportPotentialBot (username: string, target: Post | Comm
 
     const targetItem = await getPostOrCommentById(targetId, context);
     const reportContext = `Automatically reported via a [${isLinkId(targetItem.id) ? "post" : "comment"}](${targetItem.permalink}) on /r/${targetItem.subredditName}`;
-    const promises: Promise<unknown>[] = [];
 
-    promises.push(
-        addExternalSubmissionFromClientSub({
-            username: user.username,
-            subreddit: context.subredditName,
-            submitter: currentUser?.username,
-            reportContext,
-            immediate: true,
-            targetId: targetItem.id,
-        }, context),
-        recordReportForSummary(user.username, "automatically", context.redis),
-    );
+    await addExternalSubmissionFromClientSub({
+        username: user.username,
+        subreddit: context.subredditName,
+        submitter: currentUser?.username,
+        reportContext,
+        immediate: true,
+        targetId: targetItem.id,
+    }, context);
 
     console.log(`Created external submission via automated evaluation for ${user.username} for bot style ${botName}`);
-
-    await Promise.allSettled(promises);
 }

@@ -182,7 +182,7 @@ export async function handleControlSubForm (event: FormOnSubmitEvent<JSONObject>
 
 async function handleRegenerateSummary (username: string, post: Post, context: Context) {
     const comment = await post.comments.all();
-    const commentToDelete = comment.find(c => c.authorName === context.appSlug && c.body.startsWith("## Account Properties"));
+    const commentToDelete = comment.find(c => c.authorName === context.appSlug && c.body.includes("## Account Properties"));
 
     if (commentToDelete) {
         await commentToDelete.delete();

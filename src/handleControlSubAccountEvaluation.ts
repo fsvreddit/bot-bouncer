@@ -8,7 +8,7 @@ import { addMonths, addWeeks, subMonths } from "date-fns";
 import { getUserExtended } from "./extendedDevvit.js";
 import _ from "lodash";
 import { getSubmitterSuccessRate } from "./statistics/submitterStatistics.js";
-import { getPostOrCommentById } from "./utility.js";
+import { conditionallyCompressString, conditionallyDecompressString, getPostOrCommentById } from "./utility.js";
 
 export interface EvaluatorStats {
     hitCount: number;
@@ -217,7 +217,7 @@ export async function storeAccountInitialEvaluationResults (username: string, re
     }));
 
     const resultsKey = getEvaluationResultsKey(username);
-    await context.redis.set(resultsKey, JSON.stringify(resultsToStore), { expiration: addMonths(new Date(), 12) });
+    await context.redis.set(resultsKey, conditionallyCompressString(JSON.stringify(resultsToStore)), { expiration: addMonths(new Date(), 12) });
 }
 
 export async function getAccountInitialEvaluationResults (username: string, context: TriggerContext): Promise<EvaluationResult[]> {
@@ -227,7 +227,7 @@ export async function getAccountInitialEvaluationResults (username: string, cont
         return [];
     }
 
-    return JSON.parse(results) as EvaluationResult[];
+    return JSON.parse(conditionallyDecompressString(results)) as EvaluationResult[];
 }
 
 export async function deleteAccountInitialEvaluationResults (username: string, context: TriggerContext) {
