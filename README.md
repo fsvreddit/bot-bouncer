@@ -46,6 +46,13 @@ Users who have been unfairly banned by Bot Bouncer should be encouraged to modma
 
 # Change History
 
+## v1.26.2
+
+* Add configurable option to control whether approved users are exempted from checks or not (turned on by default)#
+* Add optional bot checking on inbound modmail (off by default)
+* New installs look through the last week's worth of reclassifications rather than the last few hours
+* Remove erroneous "reported" entries from modmail summaries
+
 ## v1.25.0
 
 * Fixed issue that could result in posts/comments being removed or reported for users not classified as bots
