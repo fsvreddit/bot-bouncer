@@ -14,7 +14,7 @@ import { expireKeyAt, hMGetAsRecord } from "devvit-helpers";
 
 interface ModmailDataExtract {
     status?: UserStatus[];
-    submitter?: string;
+    submitter?: string[];
     operator?: string;
     usernameRegex?: string;
     bioRegex?: string;
@@ -41,7 +41,7 @@ const schema: JSONSchemaType<ModmailDataExtract> = {
             items: { type: "string", enum: Object.values(UserStatus) },
             nullable: true,
         },
-        submitter: { type: "string", nullable: true },
+        submitter: { type: "array", items: { type: "string" }, nullable: true },
         operator: { type: "string", nullable: true },
         usernameRegex: { type: "string", nullable: true },
         bioRegex: { type: "string", nullable: true },
@@ -192,7 +192,7 @@ export async function dataExtract (message: ModmailMessage, conversationId: stri
     const data = Object.entries(allData)
         .map(([username, data]) => ({ username, data: data as UserDetailsWithBioAndSocialLinks }))
         .filter((entry) => {
-            if (request.submitter && entry.data.submitter !== request.submitter) {
+            if (request.submitter && !request.submitter.includes(entry.data.submitter ?? "")) {
                 return false;
             }
 
