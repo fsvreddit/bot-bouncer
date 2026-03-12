@@ -71,8 +71,9 @@ async function handleBulkItem (username: string, initialStatus: UserStatus, subm
 
     if (initialStatus === UserStatus.Banned) {
         const overrideStatus = await trustedSubmitterInitialStatus(submitter, user, context);
-        if (overrideStatus && initialStatus !== overrideStatus) {
-            initialStatus = overrideStatus;
+        if (overrideStatus === UserStatus.Pending) {
+            console.log(`Bulk submission: Initial status for ${username} is Pending, skipping submission.`);
+            return false;
         }
     }
 
