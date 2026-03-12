@@ -11,6 +11,7 @@ import pluralize from "pluralize";
 import { EvaluationResult, storeAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
 import { ModmailMessage } from "./modmail.js";
 import { getControlSubSettings } from "../settings.js";
+import markdownEscape from "markdown-escape";
 
 interface UserWithDetails {
     username: string;
@@ -120,12 +121,16 @@ export async function handleBulkSubmission (submitter: string, trusted: boolean,
     try {
         data = JSON.parse(message) as BulkSubmission;
     } catch (error) {
+        console.log(`Bulk submission: Error parsing JSON from ${submitter}: ${error}`);
+        const reply: json2md.DataObject[] = [{ p: "Error parsing JSON" }];
+        if (error instanceof Error) {
+            reply.push({ blockquote: markdownEscape(error.message) });
+        } else {
+            reply.push({ blockquote: JSON.stringify(error) });
+        }
         await context.reddit.modMail.reply({
             conversationId,
-            body: json2md([
-                { p: "Error parsing JSON" },
-                { blockquote: error },
-            ]),
+            body: json2md(reply),
             isAuthorHidden: false,
         });
         await context.reddit.modMail.archiveConversation(conversationId);
@@ -140,7 +145,7 @@ export async function handleBulkSubmission (submitter: string, trusted: boolean,
             conversationId,
             body: json2md([
                 { p: "Invalid JSON" },
-                { blockquote: ajv.errorsText(validate.errors) },
+                { blockquote: markdownEscape(ajv.errorsText(validate.errors)) },
             ]),
             isAuthorHidden: false,
         });
