@@ -1,10 +1,9 @@
 import { Post, Comment, TriggerContext, SettingsValues, JSONValue, UserSocialLink } from "@devvit/public-api";
 import { CommentCreate, CommentUpdate, PostCreate } from "@devvit/protos";
-import { ALL_EVALUATORS } from "@fsvreddit/bot-bouncer-evaluation";
 import { addDays, formatDate, subMinutes } from "date-fns";
 import { getUserStatus, UserDetails, UserStatus } from "./dataStore.js";
 import { isUserWhitelisted, recordBan, recordUserContentCreation } from "./handleClientSubredditClassificationChanges.js";
-import { CONTROL_SUBREDDIT } from "./constants.js";
+import { ALL_RELEVANT_EVALUTORS, CONTROL_SUBREDDIT } from "./constants.js";
 import { getPostOrCommentById, getUserOrUndefined, isModeratorWithCache } from "./utility.js";
 import { ActionType, AppSetting, CONFIGURATION_DEFAULTS, getControlSubSettings } from "./settings.js";
 import { addExternalSubmissionFromClientSub } from "./externalSubmissions.js";
@@ -45,7 +44,7 @@ export async function handleClientPostCreate (event: PostCreate, context: Trigge
 
     const post = await context.reddit.getPostById(event.post.id);
     let possibleBot = false;
-    for (const Evaluator of ALL_EVALUATORS) {
+    for (const Evaluator of ALL_RELEVANT_EVALUTORS) {
         const evaluator = new Evaluator(context, undefined, variables);
         if (evaluator.evaluatorDisabled()) {
             continue;
@@ -91,7 +90,7 @@ export async function handleClientCommentCreate (event: CommentCreate, context: 
     const variables = await getEvaluatorVariables(context);
 
     let possibleBot = false;
-    for (const Evaluator of ALL_EVALUATORS) {
+    for (const Evaluator of ALL_RELEVANT_EVALUTORS) {
         const evaluator = new Evaluator(context, undefined, variables);
         if (evaluator.evaluatorDisabled()) {
             continue;
@@ -148,7 +147,7 @@ export async function handleClientCommentUpdate (event: CommentUpdate, context: 
     const variables = await getEvaluatorVariables(context);
 
     let possibleBot = false;
-    for (const Evaluator of ALL_EVALUATORS) {
+    for (const Evaluator of ALL_RELEVANT_EVALUTORS) {
         const evaluator = new Evaluator(context, undefined, variables);
         if (evaluator.evaluatorDisabled()) {
             continue;
@@ -289,7 +288,7 @@ async function checkAndReportPotentialBot (username: string, target: Post | Comm
 
     let socialLinks: UserSocialLink[] | undefined;
 
-    for (const Evaluator of ALL_EVALUATORS) {
+    for (const Evaluator of ALL_RELEVANT_EVALUTORS) {
         const evaluator = new Evaluator(context, socialLinks, variables);
         if (evaluator.evaluatorDisabled()) {
             continue;

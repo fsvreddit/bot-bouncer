@@ -2,10 +2,9 @@ import { JobContext, JSONObject, ScheduledJobEvent } from "@devvit/public-api";
 import { getFullDataStore, UserStatus } from "../dataStore.js";
 import _ from "lodash";
 import { addSeconds, format, subDays } from "date-fns";
-import { CONTROL_SUBREDDIT, ControlSubredditJob } from "../constants.js";
+import { ALL_RELEVANT_EVALUTORS, CONTROL_SUBREDDIT, ControlSubredditJob } from "../constants.js";
 import { EvaluationResult, getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
 import json2md from "json2md";
-import { ALL_EVALUATORS } from "@fsvreddit/bot-bouncer-evaluation";
 import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
 import { FLAGS_TO_EXCLUDE_FROM_STATS } from "../scheduler/sixHourlyJobs.js";
 
@@ -154,7 +153,7 @@ export async function buildEvaluatorAccuracyStatistics (event: ScheduledJobEvent
     const variables = await getEvaluatorVariables(context);
     const existingEvaluators: string[] = [];
     const nonHitKeys: string[] = [];
-    for (const Evaluator of ALL_EVALUATORS) {
+    for (const Evaluator of ALL_RELEVANT_EVALUTORS) {
         const evaluator = new Evaluator(context, undefined, variables);
         if (evaluator.evaluatorDisabled()) {
             continue;
