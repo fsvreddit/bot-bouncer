@@ -1,6 +1,6 @@
 import { JobContext, JSONObject, ScheduledJobEvent, TriggerContext } from "@devvit/public-api";
 import json2md from "json2md";
-import { getUsernameFromUrl } from "../utility.js";
+import { getUsernameFromUrl, getUserOrUndefined } from "../utility.js";
 import pluralize from "pluralize";
 import { addDays, addSeconds } from "date-fns";
 import { CONTROL_SUBREDDIT } from "../constants.js";
@@ -73,6 +73,12 @@ export async function checkAccountsForReview (event: ScheduledJobEvent<JSONObjec
             const message: json2md.DataObject[] = [];
             if (reviewData.reviewRequestedBy) {
                 const username = getUsernameFromUrl(post.url);
+                if (username) {
+                    const user = await getUserOrUndefined(username, context);
+                    if (!user) {
+                        continue;
+                    }
+                }
 
                 message.push({ p: `An account review was requested by /u/${reviewData.reviewRequestedBy ?? "unknown"} for this post: [${post.title}](${post.permalink})` });
                 if (reviewData.reviewReason) {
