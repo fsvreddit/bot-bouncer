@@ -76,6 +76,7 @@ export async function checkAccountsForReview (event: ScheduledJobEvent<JSONObjec
                 if (username) {
                     const user = await getUserOrUndefined(username, context);
                     if (!user) {
+                        console.log(`Account Review: User ${username} is shadowbanned or does not exist, skipping review reminder.`);
                         continue;
                     }
                 }
