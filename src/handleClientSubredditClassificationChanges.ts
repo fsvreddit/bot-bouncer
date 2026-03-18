@@ -71,7 +71,11 @@ async function approveIfNotRemovedByMod (targetId: string, context: TriggerConte
     }
 }
 
-async function handleSetOrganic (username: string, subredditName: string, settings: SettingsValues, context: TriggerContext) {
+async function handleSetOrganic (username: string, subredditName: string, settings: SettingsValues, controlSubSettings: ControlSubSettings, context: TriggerContext) {
+    if (!controlSubSettings.allowUnbans) {
+        return;
+    }
+
     const contentToReinstate: string[] = [];
 
     const removedItems = await context.redis.hGetAll(`removedItems:${username}`);
@@ -125,6 +129,10 @@ async function handleSetOrganic (username: string, subredditName: string, settin
 }
 
 async function handleSetBanned (username: string, subredditName: string, settings: SettingsValues, controlSubSettings: ControlSubSettings, context: TriggerContext) {
+    if (!controlSubSettings.allowBans) {
+        return;
+    }
+
     const isCurrentlyBanned = await isBanned(context.reddit, subredditName, username);
     if (isCurrentlyBanned) {
         console.log(`Classification Update: ${username} is already banned on ${subredditName}.`);
@@ -371,11 +379,11 @@ export async function handleClassificationChanges (event: ScheduledJobEvent<JSON
 
         const status = effectiveStatus(currentStatus);
         if (status === "human") {
-            await handleSetOrganic(username, subredditName, settings, context);
+            await handleSetOrganic(username, subredditName, settings, controlSubSettings, context);
         } else if (status === "bot") {
             await handleSetBanned(username, subredditName, settings, controlSubSettings, context);
         } else if (await isUserInTempDeclineStore(username, context)) {
-            await handleSetOrganic(username, subredditName, settings, context);
+            await handleSetOrganic(username, subredditName, settings, controlSubSettings, context);
         }
 
         await context.redis.zRem(RECLASSIFICATION_QUEUE, [username]);

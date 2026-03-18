@@ -183,6 +183,11 @@ async function handleContentCreation (username: string, currentStatus: UserDetai
         return;
     }
 
+    const controlSubSettings = await getControlSubSettings(context);
+    if (!controlSubSettings.allowBans) {
+        return;
+    }
+
     const userWhitelisted = await isUserWhitelisted(username, context);
     if (userWhitelisted) {
         console.log(`${username} is allowlisted after a previous unban, so will not be actioned.`);
