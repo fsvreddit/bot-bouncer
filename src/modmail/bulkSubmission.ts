@@ -116,6 +116,18 @@ async function handleBulkItem (username: string, initialStatus: UserStatus, subm
 }
 
 export async function handleBulkSubmission (submitter: string, trusted: boolean, conversationId: string, message: string, context: TriggerContext): Promise<boolean> {
+    const controlSubSettings = await getControlSubSettings(context);
+    if (!controlSubSettings.allowNewSubmissions) {
+        console.log(`Bulk submission: New submission from ${submitter} was rejected as new submissions are not currently allowed.`);
+        await context.reddit.modMail.reply({
+            conversationId,
+            body: json2md([{ p: "Bot Bouncer is not currently accepting new submissions." }]),
+            isAuthorHidden: false,
+        });
+        await context.reddit.modMail.archiveConversation(conversationId);
+        return false;
+    }
+
     console.log(`Bulk submission: New submission from ${submitter}`);
     let data: BulkSubmission;
     try {

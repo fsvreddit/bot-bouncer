@@ -143,6 +143,12 @@ export enum PostCreationQueueResult {
 }
 
 export async function queuePostCreation (submission: AsyncSubmission, context: TriggerContext): Promise<PostCreationQueueResult> {
+    const controlSubSettings = await getControlSubSettings(context);
+    if (!controlSubSettings.allowNewSubmissions) {
+        console.log("Post Creation: Post creation queue is disabled in control sub settings.");
+        return PostCreationQueueResult.Error;
+    }
+
     const currentStatus = await getUserStatus(submission.user.username, context);
     if (currentStatus) {
         console.log(`Post Creation: User ${submission.user.username} already has a status of ${currentStatus.userStatus}.`);

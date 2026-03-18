@@ -67,9 +67,14 @@ export async function handleReportUser (event: MenuItemOnPressEvent, context: Co
         return;
     }
 
+    const controlSubSettings = await getControlSubSettings(context);
+    if (!controlSubSettings.allowNewSubmissions) {
+        context.ui.showToast("Bot Bouncer is not currently accepting new submissions.");
+        return;
+    }
+
     const currentStatus = await getUserStatus(target.authorName, context);
     if (currentStatus) {
-        const controlSubSettings = await getControlSubSettings(context);
         const queryableStatuses = [UserStatus.Organic, UserStatus.Declined, UserStatus.Service];
         if (queryableStatuses.includes(currentStatus.userStatus) && controlSubSettings.allowClassificationQueries) {
             context.ui.showForm(queryForm, { username: target.authorName, status: currentStatus.userStatus });
@@ -86,10 +91,7 @@ export async function handleReportUser (event: MenuItemOnPressEvent, context: Co
         return;
     }
 
-    const [controlSubSettings, currentUser] = await Promise.all([
-        getControlSubSettings(context),
-        context.reddit.getCurrentUser(),
-    ]);
+    const currentUser = await context.reddit.getCurrentUser();
 
     if (!currentUser) {
         context.ui.showToast("You must be logged in to report users to Bot Bouncer.");

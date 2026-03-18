@@ -257,6 +257,7 @@ export interface ControlSubSettings {
     allowClassificationQueries?: boolean;
     allowBans?: boolean;
     allowUnbans?: boolean;
+    allowNewSubmissions?: boolean;
     redosCheckerEnabled?: boolean;
     evaluatorVariableUpdatesEnabled?: boolean;
     enableModQueueRemoval?: boolean;
@@ -290,6 +291,7 @@ const schema: JSONSchemaType<ControlSubSettings> = {
         allowClassificationQueries: { type: "boolean", nullable: true },
         allowBans: { type: "boolean", nullable: true },
         allowUnbans: { type: "boolean", nullable: true },
+        allowNewSubmissions: { type: "boolean", nullable: true },
         legacyWikiPageUpdateFrequencyMinutes: { type: "number" },
         redosCheckerEnabled: { type: "boolean", nullable: true },
         evaluatorVariableUpdatesEnabled: { type: "boolean", nullable: true },
