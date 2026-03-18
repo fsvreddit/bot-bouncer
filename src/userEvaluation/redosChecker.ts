@@ -1,6 +1,6 @@
 import { JobContext, JSONObject, ScheduledJobEvent } from "@devvit/public-api";
-import { ControlSubredditJob } from "../constants.js";
-import { ALL_EVALUATORS, EvaluatorRegex } from "@fsvreddit/bot-bouncer-evaluation";
+import { ALL_RELEVANT_EVALUTORS, ControlSubredditJob } from "../constants.js";
+import { EvaluatorRegex } from "@fsvreddit/bot-bouncer-evaluation";
 import { getEvaluatorVariables } from "./evaluatorVariables.js";
 import { addMinutes, addSeconds } from "date-fns";
 import { isSafe } from "redos-detector";
@@ -15,7 +15,7 @@ const REDOS_HITS_KEY = "evaluatorRedosHits";
 async function queueRedosCheckEntries (context: JobContext) {
     const evaluatorVariables = await getEvaluatorVariables(context);
     let entriesAdded = 0;
-    for (const Evaluator of ALL_EVALUATORS) {
+    for (const Evaluator of ALL_RELEVANT_EVALUTORS) {
         const evaluatorInstance = new Evaluator(context, undefined, evaluatorVariables);
         const evaluatorRegexes = evaluatorInstance.gatherRegexes();
         if (evaluatorRegexes.length === 0) {

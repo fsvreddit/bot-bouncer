@@ -1,6 +1,6 @@
 import { JobContext, JSONObject, JSONValue, ScheduledJobEvent, TriggerContext } from "@devvit/public-api";
-import { ALL_EVALUATORS, ValidationIssue, yamlToVariables } from "@fsvreddit/bot-bouncer-evaluation";
-import { CONTROL_SUBREDDIT, ControlSubredditJob } from "../constants.js";
+import { ValidationIssue, yamlToVariables } from "@fsvreddit/bot-bouncer-evaluation";
+import { ALL_RELEVANT_EVALUTORS, CONTROL_SUBREDDIT, ControlSubredditJob } from "../constants.js";
 import _ from "lodash";
 import { compressData, sendMessageToWebhook } from "../utility.js";
 import json2md from "json2md";
@@ -110,7 +110,7 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
 
     const variables = yamlToVariables(yamlStr, extraVariables);
 
-    for (const Evaluator of ALL_EVALUATORS) {
+    for (const Evaluator of ALL_RELEVANT_EVALUTORS) {
         const evaluator = new Evaluator({} as unknown as TriggerContext, undefined, variables);
         const overriddenVariables = evaluator.getVariableOverrides();
         for (const [key, value] of Object.entries(overriddenVariables)) {
@@ -289,7 +289,7 @@ export async function invalidEvaluatorVariableCondition (variables: Record<strin
     }
 
     // Now check evaluator-specific validators
-    for (const Evaluator of ALL_EVALUATORS) {
+    for (const Evaluator of ALL_RELEVANT_EVALUTORS) {
         const evaluator = new Evaluator({} as unknown as TriggerContext, undefined, variables);
         const errors = evaluator.validateVariables();
         if (errors.length > 0) {

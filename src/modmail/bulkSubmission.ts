@@ -11,6 +11,7 @@ import pluralize from "pluralize";
 import { EvaluationResult, storeAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
 import { ModmailMessage } from "./modmail.js";
 import { getControlSubSettings } from "../settings.js";
+import markdownEscape from "markdown-escape";
 
 interface UserWithDetails {
     username: string;
@@ -71,8 +72,9 @@ async function handleBulkItem (username: string, initialStatus: UserStatus, subm
 
     if (initialStatus === UserStatus.Banned) {
         const overrideStatus = await trustedSubmitterInitialStatus(submitter, user, context);
-        if (overrideStatus && initialStatus !== overrideStatus) {
-            initialStatus = overrideStatus;
+        if (overrideStatus === UserStatus.Pending) {
+            console.log(`Bulk submission: Initial status for ${username} is Pending, skipping submission.`);
+            return false;
         }
     }
 
@@ -114,17 +116,33 @@ async function handleBulkItem (username: string, initialStatus: UserStatus, subm
 }
 
 export async function handleBulkSubmission (submitter: string, trusted: boolean, conversationId: string, message: string, context: TriggerContext): Promise<boolean> {
+    const controlSubSettings = await getControlSubSettings(context);
+    if (!controlSubSettings.allowNewSubmissions) {
+        console.log(`Bulk submission: New submission from ${submitter} was rejected as new submissions are not currently allowed.`);
+        await context.reddit.modMail.reply({
+            conversationId,
+            body: json2md([{ p: "Bot Bouncer is not currently accepting new submissions." }]),
+            isAuthorHidden: false,
+        });
+        await context.reddit.modMail.archiveConversation(conversationId);
+        return false;
+    }
+
     console.log(`Bulk submission: New submission from ${submitter}`);
     let data: BulkSubmission;
     try {
         data = JSON.parse(message) as BulkSubmission;
     } catch (error) {
+        console.log(`Bulk submission: Error parsing JSON from ${submitter}: ${error}`);
+        const reply: json2md.DataObject[] = [{ p: "Error parsing JSON" }];
+        if (error instanceof Error) {
+            reply.push({ blockquote: markdownEscape(error.message) });
+        } else {
+            reply.push({ blockquote: JSON.stringify(error) });
+        }
         await context.reddit.modMail.reply({
             conversationId,
-            body: json2md([
-                { p: "Error parsing JSON" },
-                { blockquote: error },
-            ]),
+            body: json2md(reply),
             isAuthorHidden: false,
         });
         await context.reddit.modMail.archiveConversation(conversationId);
@@ -139,7 +157,7 @@ export async function handleBulkSubmission (submitter: string, trusted: boolean,
             conversationId,
             body: json2md([
                 { p: "Invalid JSON" },
-                { blockquote: ajv.errorsText(validate.errors) },
+                { blockquote: markdownEscape(ajv.errorsText(validate.errors)) },
             ]),
             isAuthorHidden: false,
         });

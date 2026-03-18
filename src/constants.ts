@@ -1,3 +1,5 @@
+import { ALL_EVALUATORS, ALL_INTERNAL_EVALUATORS } from "@fsvreddit/bot-bouncer-evaluation";
+
 /**
  * The subreddit that is used for user submissions
  */
@@ -70,3 +72,11 @@ export enum ClientSubredditJob {
     NotifyModTeamOnDemod = "notifyModTeamOnDemod",
     PermissionCheckEnqueue = "permissionCheckEnqueue",
 }
+
+/**
+ * Evaluator helper consts
+ */
+export const ALL_RELEVANT_EVALUTORS = [
+    ...ALL_EVALUATORS,
+    ...ALL_INTERNAL_EVALUATORS,
+];

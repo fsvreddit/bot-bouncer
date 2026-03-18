@@ -7,7 +7,7 @@ import { getControlSubSettings, validateControlSubConfigChange } from "./setting
 import { addDays, addMinutes, addSeconds, subMinutes } from "date-fns";
 import { validateAndSaveAppealConfig } from "./modmail/autoAppealHandling.js";
 import { checkIfStatsNeedUpdating } from "./scheduler/sixHourlyJobs.js";
-import { handleBannedSubredditsModAction } from "./statistics/bannedSubreddits.js";
+import { handleObserverSubsWikiPageCopy } from "./statistics/observerSubWikiPageCopy.js";
 import { isModeratorWithCache, sendMessageToWebhook } from "./utility.js";
 import { getExtendedDevvit } from "devvit-helpers";
 import { getInstallDate } from "./installActions.js";
@@ -91,7 +91,7 @@ async function handleModActionClientSub (event: ModAction, context: TriggerConte
 
     // Special actions for observer subreddits
     if (event.action === "wikirevise" && event.moderator?.name.startsWith(context.appSlug) && event.moderator.name !== context.appSlug && event.moderator.name !== INTERNAL_BOT) {
-        await handleBannedSubredditsModAction(event, context);
+        await handleObserverSubsWikiPageCopy(event, context);
         await handleExternalSubmissionsPageUpdate(context);
     }
 }

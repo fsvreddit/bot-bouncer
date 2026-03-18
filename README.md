@@ -46,6 +46,10 @@ Users who have been unfairly banned by Bot Bouncer should be encouraged to modma
 
 # Change History
 
+## v1.27.0
+
+* Internal changes for finer grained control over settings
+
 ## v1.26.2
 
 * Add configurable option to control whether approved users are exempted from checks or not (turned on by default)#

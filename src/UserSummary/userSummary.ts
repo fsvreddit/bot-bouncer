@@ -11,11 +11,11 @@ import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
 import { EvaluationResult, getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
 import json2md from "json2md";
 import markdownEscape from "markdown-escape";
-import { ALL_EVALUATORS } from "@fsvreddit/bot-bouncer-evaluation";
 import { BIO_TEXT_STORE, getUserStatus } from "../dataStore.js";
 import { getUserSocialLinks } from "devvit-helpers";
 import { getSubmitterSuccessRate } from "../statistics/submitterStatistics.js";
 import { getSummaryExtras } from "./summaryExtras.js";
+import { ALL_RELEVANT_EVALUTORS } from "../constants.js";
 
 function formatDifferenceInDates (start: Date, end: Date) {
     const units: (keyof Duration)[] = ["years", "months", "days"];
@@ -494,10 +494,10 @@ export async function createUserSummary (username: string, postId: string, conte
     console.log(`User Summary: Summary created for ${username}`);
 }
 
-async function evaluatorsMatched (user: UserExtended, userHistory: (Post | Comment)[], evaluatorVariables: Record<string, JSONValue>, context: TriggerContext): Promise<InstanceType<typeof ALL_EVALUATORS[number]>[]> {
-    const evaluatorsMatched: InstanceType<typeof ALL_EVALUATORS[number]>[] = [];
+async function evaluatorsMatched (user: UserExtended, userHistory: (Post | Comment)[], evaluatorVariables: Record<string, JSONValue>, context: TriggerContext): Promise<InstanceType<typeof ALL_RELEVANT_EVALUTORS[number]>[]> {
+    const evaluatorsMatched: InstanceType<typeof ALL_RELEVANT_EVALUTORS[number]>[] = [];
 
-    for (const Evaluator of ALL_EVALUATORS) {
+    for (const Evaluator of ALL_RELEVANT_EVALUTORS) {
         const evaluator = new Evaluator(context, undefined, evaluatorVariables);
         if (evaluator.evaluatorDisabled()) {
             continue;

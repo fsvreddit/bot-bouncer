@@ -63,7 +63,7 @@ export async function checkPermissionQueueItems (event: ScheduledJobEvent<JSONOb
 
         if (!isMod) {
             problemFound.push([
-                { p: `/u/bot-bouncer is not a moderator of ${subredditName}. This means that most functions of Bot Bouncer will not work correctly.` },
+                { p: `/u/bot-bouncer is not a moderator of /r/${subredditName}. This means that most functions of Bot Bouncer will not work correctly.` },
                 { p: `Please check that you have the latest version of Bot Bouncer on your subreddit's [app configuration page](https://developers.reddit.com/r/${subredditName}/apps/bot-bouncer), and then re-invite /u/bot-bouncer to the mod team with full permissions` },
                 { p: "If you no longer wish to use Bot Bouncer, it can be uninstalled from the same page." },
             ]);
@@ -76,7 +76,7 @@ export async function checkPermissionQueueItems (event: ScheduledJobEvent<JSONOb
 
             if (!hasPerms) {
                 problemFound.push([
-                    { p: `/u/bot-bouncer does not have all required moderator permissions in ${subredditName} to work correctly.` },
+                    { p: `/u/bot-bouncer does not have all required moderator permissions in /r/${subredditName} to work correctly.` },
                     { p: `Dev Platform apps must have full moderator permissions to work properly. Please check the permissions and update them as needed.` },
                 ]);
             }
@@ -119,7 +119,7 @@ export async function checkPermissionQueueItems (event: ScheduledJobEvent<JSONOb
         { p: `Hello! During a recent check, Bot Bouncer detected that there is a problem with its moderator permissions in your subreddit, /r/${subredditName}. As a result, some or all of the bot's functionality may not work correctly.` },
         ...problemFound,
         { p: `If you have any questions or need assistance, please message the mods of /r/BotBouncer.` },
-        { p: `*This is an automated message, replies will not be read. You won't receive another notification about this issue unless the permissions change.` },
+        { p: `*This is an automated message, replies will not be read. You won't receive another notification about this issue unless the permissions change.*` },
     ];
 
     await context.reddit.sendPrivateMessage({

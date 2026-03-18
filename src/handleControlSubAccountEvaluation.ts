@@ -1,7 +1,7 @@
 import { Comment, JobContext, JSONObject, JSONValue, Post, ScheduledJobEvent, SubredditInfo, TriggerContext, UserSocialLink } from "@devvit/public-api";
-import { ALL_EVALUATORS, HitReason, UserEvaluatorBase } from "@fsvreddit/bot-bouncer-evaluation";
+import { HitReason, UserEvaluatorBase } from "@fsvreddit/bot-bouncer-evaluation";
 import { getUserStatus, UserStatus } from "./dataStore.js";
-import { CONTROL_SUBREDDIT, PostFlairTemplate } from "./constants.js";
+import { ALL_RELEVANT_EVALUTORS, CONTROL_SUBREDDIT, PostFlairTemplate } from "./constants.js";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { createUserSummary } from "./UserSummary/userSummary.js";
 import { addMonths, addWeeks, subMonths } from "date-fns";
@@ -39,7 +39,7 @@ export async function evaluateUserAccount (options: EvaluateUserAccountOptions, 
     let socialLinks: UserSocialLink[] | undefined;
     const detectedBots: UserEvaluatorBase[] = [];
 
-    for (const Evaluator of ALL_EVALUATORS) {
+    for (const Evaluator of ALL_RELEVANT_EVALUTORS) {
         const evaluator = new Evaluator(context, socialLinks, options.variables);
         if (evaluator.evaluatorDisabled()) {
             continue;
