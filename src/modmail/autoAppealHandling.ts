@@ -26,6 +26,7 @@ interface AppealConfig {
     submitter?: string;
     operator?: string;
     usernameRegex?: string[];
+    "~usernameRegex"?: string[];
     messageBodyRegex?: string[];
     banDateFrom?: string;
     banDateTo?: string;
@@ -63,6 +64,7 @@ const appealConfigSchema: JSONSchemaType<AppealConfig[]> = {
             submitter: { type: "string", nullable: true },
             operator: { type: "string", nullable: true },
             usernameRegex: { type: "array", items: { type: "string" }, nullable: true },
+            "~usernameRegex": { type: "array", items: { type: "string" }, nullable: true },
             messageBodyRegex: { type: "array", items: { type: "string" }, nullable: true },
             banDateFrom: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$", nullable: true },
             banDateTo: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$", nullable: true },
@@ -270,6 +272,10 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
 
     const matchedAppealConfig = appealConfig.find((config) => {
         if (config.usernameRegex && !config.usernameRegex.some(regex => new RegExp(regex, "i").test(username))) {
+            return;
+        }
+
+        if (config["~usernameRegex"]?.some(regex => new RegExp(regex, "i").test(username))) {
             return;
         }
 
