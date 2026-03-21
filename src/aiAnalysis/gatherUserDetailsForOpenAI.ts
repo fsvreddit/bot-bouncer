@@ -20,8 +20,6 @@ export async function getUserInfoForOpenAI (username: string, context: TriggerCo
         sort: "new",
     }).all();
 
-    console.log(`Fetched ${history.length} comments and posts for user ${username}`);
-
     const postInfoMap: Record<string, PostInfo> = {};
     const uniqueCommentPosts = _.uniq(history.filter(item => item instanceof Comment).map(comment => comment.postId));
 
