@@ -22,6 +22,7 @@ import { isBanned } from "devvit-helpers";
 import { handleReversalCommand } from "./evaluatorReversals.js";
 import { handleHighlightedModmail } from "./unhighlighter.js";
 import { getUserExtended } from "../extendedDevvit.js";
+import { generateOpenAISummaryForModmail } from "../aiAnalysis/modmailAnalysis.js";
 
 export function getPossibleSetStatusValues (): string[] {
     return _.uniq([...FLAIR_MAPPINGS.map(entry => entry.postFlair), ...Object.values(UserStatus)]);
@@ -86,6 +87,19 @@ export async function handleControlSubredditModmail (modmail: ModmailMessage, co
         const username = match?.[1] ?? modmail.participant;
         if (username) {
             await addSummaryForUser(modmail.conversationId, username, context);
+            return;
+        }
+    }
+
+    if (modmail.bodyMarkdown.startsWith("!aisummary")) {
+        const regex = /^!aisummary(?: ([\w\d_-]+))?/;
+        const match = regex.exec(modmail.bodyMarkdown);
+        const username = match?.[1] ?? modmail.participant;
+        if (username) {
+            await generateOpenAISummaryForModmail({
+                data: { username, conversationId: modmail.conversationId },
+                name: "generateOpenAISummaryForModmail",
+            }, context);
             return;
         }
     }

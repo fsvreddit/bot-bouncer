@@ -35,6 +35,7 @@ import { checkAccountsForReview } from "./modmail/accountReview.js";
 import { pendingUserFinder } from "./statistics/pendingUserFinder.js";
 import { doBotSleuthBotExtract } from "./botSleuthBotExtract.js";
 import { handleMinutelyJob } from "./scheduler/handleMinutelyJob.js";
+import { generateOpenAISummaryForModmail } from "./aiAnalysis/modmailAnalysis.js";
 
 Devvit.addSettings(appSettings);
 
@@ -253,6 +254,11 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: ControlSubredditJob.BotSleuthBotExtract,
     onRun: doBotSleuthBotExtract,
+});
+
+Devvit.addSchedulerJob({
+    name: ControlSubredditJob.OpenAISummaryForModmail,
+    onRun: generateOpenAISummaryForModmail,
 });
 
 /**

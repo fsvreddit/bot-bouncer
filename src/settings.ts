@@ -61,6 +61,9 @@ export enum AppSetting {
     DigestIncludeBanned = "dailyDigestIncludeBanned",
     DigestIncludeUnbanned = "dailyDigestIncludeUnbanned",
     UpgradeNotifier = "upgradeNotifier",
+
+    // App-scoped secrets
+    OpenAIKey = "openAIKey",
 }
 
 export enum ActionType {
@@ -231,6 +234,13 @@ export const appSettings: SettingsFormField[] = [
                 defaultValue: true,
             },
         ],
+    },
+    {
+        type: "string",
+        label: "OpenAI API Key",
+        name: AppSetting.OpenAIKey,
+        scope: "app",
+        isSecret: true,
     },
 ];
 
