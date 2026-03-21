@@ -59,10 +59,10 @@ export async function generateOpenAISummaryForModmail (event: ScheduledJobEvent<
         return;
     }
 
+    console.log(`AI Summary: Generating OpenAI summary about user ${username}`);
+
     const userInfo = await getUserInfoForOpenAI(username, context);
     const promptData = await getPromptData(context);
-
-    console.log(JSON.stringify(promptData));
 
     const completedPrompt: string[] = [];
     for (const entry of promptData.prompt) {
@@ -95,7 +95,9 @@ export async function generateOpenAISummaryForModmail (event: ScheduledJobEvent<
 
     await context.reddit.modMail.reply({
         conversationId,
-        body: `**OpenAI Summary:**\n\n${result}`,
+        body: `**OpenAI Summary**. Use these results as a guide as they may be inaccurate.\n\n${result}`,
         isInternal: true,
     });
+
+    console.log(`AI Summary: Finished generating OpenAI summary about user ${username}`);
 }

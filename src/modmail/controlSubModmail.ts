@@ -4,14 +4,14 @@ import { getUserStatus, UserStatus } from "../dataStore.js";
 import { getSummaryForUser } from "../UserSummary/userSummary.js";
 import { getUserOrUndefined, isModeratorWithCache } from "../utility.js";
 import { CONFIGURATION_DEFAULTS, getControlSubSettings } from "../settings.js";
-import { addDays, addHours, addWeeks, format, subMinutes } from "date-fns";
+import { addDays, addHours, addSeconds, addWeeks, format, subMinutes } from "date-fns";
 import json2md from "json2md";
 import { ModmailMessage } from "./modmail.js";
 import { dataExtract } from "./dataExtract.js";
 import { addAllUsersFromModmail } from "../similarBioTextFinder/bioTextFinder.js";
 import { markAppealAsHandled } from "../statistics/appealStatistics.js";
 import { statusToFlair } from "../postCreation.js";
-import { CONTROL_SUBREDDIT, INTERNAL_BOT } from "../constants.js";
+import { CONTROL_SUBREDDIT, ControlSubredditJob, INTERNAL_BOT } from "../constants.js";
 import { handleBulkSubmission, retryBulkSubmission } from "./bulkSubmission.js";
 import { handleAppeal } from "./autoAppealHandling.js";
 import { FLAIR_MAPPINGS } from "../handleControlSubFlairUpdate.js";
@@ -310,6 +310,18 @@ async function handleModmailFromUser (modmail: ModmailMessage, context: TriggerC
     }
 
     await handleAppeal(modmail, currentStatus, context);
+
+    if (currentStatus.userStatus === UserStatus.Banned) {
+        await context.scheduler.runJob({
+            name: ControlSubredditJob.OpenAISummaryForModmail,
+            data: {
+                username,
+                conversationId: modmail.conversationId,
+                userMessage: modmail.bodyMarkdown,
+            },
+            runAt: addSeconds(new Date(), 5),
+        });
+    }
 
     await context.redis.set(recentAppealKey, new Date().getTime().toString(), { expiration: addDays(new Date(), 1) });
 }
