@@ -55,6 +55,7 @@ export async function getUserInfoForOpenAI (username: string, context: TriggerCo
                     subredditName: item.subredditName,
                     createdAt: item.createdAt,
                     isTopLevel: isLinkId(item.parentId),
+                    edited: item.edited ? true : undefined,
                     parentPostInfo: postInfoMap[item.postId],
                 };
             } else {
@@ -65,6 +66,8 @@ export async function getUserInfoForOpenAI (username: string, context: TriggerCo
                     subredditName: item.subredditName,
                     createdAt: item.createdAt,
                     url: item.url,
+                    edited: item.edited ? true : undefined,
+                    nsfw: item.nsfw ? true : undefined,
                 };
             }
         }),
