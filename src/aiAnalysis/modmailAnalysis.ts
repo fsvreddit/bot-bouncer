@@ -116,6 +116,10 @@ export async function generateOpenAISummaryForModmail (event: ScheduledJobEvent<
                 if (!note.userNote?.note) {
                     continue;
                 }
+
+                if (!note.userNote.label) {
+                    continue;
+                }
                 bullets.push(`${note.createdAt}: ${note.userNote.note}`);
             }
             if (bullets.length > 0) {
@@ -123,6 +127,9 @@ export async function generateOpenAISummaryForModmail (event: ScheduledJobEvent<
                     { p: "Notes about the user made by moderators:" },
                     { ul: bullets },
                 ];
+                if (modNotes.some(note => note.userNote?.note?.includes("VA"))) {
+                    text.push({ p: "In a mod note, 'VA' stands for 'Virtual Assistant', i.e. someone paid to promote products or services. " });
+                }
                 completedPrompt.push(json2md(text));
             }
 
