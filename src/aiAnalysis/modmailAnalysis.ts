@@ -6,6 +6,7 @@ import _ from "lodash";
 import { EvaluationResult, getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
 import json2md from "json2md";
 import { callOpenAI } from "./openAI.js";
+import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
 
 interface ModmailPromptData {
     model: string;
@@ -32,13 +33,30 @@ async function getPromptData (context: JobContext): Promise<ModmailPromptData> {
     return promptData;
 }
 
-function evaluationResultsToBulletPoints (input: EvaluationResult[]): string[] {
+function evaluationResultsToBulletPoints (input: EvaluationResult[], evaluatorVariables: Record<string, unknown>): string[] {
     const bullets: string[] = [];
     for (const reason of input) {
+        let matchReason: string | undefined;
         if (typeof reason.hitReason === "string") {
-            bullets.push(`${reason.botName}: ${reason.hitReason}`);
+            matchReason = `${reason.botName}: ${reason.hitReason}`;
         } else if (reason.hitReason?.details) {
-            bullets.push(`${reason.botName}: ${reason.hitReason.reason}`);
+            matchReason = `${reason.botName}: ${reason.hitReason.reason}`;
+        }
+
+        if (matchReason) {
+            const keys = Object.keys(evaluatorVariables).filter(key => key.split(":")[1] === "name").map(key => key.split(":")[0]);
+            for (const key of keys) {
+                if (evaluatorVariables[`${key}:name`] === reason.botName) {
+                    const description = evaluatorVariables[`${key}:descriptionForAI`] as string | undefined;
+                    if (description) {
+                        matchReason += ` (${description})`;
+                    }
+                }
+            }
+        }
+
+        if (matchReason) {
+            bullets.push(matchReason);
         }
     }
 
@@ -61,8 +79,16 @@ export async function generateOpenAISummaryForModmail (event: ScheduledJobEvent<
 
     console.log(`AI Summary: Generating OpenAI summary about user ${username}`);
 
-    const userInfo = await getUserInfoForOpenAI(username, context);
-    const promptData = await getPromptData(context);
+    const [userInfo, promptData, modNotes, evaluatorVariables] = await Promise.all([
+        getUserInfoForOpenAI(username, context),
+        getPromptData(context),
+        context.reddit.getModNotes({
+            user: username,
+            subreddit: CONTROL_SUBREDDIT,
+            filter: "NOTE",
+        }).all(),
+        getEvaluatorVariables(context),
+    ]);
 
     const completedPrompt: string[] = [];
     for (const entry of promptData.prompt) {
@@ -72,10 +98,29 @@ export async function generateOpenAISummaryForModmail (event: ScheduledJobEvent<
         if (promptLine.includes("{{initialEvaluationResults}}")) {
             const initialReasons = await getAccountInitialEvaluationResults(username, context);
 
-            const bullets = evaluationResultsToBulletPoints(initialReasons);
+            const bullets = evaluationResultsToBulletPoints(initialReasons, evaluatorVariables);
             if (bullets.length > 0) {
                 const text: json2md.DataObject[] = [
                     { p: "At the point the user was flagged, they were detected by automatic checks for the following reasons:" },
+                    { ul: bullets },
+                ];
+                completedPrompt.push(json2md(text));
+            }
+
+            continue;
+        }
+
+        if (promptLine.includes("{{modNotes}}")) {
+            const bullets: string[] = [];
+            for (const note of modNotes) {
+                if (!note.userNote?.note) {
+                    continue;
+                }
+                bullets.push(`${note.createdAt}: ${note.userNote.note}`);
+            }
+            if (bullets.length > 0) {
+                const text: json2md.DataObject[] = [
+                    { p: "Notes about the user made by moderators:" },
                     { ul: bullets },
                 ];
                 completedPrompt.push(json2md(text));
