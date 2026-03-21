@@ -1,11 +1,11 @@
 /* eslint-disable @stylistic/quote-props */
-import { TriggerContext, UserSocialLink } from "@devvit/public-api";
+import { Comment, Post, TriggerContext, UserSocialLink } from "@devvit/public-api";
 import Ajv, { JSONSchemaType } from "ajv";
 import { BIO_TEXT_STORE, SOCIAL_LINKS_STORE, UserDetails, UserFlag, UserStatus } from "../dataStore.js";
 import { getControlSubSettings } from "../settings.js";
 import { CONTROL_SUBREDDIT } from "../constants.js";
 import { parseAllDocuments } from "yaml";
-import _ from "lodash";
+import _, { countBy } from "lodash";
 import json2md from "json2md";
 import { sendMessageToWebhook } from "../utility.js";
 import { ModmailMessage } from "./modmail.js";
@@ -40,6 +40,7 @@ interface AppealConfig {
     originalSocialLinkRegex?: string[];
     flags?: UserFlag[];
     "~flags"?: UserFlag[];
+    hasMoreThanOneCommentOnPost?: boolean;
     setStatus?: string;
     privateReply?: string;
     reply?: string;
@@ -78,6 +79,7 @@ const appealConfigSchema: JSONSchemaType<AppealConfig[]> = {
             originalSocialLinkRegex: { type: "array", items: { type: "string" }, nullable: true },
             flags: { type: "array", items: { type: "string", enum: Object.values(UserFlag) }, nullable: true },
             "~flags": { type: "array", items: { type: "string", enum: Object.values(UserFlag) }, nullable: true },
+            hasMoreThanOneCommentOnPost: { type: "boolean", nullable: true },
             setStatus: { type: "string", enum: getPossibleSetStatusValues(), nullable: true },
             privateReply: { type: "string", nullable: true },
             reply: { type: "string", nullable: true },
@@ -270,6 +272,16 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
     const originalSocialLinks = await context.redis.hGet(SOCIAL_LINKS_STORE, username.toLowerCase())
         .then(data => data ? JSON.parse(data) as UserSocialLink[] : []);
 
+    let history: (Post | Comment)[] = [];
+
+    if (appealConfig.some(config => config.hasMoreThanOneCommentOnPost)) {
+        history = await context.reddit.getCommentsAndPostsByUser({
+            username,
+            limit: 100,
+            sort: "new",
+        }).all();
+    }
+
     const matchedAppealConfig = appealConfig.find((config) => {
         if (config.usernameRegex && !config.usernameRegex.some(regex => new RegExp(regex, "i").test(username))) {
             return;
@@ -387,6 +399,15 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
 
         if (config["~flags"]) {
             if (userDetails.flags && config["~flags"].some(flag => userDetails.flags?.includes(flag))) {
+                return;
+            }
+        }
+
+        if (config.hasMoreThanOneCommentOnPost !== undefined) {
+            const commentsPerPost = countBy(history.filter(item => item instanceof Comment).map(comment => comment.postId));
+            const hasMoreThanOneCommentOnPost = Object.values(commentsPerPost).some(count => count > 1);
+
+            if (config.hasMoreThanOneCommentOnPost !== hasMoreThanOneCommentOnPost) {
                 return;
             }
         }
