@@ -12,7 +12,7 @@ import { ModmailMessage } from "./modmail.js";
 import { getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
 import { getUserExtended } from "../extendedDevvit.js";
 import { statusToFlair } from "../postCreation.js";
-import { addMinutes, differenceInMonths, format, getYear } from "date-fns";
+import { addMinutes, addSeconds, differenceInMonths, format, getYear } from "date-fns";
 import { getPossibleSetStatusValues } from "./controlSubModmail.js";
 import { getUserSocialLinks } from "devvit-helpers";
 import { sendMessageOnDelay } from "./delayedSend.js";
@@ -479,11 +479,11 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
                 replyMessage += "*This is an automated response. Please allow 24 hours for a response but we will aim to respond sooner.*";
             }
 
-            await context.reddit.modMail.reply({
+            await sendMessageOnDelay(context, {
                 conversationId: modmail.conversationId,
-                body: replyMessage,
-                isInternal: false,
-                isAuthorHidden: true,
+                message: replyMessage,
+                archive: appealOutcome.archive,
+                sendAt: addSeconds(new Date(), 20),
             });
         }
     }
@@ -510,9 +510,5 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
 
     if (appealOutcome.highlight) {
         await context.reddit.modMail.highlightConversation(modmail.conversationId);
-    }
-
-    if (appealOutcome.archive && !appealOutcome.replyDelay) {
-        await context.reddit.modMail.archiveConversation(modmail.conversationId);
     }
 }

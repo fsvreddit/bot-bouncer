@@ -153,13 +153,15 @@ export async function handleControlSubFlairUpdate (event: PostFlairUpdate, conte
 
     const post = await context.reddit.getPostById(event.post.id);
 
-    // Look for Account Properties comment and delete it.
+    // Look for Account Properties/OpenAI Summary comment and delete it.
     if (postFlair !== UserStatus.Pending) {
         const comment = await post.comments.all();
-        const commentToDelete = comment.find(c => c.authorName === context.appSlug && c.body.includes("## Account Properties"));
+        const commentToDelete = comment.filter(c => c.authorName === context.appSlug && (c.body.includes("## Account Properties") || c.body.startsWith("**OpenAI Summary**")));
 
-        if (commentToDelete) {
-            await commentToDelete.delete();
+        if (commentToDelete.length > 0) {
+            for (const c of commentToDelete) {
+                await c.delete();
+            }
         }
 
         if (post.numberOfReports > 0) {

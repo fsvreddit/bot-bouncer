@@ -264,6 +264,7 @@ export interface ControlSubSettings {
     observerSubreddits?: string[];
     postCreationQueueProcessingEnabled?: boolean;
     postCreationQueueAlertLevel?: number;
+    createAISummaryOnNewPosts?: boolean;
     allowClassificationQueries?: boolean;
     allowBans?: boolean;
     allowUnbans?: boolean;
@@ -298,6 +299,7 @@ const schema: JSONSchemaType<ControlSubSettings> = {
         observerSubreddits: { type: "array", items: { type: "string" }, nullable: true },
         postCreationQueueProcessingEnabled: { type: "boolean", nullable: true },
         postCreationQueueAlertLevel: { type: "number", nullable: true },
+        createAISummaryOnNewPosts: { type: "boolean", nullable: true },
         allowClassificationQueries: { type: "boolean", nullable: true },
         allowBans: { type: "boolean", nullable: true },
         allowUnbans: { type: "boolean", nullable: true },

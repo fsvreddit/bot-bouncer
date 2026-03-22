@@ -22,7 +22,7 @@ import { isBanned } from "devvit-helpers";
 import { handleReversalCommand } from "./evaluatorReversals.js";
 import { handleHighlightedModmail } from "./unhighlighter.js";
 import { getUserExtended } from "../extendedDevvit.js";
-import { generateOpenAISummaryForModmail } from "../aiAnalysis/modmailAnalysis.js";
+import { generateOpenAISummary } from "../aiAnalysis/createAISummary.js";
 
 export function getPossibleSetStatusValues (): string[] {
     return _.uniq([...FLAIR_MAPPINGS.map(entry => entry.postFlair), ...Object.values(UserStatus)]);
@@ -96,7 +96,7 @@ export async function handleControlSubredditModmail (modmail: ModmailMessage, co
         const match = regex.exec(modmail.bodyMarkdown);
         const username = match?.[1] ?? modmail.participant;
         if (username) {
-            await generateOpenAISummaryForModmail({
+            await generateOpenAISummary({
                 data: { username, conversationId: modmail.conversationId },
                 name: "generateOpenAISummaryForModmail",
             }, context);
@@ -313,7 +313,7 @@ async function handleModmailFromUser (modmail: ModmailMessage, context: TriggerC
 
     if (currentStatus.userStatus === UserStatus.Banned) {
         await context.scheduler.runJob({
-            name: ControlSubredditJob.OpenAISummaryForModmail,
+            name: ControlSubredditJob.OpenAISummary,
             data: {
                 username,
                 conversationId: modmail.conversationId,

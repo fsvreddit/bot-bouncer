@@ -1,14 +1,15 @@
 import { Comment, JobContext, JSONObject, JSONValue, Post, ScheduledJobEvent, SubredditInfo, TriggerContext, UserSocialLink } from "@devvit/public-api";
 import { HitReason, UserEvaluatorBase } from "@fsvreddit/bot-bouncer-evaluation";
 import { getUserStatus, UserStatus } from "./dataStore.js";
-import { ALL_RELEVANT_EVALUTORS, CONTROL_SUBREDDIT, PostFlairTemplate } from "./constants.js";
+import { ALL_RELEVANT_EVALUTORS, CONTROL_SUBREDDIT, ControlSubredditJob, PostFlairTemplate } from "./constants.js";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { createUserSummary } from "./UserSummary/userSummary.js";
-import { addMonths, addWeeks, subMonths } from "date-fns";
+import { addMonths, addSeconds, addWeeks, subMonths } from "date-fns";
 import { getUserExtended } from "./extendedDevvit.js";
 import _ from "lodash";
 import { getSubmitterSuccessRate } from "./statistics/submitterStatistics.js";
 import { conditionallyCompressString, conditionallyDecompressString, getPostOrCommentById } from "./utility.js";
+import { getControlSubSettings } from "./settings.js";
 
 export interface EvaluatorStats {
     hitCount: number;
@@ -170,6 +171,17 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
         await context.reddit.report(post, { reason: reportReason });
         if (!event.data?.skipSummary) {
             await createUserSummary(username, postId, context);
+            const controlSubSettings = await getControlSubSettings(context);
+            if (controlSubSettings.createAISummaryOnNewPosts) {
+                await context.scheduler.runJob({
+                    name: ControlSubredditJob.OpenAISummary,
+                    data: {
+                        username,
+                        postId,
+                    },
+                    runAt: addSeconds(new Date(), 50),
+                });
+            }
         }
         return;
     }

@@ -83,17 +83,36 @@ function evaluationResultsToBulletPoints (input: EvaluationResult[], evaluatorVa
     return bullets;
 }
 
-export async function generateOpenAISummaryForModmail (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
+export async function createResponse (opts: { conversationId?: string; postId?: string; output: string }, context: JobContext) {
+    const { conversationId, postId, output } = opts;
+    if (conversationId) {
+        await context.reddit.modMail.reply({
+            conversationId,
+            body: output,
+            isInternal: true,
+        });
+    }
+    if (postId) {
+        const newComment = await context.reddit.submitComment({
+            id: postId,
+            text: output,
+        });
+        await newComment.remove();
+    }
+}
+
+export async function generateOpenAISummary (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
-        console.error(`generateOpenAISummaryForModmail should only run on subreddit ${CONTROL_SUBREDDIT}, but is running on ${context.subredditName}`);
+        console.error(`generateOpenAISummary should only run on subreddit ${CONTROL_SUBREDDIT}, but is running on ${context.subredditName}`);
         return;
     }
 
     const username = event.data?.username as string | undefined;
     const conversationId = event.data?.conversationId as string | undefined;
+    const postId = event.data?.postId as string | undefined;
 
-    if (!username || !conversationId) {
-        console.error("Missing username or conversationId in job event data");
+    if (!username || (!conversationId && !postId)) {
+        console.error("Missing username or conversationId/postId in job event data");
         return;
     }
 
@@ -105,14 +124,15 @@ export async function generateOpenAISummaryForModmail (event: ScheduledJobEvent<
     } catch (error) {
         console.error("Error getting prompt data", error);
         const errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
-        await context.reddit.modMail.reply({
+        await createResponse({
             conversationId,
-            body: json2md([
+            postId,
+            output: json2md([
+                { p: "**OpenAI Summary**. Use these results as a guide as they may be inaccurate." },
                 { p: "Error generating OpenAI summary: unable to load prompt data. Please contact the developers to resolve this issue." },
                 { blockquote: errorMessage },
             ]),
-            isInternal: true,
-        });
+        }, context);
         return;
     }
 
@@ -125,6 +145,18 @@ export async function generateOpenAISummaryForModmail (event: ScheduledJobEvent<
         }).all(),
         getEvaluatorVariables(context),
     ]);
+
+    if (userInfo.history.length === 0) {
+        await createResponse({
+            conversationId,
+            postId,
+            output: json2md([
+                { p: "**OpenAI Summary**." },
+                { p: "This user has no posts or comments visible on their profile, so no useful summary can be generated." },
+            ]),
+        }, context);
+        return;
+    }
 
     const completedPrompt: string[] = [];
     for (const entry of promptData.prompt) {
@@ -184,11 +216,11 @@ export async function generateOpenAISummaryForModmail (event: ScheduledJobEvent<
         prompt: completedPrompt.join("\n\n"),
     }, context);
 
-    await context.reddit.modMail.reply({
+    await createResponse({
         conversationId,
-        body: `**OpenAI Summary**. Use these results as a guide as they may be inaccurate.\n\n${result}`,
-        isInternal: true,
-    });
+        postId,
+        output: `**OpenAI Summary**. Use these results as a guide as they may be inaccurate.\n\n${result}`,
+    }, context);
 
     console.log(`AI Summary: Finished generating OpenAI summary about user ${username}`);
 }
