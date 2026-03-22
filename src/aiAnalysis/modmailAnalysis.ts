@@ -7,12 +7,24 @@ import { EvaluationResult, getAccountInitialEvaluationResults } from "../handleC
 import json2md from "json2md";
 import { callOpenAI } from "./openAI.js";
 import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
+import Ajv, { JSONSchemaType } from "ajv";
 
 interface ModmailPromptData {
     model: string;
     temperature?: number;
     prompt: string[];
 }
+
+const promptSchema: JSONSchemaType<ModmailPromptData> = {
+    type: "object",
+    properties: {
+        model: { type: "string" },
+        temperature: { type: "number", nullable: true },
+        prompt: { type: "array", items: { type: "string" } },
+    },
+    required: ["model", "prompt"],
+    additionalProperties: false,
+};
 
 async function getPromptData (context: JobContext): Promise<ModmailPromptData> {
     const promptCacheKey = "modmailSummaryPrompt";
@@ -29,6 +41,14 @@ async function getPromptData (context: JobContext): Promise<ModmailPromptData> {
     }
 
     const promptData = content[0];
+
+    const ajv = new Ajv.default();
+    const validate = ajv.compile(promptSchema);
+    if (!validate(promptData)) {
+        console.error("Prompt validation failed", validate.errors);
+        throw new Error(`Prompt validation failed: ${ajv.errorsText(validate.errors)}`);
+    }
+
     await context.redis.set(promptCacheKey, JSON.stringify(promptData));
     return promptData;
 }
@@ -79,9 +99,25 @@ export async function generateOpenAISummaryForModmail (event: ScheduledJobEvent<
 
     console.log(`AI Summary: Generating OpenAI summary about user ${username}`);
 
-    const [userInfo, promptData, modNotes, evaluatorVariables] = await Promise.all([
+    let promptData: ModmailPromptData;
+    try {
+        promptData = await getPromptData(context);
+    } catch (error) {
+        console.error("Error getting prompt data", error);
+        const errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
+        await context.reddit.modMail.reply({
+            conversationId,
+            body: json2md([
+                { p: "Error generating OpenAI summary: unable to load prompt data. Please contact the developers to resolve this issue." },
+                { blockquote: errorMessage },
+            ]),
+            isInternal: true,
+        });
+        return;
+    }
+
+    const [userInfo, modNotes, evaluatorVariables] = await Promise.all([
         getUserInfoForOpenAI(username, context),
-        getPromptData(context),
         context.reddit.getModNotes({
             user: username,
             subreddit: CONTROL_SUBREDDIT,
@@ -129,6 +165,9 @@ export async function generateOpenAISummaryForModmail (event: ScheduledJobEvent<
                 ];
                 if (modNotes.some(note => note.userNote?.note?.includes("VA"))) {
                     text.push({ p: "In a mod note, 'VA' stands for 'Virtual Assistant', i.e. someone paid to promote products or services. " });
+                }
+                if (modNotes.some(note => note.userNote?.note?.includes("AE"))) {
+                    text.push({ p: "In a mod note, 'AE' stands for AliExpress. " });
                 }
                 completedPrompt.push(json2md(text));
             }
