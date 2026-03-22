@@ -156,7 +156,7 @@ export async function handleControlSubFlairUpdate (event: PostFlairUpdate, conte
     // Look for Account Properties/OpenAI Summary comment and delete it.
     if (postFlair !== UserStatus.Pending) {
         const comment = await post.comments.all();
-        const commentToDelete = comment.filter(c => c.authorName === context.appSlug && (c.body.includes("## Account Properties") || c.body.startsWith("**OpenAI Summary**")));
+        const commentToDelete = comment.filter(c => c.authorName === context.appSlug && (c.body.includes("## Account Properties") || c.body.trim().startsWith("**OpenAI Summary**")));
 
         if (commentToDelete.length > 0) {
             for (const c of commentToDelete) {
