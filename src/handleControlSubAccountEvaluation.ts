@@ -178,6 +178,7 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
                     data: {
                         username,
                         postId,
+                        minContentItemsNeeded: 10,
                     },
                     runAt: addSeconds(new Date(), 50),
                 });

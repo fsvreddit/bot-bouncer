@@ -110,6 +110,7 @@ export async function generateOpenAISummary (event: ScheduledJobEvent<JSONObject
     const username = event.data?.username as string | undefined;
     const conversationId = event.data?.conversationId as string | undefined;
     const postId = event.data?.postId as string | undefined;
+    const minContentItemsNeeded = event.data?.minContentItemsNeeded as number | undefined ?? 5;
 
     if (!username || (!conversationId && !postId)) {
         console.error("Missing username or conversationId/postId in job event data");
@@ -146,13 +147,13 @@ export async function generateOpenAISummary (event: ScheduledJobEvent<JSONObject
         getEvaluatorVariables(context),
     ]);
 
-    if (userInfo.history.length === 0) {
+    if (userInfo.history.length < minContentItemsNeeded) {
         await createResponse({
             conversationId,
             postId,
             output: json2md([
                 { p: "**OpenAI Summary**." },
-                { p: "This user has no posts or comments visible on their profile, so no useful summary can be generated." },
+                { p: `This user has fewer than ${minContentItemsNeeded} posts or comments visible on their profile, so no useful summary can be generated.` },
             ]),
         }, context);
         return;
