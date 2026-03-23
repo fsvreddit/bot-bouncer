@@ -12,7 +12,7 @@ import Ajv, { JSONSchemaType } from "ajv";
 interface ModmailPromptData {
     model: string;
     temperature?: number;
-    prompt: string[];
+    prompt: string;
 }
 
 const promptSchema: JSONSchemaType<ModmailPromptData> = {
@@ -20,7 +20,7 @@ const promptSchema: JSONSchemaType<ModmailPromptData> = {
     properties: {
         model: { type: "string" },
         temperature: { type: "number", nullable: true },
-        prompt: { type: "array", items: { type: "string" } },
+        prompt: { type: "string" },
     },
     required: ["model", "prompt"],
     additionalProperties: false,
@@ -160,9 +160,8 @@ export async function generateOpenAISummary (event: ScheduledJobEvent<JSONObject
     }
 
     const completedPrompt: string[] = [];
-    for (const entry of promptData.prompt) {
-        let promptLine = entry.replaceAll("{{username}}", username);
-        promptLine = promptLine.replaceAll("{{userInfo}}", JSON.stringify(userInfo));
+    for (const entry of promptData.prompt.split("\n").map(line => line.trim())) {
+        const promptLine = entry.replaceAll("{{username}}", username);
 
         if (promptLine.includes("{{initialEvaluationResults}}")) {
             const initialReasons = await getAccountInitialEvaluationResults(username, context);
@@ -210,6 +209,8 @@ export async function generateOpenAISummary (event: ScheduledJobEvent<JSONObject
 
         completedPrompt.push(promptLine);
     }
+
+    completedPrompt.push(JSON.stringify(userInfo));
 
     const result = await callOpenAI({
         model: promptData.model,
