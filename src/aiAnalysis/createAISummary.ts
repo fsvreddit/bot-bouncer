@@ -8,6 +8,7 @@ import json2md from "json2md";
 import { callOpenAI } from "./openAI.js";
 import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
 import Ajv, { JSONSchemaType } from "ajv";
+import { addMinutes } from "date-fns";
 
 interface ModmailPromptData {
     model: string;
@@ -117,6 +118,18 @@ export async function generateOpenAISummary (event: ScheduledJobEvent<JSONObject
         return;
     }
 
+    const cacheKey = `aiSummary:${username}`;
+    const cachedSummary = await context.redis.get(cacheKey);
+    if (cachedSummary) {
+        console.log(`AI Summary: Using cached summary for user ${username}`);
+        await createResponse({
+            conversationId,
+            postId,
+            output: `**OpenAI Summary**. Use these results as a guide as they may be inaccurate.\n\n${cachedSummary}`,
+        }, context);
+        return;
+    }
+
     console.log(`AI Summary: Generating OpenAI summary about user ${username}`);
 
     let promptData: ModmailPromptData;
@@ -217,6 +230,8 @@ export async function generateOpenAISummary (event: ScheduledJobEvent<JSONObject
         temperature: promptData.temperature,
         prompt: completedPrompt.join("\n\n"),
     }, context);
+
+    await context.redis.set(cacheKey, result, { expiration: addMinutes(new Date(), 30) });
 
     await createResponse({
         conversationId,
