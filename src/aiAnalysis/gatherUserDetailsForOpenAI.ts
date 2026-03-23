@@ -50,6 +50,7 @@ export async function getUserInfoForOpenAI (username: string, context: TriggerCo
                 return {
                     type: "comment",
                     content: item.body,
+                    karma: item.score,
                     subredditName: item.subredditName,
                     createdAt: item.createdAt,
                     isTopLevel: isLinkId(item.parentId),
@@ -61,9 +62,11 @@ export async function getUserInfoForOpenAI (username: string, context: TriggerCo
                     type: "post",
                     title: item.title,
                     content: item.body,
+                    karma: item.score,
                     subredditName: item.subredditName,
                     createdAt: item.createdAt,
                     url: item.url,
+                    isPinnedToProfile: item.stickied ? true : undefined,
                     edited: item.edited ? true : undefined,
                     nsfw: item.nsfw ? true : undefined,
                 };
