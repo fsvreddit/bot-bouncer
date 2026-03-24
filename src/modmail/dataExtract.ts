@@ -453,6 +453,7 @@ async function createDataExtract (
         });
 
         await context.redis.del(getExtractTempStoreKey(extractId), getExtractTempQueueKey(extractId));
+        return;
     }
 
     const rawData = await context.redis.hGetAll(getExtractTempStoreKey(extractId));
