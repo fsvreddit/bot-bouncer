@@ -204,7 +204,7 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
     const userStatus = await getUserStatus(extendedUser?.username ?? username, context);
     const summary: json2md.DataObject[] = [];
 
-    const altSources = `[archive.org](https://web.archive.org/web/${getYear(new Date())}0000000000*/https://www.reddit.com/user/${username}) | [Pushshift](https://shiruken.github.io/chearch/?kind=comment&author=${username}&limit=100) | [Arctic Shift](https://fsvreddit.github.io/arcticredir/?author=${username}&type=posts)`;
+    const altSources = `Archive.org: [sh.reddit](https://web.archive.org/web/${getYear(new Date())}0000000000*/https://www.reddit.com/user/${username}), [old.reddit](https://web.archive.org/web/${getYear(new Date())}0000000000*/https://old.reddit.com/user/${username}) | [Pushshift](https://shiruken.github.io/chearch/?kind=comment&author=${username}&limit=100) | [Arctic Shift](https://fsvreddit.github.io/arcticredir/?author=${username}&type=posts)`;
 
     if (userStatus && source === "modmail") {
         const post = await context.reddit.getPostById(userStatus.trackingPostId);
