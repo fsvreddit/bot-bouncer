@@ -1,5 +1,5 @@
-import { JobContext, JSONObject, ScheduledJobEvent } from "@devvit/public-api";
-import { CONTROL_SUBREDDIT } from "../constants.js";
+import { JobContext, JSONObject, JSONValue, ScheduledJobEvent } from "@devvit/public-api";
+import { CONTROL_SUBREDDIT, ControlSubredditJob } from "../constants.js";
 import { getUserInfoForOpenAI } from "./gatherUserDetailsForOpenAI.js";
 import { parseAllDocuments } from "yaml";
 import _ from "lodash";
@@ -8,7 +8,7 @@ import json2md from "json2md";
 import { callOpenAI } from "./openAI.js";
 import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
 import Ajv, { JSONSchemaType } from "ajv";
-import { addMinutes } from "date-fns";
+import { addHours } from "date-fns";
 
 interface ModmailPromptData {
     model: string;
@@ -225,13 +225,57 @@ export async function generateOpenAISummary (event: ScheduledJobEvent<JSONObject
 
     completedPrompt.push(JSON.stringify(userInfo));
 
-    const result = await callOpenAI({
+    const jobData: Record<string, JSONValue> = {
+        username,
         model: promptData.model,
-        temperature: promptData.temperature,
         prompt: completedPrompt.join("\n\n"),
+    };
+
+    if (postId) {
+        jobData.postId = postId;
+    }
+
+    if (conversationId) {
+        jobData.conversationId = conversationId;
+    }
+
+    if (promptData.temperature !== undefined) {
+        jobData.temperature = promptData.temperature;
+    }
+
+    await context.scheduler.runJob({
+        name: ControlSubredditJob.OpenAISummaryLookup,
+        data: jobData,
+        runAt: new Date(),
+    });
+}
+
+export async function openAISummaryLookupAndRespond (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
+    if (context.subredditName !== CONTROL_SUBREDDIT) {
+        console.error(`openAISummaryLookupAndRespond should only run on subreddit ${CONTROL_SUBREDDIT}, but is running on ${context.subredditName}`);
+        return;
+    }
+
+    const username = event.data?.username as string | undefined;
+    const conversationId = event.data?.conversationId as string | undefined;
+    const postId = event.data?.postId as string | undefined;
+    const model = event.data?.model as string | undefined;
+    const temperature = event.data?.temperature as number | undefined;
+    const prompt = event.data?.prompt as string | undefined;
+
+    if (!username || !prompt || (!conversationId && !postId)) {
+        console.error("Missing username, promp or conversationId/postId in job event data");
+        return;
+    }
+
+    const result = await callOpenAI({
+        model,
+        temperature,
+        prompt,
     }, context);
 
-    await context.redis.set(cacheKey, result, { expiration: addMinutes(new Date(), 30) });
+    const cacheKey = `aiSummary:${username}`;
+    await context.redis.set(cacheKey, result, { expiration: addHours(new Date(), 6) });
 
     await createResponse({
         conversationId,

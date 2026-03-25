@@ -35,7 +35,7 @@ import { checkAccountsForReview } from "./modmail/accountReview.js";
 import { pendingUserFinder } from "./statistics/pendingUserFinder.js";
 import { doBotSleuthBotExtract } from "./botSleuthBotExtract.js";
 import { handleMinutelyJob } from "./scheduler/handleMinutelyJob.js";
-import { generateOpenAISummary } from "./aiAnalysis/createAISummary.js";
+import { generateOpenAISummary, openAISummaryLookupAndRespond } from "./aiAnalysis/createAISummary.js";
 
 Devvit.addSettings(appSettings);
 
@@ -257,8 +257,13 @@ Devvit.addSchedulerJob({
 });
 
 Devvit.addSchedulerJob({
-    name: ControlSubredditJob.OpenAISummary,
+    name: ControlSubredditJob.OpenAISummaryGather,
     onRun: generateOpenAISummary,
+});
+
+Devvit.addSchedulerJob({
+    name: ControlSubredditJob.OpenAISummaryLookup,
+    onRun: openAISummaryLookupAndRespond,
 });
 
 /**

@@ -58,7 +58,8 @@ export enum ControlSubredditJob {
     AccountReview = "accountReview",
     PendingUserFinder = "pendingUserFinder",
     BotSleuthBotExtract = "botSleuthBotExtract",
-    OpenAISummary = "openAISummary",
+    OpenAISummaryGather = "openAISummary",
+    OpenAISummaryLookup = "openAISummaryLookup",
 }
 
 /**

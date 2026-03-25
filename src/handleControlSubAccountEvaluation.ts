@@ -174,7 +174,7 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
             const controlSubSettings = await getControlSubSettings(context);
             if (controlSubSettings.createAISummaryOnNewPosts) {
                 await context.scheduler.runJob({
-                    name: ControlSubredditJob.OpenAISummary,
+                    name: ControlSubredditJob.OpenAISummaryGather,
                     data: {
                         username,
                         postId,

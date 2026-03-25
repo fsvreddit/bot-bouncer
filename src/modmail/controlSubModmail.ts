@@ -313,7 +313,7 @@ async function handleModmailFromUser (modmail: ModmailMessage, context: TriggerC
 
     if (currentStatus.userStatus === UserStatus.Banned) {
         await context.scheduler.runJob({
-            name: ControlSubredditJob.OpenAISummary,
+            name: ControlSubredditJob.OpenAISummaryGather,
             data: {
                 username,
                 conversationId: modmail.conversationId,
