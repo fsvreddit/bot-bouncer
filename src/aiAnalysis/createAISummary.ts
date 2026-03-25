@@ -125,7 +125,7 @@ export async function generateOpenAISummary (event: ScheduledJobEvent<JSONObject
         await createResponse({
             conversationId,
             postId,
-            output: `**OpenAI Summary**. Use these results as a guide as they may be inaccurate.\n\n${cachedSummary}`,
+            output: `**OpenAI Summary**. Use these results as a guide as they may be inaccurate. **Note**: This is a cached summary, not live.\n\n${cachedSummary}`,
         }, context);
         return;
     }
