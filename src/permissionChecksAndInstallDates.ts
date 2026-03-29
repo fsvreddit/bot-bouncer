@@ -101,6 +101,9 @@ export async function checkPermissionQueueItems (event: ScheduledJobEvent<JSONOb
                 data: { firstRun: false },
             });
         }
+
+        await recordInstallDate(subredditName, context);
+
         return;
     }
 
@@ -166,6 +169,8 @@ async function buildInstalledSubredditsReport (context: TriggerContext) {
         return;
     }
 
+    await context.redis.set(reportLastUpdatedKey, "", { expiration: addHours(new Date(), 6) });
+
     const subsNotCheckedRecently = await context.redis.zRange(INSTALL_DATES_LAST_CHECKED_KEY, 0, subWeeks(new Date(), 1).getTime(), { by: "score" });
 
     if (subsNotCheckedRecently.length > 0) {
@@ -204,6 +209,4 @@ async function buildInstalledSubredditsReport (context: TriggerContext) {
     });
 
     console.log("Install Dates: Updated installed subreddits report.");
-
-    await context.redis.set(reportLastUpdatedKey, "", { expiration: addHours(new Date(), 6) });
 }
