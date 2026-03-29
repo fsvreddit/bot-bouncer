@@ -2,7 +2,7 @@ import { TriggerContext, CreateModNoteOptions, UserSocialLink, TxClientLike, Red
 import _ from "lodash";
 import { setCleanupForSubmittersAndMods, setCleanupForUser } from "./cleanup.js";
 import { CONTROL_SUBREDDIT } from "./constants.js";
-import { addHours, addMinutes, subDays, subHours } from "date-fns";
+import { addDays, addHours, addMinutes, subDays, subHours } from "date-fns";
 import pluralize from "pluralize";
 import { getControlSubSettings } from "./settings.js";
 import { isCommentId, isLinkId } from "@devvit/public-api/types/tid.js";
@@ -189,13 +189,18 @@ export async function setUserStatus (username: string, details: UserDetails, con
     await writeUserStatus(username, details, context);
 
     if (context.subredditName === CONTROL_SUBREDDIT) {
+        let overrideDate: Date | undefined;
         if (details.userStatus === UserStatus.Pending && !currentStatus) {
-            await setCleanupForUser(username, context.redis, addMinutes(new Date(), 2));
+            overrideDate = addMinutes(new Date(), 2);
         } else if (details.userStatus === UserStatus.Pending || details.userStatus === UserStatus.Purged || details.userStatus === UserStatus.Retired) {
-            await setCleanupForUser(username, context.redis, addHours(new Date(), 1));
-        } else {
-            await setCleanupForUser(username, context.redis);
+            overrideDate = addHours(new Date(), 1);
+        } else if (details.flags?.includes(UserFlag.FutureNSFW)) {
+            overrideDate = addDays(new Date(), 7);
+        } else if (details.userStatus === UserStatus.Inactive) {
+            overrideDate = addDays(new Date(), 7);
         }
+
+        await setCleanupForUser(username, context.redis, overrideDate);
 
         const submittersAndMods = _.uniq(_.compact([details.submitter, details.operator]));
         await setCleanupForSubmittersAndMods(submittersAndMods, context);
