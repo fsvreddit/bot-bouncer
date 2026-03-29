@@ -32,7 +32,6 @@ export enum UserStatus {
     Organic = "organic",
     Purged = "purged",
     Retired = "retired",
-    Declined = "declined",
     Inactive = "inactive",
 }
 
@@ -44,10 +43,10 @@ export enum UserFlag {
 }
 
 const eligibleFlagsForStatus: Record<UserFlag, UserStatus[]> = {
-    [UserFlag.HackedAndRecovered]: [UserStatus.Pending, UserStatus.Organic, UserStatus.Declined],
-    [UserFlag.Scammed]: [UserStatus.Pending, UserStatus.Organic, UserStatus.Declined],
+    [UserFlag.HackedAndRecovered]: [UserStatus.Pending, UserStatus.Organic],
+    [UserFlag.Scammed]: [UserStatus.Pending, UserStatus.Organic],
     [UserFlag.Locked]: [UserStatus.Banned],
-    [UserFlag.FutureNSFW]: [UserStatus.Organic, UserStatus.Declined],
+    [UserFlag.FutureNSFW]: [UserStatus.Organic],
 };
 
 export interface UserDetails {
@@ -170,7 +169,6 @@ export async function setUserStatus (username: string, details: UserDetails, con
         UserStatus.Banned,
         UserStatus.Service,
         UserStatus.Organic,
-        UserStatus.Declined,
     ];
 
     if (currentStatus?.userStatus && statusesForLastStatusCopy.includes(currentStatus.userStatus)) {

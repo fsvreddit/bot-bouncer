@@ -302,7 +302,7 @@ function effectiveStatus (userDetails?: UserDetails): "human" | "bot" | undefine
         return;
     }
 
-    if (userDetails.userStatus === UserStatus.Organic || userDetails.userStatus === UserStatus.Declined || userDetails.userStatus === UserStatus.Service || userDetails.userStatus === UserStatus.Inactive) {
+    if (userDetails.userStatus === UserStatus.Organic || userDetails.userStatus === UserStatus.Service || userDetails.userStatus === UserStatus.Inactive) {
         return "human";
     }
 

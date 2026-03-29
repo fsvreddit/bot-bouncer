@@ -15,7 +15,6 @@ export const statusToFlair: Record<UserStatus, PostFlairTemplate> = {
     [UserStatus.Organic]: PostFlairTemplate.Organic,
     [UserStatus.Purged]: PostFlairTemplate.Purged,
     [UserStatus.Retired]: PostFlairTemplate.Retired,
-    [UserStatus.Declined]: PostFlairTemplate.Declined,
     [UserStatus.Inactive]: PostFlairTemplate.Inactive,
 };
 

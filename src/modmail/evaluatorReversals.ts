@@ -117,7 +117,7 @@ export async function classificationReversalsJob (event: ScheduledJobEvent<JSONO
             await context.reddit.setPostFlair({
                 subredditName: CONTROL_SUBREDDIT,
                 postId: userStatus.trackingPostId,
-                flairTemplateId: PostFlairTemplate.Declined,
+                flairTemplateId: PostFlairTemplate.Organic,
             });
             await addToReversalsQueue(username, 7, context);
 
@@ -333,13 +333,13 @@ export async function deleteRecordsForRemovedUsers (_: unknown, context: JobCont
         processedCount++;
 
         const userStatus = await getUserStatus(username, context);
-        if (userStatus?.userStatus !== UserStatus.Declined) {
+        if (userStatus?.userStatus !== UserStatus.Organic) {
             continue;
         }
 
         const txn = await context.redis.watch();
         await txn.multi();
-        await updateAggregate(UserStatus.Declined, -1, txn);
+        await updateAggregate(userStatus.userStatus, -1, txn);
         await txn.zRem(CLEANUP_LOG_KEY, [username]);
         await txn.exec();
 

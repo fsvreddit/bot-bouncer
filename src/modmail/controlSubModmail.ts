@@ -236,7 +236,7 @@ async function handleModmailFromUser (modmail: ModmailMessage, context: TriggerC
         return;
     }
 
-    if (modmail.subject.startsWith(`Ban dispute for /u/${username}`) && (currentStatus.userStatus === UserStatus.Organic || currentStatus.userStatus === UserStatus.Declined)) {
+    if (modmail.subject.startsWith(`Ban dispute for /u/${username}`) && (currentStatus.userStatus === UserStatus.Organic)) {
         console.log(`Modmail: /u/${username} is appealing a ban, but is currently marked as human. Sending reply.`);
         const message: json2md.DataObject[] = [
             { p: `Hi /u/${username},` },

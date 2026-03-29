@@ -75,7 +75,7 @@ export async function handleReportUser (event: MenuItemOnPressEvent, context: Co
 
     const currentStatus = await getUserStatus(target.authorName, context);
     if (currentStatus) {
-        const queryableStatuses = [UserStatus.Organic, UserStatus.Declined, UserStatus.Service];
+        const queryableStatuses = [UserStatus.Organic, UserStatus.Service];
         if (queryableStatuses.includes(currentStatus.userStatus) && controlSubSettings.allowClassificationQueries) {
             context.ui.showForm(queryForm, { username: target.authorName, status: currentStatus.userStatus });
             return;

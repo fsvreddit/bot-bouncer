@@ -33,7 +33,7 @@ export async function updateUsernameStatistics (allEntries: StatsUserEntry[], co
             rows.push([
                 `\`${regexForRow}\``,
                 entriesMatchingRegex.length.toLocaleString(),
-                `${Math.round(100 * entriesMatchingRegex.filter(item => item.data.userStatus === UserStatus.Organic || item.data.userStatus === UserStatus.Declined).length / entriesMatchingRegex.length)}%`,
+                `${Math.round(100 * entriesMatchingRegex.filter(item => item.data.userStatus === UserStatus.Organic).length / entriesMatchingRegex.length)}%`,
                 entriesMatchingRegex.filter(item => item.data.userStatus === UserStatus.Organic)
                     .slice(0, 5)
                     .map(item => `/u/${item.username}`)
