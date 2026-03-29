@@ -41,6 +41,7 @@ export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, contex
         "BioTextQueue",
         "BioTextStatsTempStore",
         "BioTextStatsCounts",
+        "installedSubredditsReportLastUpdated",
     ];
 
     await context.redis.del(...obsoleteKeys);

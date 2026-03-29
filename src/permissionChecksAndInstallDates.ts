@@ -154,10 +154,6 @@ async function recordInstallDate (subredditName: string, context: TriggerContext
         return;
     }
 
-    if (await context.redis.hGet(PERMISSION_MESSAGE_SENT_HASH, subredditName)) {
-        return;
-    }
-
     await context.redis.zAdd(INSTALL_DATES_KEY, { member: subredditName, score: Date.now() });
     console.log(`Install Dates: Recorded install date for /r/${subredditName}.`);
     await buildInstalledSubredditsReport(context);
@@ -178,7 +174,9 @@ async function buildInstalledSubredditsReport (context: TriggerContext) {
         await context.redis.zRem(INSTALL_DATES_LAST_CHECKED_KEY, subsNotCheckedRecently.map(sub => sub.member));
     }
 
-    const installedSubs = await context.redis.zRange(INSTALL_DATES_KEY, Date.now(), subWeeks(new Date(), 1).getTime(), { by: "score", reverse: true });
+    const installedSubs = await context.redis.zRange(INSTALL_DATES_KEY, subWeeks(new Date(), 1).getTime(), Date.now(), { by: "score", reverse: true });
+    // Sort by score (install date) descending
+    installedSubs.sort((a, b) => b.score - a.score);
 
     const report: json2md.DataObject[] = [
         { p: "This page shows the list of subreddits that have installed Bot Bouncer in the last week." },
