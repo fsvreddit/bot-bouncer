@@ -1,5 +1,5 @@
 import { JobContext, JSONObject, ScheduledJobEvent, TriggerContext } from "@devvit/public-api";
-import { addDays, addHours, addMinutes, addSeconds, format, subWeeks } from "date-fns";
+import { addDays, addHours, addMinutes, addSeconds, format, max, subWeeks } from "date-fns";
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "./constants.js";
 import { hasPermissions, hMGetAsRecord, isModerator } from "devvit-helpers";
 import json2md from "json2md";
@@ -174,19 +174,24 @@ async function buildInstalledSubredditsReport (context: TriggerContext) {
         await context.redis.zRem(INSTALL_DATES_LAST_CHECKED_KEY, subsNotCheckedRecently.map(sub => sub.member));
     }
 
-    const installedSubs = await context.redis.zRange(INSTALL_DATES_KEY, subWeeks(new Date(), 1).getTime(), Date.now(), { by: "score", reverse: true });
+    const startDateForReport = max([
+        subWeeks(new Date(), 1),
+        new Date(2026, 2, 30, 16, 0, 0),
+    ]);
+
+    const installedSubs = await context.redis.zRange(INSTALL_DATES_KEY, startDateForReport.getTime(), Date.now(), { by: "score", reverse: true });
     // Sort by score (install date) descending
     installedSubs.sort((a, b) => b.score - a.score);
 
     const report: json2md.DataObject[] = [
         { p: "This page shows the list of subreddits that have installed Bot Bouncer in the last week." },
-        { p: "This report will be inaccurate until April 6 2026 due to the mechanism by which install dates are recorded." },
+        { p: "Report covers new installs made since March 30, 2026 at 16:00 UTC." },
     ];
 
     const permissionIssues = await hMGetAsRecord(context.redis, PERMISSION_MESSAGE_SENT_HASH, installedSubs.map(sub => sub.member));
 
     const rows = installedSubs.map(sub => [
-        sub.member,
+        `r/${sub.member}`,
         format(sub.score, "yyyy-MM-dd HH:mm"),
         permissionIssues[sub.member] ? "Yes" : "",
     ]);
