@@ -421,8 +421,9 @@ export async function continueDataExtract (event: ScheduledJobEvent<JSONObject |
         await context.redis.hDel(getExtractTempStoreKey(extractId), Array.from(entriesToRemove));
     }
 
-    if (entriesToRewrite.size > 0) {
-        const rewrittenData = _.fromPairs(Array.from(entriesToRewrite).map(username => [username, JSON.stringify(data[username])]));
+    const actualEntriesToRewrite = Array.from(entriesToRewrite).filter(username => !entriesToRemove.has(username));
+    if (actualEntriesToRewrite.length > 0) {
+        const rewrittenData = _.fromPairs(actualEntriesToRewrite.map(username => [username, JSON.stringify(data[username])]));
         await context.redis.hSet(getExtractTempStoreKey(extractId), rewrittenData);
     }
 
