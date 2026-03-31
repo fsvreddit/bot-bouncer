@@ -1,5 +1,5 @@
 import { JobContext, JSONObject, ScheduledJobEvent, TriggerContext } from "@devvit/public-api";
-import { addDays, addHours, addMinutes, addSeconds, format, max, subWeeks } from "date-fns";
+import { addDays, addHours, addMinutes, addSeconds, format, max, subDays, subWeeks } from "date-fns";
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "./constants.js";
 import { hasPermissions, hMGetAsRecord, isModerator } from "devvit-helpers";
 import json2md from "json2md";
@@ -172,7 +172,8 @@ async function buildInstalledSubredditsReport (context: TriggerContext) {
 
     await context.redis.set(reportLastUpdatedKey, "", { expiration: addHours(new Date(), 6) });
 
-    const subsNotCheckedRecently = await context.redis.zRange(INSTALL_DATES_LAST_CHECKED_KEY, 0, subWeeks(new Date(), 1).getTime(), { by: "score" });
+    // Checks are run weekly, so remove subs that are likely now uninstalled.
+    const subsNotCheckedRecently = await context.redis.zRange(INSTALL_DATES_LAST_CHECKED_KEY, 0, subDays(new Date(), 9).getTime(), { by: "score" });
 
     if (subsNotCheckedRecently.length > 0) {
         await context.redis.zRem(INSTALL_DATES_KEY, subsNotCheckedRecently.map(sub => sub.member));
@@ -181,7 +182,7 @@ async function buildInstalledSubredditsReport (context: TriggerContext) {
 
     const startDateForReport = max([
         subWeeks(new Date(), 1),
-        new Date(2026, 2, 30, 16, 0, 0),
+        new Date(2026, 3, 5, 16, 0, 0),
     ]);
 
     const installedSubs = await context.redis.zRange(INSTALL_DATES_KEY, startDateForReport.getTime(), Date.now(), { by: "score", reverse: true });
@@ -190,7 +191,7 @@ async function buildInstalledSubredditsReport (context: TriggerContext) {
 
     const report: json2md.DataObject[] = [
         { p: "This page shows the list of subreddits that have installed Bot Bouncer in the last week." },
-        { p: "Report covers new installs made since March 30, 2026 at 16:00 UTC." },
+        { p: "Report covers new installs made since April 5, 2026 at 16:00 UTC." },
     ];
 
     const permissionIssues = await hMGetAsRecord(context.redis, PERMISSION_MESSAGE_SENT_HASH, installedSubs.map(sub => sub.member));
@@ -205,6 +206,19 @@ async function buildInstalledSubredditsReport (context: TriggerContext) {
         table: {
             headers: ["Subreddit", "Install Date", "Permission Issues Detected"],
             rows,
+        },
+    });
+
+    report.push({ h3: "Subreddits with known issues with permissions" });
+    report.push({ p: "All subs other than those that have been banned will have been notified of their permissions issues via modmail." });
+
+    report.push({
+        table: {
+            headers: ["Subreddit", "Issue Detected"],
+            rows: Object.entries(permissionIssues).map(([subreddit, issue]) => [
+                `r/${subreddit}`,
+                issue === "true" ? "unknown issue" : issue,
+            ]),
         },
     });
 
