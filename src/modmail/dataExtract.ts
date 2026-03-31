@@ -531,6 +531,9 @@ async function createDataExtract (
         markdown.push({ ul: criteriaBullets });
     }
 
+    markdown.push({ p: "Extract command:" });
+    markdown.push({ code: { content: `!extract ${JSON.stringify(request)}` } });
+
     if (data.length > 0 && request.status?.includes(UserStatus.Banned) && request.since && new Date(request.since) > subDays(new Date(), 7)) {
         // Generate a random four-character string for reversing classifications
         const randomString = Math.random().toString(36).substring(2, 6);
