@@ -567,8 +567,8 @@ async function createDataExtract (
             `[${entry.username}](https://www.reddit.com/user/${entry.username})`,
             `https://redd.it/${entry.data.trackingPostId.substring(3)}`,
             entry.data.userStatus,
-            entry.data.reportedAt ? format(new Date(entry.data.reportedAt), "yyyy-MM-dd") : "",
-            entry.data.lastUpdate ? format(new Date(entry.data.lastUpdate), "yyyy-MM-dd") : "",
+            entry.data.reportedAt ? format(new Date(entry.data.reportedAt), "yyyy-MM-dd HH:mm") : "",
+            entry.data.lastUpdate ? format(new Date(entry.data.lastUpdate), "yyyy-MM-dd HH:mm") : "",
         ];
 
         if (!request.omitUserDetails) {
