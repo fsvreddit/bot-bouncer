@@ -1,7 +1,7 @@
 import { JobContext, JSONObject, ScheduledJobEvent, TriggerContext } from "@devvit/public-api";
 import { addDays, addHours, addMinutes, addSeconds, format, max, subDays, subWeeks } from "date-fns";
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "./constants.js";
-import { hasPermissions, isModerator } from "devvit-helpers";
+import { hasPermissions, hMGetAsRecord, isModerator } from "devvit-helpers";
 import json2md from "json2md";
 
 const PERMISSION_CHECKS_QUEUE = "permissionChecksQueue";
@@ -194,7 +194,7 @@ async function buildInstalledSubredditsReport (context: TriggerContext) {
         { p: "Report covers new installs made since April 5, 2026 at 16:00 UTC." },
     ];
 
-    const permissionIssues = await context.redis.hGetAll(PERMISSION_MESSAGE_SENT_HASH);
+    const permissionIssues = await hMGetAsRecord(context.redis, PERMISSION_MESSAGE_SENT_HASH, installedSubs.map(sub => sub.member));
 
     const rows = installedSubs.map(sub => [
         `r/${sub.member}`,
@@ -206,19 +206,6 @@ async function buildInstalledSubredditsReport (context: TriggerContext) {
         table: {
             headers: ["Subreddit", "Install Date", "Permission Issues Detected"],
             rows,
-        },
-    });
-
-    report.push({ h3: "Subreddits with known issues with permissions" });
-    report.push({ p: "All subs other than those that have been banned will have been notified of their permissions issues via modmail." });
-
-    report.push({
-        table: {
-            headers: ["Subreddit", "Issue Detected"],
-            rows: Object.entries(permissionIssues).map(([subreddit, issue]) => [
-                `r/${subreddit}`,
-                issue === "true" ? "unknown issue" : issue,
-            ]),
         },
     });
 
