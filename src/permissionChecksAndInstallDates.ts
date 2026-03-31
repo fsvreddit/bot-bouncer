@@ -1,7 +1,7 @@
 import { JobContext, JSONObject, ScheduledJobEvent, TriggerContext } from "@devvit/public-api";
 import { addDays, addHours, addMinutes, addSeconds, format, max, subDays, subWeeks } from "date-fns";
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "./constants.js";
-import { hasPermissions, hMGetAsRecord, isModerator } from "devvit-helpers";
+import { hasPermissions, isModerator } from "devvit-helpers";
 import json2md from "json2md";
 
 const PERMISSION_CHECKS_QUEUE = "permissionChecksQueue";
@@ -194,7 +194,7 @@ async function buildInstalledSubredditsReport (context: TriggerContext) {
         { p: "Report covers new installs made since April 5, 2026 at 16:00 UTC." },
     ];
 
-    const permissionIssues = await hMGetAsRecord(context.redis, PERMISSION_MESSAGE_SENT_HASH, installedSubs.map(sub => sub.member));
+    const permissionIssues = await context.redis.hGetAll(PERMISSION_MESSAGE_SENT_HASH);
 
     const rows = installedSubs.map(sub => [
         `r/${sub.member}`,
