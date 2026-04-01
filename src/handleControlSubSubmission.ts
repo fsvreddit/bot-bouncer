@@ -193,6 +193,8 @@ export async function handleControlSubPostCreate (event: PostCreate, context: Tr
     try {
         const submission: AsyncSubmission = {
             user: await getUserExtendedFromUser(user, context),
+            submitter: event.author.name,
+            reportContext: event.post.selftext ? event.post.selftext.trim() : undefined,
             details: newDetails,
             commentToAdd: contextComment,
             removeComment: contextComment !== undefined ? true : undefined,

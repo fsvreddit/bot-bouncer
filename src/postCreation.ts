@@ -23,6 +23,7 @@ const SUBMISSION_DETAILS = "submissionDetails";
 
 export interface AsyncSubmission {
     user: UserExtended;
+    submitter?: string;
     details: UserDetails;
     commentToAdd?: string;
     removeComment?: boolean;
@@ -31,6 +32,7 @@ export interface AsyncSubmission {
         comment: string;
     };
     immediate: boolean;
+    reportContext?: string;
     evaluatorsChecked: boolean;
 }
 
@@ -132,6 +134,18 @@ async function createNewSubmission (submission: AsyncSubmission, context: Trigge
     }
 
     console.log(`Post Creation: Created new post for ${submission.user.username} with status ${submission.details.userStatus}.`);
+
+    if (submission.reportContext && submission.reportContext.trim().length > 0) {
+        let modNoteText = submission.submitter ? `u/${submission.submitter} reported: ${submission.reportContext.trim()}` : `Report context: ${submission.reportContext.trim()}`;
+        if (modNoteText.length > 250) {
+            modNoteText = modNoteText.substring(0, 247) + "...";
+        }
+        await context.reddit.addModNote({
+            user: submission.user.username,
+            subreddit: CONTROL_SUBREDDIT,
+            note: modNoteText,
+        });
+    }
 }
 
 export enum PostCreationQueueResult {

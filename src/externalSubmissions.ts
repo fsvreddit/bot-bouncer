@@ -155,6 +155,7 @@ export async function addExternalSubmissionToPostCreationQueue (item: ExternalSu
 
     const submission: AsyncSubmission = {
         user: await getUserExtendedFromUser(user, context),
+        submitter: item.submitter,
         details: {
             userStatus: initialStatus,
             lastUpdate: new Date().getTime(),
@@ -166,6 +167,7 @@ export async function addExternalSubmissionToPostCreationQueue (item: ExternalSu
         immediate,
         commentToAdd,
         removeComment: item.publicContext === false,
+        reportContext: item.reportContext,
         evaluatorsChecked: item.evaluationResults !== undefined && item.evaluationResults.length > 0,
     };
 
