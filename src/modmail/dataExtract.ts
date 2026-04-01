@@ -38,7 +38,7 @@ const schema: JSONSchemaType<ModmailDataExtract> = {
     properties: {
         status: {
             type: "array",
-            items: { type: "string", enum: Object.values(UserStatus) },
+            items: { type: "string", enum: [...Object.values(UserStatus), "declined"] },
             nullable: true,
         },
         submitter: { type: "array", items: { type: "string" }, nullable: true },
