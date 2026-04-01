@@ -1,58 +1,12 @@
 import { JobContext, JSONObject, JSONValue, ScheduledJobEvent } from "@devvit/public-api";
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "../constants.js";
 import { getUserInfoForOpenAI } from "./gatherUserDetailsForOpenAI.js";
-import { parseAllDocuments } from "yaml";
-import _ from "lodash";
 import { EvaluationResult, getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
 import json2md from "json2md";
 import { callOpenAI } from "./openAI.js";
 import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
-import Ajv, { JSONSchemaType } from "ajv";
 import { addHours } from "date-fns";
-
-interface ModmailPromptData {
-    model: string;
-    temperature?: number;
-    prompt: string;
-}
-
-const promptSchema: JSONSchemaType<ModmailPromptData> = {
-    type: "object",
-    properties: {
-        model: { type: "string" },
-        temperature: { type: "number", nullable: true },
-        prompt: { type: "string" },
-    },
-    required: ["model", "prompt"],
-    additionalProperties: false,
-};
-
-async function getPromptData (context: JobContext): Promise<ModmailPromptData> {
-    const promptCacheKey = "modmailSummaryPrompt";
-    const cachedPrompt = await context.redis.get(promptCacheKey);
-    if (cachedPrompt) {
-        return JSON.parse(cachedPrompt) as ModmailPromptData;
-    }
-
-    const wikiPage = await context.reddit.getWikiPage(CONTROL_SUBREDDIT, "prompts/modmail-summary");
-    const content = _.compact(parseAllDocuments(wikiPage.content).map(doc => doc.toJSON() as ModmailPromptData));
-
-    if (content.length === 0) {
-        throw new Error("No valid prompt data found in wiki page");
-    }
-
-    const promptData = content[0];
-
-    const ajv = new Ajv.default();
-    const validate = ajv.compile(promptSchema);
-    if (!validate(promptData)) {
-        console.error("Prompt validation failed", validate.errors);
-        throw new Error(`Prompt validation failed: ${ajv.errorsText(validate.errors)}`);
-    }
-
-    await context.redis.set(promptCacheKey, JSON.stringify(promptData));
-    return promptData;
-}
+import { getPromptData, PromptData } from "./common.js";
 
 function evaluationResultsToBulletPoints (input: EvaluationResult[], evaluatorVariables: Record<string, unknown>): string[] {
     const bullets: string[] = [];
@@ -132,9 +86,9 @@ export async function generateOpenAISummary (event: ScheduledJobEvent<JSONObject
 
     console.log(`AI Summary: Generating OpenAI summary about user ${username}`);
 
-    let promptData: ModmailPromptData;
+    let promptData: PromptData;
     try {
-        promptData = await getPromptData(context);
+        promptData = await getPromptData("prompts/modmail-summary", context);
     } catch (error) {
         console.error("Error getting prompt data", error);
         const errorMessage = error instanceof Error ? error.message : JSON.stringify(error);

@@ -23,6 +23,7 @@ import { handleReversalCommand } from "./evaluatorReversals.js";
 import { handleHighlightedModmail } from "./unhighlighter.js";
 import { getUserExtended } from "../extendedDevvit.js";
 import { generateOpenAISummary } from "../aiAnalysis/createAISummary.js";
+import { handleAskAI } from "../aiAnalysis/askAI.js";
 
 export function getPossibleSetStatusValues (): string[] {
     return _.uniq([...FLAIR_MAPPINGS.map(entry => entry.postFlair), ...Object.values(UserStatus)]);
@@ -106,6 +107,11 @@ export async function handleControlSubredditModmail (modmail: ModmailMessage, co
 
     if (modmail.bodyMarkdown.startsWith("!checkban") && modmail.participant) {
         await checkBanOnSub(modmail, context);
+        return;
+    }
+
+    if (modmail.bodyMarkdown.startsWith("!askai")) {
+        await handleAskAI(modmail, context);
         return;
     }
 
