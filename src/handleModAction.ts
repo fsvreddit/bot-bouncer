@@ -131,7 +131,7 @@ async function handleModActionControlSub (event: ModAction, context: TriggerCont
             ]);
         }
 
-        await context.redis.del("modmailSummaryPrompt");
+        await context.redis.del("aiPromptCache");
     }
 
     /**

@@ -22,8 +22,8 @@ const promptSchema: JSONSchemaType<PromptData> = {
 };
 
 export async function getPromptData (wikiPageName: string, context: JobContext | TriggerContext): Promise<PromptData> {
-    const promptCacheKey = "modmailSummaryPrompt";
-    const cachedPrompt = await context.redis.get(promptCacheKey);
+    const promptCacheKey = "aiPromptCache";
+    const cachedPrompt = await context.redis.hGet(promptCacheKey, wikiPageName);
     if (cachedPrompt) {
         return JSON.parse(cachedPrompt) as PromptData;
     }
@@ -44,6 +44,6 @@ export async function getPromptData (wikiPageName: string, context: JobContext |
         throw new Error(`Prompt validation failed: ${ajv.errorsText(validate.errors)}`);
     }
 
-    await context.redis.set(promptCacheKey, JSON.stringify(promptData));
+    await context.redis.hSet(promptCacheKey, { [wikiPageName]: JSON.stringify(promptData) });
     return promptData;
 }
