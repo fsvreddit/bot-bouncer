@@ -135,8 +135,8 @@ async function createNewSubmission (submission: AsyncSubmission, context: Trigge
 
     console.log(`Post Creation: Created new post for ${submission.user.username} with status ${submission.details.userStatus}.`);
 
-    if (submission.reportContext && submission.reportContext.trim().length > 0) {
-        let modNoteText = submission.submitter ? `u/${submission.submitter} reported: ${submission.reportContext.trim()}` : `Report context: ${submission.reportContext.trim()}`;
+    if (submission.reportContext && submission.submitter && submission.reportContext.trim().length > 0) {
+        let modNoteText = `u/${submission.submitter} reported: ${submission.reportContext.trim()}`;
         if (modNoteText.length > 250) {
             modNoteText = modNoteText.substring(0, 247) + "...";
         }
