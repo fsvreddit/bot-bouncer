@@ -28,15 +28,9 @@ export async function handleClientPostCreate (event: PostCreate, context: Trigge
         return;
     }
 
-    const settings = await context.settings.getAll();
-
     const currentStatus = await getUserStatus(event.author.name, context);
     if (currentStatus) {
         await handleContentCreation(event.author.name, currentStatus, event.post.id, context);
-        return;
-    }
-
-    if (!settings[AppSetting.ReportPotentialBots]) {
         return;
     }
 
@@ -57,6 +51,7 @@ export async function handleClientPostCreate (event: PostCreate, context: Trigge
     }
 
     if (possibleBot) {
+        const settings = await context.settings.getAll();
         await checkAndReportPotentialBot(event.author.name, post, settings, variables, context);
     }
 }
@@ -79,11 +74,6 @@ export async function handleClientCommentCreate (event: CommentCreate, context: 
     const currentStatus = await getUserStatus(event.author.name, context);
     if (currentStatus) {
         await handleContentCreation(event.author.name, currentStatus, event.comment.id, context);
-        return;
-    }
-
-    const settings = await context.settings.getAll();
-    if (!settings[AppSetting.ReportPotentialBots]) {
         return;
     }
 
@@ -116,6 +106,7 @@ export async function handleClientCommentCreate (event: CommentCreate, context: 
         }
     }
 
+    const settings = await context.settings.getAll();
     await checkAndReportPotentialBot(event.author.name, event, settings, variables, context);
 
     await context.redis.set(redisKey, new Date().getTime().toString(), { expiration: addDays(new Date(), 2) });
@@ -136,11 +127,6 @@ export async function handleClientCommentUpdate (event: CommentUpdate, context: 
 
     const currentStatus = await getUserStatus(event.author.name, context);
     if (currentStatus) {
-        return;
-    }
-
-    const settings = await context.settings.getAll();
-    if (!settings[AppSetting.ReportPotentialBots]) {
         return;
     }
 
@@ -173,6 +159,7 @@ export async function handleClientCommentUpdate (event: CommentUpdate, context: 
         }
     }
 
+    const settings = await context.settings.getAll();
     await checkAndReportPotentialBot(event.author.name, event, settings, variables, context);
 
     await context.redis.set(redisKey, new Date().getTime().toString(), { expiration: addDays(new Date(), 2) });

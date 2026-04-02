@@ -50,7 +50,6 @@ export enum AppSetting {
     BanMessage = "banMessage",
     AutoWhitelist = "autoWhitelist",
     ExemptApprovedUsers = "exemptApprovedUsers",
-    ReportPotentialBots = "reportPotentialBots",
     AddModNoteOnClassificationChange = "addModNoteOnClassificationChange",
     ModmailNote = "clientModmailNote",
     AddModmailIfNotBannedYet = "addModmailIfNotBannedYet",
@@ -154,20 +153,6 @@ export const appSettings: SettingsFormField[] = [
                 label: "Add a private moderator note if a user listed on /r/BotBouncer sends a modmail but isn't currently banned",
                 helpText: "If this is turned on, when a user that is listed on /r/BotBouncer sends a message to modmail, if they aren't currently banned, the app will add a private moderator note to the conversation.",
                 defaultValue: false,
-            },
-        ],
-    },
-    {
-        type: "group",
-        label: "Local bot detection",
-        helpText: "Options relating to detecting and reporting bots on your subreddit",
-        fields: [
-            {
-                type: "boolean",
-                name: AppSetting.ReportPotentialBots,
-                label: "Report potential bots to /r/BotBouncer",
-                helpText: "Automatically reports newly detected bots to /r/BotBouncer",
-                defaultValue: true,
             },
         ],
     },
