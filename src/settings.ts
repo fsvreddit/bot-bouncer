@@ -54,6 +54,7 @@ export enum AppSetting {
     ModmailNote = "clientModmailNote",
     AddModmailIfNotBannedYet = "addModmailIfNotBannedYet",
     Digest = "dailyDigest",
+    DigestNewMessageEachDay = "dailyDigestNewMessageEachDay",
     DigestFrequency = "dailyDigestFrequency",
     DigestAsModNotification = "dailyDigestAsModNotification",
     DigestIncludeReported = "dailyDigestIncludeReported",
@@ -166,6 +167,13 @@ export const appSettings: SettingsFormField[] = [
                 name: AppSetting.Digest,
                 helpText: "If enabled, you will receive a daily message with a summary of actions taken by Bot Bouncer in the previous 24 hours, if any.",
                 defaultValue: false,
+            },
+            {
+                type: "boolean",
+                label: "Create a new Modmail conversation for each summary",
+                name: AppSetting.DigestNewMessageEachDay,
+                helpText: "If enabled, a new modmail conversation will be created for each summary message. If disabled, the bot will reply to the previous summary message when sending a new summary.",
+                defaultValue: true,
             },
             {
                 type: "select",
