@@ -13,7 +13,7 @@ import { getUserExtended } from "./extendedDevvit.js";
 import { storeClassificationEvent } from "./statistics/classificationStatistics.js";
 import { USER_DEFINED_HANDLES_POSTS } from "./statistics/definedHandlesStatistics.js";
 import { ZMember } from "@devvit/protos";
-import { getUserSocialLinks, hMGetAllChunked } from "devvit-helpers";
+import { getUserSocialLinks, hGetAllChunked } from "devvit-helpers";
 import { removeUserFromReversalsQueue } from "./modmail/evaluatorReversals.js";
 
 const TEMP_DECLINE_STORE = "TempDeclineStore";
@@ -82,7 +82,7 @@ interface DataStoreExtractFilter {
 }
 
 async function getDataStoreFiltered (prefix: string, context: TriggerContext, filter?: DataStoreExtractFilter): Promise<Record<string, UserDetails>> {
-    const data = await hMGetAllChunked(context.redis.global as RedisClient, getStoreKey(prefix), 10000);
+    const data = await hGetAllChunked(context.redis.global as RedisClient, getStoreKey(prefix), 10000);
     if (!filter) {
         return _.fromPairs(Object.entries(data).map(([key, value]) => [key, JSON.parse(value) as UserDetails]));
     }

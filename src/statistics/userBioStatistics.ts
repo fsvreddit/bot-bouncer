@@ -8,7 +8,7 @@ import { ControlSubredditJob } from "../constants.js";
 import crypto from "crypto";
 import { userIsBanned } from "./statsHelpers.js";
 import { decodedText, encodedText } from "../utility.js";
-import { expireKeyAt, hMGetAllChunked, hMGetAsRecord, zRangeAsRecord } from "devvit-helpers";
+import { expireKeyAt, hGetAllChunked, hMGetAsRecord, zRangeAsRecord } from "devvit-helpers";
 import escapeStringRegexp from "escape-string-regexp";
 import { hSetChunked } from "../redisHelper.js";
 
@@ -145,7 +145,7 @@ export async function updateBioStatisticsJob (event: ScheduledJobEvent<JSONObjec
 
     const userBios = await hMGetAsRecord(context.redis, BIO_TEXT_STORE, queuedUsersWithSuccessfulRetrievals);
 
-    const recordsToStore = await hMGetAllChunked(context.redis, getBioStatsTempStoreKey(statsId));
+    const recordsToStore = await hGetAllChunked(context.redis, getBioStatsTempStoreKey(statsId));
 
     console.log(`Bio Stats: Processing user bios (batch ${batch})`);
 

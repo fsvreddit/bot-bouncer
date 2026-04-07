@@ -182,7 +182,7 @@ async function buildInstalledSubredditsReport (context: TriggerContext) {
 
     const startDateForReport = max([
         subWeeks(new Date(), 1),
-        new Date(2026, 3, 5, 16, 0, 0),
+        new Date(2026, 3, 7, 1, 0, 0),
     ]);
 
     const installedSubs = await context.redis.zRange(INSTALL_DATES_KEY, startDateForReport.getTime(), Date.now(), { by: "score", reverse: true });
