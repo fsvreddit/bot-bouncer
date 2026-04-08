@@ -3,7 +3,7 @@ import json2md from "json2md";
 import { getUsernameFromUrl, getUserOrUndefined } from "../utility.js";
 import pluralize from "pluralize";
 import { addDays, addSeconds } from "date-fns";
-import { CONTROL_SUBREDDIT } from "../constants.js";
+import { CONTROL_SUBREDDIT, ControlSubredditJob } from "../constants.js";
 
 const ACCOUNT_REVIEW_QUEUE = "accountReviewQueue";
 
@@ -111,7 +111,7 @@ export async function checkAccountsForReview (event: ScheduledJobEvent<JSONObjec
 
     if (accountsToReview.length > 0) {
         await context.scheduler.runJob({
-            name: "AccountReview",
+            name: ControlSubredditJob.AccountReview,
             runAt: addSeconds(new Date(), 5),
         });
     } else {
