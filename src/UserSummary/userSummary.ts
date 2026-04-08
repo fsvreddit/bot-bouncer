@@ -331,6 +331,8 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
     const potentiallyBlocking = await isUserPotentiallyBlockingBot([...userComments, ...userPosts], context);
     if (potentiallyBlocking) {
         accountPropsBullets.push("User is potentially blocking bot u/bot-bouncer (their visible history only shows subs where app is installed)");
+    } else if (potentiallyBlocking === undefined) {
+        accountPropsBullets.push("Could not determine if user is blocking bot u/bot-bouncer, as they have less than 5 distinct subreddits in their visible history");
     } else {
         accountPropsBullets.push("User is not blocking u/bot-bouncer");
     }

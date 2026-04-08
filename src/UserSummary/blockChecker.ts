@@ -21,11 +21,11 @@ async function isAppModOfSub (subredditName: string, context: TriggerContext): P
     return isModOfSub;
 }
 
-export async function isUserPotentiallyBlockingBot (history: (Post | Comment)[], context: TriggerContext): Promise<boolean> {
+export async function isUserPotentiallyBlockingBot (history: (Post | Comment)[], context: TriggerContext): Promise<boolean | undefined> {
     const relevantHistory = history.filter(item => !item.stickied && item.subredditName !== `u_${item.authorName}`);
     const distinctSubreddits = _.uniq(relevantHistory.map(item => item.subredditName));
     if (distinctSubreddits.length < 5) {
-        return false;
+        return;
     }
 
     for (const subredddit of distinctSubreddits) {
