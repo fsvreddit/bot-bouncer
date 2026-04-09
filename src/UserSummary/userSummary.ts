@@ -500,7 +500,7 @@ async function evaluatorsMatched (user: UserExtended, userHistory: (Post | Comme
     const evaluatorsMatched: InstanceType<typeof ALL_RELEVANT_EVALUTORS[number]>[] = [];
 
     for (const Evaluator of ALL_RELEVANT_EVALUTORS) {
-        const evaluator = new Evaluator(context, undefined, evaluatorVariables);
+        const evaluator = new Evaluator(context, userHistory, undefined, evaluatorVariables);
         if (evaluator.evaluatorDisabled()) {
             continue;
         }
@@ -510,7 +510,7 @@ async function evaluatorsMatched (user: UserExtended, userHistory: (Post | Comme
             continue;
         }
 
-        const fullEvaluate = await Promise.resolve(evaluator.evaluate(user, userHistory));
+        const fullEvaluate = await Promise.resolve(evaluator.evaluate(user));
         if (fullEvaluate) {
             evaluatorsMatched.push(evaluator);
         }

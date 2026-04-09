@@ -41,7 +41,7 @@ export async function evaluateUserAccount (options: EvaluateUserAccountOptions, 
     const detectedBots: UserEvaluatorBase[] = [];
 
     for (const Evaluator of ALL_RELEVANT_EVALUTORS) {
-        const evaluator = new Evaluator(context, socialLinks, options.variables);
+        const evaluator = new Evaluator(context, [], socialLinks, options.variables);
         if (evaluator.evaluatorDisabled()) {
             continue;
         }
@@ -68,6 +68,8 @@ export async function evaluateUserAccount (options: EvaluateUserAccountOptions, 
             }
         }
 
+        evaluator.setHistory(userItems);
+
         if (options.targetId && !userItems.some(item => item.id === options.targetId)) {
             console.log(`Evaluator: Adding target item ${options.targetId} to evaluation for ${options.username}`);
             userItems.unshift(await getPostOrCommentById(options.targetId, context));
@@ -75,7 +77,7 @@ export async function evaluateUserAccount (options: EvaluateUserAccountOptions, 
 
         let isABot;
         try {
-            isABot = await Promise.resolve(evaluator.evaluate(user, userItems));
+            isABot = await Promise.resolve(evaluator.evaluate(user));
             if (!socialLinks && evaluator.socialLinks) {
                 socialLinks = evaluator.socialLinks;
             }
