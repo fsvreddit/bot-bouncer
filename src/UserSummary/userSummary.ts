@@ -15,7 +15,7 @@ import { BIO_TEXT_STORE, getUserStatus } from "../dataStore.js";
 import { getUserSocialLinks } from "devvit-helpers";
 import { getSubmitterSuccessRate } from "../statistics/submitterStatistics.js";
 import { getSummaryExtras } from "./summaryExtras.js";
-import { ALL_RELEVANT_EVALUTORS } from "../constants.js";
+import { ALL_RELEVANT_EVALUTORS, CONTROL_SUBREDDIT } from "../constants.js";
 
 function formatDifferenceInDates (start: Date, end: Date) {
     const units: (keyof Duration)[] = ["years", "months", "days"];
@@ -375,6 +375,10 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
             }
 
             summary.push(...evaluationResultsToBullets(evaluationResults));
+        }
+
+        if (matchedEvaluators.length > 0 || initialEvaluatorsMatched.length > 0) {
+            summary.push({ p: `[Evaluator Accuracy Stats](https://www.reddit.com/r/${CONTROL_SUBREDDIT}/wiki/statistics/evaluator-accuracy)` });
         }
     }
 

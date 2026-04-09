@@ -16,7 +16,7 @@ async function queueRedosCheckEntries (context: JobContext) {
     const evaluatorVariables = await getEvaluatorVariables(context);
     let entriesAdded = 0;
     for (const Evaluator of ALL_RELEVANT_EVALUTORS) {
-        const evaluatorInstance = new Evaluator(context, undefined, evaluatorVariables);
+        const evaluatorInstance = new Evaluator(context, [], undefined, evaluatorVariables);
         const evaluatorRegexes = evaluatorInstance.gatherRegexes();
         if (evaluatorRegexes.length === 0) {
             continue;
