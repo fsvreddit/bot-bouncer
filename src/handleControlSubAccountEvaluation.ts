@@ -1,5 +1,5 @@
-import { Comment, JobContext, JSONObject, JSONValue, Post, ScheduledJobEvent, SubredditInfo, TriggerContext, UserSocialLink } from "@devvit/public-api";
-import { HitReason, UserEvaluatorBase } from "@fsvreddit/bot-bouncer-evaluation";
+import { Comment, JobContext, JSONObject, JSONValue, Post, ScheduledJobEvent, SubredditInfo, TriggerContext } from "@devvit/public-api";
+import { getSocialLinksWithCache, HitReason, UserEvaluatorBase } from "@fsvreddit/bot-bouncer-evaluation";
 import { getUserStatus, UserStatus } from "./dataStore.js";
 import { ALL_RELEVANT_EVALUTORS, CONTROL_SUBREDDIT, ControlSubredditJob, PostFlairTemplate } from "./constants.js";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
@@ -36,57 +36,55 @@ export async function evaluateUserAccount (options: EvaluateUserAccountOptions, 
         return [];
     }
 
-    let userItems: (Post | Comment)[] | undefined;
-    let socialLinks: UserSocialLink[] | undefined;
     const detectedBots: UserEvaluatorBase[] = [];
 
-    for (const Evaluator of ALL_RELEVANT_EVALUTORS) {
-        const evaluator = new Evaluator(context, [], socialLinks, options.variables);
-        if (evaluator.evaluatorDisabled()) {
-            continue;
+    const matchedEvaluators = await Promise.all(ALL_RELEVANT_EVALUTORS.map(async (Evaluator) => {
+        const evaluatorInstance = new Evaluator(context, [], undefined, options.variables);
+        if (evaluatorInstance.evaluatorDisabled()) {
+            return;
         }
 
-        const userEvaluateResult = await Promise.resolve(evaluator.preEvaluateUser(user));
-        if (!socialLinks && evaluator.socialLinks) {
-            socialLinks = evaluator.socialLinks;
+        const preEvaluateResult = await Promise.resolve(evaluatorInstance.preEvaluateUser(user));
+        if (preEvaluateResult) {
+            return evaluatorInstance;
         }
+    }));
 
-        if (!userEvaluateResult) {
-            continue;
-        }
+    if (!matchedEvaluators.some(evaluator => evaluator !== undefined)) {
+        return [];
+    }
 
-        if (userItems === undefined) {
-            try {
-                userItems = await context.reddit.getCommentsAndPostsByUser({
-                    username: options.username,
-                    sort: "new",
-                    limit: 100,
-                }).all();
-            } catch {
-                // Error retrieving user history, likely shadowbanned.
-                return [];
-            }
-        }
+    let userItems: (Post | Comment)[] | undefined;
+    try {
+        userItems = await context.reddit.getCommentsAndPostsByUser({
+            username: options.username,
+            sort: "new",
+            limit: 100,
+        }).all();
+    } catch {
+        // Error retrieving user history, likely shadowbanned.
+        return [];
+    }
 
+    if (options.targetId && !userItems.some(item => item.id === options.targetId)) {
+        console.log(`Evaluator: Adding target item ${options.targetId} to evaluation for ${options.username}`);
+        userItems.unshift(await getPostOrCommentById(options.targetId, context));
+    }
+
+    const socialLinks = await getSocialLinksWithCache(user.username, context);
+
+    await Promise.all(_.compact(matchedEvaluators).map(async (evaluator) => {
         evaluator.setHistory(userItems);
-
-        if (options.targetId && !userItems.some(item => item.id === options.targetId)) {
-            console.log(`Evaluator: Adding target item ${options.targetId} to evaluation for ${options.username}`);
-            userItems.unshift(await getPostOrCommentById(options.targetId, context));
-        }
-
-        let isABot;
+        evaluator.setSocialLinks(socialLinks);
+        let isABot: boolean;
         try {
             isABot = await Promise.resolve(evaluator.evaluate(user));
-            if (!socialLinks && evaluator.socialLinks) {
-                socialLinks = evaluator.socialLinks;
-            }
         } catch (error) {
             console.error(`Evaluator: ${options.username} threw an error during evaluation of ${evaluator.name}: ${error}`);
             if (options.throwOnError) {
                 throw error;
             }
-            return [];
+            return;
         }
         if (isABot) {
             console.log(`Evaluator: ${options.username} appears to be a bot via the evaluator: ${evaluator.name} 💥`);
@@ -95,13 +93,13 @@ export async function evaluateUserAccount (options: EvaluateUserAccountOptions, 
             }
             detectedBots.push(evaluator);
         }
-    }
+    }));
 
     if (detectedBots.length === 0) {
         return [];
     }
 
-    const itemCount = userItems?.length ?? 0;
+    const itemCount = userItems.length;
 
     const results: EvaluationResult[] = [];
 
