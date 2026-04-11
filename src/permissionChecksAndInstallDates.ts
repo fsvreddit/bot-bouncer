@@ -3,6 +3,7 @@ import { addDays, addHours, addMinutes, addSeconds, format, max, subDays, subWee
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "./constants.js";
 import { hasPermissions, hMGetAsRecord, isModerator } from "devvit-helpers";
 import json2md from "json2md";
+import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 
 const PERMISSION_CHECKS_QUEUE = "permissionChecksQueue";
 const PERMISSION_MESSAGE_SENT_HASH = "permissionsMessageSent";
@@ -195,16 +196,23 @@ async function buildInstalledSubredditsReport (context: TriggerContext) {
     ];
 
     const permissionIssues = await hMGetAsRecord(context.redis, PERMISSION_MESSAGE_SENT_HASH, installedSubs.map(sub => sub.member));
+    const evaluatorVariables = await getEvaluatorVariables(context);
+
+    const sweptSubs = new Set([
+        ...evaluatorVariables["generic:karmafarminglinksubs"] as string[] | undefined ?? [],
+        ...evaluatorVariables["generic:karmafarminglinksubsnsfw"] as string[] | undefined ?? [],
+    ]);
 
     const rows = installedSubs.map(sub => [
         `r/${sub.member}`,
         format(sub.score, "yyyy-MM-dd HH:mm"),
+        sweptSubs.has(sub.member) ? "Yes" : "",
         permissionIssues[sub.member] === "true" ? "yes, unknown reason" : permissionIssues[sub.member] ?? "",
     ]);
 
     report.push({
         table: {
-            headers: ["Subreddit", "Install Date", "Permission Issues Detected"],
+            headers: ["Subreddit", "Install Date", "Swept by Bot Bouncer", "Permission Issues Detected"],
             rows,
         },
     });
