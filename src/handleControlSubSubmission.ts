@@ -190,11 +190,16 @@ export async function handleControlSubPostCreate (event: PostCreate, context: Tr
         contextComment = json2md(body);
     }
 
+    let reportContext = event.post.selftext ? event.post.selftext.trim() : undefined;
+    if (!reportContext && event.post.title.toLowerCase().startsWith("reason: ")) {
+        reportContext = event.post.title.substring("Reason: ".length).trim();
+    }
+
     try {
         const submission: AsyncSubmission = {
             user: await getUserExtendedFromUser(user, context),
             submitter: event.author.name,
-            reportContext: event.post.selftext ? event.post.selftext.trim() : undefined,
+            reportContext,
             details: newDetails,
             commentToAdd: contextComment,
             removeComment: contextComment !== undefined ? true : undefined,
