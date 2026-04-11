@@ -299,7 +299,7 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
 
         await context.scheduler.runJob({
             name: ControlSubredditJob.EvaluateKarmaFarmingSubs,
-            runAt: addSeconds(new Date(), 1),
+            runAt: new Date(),
             data: { firstRun: false, cohort },
         });
     } else {
