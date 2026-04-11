@@ -27,7 +27,7 @@ export async function updateSubmitterStatistics (allStatuses: UserDetails[], con
             continue;
         }
 
-        if (status.userStatus === UserStatus.Organic || status.userStatus === UserStatus.Service || status.userStatus === UserStatus.Declined) {
+        if (status.userStatus === UserStatus.Organic || status.userStatus === UserStatus.Service) {
             organicStatuses[status.submitter] = (organicStatuses[status.submitter] ?? 0) + 1;
         } else if (status.userStatus === UserStatus.Banned || (status.userStatus === UserStatus.Purged && status.lastStatus === UserStatus.Banned)) {
             bannedStatuses[status.submitter] = (bannedStatuses[status.submitter] ?? 0) + 1;

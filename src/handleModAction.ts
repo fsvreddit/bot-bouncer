@@ -130,6 +130,8 @@ async function handleModActionControlSub (event: ModAction, context: TriggerCont
                 queueConfigWikiCheck(ConfigWikiPage.ControlSubSettings, event.moderator.name, 1, context),
             ]);
         }
+
+        await context.redis.del("aiPromptCache");
     }
 
     /**

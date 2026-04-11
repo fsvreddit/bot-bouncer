@@ -100,6 +100,10 @@ export async function checkIfStatsNeedUpdating (context: TriggerContext) {
         return;
     }
 
+    if (wikiPage.revisionAuthor?.username === context.appSlug) {
+        return;
+    }
+
     console.log("Stats wiki page has been updated, scheduling stats update job.");
 
     await context.scheduler.runJob({

@@ -49,7 +49,7 @@ export async function updateMainStatisticsPage (entries: UserDetails[], context:
 }
 
 async function correctAggregateData (entries: UserDetails[], context: JobContext) {
-    const statusesToUpdate = [UserStatus.Banned, UserStatus.Pending, UserStatus.Organic, UserStatus.Service, UserStatus.Declined];
+    const statusesToUpdate = [UserStatus.Banned, UserStatus.Pending, UserStatus.Organic, UserStatus.Service];
     const statuses = Object.entries(_.countBy(entries.map(item => item.userStatus)))
         .map(([key, value]) => ({ member: key, score: value }))
         .filter(item => statusesToUpdate.includes(item.member as UserStatus));

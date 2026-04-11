@@ -16,7 +16,6 @@ interface FailedFeedbackItem {
 const statusToExplanation: Record<UserStatus, string> = {
     [UserStatus.Organic]: "seems likely to be a human run account rather than a bot.",
     [UserStatus.Banned]: "has been classified as a bot and will be banned from any subreddit using Bot Bouncer if they post or comment there.",
-    [UserStatus.Declined]: "is potentially problematic, but there is not enough information to definitively classify it as a bot at this time.",
     [UserStatus.Service]: "is considered a bot, but performs a useful function such as moderation or is invoked explicitly by users, so will not be banned automatically.",
     [UserStatus.Retired]: "was deleted, suspended or shadowbanned before it could be classified by a human moderator.",
     [UserStatus.Purged]: "was deleted, suspended or shadowbanned after it was classified as a bot.",
@@ -106,7 +105,7 @@ async function sendFeedbackViaMessage (username: string, submitter: string, oper
 
     message.push({ p: "This status may change in the future if we receive more information or if the user questions their classification." });
 
-    if (userStatus === UserStatus.Organic || userStatus === UserStatus.Declined || userStatus === UserStatus.Service) {
+    if (userStatus === UserStatus.Organic || userStatus === UserStatus.Service) {
         message.push({ p: `If you have any more information to help us understand why this may be a harmful or disruptive bot, please [message /r/${CONTROL_SUBREDDIT}](https://www.reddit.com/message/compose?to=/r/${CONTROL_SUBREDDIT}&subject=More%20information%20about%20/u/${username})` });
     }
 
@@ -188,7 +187,7 @@ async function updateCommentWithFeedback (username: string, commentId: string, u
 
     let commentText = comment.body;
     commentText += `\n\nEdit: This account has now been classified as **${userStatus}**. This means that the account ${statusToExplanation[userStatus]}`;
-    if (userStatus === UserStatus.Organic || userStatus === UserStatus.Declined || userStatus === UserStatus.Service) {
+    if (userStatus === UserStatus.Organic || userStatus === UserStatus.Service) {
         commentText += `\n\nIf you have any more information to help us understand why this may be a harmful or disruptive bot, please [message /r/${CONTROL_SUBREDDIT}](https://www.reddit.com/message/compose?to=/r/${CONTROL_SUBREDDIT}&subject=More%20information%20about%20${username})`;
     }
 

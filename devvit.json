@@ -1,0 +1,18 @@
+{
+    "$schema": "https://developers.reddit.com/schema/config-file.v1.json",
+    "name": "bot-bouncer",
+    "blocks": {
+        "entry": "src/main.ts",
+        "triggers": [
+            "onAppInstall",
+            "onAppUpgrade",
+            "onPostCreate",
+            "onCommentCreate",
+            "onCommentUpdate",
+            "onPostFlairUpdate",
+            "onPostDelete",
+            "onModAction",
+            "onModMail"
+        ]
+    }
+}

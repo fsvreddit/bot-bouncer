@@ -62,76 +62,99 @@ export async function sendDailySummary (_: unknown, context: JobContext) {
         || (bannedEnabled && bans.length > 0)
         || (unbannedEnabled && unbans.length > 0);
 
-    if (createSummary) {
-        const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
+    if (!createSummary) {
+        return;
+    }
 
-        let subject: string;
-        if (frequency === DigestFrequency.Daily) {
-            subject = `Bot Bouncer Daily Action Summary for ${format(subDays(new Date(), 1), `yyyy-MM-dd`)}, covering midnight to midnight UTC`;
+    const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
+
+    const message: json2md.DataObject[] = [];
+
+    if (reportedEnabled) {
+        if (reports.length === 0) {
+            message.push({ p: `No new potential bots were reported on /r/${subredditName} ${intervalText}.` });
         } else {
-            subject = `Bot Bouncer Weekly Action Summary for week ending ${format(subDays(new Date(), 1), `yyyy-MM-dd`)}, covering the last 7 days`;
-        }
+            message.push({ p: `The following potential bots were reported on /r/${subredditName} ${intervalText}:` });
 
-        const message: json2md.DataObject[] = [];
-
-        if (reportedEnabled) {
-            if (reports.length === 0) {
-                message.push({ p: `No new potential bots were reported on /r/${subredditName} ${intervalText}.` });
-            } else {
-                message.push({ p: `The following potential bots were reported on /r/${subredditName} ${intervalText}:` });
-
-                const bullets: string[] = [];
-                for (const entry of reports.filter(r => r.type === "manually")) {
-                    const currentStatus = await getUserStatus(entry.username, context);
-                    if (currentStatus) {
-                        bullets.push(`/u/${entry.username} reported ${entry.type}: now listed as ${currentStatus.userStatus}`);
-                    } else {
-                        bullets.push(`/u/${entry.username} reported ${entry.type}`);
-                    }
+            const bullets: string[] = [];
+            for (const entry of reports.filter(r => r.type === "manually")) {
+                const currentStatus = await getUserStatus(entry.username, context);
+                if (currentStatus) {
+                    bullets.push(`/u/${entry.username} reported ${entry.type}: now listed as ${currentStatus.userStatus}`);
+                } else {
+                    bullets.push(`/u/${entry.username} reported ${entry.type}`);
                 }
-                message.push({ ul: bullets });
             }
+            message.push({ ul: bullets });
         }
+    }
 
-        if (bannedEnabled) {
-            if (bans.length === 0) {
-                message.push({ p: `No new bans were issued by Bot Bouncer on /r/${subredditName} ${intervalText}.` });
-            } else {
-                message.push({ p: `The following users were banned on /r/${subredditName} ${intervalText}:` });
-                message.push({ ul: bans.map(ban => `/u/${ban.member}`) });
-            }
-        }
-
-        if (unbannedEnabled) {
-            if (unbans.length === 0) {
-                message.push({ p: `No new unbans were processed by Bot Bouncer on /r/${subredditName} ${intervalText}.` });
-            } else {
-                message.push({ p: `The following users were unbanned on /r/${subredditName} ${intervalText}:` });
-                message.push({ ul: unbans.map(unban => `/u/${unban.member}`) });
-            }
-        }
-
-        try {
-            if (await getNewVersionInfo(context)) {
-                message.push({ p: `A new version of Bot Bouncer is available. Please check the [app configuration page](https://developers.reddit.com/r/${subredditName}/apps/${context.appSlug}) for more details.` });
-            }
-        } catch (e) {
-            console.error("Failed to check for new version info:", e);
-        }
-
-        message.push({ p: `These notifications can be customised or turned off on the [app configuration page](https://developers.reddit.com/r/${subredditName}/apps/${context.appSlug}).` });
-
-        const params = {
-            subredditId: context.subredditId,
-            subject,
-            bodyMarkdown: json2md(message),
-        };
-
-        if (settings[AppSetting.DigestAsModNotification]) {
-            await context.reddit.modMail.createModNotification(params);
+    if (bannedEnabled) {
+        if (bans.length === 0) {
+            message.push({ p: `No new bans were issued by Bot Bouncer on /r/${subredditName} ${intervalText}.` });
         } else {
-            await context.reddit.modMail.createModInboxConversation(params);
+            message.push({ p: `The following users were banned on /r/${subredditName} ${intervalText}:` });
+            message.push({ ul: bans.map(ban => `/u/${ban.member}`) });
         }
+    }
+
+    if (unbannedEnabled) {
+        if (unbans.length === 0) {
+            message.push({ p: `No new unbans were processed by Bot Bouncer on /r/${subredditName} ${intervalText}.` });
+        } else {
+            message.push({ p: `The following users were unbanned on /r/${subredditName} ${intervalText}:` });
+            message.push({ ul: unbans.map(unban => `/u/${unban.member}`) });
+        }
+    }
+
+    try {
+        if (await getNewVersionInfo(context)) {
+            message.push({ p: `A new version of Bot Bouncer is available. Please check the [app configuration page](https://developers.reddit.com/r/${subredditName}/apps/${context.appSlug}) for more details.` });
+        }
+    } catch (e) {
+        console.error("Failed to check for new version info:", e);
+    }
+
+    message.push({ p: `These notifications can be customised or turned off on the [app configuration page](https://developers.reddit.com/r/${subredditName}/apps/${context.appSlug}).` });
+
+    const createNewMessage = settings[AppSetting.DigestNewMessageEachDay] as boolean | undefined ?? true;
+
+    const digestConversationIdKey = "digestConvesationId";
+    const existingConversationId = await context.redis.get(digestConversationIdKey);
+
+    if (!createNewMessage && existingConversationId) {
+        await context.reddit.modMail.reply({
+            conversationId: existingConversationId,
+            body: json2md(message),
+        });
+
+        return;
+    }
+
+    let subject: string;
+    if (!createNewMessage) {
+        subject = "Bot Bouncer Action Summary";
+    } else if (frequency === DigestFrequency.Daily) {
+        subject = `Bot Bouncer Daily Action Summary for ${format(subDays(new Date(), 1), `yyyy-MM-dd`)}, covering midnight to midnight UTC`;
+    } else {
+        subject = `Bot Bouncer Weekly Action Summary for week ending ${format(subDays(new Date(), 1), `yyyy-MM-dd`)}, covering the last 7 days`;
+    }
+
+    const params = {
+        subredditId: context.subredditId,
+        subject,
+        bodyMarkdown: json2md(message),
+    };
+
+    let newConversationId: string;
+    if (settings[AppSetting.DigestAsModNotification]) {
+        newConversationId = await context.reddit.modMail.createModNotification(params);
+    } else {
+        newConversationId = await context.reddit.modMail.createModInboxConversation(params);
+    }
+
+    if (!createNewMessage) {
+        await context.redis.set(digestConversationIdKey, newConversationId);
     }
 }
 

@@ -28,15 +28,9 @@ export async function handleClientPostCreate (event: PostCreate, context: Trigge
         return;
     }
 
-    const settings = await context.settings.getAll();
-
     const currentStatus = await getUserStatus(event.author.name, context);
     if (currentStatus) {
         await handleContentCreation(event.author.name, currentStatus, event.post.id, context);
-        return;
-    }
-
-    if (!settings[AppSetting.ReportPotentialBots]) {
         return;
     }
 
@@ -45,7 +39,7 @@ export async function handleClientPostCreate (event: PostCreate, context: Trigge
     const post = await context.reddit.getPostById(event.post.id);
     let possibleBot = false;
     for (const Evaluator of ALL_RELEVANT_EVALUTORS) {
-        const evaluator = new Evaluator(context, undefined, variables);
+        const evaluator = new Evaluator(context, [], undefined, variables);
         if (evaluator.evaluatorDisabled()) {
             continue;
         }
@@ -57,6 +51,7 @@ export async function handleClientPostCreate (event: PostCreate, context: Trigge
     }
 
     if (possibleBot) {
+        const settings = await context.settings.getAll();
         await checkAndReportPotentialBot(event.author.name, post, settings, variables, context);
     }
 }
@@ -82,16 +77,11 @@ export async function handleClientCommentCreate (event: CommentCreate, context: 
         return;
     }
 
-    const settings = await context.settings.getAll();
-    if (!settings[AppSetting.ReportPotentialBots]) {
-        return;
-    }
-
     const variables = await getEvaluatorVariables(context);
 
     let possibleBot = false;
     for (const Evaluator of ALL_RELEVANT_EVALUTORS) {
-        const evaluator = new Evaluator(context, undefined, variables);
+        const evaluator = new Evaluator(context, [], undefined, variables);
         if (evaluator.evaluatorDisabled()) {
             continue;
         }
@@ -116,6 +106,7 @@ export async function handleClientCommentCreate (event: CommentCreate, context: 
         }
     }
 
+    const settings = await context.settings.getAll();
     await checkAndReportPotentialBot(event.author.name, event, settings, variables, context);
 
     await context.redis.set(redisKey, new Date().getTime().toString(), { expiration: addDays(new Date(), 2) });
@@ -139,16 +130,11 @@ export async function handleClientCommentUpdate (event: CommentUpdate, context: 
         return;
     }
 
-    const settings = await context.settings.getAll();
-    if (!settings[AppSetting.ReportPotentialBots]) {
-        return;
-    }
-
     const variables = await getEvaluatorVariables(context);
 
     let possibleBot = false;
     for (const Evaluator of ALL_RELEVANT_EVALUTORS) {
-        const evaluator = new Evaluator(context, undefined, variables);
+        const evaluator = new Evaluator(context, [], undefined, variables);
         if (evaluator.evaluatorDisabled()) {
             continue;
         }
@@ -173,6 +159,7 @@ export async function handleClientCommentUpdate (event: CommentUpdate, context: 
         }
     }
 
+    const settings = await context.settings.getAll();
     await checkAndReportPotentialBot(event.author.name, event, settings, variables, context);
 
     await context.redis.set(redisKey, new Date().getTime().toString(), { expiration: addDays(new Date(), 2) });
@@ -294,7 +281,7 @@ async function checkAndReportPotentialBot (username: string, target: Post | Comm
     let socialLinks: UserSocialLink[] | undefined;
 
     for (const Evaluator of ALL_RELEVANT_EVALUTORS) {
-        const evaluator = new Evaluator(context, socialLinks, variables);
+        const evaluator = new Evaluator(context, [], socialLinks, variables);
         if (evaluator.evaluatorDisabled()) {
             continue;
         }
@@ -336,8 +323,10 @@ async function checkAndReportPotentialBot (username: string, target: Post | Comm
             userItems.unshift(await getPostOrCommentById(targetId, context));
         }
 
+        evaluator.setHistory(userItems);
+
         anyEvaluatorsChecked = true;
-        const evaluationResult = await Promise.resolve(evaluator.evaluate(user, userItems));
+        const evaluationResult = await Promise.resolve(evaluator.evaluate(user));
         if (!socialLinks && evaluator.socialLinks) {
             socialLinks = evaluator.socialLinks;
         }

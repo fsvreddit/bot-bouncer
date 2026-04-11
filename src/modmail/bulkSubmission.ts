@@ -89,6 +89,8 @@ async function handleBulkItem (username: string, initialStatus: UserStatus, subm
 
     const submission: AsyncSubmission = {
         user,
+        submitter,
+        reportContext: reason,
         details: {
             userStatus: initialStatus,
             lastUpdate: new Date().getTime(),

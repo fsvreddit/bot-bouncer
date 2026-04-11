@@ -173,9 +173,6 @@ export async function cleanupDeletedAccounts (event: ScheduledJobEvent<JSONObjec
                     case UserStatus.Organic:
                         newFlair = PostFlairTemplate.Organic;
                         break;
-                    case UserStatus.Declined:
-                        newFlair = PostFlairTemplate.Declined;
-                        break;
                     case UserStatus.Service:
                         newFlair = PostFlairTemplate.Service;
                         break;

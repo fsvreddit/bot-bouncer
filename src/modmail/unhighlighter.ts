@@ -54,7 +54,7 @@ export async function processHighlightedModmailQueue (context: JobContext) {
                 continue;
             }
 
-            if (conversationResponse.conversation.state === ModMailConversationState.Archived && (currentStatus.userStatus === UserStatus.Organic || currentStatus.userStatus === UserStatus.Declined)) {
+            if (conversationResponse.conversation.state === ModMailConversationState.Archived && (currentStatus.userStatus === UserStatus.Organic)) {
                 await context.reddit.modMail.unhighlightConversation(firstEntry.member);
                 console.log(`Unhighighter: Unhighlighted conversation ${firstEntry.member} because it is archived and the appeal was granted.`);
                 continue;

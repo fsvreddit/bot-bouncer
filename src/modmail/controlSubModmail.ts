@@ -4,14 +4,14 @@ import { getUserStatus, UserStatus } from "../dataStore.js";
 import { getSummaryForUser } from "../UserSummary/userSummary.js";
 import { getUserOrUndefined, isModeratorWithCache } from "../utility.js";
 import { CONFIGURATION_DEFAULTS, getControlSubSettings } from "../settings.js";
-import { addDays, addHours, addWeeks, format, subMinutes } from "date-fns";
+import { addDays, addHours, addSeconds, addWeeks, format, subMinutes } from "date-fns";
 import json2md from "json2md";
 import { ModmailMessage } from "./modmail.js";
 import { dataExtract } from "./dataExtract.js";
 import { addAllUsersFromModmail } from "../similarBioTextFinder/bioTextFinder.js";
 import { markAppealAsHandled } from "../statistics/appealStatistics.js";
 import { statusToFlair } from "../postCreation.js";
-import { CONTROL_SUBREDDIT, INTERNAL_BOT } from "../constants.js";
+import { CONTROL_SUBREDDIT, ControlSubredditJob, INTERNAL_BOT } from "../constants.js";
 import { handleBulkSubmission, retryBulkSubmission } from "./bulkSubmission.js";
 import { handleAppeal } from "./autoAppealHandling.js";
 import { FLAIR_MAPPINGS } from "../handleControlSubFlairUpdate.js";
@@ -22,6 +22,8 @@ import { isBanned } from "devvit-helpers";
 import { handleReversalCommand } from "./evaluatorReversals.js";
 import { handleHighlightedModmail } from "./unhighlighter.js";
 import { getUserExtended } from "../extendedDevvit.js";
+import { generateOpenAISummary } from "../aiAnalysis/createAISummary.js";
+import { handleAskAI } from "../aiAnalysis/askAI.js";
 
 export function getPossibleSetStatusValues (): string[] {
     return _.uniq([...FLAIR_MAPPINGS.map(entry => entry.postFlair), ...Object.values(UserStatus)]);
@@ -90,8 +92,26 @@ export async function handleControlSubredditModmail (modmail: ModmailMessage, co
         }
     }
 
+    if (modmail.bodyMarkdown.startsWith("!aisummary")) {
+        const regex = /^!aisummary(?: ([\w\d_-]+))?/;
+        const match = regex.exec(modmail.bodyMarkdown);
+        const username = match?.[1] ?? modmail.participant;
+        if (username) {
+            await generateOpenAISummary({
+                data: { username, conversationId: modmail.conversationId },
+                name: "generateOpenAISummaryForModmail",
+            }, context);
+            return;
+        }
+    }
+
     if (modmail.bodyMarkdown.startsWith("!checkban") && modmail.participant) {
         await checkBanOnSub(modmail, context);
+        return;
+    }
+
+    if (modmail.bodyMarkdown.startsWith("!askai")) {
+        await handleAskAI(modmail, context);
         return;
     }
 
@@ -222,7 +242,7 @@ async function handleModmailFromUser (modmail: ModmailMessage, context: TriggerC
         return;
     }
 
-    if (modmail.subject.startsWith(`Ban dispute for /u/${username}`) && (currentStatus.userStatus === UserStatus.Organic || currentStatus.userStatus === UserStatus.Declined)) {
+    if (modmail.subject.startsWith(`Ban dispute for /u/${username}`) && (currentStatus.userStatus === UserStatus.Organic)) {
         console.log(`Modmail: /u/${username} is appealing a ban, but is currently marked as human. Sending reply.`);
         const message: json2md.DataObject[] = [
             { p: `Hi /u/${username},` },
@@ -296,6 +316,18 @@ async function handleModmailFromUser (modmail: ModmailMessage, context: TriggerC
     }
 
     await handleAppeal(modmail, currentStatus, context);
+
+    if (currentStatus.userStatus === UserStatus.Banned) {
+        await context.scheduler.runJob({
+            name: ControlSubredditJob.OpenAISummaryGather,
+            data: {
+                username,
+                conversationId: modmail.conversationId,
+                userMessage: modmail.bodyMarkdown,
+            },
+            runAt: addSeconds(new Date(), 5),
+        });
+    }
 
     await context.redis.set(recentAppealKey, new Date().getTime().toString(), { expiration: addDays(new Date(), 1) });
 }

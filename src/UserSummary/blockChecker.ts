@@ -1,5 +1,6 @@
 import { Comment, Post, TriggerContext } from "@devvit/public-api";
 import { addWeeks } from "date-fns";
+import { isModerator } from "devvit-helpers";
 import _ from "lodash";
 
 async function isAppModOfSub (subredditName: string, context: TriggerContext): Promise<boolean> {
@@ -13,26 +14,18 @@ async function isAppModOfSub (subredditName: string, context: TriggerContext): P
         return JSON.parse(isMod) as boolean;
     }
 
-    let isModOfSub: boolean;
-    try {
-        const modList = await context.reddit.getModerators({
-            subredditName,
-            username: context.appSlug,
-        }).all();
-        isModOfSub = modList.length > 0;
-    } catch {
-        isModOfSub = false;
-    }
+    const isModOfSub = await isModerator(context.reddit, subredditName, context.appSlug);
 
     await context.redis.set(redisKey, JSON.stringify(isModOfSub), { expiration: addWeeks(new Date(), 1) });
 
     return isModOfSub;
 }
 
-export async function isUserPotentiallyBlockingBot (history: (Post | Comment)[], context: TriggerContext): Promise<boolean> {
-    const distinctSubreddits = _.uniq(history.map(item => item.subredditName));
+export async function isUserPotentiallyBlockingBot (history: (Post | Comment)[], context: TriggerContext): Promise<boolean | undefined> {
+    const relevantHistory = history.filter(item => !item.stickied && item.subredditName !== `u_${item.authorName}`);
+    const distinctSubreddits = _.uniq(relevantHistory.map(item => item.subredditName));
     if (distinctSubreddits.length < 5) {
-        return false;
+        return;
     }
 
     for (const subredddit of distinctSubreddits) {

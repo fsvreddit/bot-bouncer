@@ -15,7 +15,7 @@ import { BIO_TEXT_STORE, getUserStatus } from "../dataStore.js";
 import { getUserSocialLinks } from "devvit-helpers";
 import { getSubmitterSuccessRate } from "../statistics/submitterStatistics.js";
 import { getSummaryExtras } from "./summaryExtras.js";
-import { ALL_RELEVANT_EVALUTORS } from "../constants.js";
+import { ALL_RELEVANT_EVALUTORS, CONTROL_SUBREDDIT } from "../constants.js";
 
 function formatDifferenceInDates (start: Date, end: Date) {
     const units: (keyof Duration)[] = ["years", "months", "days"];
@@ -204,7 +204,7 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
     const userStatus = await getUserStatus(extendedUser?.username ?? username, context);
     const summary: json2md.DataObject[] = [];
 
-    const altSources = `[archive.org](https://web.archive.org/web/${getYear(new Date())}0000000000*/https://www.reddit.com/user/${username}) | [Pushshift](https://shiruken.github.io/chearch/?kind=comment&author=${username}&limit=100) | [Arctic Shift](https://fsvreddit.github.io/arcticredir/?author=${username}&type=posts)`;
+    const altSources = `Archive.org: [www](https://web.archive.org/web/${getYear(new Date())}0000000000*/https://www.reddit.com/user/${username}) | [old](https://web.archive.org/web/${getYear(new Date())}0000000000*/https://old.reddit.com/user/${username}) | [sh](https://web.archive.org/web/${getYear(new Date())}0000000000*/https://sh.reddit.com/user/${username}) | [Pushshift](https://shiruken.github.io/chearch/?kind=comment&author=${username}&limit=100) | [Arctic Shift](https://fsvreddit.github.io/arcticredir/?author=${username}&type=posts)`;
 
     if (userStatus && source === "modmail") {
         const post = await context.reddit.getPostById(userStatus.trackingPostId);
@@ -331,6 +331,8 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
     const potentiallyBlocking = await isUserPotentiallyBlockingBot([...userComments, ...userPosts], context);
     if (potentiallyBlocking) {
         accountPropsBullets.push("User is potentially blocking bot u/bot-bouncer (their visible history only shows subs where app is installed)");
+    } else if (potentiallyBlocking === undefined) {
+        accountPropsBullets.push("Could not determine if user is blocking bot u/bot-bouncer, as they have less than 5 distinct subreddits in their visible history");
     } else {
         accountPropsBullets.push("User is not blocking u/bot-bouncer");
     }
@@ -373,6 +375,10 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
             }
 
             summary.push(...evaluationResultsToBullets(evaluationResults));
+        }
+
+        if (matchedEvaluators.length > 0 || initialEvaluatorsMatched.length > 0) {
+            summary.push({ p: `[Evaluator Accuracy Stats](https://www.reddit.com/r/${CONTROL_SUBREDDIT}/wiki/statistics/evaluator-accuracy)` });
         }
     }
 
@@ -498,7 +504,7 @@ async function evaluatorsMatched (user: UserExtended, userHistory: (Post | Comme
     const evaluatorsMatched: InstanceType<typeof ALL_RELEVANT_EVALUTORS[number]>[] = [];
 
     for (const Evaluator of ALL_RELEVANT_EVALUTORS) {
-        const evaluator = new Evaluator(context, undefined, evaluatorVariables);
+        const evaluator = new Evaluator(context, userHistory, undefined, evaluatorVariables);
         if (evaluator.evaluatorDisabled()) {
             continue;
         }
@@ -508,7 +514,7 @@ async function evaluatorsMatched (user: UserExtended, userHistory: (Post | Comme
             continue;
         }
 
-        const fullEvaluate = await Promise.resolve(evaluator.evaluate(user, userHistory));
+        const fullEvaluate = await Promise.resolve(evaluator.evaluate(user));
         if (fullEvaluate) {
             evaluatorsMatched.push(evaluator);
         }

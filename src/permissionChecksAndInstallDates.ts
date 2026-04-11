@@ -1,11 +1,14 @@
 import { JobContext, JSONObject, ScheduledJobEvent, TriggerContext } from "@devvit/public-api";
-import { addDays, addMinutes, addSeconds } from "date-fns";
+import { addDays, addHours, addMinutes, addSeconds, format, max, subDays, subWeeks } from "date-fns";
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "./constants.js";
-import { hasPermissions, isModerator } from "devvit-helpers";
+import { hasPermissions, hMGetAsRecord, isModerator } from "devvit-helpers";
 import json2md from "json2md";
+import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 
 const PERMISSION_CHECKS_QUEUE = "permissionChecksQueue";
 const PERMISSION_MESSAGE_SENT_HASH = "permissionsMessageSent";
+const INSTALL_DATES_KEY = "botBouncerInstallDates";
+const INSTALL_DATES_LAST_CHECKED_KEY = "installDatesLastChecked";
 
 export async function handlePermissionCheckEnqueueJob (_: unknown, context: JobContext) {
     const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
@@ -55,6 +58,8 @@ export async function checkPermissionQueueItems (event: ScheduledJobEvent<JSONOb
     await context.redis.set(recentlyRunKey, "true", { expiration: addMinutes(new Date(), 1) });
 
     const problemFound: json2md.DataObject[] = [];
+    let issueFound: string | undefined;
+
     let checkSucceeded = false;
     await context.redis.global.zRem(PERMISSION_CHECKS_QUEUE, [subredditName]);
 
@@ -67,6 +72,7 @@ export async function checkPermissionQueueItems (event: ScheduledJobEvent<JSONOb
                 { p: `Please check that you have the latest version of Bot Bouncer on your subreddit's [app configuration page](https://developers.reddit.com/r/${subredditName}/apps/bot-bouncer), and then re-invite /u/bot-bouncer to the mod team with full permissions` },
                 { p: "If you no longer wish to use Bot Bouncer, it can be uninstalled from the same page." },
             ]);
+            issueFound = "not a moderator";
         } else {
             const hasPerms = await hasPermissions(context.reddit, {
                 subredditName,
@@ -79,11 +85,13 @@ export async function checkPermissionQueueItems (event: ScheduledJobEvent<JSONOb
                     { p: `/u/bot-bouncer does not have all required moderator permissions in /r/${subredditName} to work correctly.` },
                     { p: `Dev Platform apps must have full moderator permissions to work properly. Please check the permissions and update them as needed.` },
                 ]);
+                issueFound = "missing permissions";
             }
         }
         checkSucceeded = true;
     } catch {
         console.log(`Permission Checks: Failed to check moderator status for /r/${subredditName}, assuming sub banned or platform issues.`);
+        issueFound = "sub likely banned";
     }
 
     if (problemFound.length === 0) {
@@ -99,6 +107,9 @@ export async function checkPermissionQueueItems (event: ScheduledJobEvent<JSONOb
                 data: { firstRun: false },
             });
         }
+
+        await recordInstallDate(subredditName, context);
+
         return;
     }
 
@@ -128,7 +139,7 @@ export async function checkPermissionQueueItems (event: ScheduledJobEvent<JSONOb
         text: json2md(message),
     });
 
-    await context.redis.hSet(PERMISSION_MESSAGE_SENT_HASH, { [subredditName]: "true" });
+    await context.redis.hSet(PERMISSION_MESSAGE_SENT_HASH, { [subredditName]: issueFound ?? "unknown" });
     console.log(`Permission Checks: Sent permissions issue message to /r/${subredditName}.`);
 
     if (inBacklog) {
@@ -138,4 +149,81 @@ export async function checkPermissionQueueItems (event: ScheduledJobEvent<JSONOb
             data: { firstRun: false },
         });
     }
+
+    await recordInstallDate(subredditName, context);
+}
+
+async function recordInstallDate (subredditName: string, context: TriggerContext) {
+    await context.redis.zAdd(INSTALL_DATES_LAST_CHECKED_KEY, { member: subredditName, score: Date.now() });
+    const existingInstallDate = await context.redis.zScore(INSTALL_DATES_KEY, subredditName);
+    if (existingInstallDate) {
+        return;
+    }
+
+    await context.redis.zAdd(INSTALL_DATES_KEY, { member: subredditName, score: Date.now() });
+    console.log(`Install Dates: Recorded install date for /r/${subredditName}.`);
+    await buildInstalledSubredditsReport(context);
+}
+
+async function buildInstalledSubredditsReport (context: TriggerContext) {
+    const reportLastUpdatedKey = "installedSubredditsReportLastUpdated";
+    if (await context.redis.exists(reportLastUpdatedKey)) {
+        return;
+    }
+
+    await context.redis.set(reportLastUpdatedKey, "", { expiration: addHours(new Date(), 2) });
+
+    // Checks are run weekly, so remove subs that are likely now uninstalled.
+    const subsNotCheckedRecently = await context.redis.zRange(INSTALL_DATES_LAST_CHECKED_KEY, 0, subDays(new Date(), 9).getTime(), { by: "score" });
+
+    if (subsNotCheckedRecently.length > 0) {
+        await context.redis.zRem(INSTALL_DATES_KEY, subsNotCheckedRecently.map(sub => sub.member));
+        await context.redis.zRem(INSTALL_DATES_LAST_CHECKED_KEY, subsNotCheckedRecently.map(sub => sub.member));
+    }
+
+    const startDateForReport = max([
+        subWeeks(new Date(), 1),
+        new Date(2026, 3, 7, 1, 0, 0),
+    ]);
+
+    const installedSubs = await context.redis.zRange(INSTALL_DATES_KEY, startDateForReport.getTime(), Date.now(), { by: "score", reverse: true });
+    // Sort by score (install date) descending
+    installedSubs.sort((a, b) => b.score - a.score);
+
+    const report: json2md.DataObject[] = [
+        { p: "This page shows the list of subreddits that have installed Bot Bouncer in the last week." },
+        { p: "Report covers new installs made since April 7, 2026 at 01:00 UTC." },
+    ];
+
+    const permissionIssues = await hMGetAsRecord(context.redis, PERMISSION_MESSAGE_SENT_HASH, installedSubs.map(sub => sub.member));
+    const evaluatorVariables = await getEvaluatorVariables(context);
+
+    const sweptSubs = new Set([
+        ...evaluatorVariables["generic:karmafarminglinksubs"] as string[] | undefined ?? [],
+        ...evaluatorVariables["generic:karmafarminglinksubsnsfw"] as string[] | undefined ?? [],
+    ]);
+
+    const rows = installedSubs.map(sub => [
+        `r/${sub.member}`,
+        format(sub.score, "yyyy-MM-dd HH:mm"),
+        sweptSubs.has(sub.member) ? "Yes" : "",
+        permissionIssues[sub.member] === "true" ? "yes, unknown reason" : permissionIssues[sub.member] ?? "",
+    ]);
+
+    report.push({
+        table: {
+            headers: ["Subreddit", "Install Date", "Swept by Bot Bouncer", "Permission Issues Detected"],
+            rows,
+        },
+    });
+
+    report.push({ p: "This page updates once every 6 hours maximum." });
+
+    await context.reddit.updateWikiPage({
+        subredditName: CONTROL_SUBREDDIT,
+        page: "statistics/installed-subreddits",
+        content: json2md(report),
+    });
+
+    console.log("Install Dates: Updated installed subreddits report.");
 }

@@ -38,7 +38,7 @@ const schema: JSONSchemaType<ModmailDataExtract> = {
     properties: {
         status: {
             type: "array",
-            items: { type: "string", enum: Object.values(UserStatus) },
+            items: { type: "string", enum: [...Object.values(UserStatus), "declined"] },
             nullable: true,
         },
         submitter: { type: "array", items: { type: "string" }, nullable: true },
@@ -421,8 +421,9 @@ export async function continueDataExtract (event: ScheduledJobEvent<JSONObject |
         await context.redis.hDel(getExtractTempStoreKey(extractId), Array.from(entriesToRemove));
     }
 
-    if (entriesToRewrite.size > 0) {
-        const rewrittenData = _.fromPairs(Array.from(entriesToRewrite).map(username => [username, JSON.stringify(data[username])]));
+    const actualEntriesToRewrite = Array.from(entriesToRewrite).filter(username => !entriesToRemove.has(username));
+    if (actualEntriesToRewrite.length > 0) {
+        const rewrittenData = _.fromPairs(actualEntriesToRewrite.map(username => [username, JSON.stringify(data[username])]));
         await context.redis.hSet(getExtractTempStoreKey(extractId), rewrittenData);
     }
 
@@ -453,6 +454,7 @@ async function createDataExtract (
         });
 
         await context.redis.del(getExtractTempStoreKey(extractId), getExtractTempQueueKey(extractId));
+        return;
     }
 
     const rawData = await context.redis.hGetAll(getExtractTempStoreKey(extractId));
@@ -529,6 +531,9 @@ async function createDataExtract (
         markdown.push({ ul: criteriaBullets });
     }
 
+    markdown.push({ p: "Extract command:" });
+    markdown.push({ code: { content: `!extract ${JSON.stringify(request)}` } });
+
     if (data.length > 0 && request.status?.includes(UserStatus.Banned) && request.since && new Date(request.since) > subDays(new Date(), 7)) {
         // Generate a random four-character string for reversing classifications
         const randomString = Math.random().toString(36).substring(2, 6);
@@ -562,8 +567,8 @@ async function createDataExtract (
             `[${entry.username}](https://www.reddit.com/user/${entry.username})`,
             `https://redd.it/${entry.data.trackingPostId.substring(3)}`,
             entry.data.userStatus,
-            entry.data.reportedAt ? format(new Date(entry.data.reportedAt), "yyyy-MM-dd") : "",
-            entry.data.lastUpdate ? format(new Date(entry.data.lastUpdate), "yyyy-MM-dd") : "",
+            entry.data.reportedAt ? format(new Date(entry.data.reportedAt), "yyyy-MM-dd HH:mm") : "",
+            entry.data.lastUpdate ? format(new Date(entry.data.lastUpdate), "yyyy-MM-dd HH:mm") : "",
         ];
 
         if (!request.omitUserDetails) {

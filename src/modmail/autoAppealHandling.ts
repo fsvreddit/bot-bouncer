@@ -1,21 +1,22 @@
 /* eslint-disable @stylistic/quote-props */
-import { TriggerContext, UserSocialLink } from "@devvit/public-api";
+import { Comment, Post, TriggerContext, UserSocialLink } from "@devvit/public-api";
 import Ajv, { JSONSchemaType } from "ajv";
 import { BIO_TEXT_STORE, SOCIAL_LINKS_STORE, UserDetails, UserFlag, UserStatus } from "../dataStore.js";
 import { getControlSubSettings } from "../settings.js";
 import { CONTROL_SUBREDDIT } from "../constants.js";
 import { parseAllDocuments } from "yaml";
-import _ from "lodash";
+import _, { countBy } from "lodash";
 import json2md from "json2md";
 import { sendMessageToWebhook } from "../utility.js";
 import { ModmailMessage } from "./modmail.js";
-import { getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
+import { evaluateUserAccount, EvaluationResult, getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
 import { getUserExtended } from "../extendedDevvit.js";
 import { statusToFlair } from "../postCreation.js";
-import { addMinutes, differenceInMonths, format, getYear } from "date-fns";
+import { addMinutes, addSeconds, differenceInMonths, format, getYear } from "date-fns";
 import { getPossibleSetStatusValues } from "./controlSubModmail.js";
 import { getUserSocialLinks } from "devvit-helpers";
 import { sendMessageOnDelay } from "./delayedSend.js";
+import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
 
 const APPEAL_CONFIG_WIKI_PAGE = "appeal-config";
 const APPEAL_CONFIG_REDIS_KEY = "AppealConfig";
@@ -32,6 +33,8 @@ interface AppealConfig {
     banDateTo?: string;
     evaluatorNameRegex?: string[];
     evaluatorHitReasonRegex?: string[];
+    currentEvaluatorNameRegex?: string[];
+    currentEvaluatorHitReasonRegex?: string[];
     bioRegex?: string[];
     "~bioRegex"?: string[];
     originalBioRegex?: string[];
@@ -40,6 +43,7 @@ interface AppealConfig {
     originalSocialLinkRegex?: string[];
     flags?: UserFlag[];
     "~flags"?: UserFlag[];
+    hasMoreThanOneCommentOnPost?: boolean;
     setStatus?: string;
     privateReply?: string;
     reply?: string;
@@ -70,6 +74,8 @@ const appealConfigSchema: JSONSchemaType<AppealConfig[]> = {
             banDateTo: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$", nullable: true },
             evaluatorNameRegex: { type: "array", items: { type: "string" }, nullable: true },
             evaluatorHitReasonRegex: { type: "array", items: { type: "string" }, nullable: true },
+            currentEvaluatorNameRegex: { type: "array", items: { type: "string" }, nullable: true },
+            currentEvaluatorHitReasonRegex: { type: "array", items: { type: "string" }, nullable: true },
             bioRegex: { type: "array", items: { type: "string" }, nullable: true },
             "~bioRegex": { type: "array", items: { type: "string" }, nullable: true },
             originalBioRegex: { type: "array", items: { type: "string" }, nullable: true },
@@ -78,6 +84,7 @@ const appealConfigSchema: JSONSchemaType<AppealConfig[]> = {
             originalSocialLinkRegex: { type: "array", items: { type: "string" }, nullable: true },
             flags: { type: "array", items: { type: "string", enum: Object.values(UserFlag) }, nullable: true },
             "~flags": { type: "array", items: { type: "string", enum: Object.values(UserFlag) }, nullable: true },
+            hasMoreThanOneCommentOnPost: { type: "boolean", nullable: true },
             setStatus: { type: "string", enum: getPossibleSetStatusValues(), nullable: true },
             privateReply: { type: "string", nullable: true },
             reply: { type: "string", nullable: true },
@@ -270,6 +277,25 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
     const originalSocialLinks = await context.redis.hGet(SOCIAL_LINKS_STORE, username.toLowerCase())
         .then(data => data ? JSON.parse(data) as UserSocialLink[] : []);
 
+    let currentEvaluationResults: EvaluationResult[] = [];
+    // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
+    if (appealConfig.some(config => config.currentEvaluatorHitReasonRegex || config.currentEvaluatorNameRegex)) {
+        currentEvaluationResults = await evaluateUserAccount({
+            username,
+            variables: await getEvaluatorVariables(context),
+        }, context);
+    }
+
+    let history: (Post | Comment)[] = [];
+
+    if (appealConfig.some(config => config.hasMoreThanOneCommentOnPost)) {
+        history = await context.reddit.getCommentsAndPostsByUser({
+            username,
+            limit: 100,
+            sort: "new",
+        }).all();
+    }
+
     const matchedAppealConfig = appealConfig.find((config) => {
         if (config.usernameRegex && !config.usernameRegex.some(regex => new RegExp(regex, "i").test(username))) {
             return;
@@ -307,6 +333,34 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
                 }
 
                 if (config.evaluatorHitReasonRegex && !config.evaluatorHitReasonRegex.some((regex) => {
+                    if (!evaluationResult.hitReason) {
+                        return false;
+                    }
+
+                    if (typeof evaluationResult.hitReason === "string") {
+                        return new RegExp(regex, "i").test(evaluationResult.hitReason);
+                    }
+
+                    return new RegExp(regex, "i").test(evaluationResult.hitReason.reason);
+                })) {
+                    continue;
+                }
+                anyMatched = true;
+            }
+
+            if (!anyMatched) {
+                return;
+            }
+        }
+
+        if (config.currentEvaluatorNameRegex || config.currentEvaluatorHitReasonRegex) {
+            let anyMatched = false;
+            for (const evaluationResult of currentEvaluationResults) {
+                if (config.currentEvaluatorNameRegex && !config.currentEvaluatorNameRegex.some(regex => new RegExp(regex, "i").test(evaluationResult.botName))) {
+                    continue;
+                }
+
+                if (config.currentEvaluatorHitReasonRegex && !config.currentEvaluatorHitReasonRegex.some((regex) => {
                     if (!evaluationResult.hitReason) {
                         return false;
                     }
@@ -391,6 +445,15 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
             }
         }
 
+        if (config.hasMoreThanOneCommentOnPost !== undefined) {
+            const commentsPerPost = countBy(history.filter(item => item instanceof Comment).map(comment => comment.postId));
+            const hasMoreThanOneCommentOnPost = Object.values(commentsPerPost).some(count => count > 1);
+
+            if (config.hasMoreThanOneCommentOnPost !== hasMoreThanOneCommentOnPost) {
+                return;
+            }
+        }
+
         return config;
     });
 
@@ -458,11 +521,11 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
                 replyMessage += "*This is an automated response. Please allow 24 hours for a response but we will aim to respond sooner.*";
             }
 
-            await context.reddit.modMail.reply({
+            await sendMessageOnDelay(context, {
                 conversationId: modmail.conversationId,
-                body: replyMessage,
-                isInternal: false,
-                isAuthorHidden: true,
+                message: replyMessage,
+                archive: appealOutcome.archive,
+                sendAt: addSeconds(new Date(), 20),
             });
         }
     }
@@ -489,9 +552,5 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
 
     if (appealOutcome.highlight) {
         await context.reddit.modMail.highlightConversation(modmail.conversationId);
-    }
-
-    if (appealOutcome.archive && !appealOutcome.replyDelay) {
-        await context.reddit.modMail.archiveConversation(modmail.conversationId);
     }
 }

@@ -2,7 +2,7 @@ import { TriggerContext, CreateModNoteOptions, UserSocialLink, TxClientLike, Red
 import _ from "lodash";
 import { setCleanupForSubmittersAndMods, setCleanupForUser } from "./cleanup.js";
 import { CONTROL_SUBREDDIT } from "./constants.js";
-import { addHours, addMinutes, subDays, subHours } from "date-fns";
+import { addDays, addHours, addMinutes, subDays, subHours } from "date-fns";
 import pluralize from "pluralize";
 import { getControlSubSettings } from "./settings.js";
 import { isCommentId, isLinkId } from "@devvit/public-api/types/tid.js";
@@ -13,7 +13,7 @@ import { getUserExtended } from "./extendedDevvit.js";
 import { storeClassificationEvent } from "./statistics/classificationStatistics.js";
 import { USER_DEFINED_HANDLES_POSTS } from "./statistics/definedHandlesStatistics.js";
 import { ZMember } from "@devvit/protos";
-import { getUserSocialLinks, hMGetAllChunked } from "devvit-helpers";
+import { getUserSocialLinks, hGetAllChunked } from "devvit-helpers";
 import { removeUserFromReversalsQueue } from "./modmail/evaluatorReversals.js";
 
 const TEMP_DECLINE_STORE = "TempDeclineStore";
@@ -32,7 +32,6 @@ export enum UserStatus {
     Organic = "organic",
     Purged = "purged",
     Retired = "retired",
-    Declined = "declined",
     Inactive = "inactive",
 }
 
@@ -44,10 +43,10 @@ export enum UserFlag {
 }
 
 const eligibleFlagsForStatus: Record<UserFlag, UserStatus[]> = {
-    [UserFlag.HackedAndRecovered]: [UserStatus.Pending, UserStatus.Organic, UserStatus.Declined],
-    [UserFlag.Scammed]: [UserStatus.Pending, UserStatus.Organic, UserStatus.Declined],
+    [UserFlag.HackedAndRecovered]: [UserStatus.Pending, UserStatus.Organic],
+    [UserFlag.Scammed]: [UserStatus.Pending, UserStatus.Organic],
     [UserFlag.Locked]: [UserStatus.Banned],
-    [UserFlag.FutureNSFW]: [UserStatus.Organic, UserStatus.Declined],
+    [UserFlag.FutureNSFW]: [UserStatus.Organic],
 };
 
 export interface UserDetails {
@@ -83,7 +82,7 @@ interface DataStoreExtractFilter {
 }
 
 async function getDataStoreFiltered (prefix: string, context: TriggerContext, filter?: DataStoreExtractFilter): Promise<Record<string, UserDetails>> {
-    const data = await hMGetAllChunked(context.redis.global as RedisClient, getStoreKey(prefix), 10000);
+    const data = await hGetAllChunked(context.redis.global as RedisClient, getStoreKey(prefix), 10000);
     if (!filter) {
         return _.fromPairs(Object.entries(data).map(([key, value]) => [key, JSON.parse(value) as UserDetails]));
     }
@@ -170,7 +169,6 @@ export async function setUserStatus (username: string, details: UserDetails, con
         UserStatus.Banned,
         UserStatus.Service,
         UserStatus.Organic,
-        UserStatus.Declined,
     ];
 
     if (currentStatus?.userStatus && statusesForLastStatusCopy.includes(currentStatus.userStatus)) {
@@ -191,13 +189,18 @@ export async function setUserStatus (username: string, details: UserDetails, con
     await writeUserStatus(username, details, context);
 
     if (context.subredditName === CONTROL_SUBREDDIT) {
+        let overrideDate: Date | undefined;
         if (details.userStatus === UserStatus.Pending && !currentStatus) {
-            await setCleanupForUser(username, context.redis, addMinutes(new Date(), 2));
+            overrideDate = addMinutes(new Date(), 2);
         } else if (details.userStatus === UserStatus.Pending || details.userStatus === UserStatus.Purged || details.userStatus === UserStatus.Retired) {
-            await setCleanupForUser(username, context.redis, addHours(new Date(), 1));
-        } else {
-            await setCleanupForUser(username, context.redis);
+            overrideDate = addHours(new Date(), 1);
+        } else if (details.flags?.includes(UserFlag.FutureNSFW)) {
+            overrideDate = addDays(new Date(), 7);
+        } else if (details.userStatus === UserStatus.Inactive) {
+            overrideDate = addDays(new Date(), 7);
         }
+
+        await setCleanupForUser(username, context.redis, overrideDate);
 
         const submittersAndMods = _.uniq(_.compact([details.submitter, details.operator]));
         await setCleanupForSubmittersAndMods(submittersAndMods, context);

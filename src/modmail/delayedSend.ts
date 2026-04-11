@@ -1,5 +1,5 @@
 import { JobContext, TriggerContext } from "@devvit/public-api";
-import { addSeconds } from "date-fns";
+import { addMinutes, addSeconds } from "date-fns";
 import json2md from "json2md";
 
 interface DelayedMessageOptions {
@@ -28,17 +28,19 @@ export async function sendMessageOnDelay (context: TriggerContext, params: Delay
 
     await context.redis.zAdd(DELAYED_MESSAGE_QUEUE, { member: JSON.stringify(params), score: params.sendAt.getTime() });
 
-    const privateReplyMessage: json2md.DataObject[] = [
-        { p: `A message is scheduled to be sent at ${params.sendAt.toUTCString()}.` },
-        { p: "Message preview:" },
-        { blockquote: params.message },
-    ];
+    if (params.sendAt > addMinutes(new Date(), 1)) {
+        const privateReplyMessage: json2md.DataObject[] = [
+            { p: `A message is scheduled to be sent at ${params.sendAt.toUTCString()}.` },
+            { p: "Message preview:" },
+            { blockquote: params.message },
+        ];
 
-    await context.reddit.modMail.reply({
-        conversationId: params.conversationId,
-        isInternal: true,
-        body: json2md(privateReplyMessage),
-    });
+        await context.reddit.modMail.reply({
+            conversationId: params.conversationId,
+            isInternal: true,
+            body: json2md(privateReplyMessage),
+        });
+    }
 }
 
 export async function processDelayedMessages (context: JobContext) {
