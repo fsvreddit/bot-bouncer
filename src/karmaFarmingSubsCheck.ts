@@ -247,8 +247,6 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
         return;
     }
 
-    const runLimit = addSeconds(new Date(), 10);
-
     const accounts = await context.redis.global.zRange(ACCOUNTS_QUEUED_KEY, 0, -1)
         .then((allAccounts) => {
             if (cohort === "evens") {
@@ -269,32 +267,22 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
 
     const variables = await getEvaluatorVariables(context);
 
-    const chunkedAccounts = [
-        accounts.slice(0, 4).map(item => item.member),
-        ...accounts.slice(4, 14).map(item => [item.member]),
-    ];
+    const chunk = accounts.slice(0, 10).map(item => item.member);
 
     let failedInBatch = 0;
 
-    while (new Date() < runLimit && chunkedAccounts.length > 0) {
-        const firstChunk = chunkedAccounts.shift();
-        if (!firstChunk) {
-            break;
+    await Promise.all(chunk.map(async (username) => {
+        await context.redis.global.zRem(ACCOUNTS_QUEUED_KEY, [username]);
+
+        try {
+            await evaluateAndHandleUser(username, variables, context);
+        } catch (error) {
+            console.error(`Karma Farming Subs: Error evaluating ${username}: ${error}`);
+            failedInBatch++;
         }
 
-        await Promise.all(firstChunk.map(async (username) => {
-            await context.redis.global.zRem(ACCOUNTS_QUEUED_KEY, [username]);
-
-            try {
-                await evaluateAndHandleUser(username, variables, context);
-            } catch (error) {
-                console.error(`Karma Farming Subs: Error evaluating ${username}: ${error}`);
-                failedInBatch++;
-            }
-
-            processed += 1;
-        }));
-    }
+        processed += 1;
+    }));
 
     if (failedInBatch > 3) {
         await context.redis.set(cooldownKey, "true", { expiration: addMinutes(new Date(), 2) });
@@ -311,7 +299,7 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
 
         await context.scheduler.runJob({
             name: ControlSubredditJob.EvaluateKarmaFarmingSubs,
-            runAt: addSeconds(new Date(), 2),
+            runAt: addSeconds(new Date(), 1),
             data: { firstRun: false, cohort },
         });
     } else {
