@@ -340,5 +340,15 @@ export async function invalidEvaluatorVariableCondition (variables: Record<strin
         results.push({ severity: "warning", message: `Subreddit r/${sub} in NSFW karma farming list does not exist.` });
     }
 
+    const kfSubsCountKey = "evaluatorVariablesKarmaFarmingSubsCount";
+    const currentCount = await context.redis.get(kfSubsCountKey);
+    const newCount = subs.size + nsfwsubs.size;
+
+    if (currentCount && Math.abs(parseInt(currentCount) - newCount) > 500) {
+        results.push({ severity: "error", message: `There are ${newCount} subreddits in the karma farming lists, which is a large change from the previous count of ${currentCount}. This may indicate an error in the formatting of the list.` });
+    } else {
+        await context.redis.set(kfSubsCountKey, newCount.toString());
+    }
+
     return results;
 }
