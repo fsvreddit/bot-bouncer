@@ -5,8 +5,10 @@ import { EvaluationResult, getAccountInitialEvaluationResults } from "../handleC
 import json2md from "json2md";
 import { callOpenAI } from "./openAI.js";
 import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
-import { addHours } from "date-fns";
+import { addHours, differenceInDays } from "date-fns";
 import { getPromptData, PromptData } from "./common.js";
+import { getControlSubSettings } from "../settings.js";
+import pluralize from "pluralize";
 
 function evaluationResultsToBulletPoints (input: EvaluationResult[], evaluatorVariables: Record<string, unknown>): string[] {
     const bullets: string[] = [];
@@ -65,7 +67,6 @@ export async function generateOpenAISummary (event: ScheduledJobEvent<JSONObject
     const username = event.data?.username as string | undefined;
     const conversationId = event.data?.conversationId as string | undefined;
     const postId = event.data?.postId as string | undefined;
-    const minContentItemsNeeded = event.data?.minContentItemsNeeded as number | undefined ?? 5;
 
     if (!username || (!conversationId && !postId)) {
         console.error("Missing username or conversationId/postId in job event data");
@@ -104,7 +105,7 @@ export async function generateOpenAISummary (event: ScheduledJobEvent<JSONObject
         return;
     }
 
-    const [userInfo, modNotes, evaluatorVariables] = await Promise.all([
+    const [userInfo, modNotes, evaluatorVariables, controlSubSettings] = await Promise.all([
         getUserInfoForOpenAI(username, context),
         context.reddit.getModNotes({
             user: username,
@@ -112,15 +113,30 @@ export async function generateOpenAISummary (event: ScheduledJobEvent<JSONObject
             filter: "NOTE",
         }).all(),
         getEvaluatorVariables(context),
+        getControlSubSettings(context),
     ]);
 
-    if (userInfo.history.length < minContentItemsNeeded) {
+    const reasonsToSkipCreation: string[] = [];
+    const minimumAccountAgeInDays = controlSubSettings.openAIMinimumAccountAgeInDays ?? 30;
+    const minimumContentItems = controlSubSettings.openAIMinimumContentCount ?? 25;
+
+    const accountAgeInDays = userInfo.userInfo.createdAt ? differenceInDays(new Date(), userInfo.userInfo.createdAt) : undefined;
+    if (!accountAgeInDays || accountAgeInDays < minimumAccountAgeInDays) {
+        reasonsToSkipCreation.push(`The account is ${accountAgeInDays} ${pluralize("day", accountAgeInDays)} old, which is less than the minimum required ${minimumAccountAgeInDays} days`);
+    }
+
+    if (userInfo.history.length < minimumContentItems) {
+        reasonsToSkipCreation.push(`The user has only ${userInfo.history.length} content ${pluralize("item", userInfo.history.length)}, which is less than the minimum required ${minimumContentItems} items`);
+    }
+
+    if (reasonsToSkipCreation.length > 0) {
         await createResponse({
             conversationId,
             postId,
             output: json2md([
                 { p: "**OpenAI Summary**." },
-                { p: `This user has fewer than ${minContentItemsNeeded} posts or comments visible on their profile, so no useful summary can be generated.` },
+                { p: "This user does not meet the requirements for generating an OpenAI summary because of the following reasons:" },
+                { ul: reasonsToSkipCreation },
             ]),
         }, context);
         return;

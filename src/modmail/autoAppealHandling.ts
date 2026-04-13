@@ -260,10 +260,16 @@ function formatPlaceholders (input: string, userDetails: UserDetails): string {
     return output;
 }
 
-export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDetails, context: TriggerContext): Promise<void> {
+export enum AppealOutcomeType {
+    Skipped = "skipped",
+    Neutral = "neutral",
+    StatusChanged = "statusChanged",
+}
+
+export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDetails, context: TriggerContext): Promise<AppealOutcomeType> {
     const username = modmail.participant;
     if (!username) {
-        return;
+        return AppealOutcomeType.Skipped;
     }
 
     const appealConfig = await getAppealConfig(context).then(configs => configs.sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0)));
@@ -458,6 +464,8 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
     });
 
     let appealOutcome: AppealOutcome;
+    let appealOutcomeType: AppealOutcomeType = AppealOutcomeType.Neutral;
+
     if (matchedAppealConfig) {
         console.log(`Appeals: Found an appeal for user ${username}: ${matchedAppealConfig.name}`);
         appealOutcome = {
@@ -484,6 +492,8 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
             text: flairText,
             subredditName: CONTROL_SUBREDDIT,
         });
+
+        appealOutcomeType = AppealOutcomeType.StatusChanged;
     }
 
     if (appealOutcome.privateReply) {
@@ -553,4 +563,6 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
     if (appealOutcome.highlight) {
         await context.reddit.modMail.highlightConversation(modmail.conversationId);
     }
+
+    return appealOutcomeType;
 }

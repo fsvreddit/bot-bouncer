@@ -13,7 +13,7 @@ import { markAppealAsHandled } from "../statistics/appealStatistics.js";
 import { statusToFlair } from "../postCreation.js";
 import { CONTROL_SUBREDDIT, ControlSubredditJob, INTERNAL_BOT } from "../constants.js";
 import { handleBulkSubmission, retryBulkSubmission } from "./bulkSubmission.js";
-import { handleAppeal } from "./autoAppealHandling.js";
+import { AppealOutcomeType, handleAppeal } from "./autoAppealHandling.js";
 import { FLAIR_MAPPINGS } from "../handleControlSubFlairUpdate.js";
 import _ from "lodash";
 import { CHECK_DATE_KEY } from "../karmaFarmingSubsCheck.js";
@@ -315,9 +315,9 @@ async function handleModmailFromUser (modmail: ModmailMessage, context: TriggerC
         return;
     }
 
-    await handleAppeal(modmail, currentStatus, context);
+    const appealOutcomeType = await handleAppeal(modmail, currentStatus, context);
 
-    if (currentStatus.userStatus === UserStatus.Banned) {
+    if (currentStatus.userStatus === UserStatus.Banned && appealOutcomeType !== AppealOutcomeType.StatusChanged) {
         await context.scheduler.runJob({
             name: ControlSubredditJob.OpenAISummaryGather,
             data: {

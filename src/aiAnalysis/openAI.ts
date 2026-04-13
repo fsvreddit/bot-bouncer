@@ -30,6 +30,9 @@ export async function callOpenAI (input: OpenAIQuery, context: TriggerContext | 
     });
 
     console.log(`OpenAI: Model used: ${response.model}`);
+    if (response.usage) {
+        console.log(`OpenAI: Total tokens used: ${response.usage.total_tokens}`);
+    }
 
     if (response.status === "failed") {
         throw new Error(`OpenAI API call failed: ${response.error?.message ?? "Unknown error"}`);

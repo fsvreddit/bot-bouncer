@@ -265,6 +265,8 @@ export interface ControlSubSettings {
     redosCheckerEnabled?: boolean;
     evaluatorVariableUpdatesEnabled?: boolean;
     enableModQueueRemoval?: boolean;
+    openAIMinimumAccountAgeInDays?: number;
+    openAIMinimumContentCount?: number;
     appRemovedMessage?: string;
 }
 
@@ -301,6 +303,8 @@ const schema: JSONSchemaType<ControlSubSettings> = {
         redosCheckerEnabled: { type: "boolean", nullable: true },
         evaluatorVariableUpdatesEnabled: { type: "boolean", nullable: true },
         enableModQueueRemoval: { type: "boolean", nullable: true },
+        openAIMinimumAccountAgeInDays: { type: "number", nullable: true },
+        openAIMinimumContentCount: { type: "number", nullable: true },
         appRemovedMessage: { type: "string", nullable: true },
     },
     required: ["evaluationDisabled", "trustedSubmitters", "reporterBlacklist"],
