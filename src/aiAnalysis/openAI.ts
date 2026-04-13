@@ -1,6 +1,7 @@
 import { JobContext, TriggerContext } from "@devvit/public-api";
 import { AppSetting } from "../settings.js";
 import { CONTROL_SUBREDDIT } from "../constants.js";
+import OpenAI from "openai";
 
 interface OpenAIQuery {
     model?: string;
@@ -18,28 +19,21 @@ export async function callOpenAI (input: OpenAIQuery, context: TriggerContext | 
         throw new Error("OpenAI API key is not set in app settings.");
     }
 
-    const response = await fetch("https://api.openai.com/v1/responses", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-            model: input.model ?? "gpt-5.4-mini",
-            input: input.prompt,
-            temperature: input.temperature ?? 0.7,
-        }),
+    const openAI = new OpenAI({
+        apiKey,
     });
 
-    if (!response.ok) {
-        const err = await response.text();
-        throw new Error(`OpenAI API error: ${err}`);
+    const response = await openAI.responses.create({
+        model: input.model ?? "gpt-5.4-mini",
+        input: input.prompt,
+        temperature: input.temperature ?? 0.7,
+    });
+
+    console.log(`OpenAI: Model used: ${response.model}`);
+
+    if (response.status === "failed") {
+        throw new Error(`OpenAI API call failed: ${response.error?.message ?? "Unknown error"}`);
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const data = await response.json();
-
-    // Extract the assistant's reply text
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
-    return data.output[0].content[0].text;
+    return response.output_text;
 }

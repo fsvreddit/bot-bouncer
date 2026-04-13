@@ -22,6 +22,7 @@
     "json2md": "^2.0.3",
     "lodash": "^4.17.21",
     "markdown-escape": "^2.0.0",
+    "openai": "^6.34.0",
     "pako": "^2.1.0",
     "pluralize": "^8.0.0",
     "redos-detector": "^6.1.2",
