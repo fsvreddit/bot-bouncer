@@ -175,7 +175,7 @@ export async function handleControlSubredditModmail (modmail: ModmailMessage, co
     }
 }
 
-export function markdownToText (markdown: json2md.DataObject[], limit = 9500): string[] {
+export function markdownToText (markdown: json2md.DataObject[], limit = 5000): string[] {
     const text = json2md(markdown);
     if (text.length < limit) {
         return [text];
