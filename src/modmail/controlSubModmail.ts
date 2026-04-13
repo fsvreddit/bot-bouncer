@@ -181,31 +181,18 @@ export function markdownToText (markdown: json2md.DataObject[], limit = 9500): s
         return [text];
     }
 
-    console.log(`Markdown to text conversion: ${text.length} > ${limit}`);
-
-    const workingMarkdown = [...markdown];
-
-    // Split the markdown into chunks that fit within the limit
     const chunks: string[] = [];
-    let currentChunkMarkdown: json2md.DataObject[] = [];
-    while (workingMarkdown.length > 0) {
-        const firstElement = workingMarkdown.shift();
-        if (!firstElement) {
-            // Impossible, but satisfy the TypeScript compiler
-            break;
-        }
-        const text = json2md([...currentChunkMarkdown, firstElement]);
-        if (text.length > limit) {
-            chunks.push(json2md(currentChunkMarkdown));
-            console.log(`Markdown to text conversion: ${text.length} > ${limit}, chunk size: ${currentChunkMarkdown.length}`);
-            currentChunkMarkdown = []; // Clear the current chunk
-        }
-        currentChunkMarkdown.push(firstElement);
-    }
 
-    // Add the last chunk if it exists
-    if (currentChunkMarkdown.length > 0) {
-        chunks.push(json2md(currentChunkMarkdown));
+    let workingChunk = "";
+    for (const line of text.split("\n")) {
+        if (workingChunk.length + line.length + 1 > limit) {
+            chunks.push(workingChunk);
+            workingChunk = "";
+        }
+        workingChunk += line + "\n";
+    }
+    if (workingChunk.length > 0) {
+        chunks.push(workingChunk);
     }
 
     return chunks;

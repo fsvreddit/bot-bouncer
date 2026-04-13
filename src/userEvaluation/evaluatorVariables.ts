@@ -273,7 +273,7 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
     await context.redis.del(EXTRA_VARIABLES_UPDATED_KEY);
 }
 
-export async function invalidEvaluatorVariableCondition (variables: Record<string, JSONValue>, context: JobContext): Promise<ValidationIssue[]> {
+export async function invalidEvaluatorVariableCondition (variables: Record<string, JSONValue>, context: JobContext, calledFromTest = false): Promise<ValidationIssue[]> {
     const results: ValidationIssue[] = [];
 
     // Now check for inconsistent types.
@@ -340,14 +340,16 @@ export async function invalidEvaluatorVariableCondition (variables: Record<strin
         results.push({ severity: "warning", message: `Subreddit r/${sub} in NSFW karma farming list does not exist.` });
     }
 
-    const kfSubsCountKey = "evaluatorVariablesKarmaFarmingSubsCount";
-    const currentCount = await context.redis.get(kfSubsCountKey);
-    const newCount = subs.size + nsfwsubs.size;
+    if (!calledFromTest) { // For where this is called from unit tests with a fake context
+        const kfSubsCountKey = "evaluatorVariablesKarmaFarmingSubsCount";
+        const currentCount = await context.redis.get(kfSubsCountKey);
+        const newCount = subs.size + nsfwsubs.size;
 
-    if (currentCount && Math.abs(parseInt(currentCount) - newCount) > 500) {
-        results.push({ severity: "error", message: `There are ${newCount} subreddits in the karma farming lists, which is a large change from the previous count of ${currentCount}. This may indicate an error in the formatting of the list.` });
-    } else {
-        await context.redis.set(kfSubsCountKey, newCount.toString());
+        if (currentCount && Math.abs(parseInt(currentCount) - newCount) > 500) {
+            results.push({ severity: "error", message: `There are ${newCount} subreddits in the karma farming lists, which is a large change from the previous count of ${currentCount}. This may indicate an error in the formatting of the list.` });
+        } else {
+            await context.redis.set(kfSubsCountKey, newCount.toString());
+        }
     }
 
     return results;

@@ -100,6 +100,6 @@ group1:
         - AccidentalSlapstick
 `;
     const variables = yamlToVariables(yaml);
-    const results = await invalidEvaluatorVariableCondition(variables, {} as unknown as JobContext);
+    const results = await invalidEvaluatorVariableCondition(variables, {} as unknown as JobContext, true);
     expect(results.length).toBe(0);
 });
