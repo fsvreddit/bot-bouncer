@@ -11,66 +11,71 @@ interface PostInfo {
 }
 
 export async function getUserInfoForOpenAI (username: string, context: TriggerContext) {
-    const user = await getUserExtended(username, context);
-    const socialLinks = await getUserSocialLinks(username, context.metadata);
+    try {
+        const user = await getUserExtended(username, context);
+        const socialLinks = await getUserSocialLinks(username, context.metadata);
 
-    const history = await context.reddit.getCommentsAndPostsByUser({
-        username,
-        limit: 100,
-        sort: "new",
-    }).all();
+        const history = await context.reddit.getCommentsAndPostsByUser({
+            username,
+            limit: 100,
+            sort: "new",
+        }).all();
 
-    const postInfoMap: Record<string, PostInfo> = {};
-    const uniqueCommentPosts = _.uniq(history.filter(item => item instanceof Comment).map(comment => comment.postId));
+        const postInfoMap: Record<string, PostInfo> = {};
+        const uniqueCommentPosts = _.uniq(history.filter(item => item instanceof Comment).map(comment => comment.postId));
 
-    await Promise.all(uniqueCommentPosts.map(async (postId) => {
-        let post: Post;
-        try {
-            post = await context.reddit.getPostById(postId);
-        } catch (err) {
-            const message = err instanceof Error ? err.message : String(err);
-            console.error(`Failed to fetch post info for postId ${postId}:`, message);
-            return;
-        }
-
-        postInfoMap[postId] = {
-            title: post.title,
-            createdAt: post.createdAt,
-            url: post.url,
-        };
-    }));
-
-    return {
-        userInfo: {
-            ...user,
-            socialLinks: socialLinks.map(link => ({ title: link.title, url: link.outboundUrl })),
-        },
-        history: history.map((item) => {
-            if (item instanceof Comment) {
-                return {
-                    type: "comment",
-                    content: item.body,
-                    karma: item.score,
-                    subredditName: item.subredditName,
-                    createdAt: item.createdAt,
-                    isTopLevel: isLinkId(item.parentId),
-                    edited: item.edited ? true : undefined,
-                    parentPostInfo: postInfoMap[item.postId],
-                };
-            } else {
-                return {
-                    type: "post",
-                    title: item.title,
-                    content: item.body,
-                    karma: item.score,
-                    subredditName: item.subredditName,
-                    createdAt: item.createdAt,
-                    url: item.url,
-                    isPinnedToProfile: item.stickied ? true : undefined,
-                    edited: item.edited ? true : undefined,
-                    nsfw: item.nsfw ? true : undefined,
-                };
+        await Promise.all(uniqueCommentPosts.map(async (postId) => {
+            let post: Post;
+            try {
+                post = await context.reddit.getPostById(postId);
+            } catch (err) {
+                const message = err instanceof Error ? err.message : String(err);
+                console.error(`Failed to fetch post info for postId ${postId}:`, message);
+                return;
             }
-        }),
-    };
+
+            postInfoMap[postId] = {
+                title: post.title,
+                createdAt: post.createdAt,
+                url: post.url,
+            };
+        }));
+
+        return {
+            userInfo: {
+                ...user,
+                socialLinks: socialLinks.map(link => ({ title: link.title, url: link.outboundUrl })),
+            },
+            history: history.map((item) => {
+                if (item instanceof Comment) {
+                    return {
+                        type: "comment",
+                        content: item.body,
+                        karma: item.score,
+                        subredditName: item.subredditName,
+                        createdAt: item.createdAt,
+                        isTopLevel: isLinkId(item.parentId),
+                        edited: item.edited ? true : undefined,
+                        parentPostInfo: postInfoMap[item.postId],
+                    };
+                } else {
+                    return {
+                        type: "post",
+                        title: item.title,
+                        content: item.body,
+                        karma: item.score,
+                        subredditName: item.subredditName,
+                        createdAt: item.createdAt,
+                        url: item.url,
+                        isPinnedToProfile: item.stickied ? true : undefined,
+                        edited: item.edited ? true : undefined,
+                        nsfw: item.nsfw ? true : undefined,
+                    };
+                }
+            }),
+        };
+    } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
+        console.error(`Error in getUserInfoForOpenAI for username ${username}:`, errorMessage);
+    }
 }

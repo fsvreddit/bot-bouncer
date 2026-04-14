@@ -116,6 +116,18 @@ export async function generateOpenAISummary (event: ScheduledJobEvent<JSONObject
         getControlSubSettings(context),
     ]);
 
+    if (!userInfo) {
+        await createResponse({
+            conversationId,
+            postId,
+            output: json2md([
+                { p: "**OpenAI Summary**. Use these results as a guide as they may be inaccurate." },
+                { p: `Error generating OpenAI summary: could not retrieve user information for ${username}. This may be because the user does not exist or is suspended.` },
+            ]),
+        }, context);
+        return;
+    }
+
     const reasonsToSkipCreation: string[] = [];
     const minimumAccountAgeInDays = controlSubSettings.openAIMinimumAccountAgeInDays ?? 30;
     const minimumContentItems = controlSubSettings.openAIMinimumContentCount ?? 25;

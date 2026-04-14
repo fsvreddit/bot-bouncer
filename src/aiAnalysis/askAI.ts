@@ -44,6 +44,14 @@ export async function handleAskAI (modmail: ModmailMessage, context: TriggerCont
     }
 
     const userInfo = await getUserInfoForOpenAI(modmail.participant, context);
+    if (!userInfo) {
+        await context.reddit.modMail.reply({
+            conversationId: modmail.conversationId,
+            body: `Error: Could not retrieve information for user ${modmail.participant}.`,
+            isInternal: true,
+        });
+        return;
+    }
 
     let prompt = promptData.prompt.replace("{{modQuestion}}", blockQuotedQuestion);
 
