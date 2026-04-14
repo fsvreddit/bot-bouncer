@@ -197,7 +197,8 @@ export async function updateSocialLinksStatistics (allEntries: StatsUserEntry[],
         content: json2md(wikiContent),
     });
 
-    const newSubstitionValue = records.map(record => record.link);
+    const domainOnlyUrlRegex = /^https?:\/\/[^/]+\/?$/;
+    const newSubstitionValue = records.map(record => record.link).filter(link => !domainOnlyUrlRegex.test(link));
     const existingSubstitionValue = new Set(await getRedisSubstitionValue<string[]>("sociallinks", context) ?? []);
 
     if (newSubstitionValue.length === existingSubstitionValue.size && newSubstitionValue.every(value => existingSubstitionValue.has(value))) {
