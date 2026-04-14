@@ -8,10 +8,9 @@ import { addDays, addMinutes, addSeconds, subMinutes } from "date-fns";
 import { validateAndSaveAppealConfig } from "./modmail/autoAppealHandling.js";
 import { checkIfStatsNeedUpdating } from "./scheduler/sixHourlyJobs.js";
 import { handleObserverSubsWikiPageCopy } from "./statistics/observerSubWikiPageCopy.js";
-import { isModeratorWithCache, sendMessageToWebhook } from "./utility.js";
+import { isModeratorWithCache, removeCachedBanStatus, sendMessageToWebhook } from "./utility.js";
 import { getExtendedDevvit } from "devvit-helpers";
 import { getInstallDate } from "./installActions.js";
-import { removeCachedBanStatus } from "./postCreation.js";
 
 export async function handleModAction (event: ModAction, context: TriggerContext) {
     if (context.subredditName === CONTROL_SUBREDDIT) {

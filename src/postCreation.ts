@@ -6,8 +6,7 @@ import { addDays, addHours, addMinutes, addSeconds, subWeeks } from "date-fns";
 import { getControlSubSettings } from "./settings.js";
 import pluralize from "pluralize";
 import { queueSendFeedback } from "./submissionFeedback.js";
-import { formatTimeSince, sendMessageToWebhook, updateWebhookMessage } from "./utility.js";
-import { isBanned } from "devvit-helpers";
+import { formatTimeSince, isBannedWithCache, sendMessageToWebhook, updateWebhookMessage } from "./utility.js";
 
 export const statusToFlair: Record<UserStatus, PostFlairTemplate> = {
     [UserStatus.Pending]: PostFlairTemplate.Pending,
@@ -154,30 +153,6 @@ export enum PostCreationQueueResult {
     AlreadyInQueue = "alreadyInQueue",
     AlreadyInDatabase = "alreadyInDatabase",
     Error = "error",
-}
-
-function getBanCacheKey (username: string, subredditName: string) {
-    return `banStatus:${subredditName}:${username}`;
-}
-
-async function isBannedWithCache (username: string, context: TriggerContext): Promise<boolean> {
-    const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
-
-    const cacheKey = getBanCacheKey(username, subredditName);
-    const cachedValue = await context.redis.get(cacheKey);
-    if (cachedValue !== undefined) {
-        return JSON.parse(cachedValue) as boolean;
-    }
-
-    const isUserBanned = await isBanned(context.reddit, username, subredditName);
-    await context.redis.set(cacheKey, JSON.stringify(isUserBanned), { expiration: addDays(new Date(), 1) });
-    return isUserBanned;
-}
-
-export async function removeCachedBanStatus (username: string, context: TriggerContext) {
-    const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
-    const cacheKey = getBanCacheKey(username, subredditName);
-    await context.redis.del(cacheKey);
 }
 
 export async function queuePostCreation (submission: AsyncSubmission, context: TriggerContext): Promise<PostCreationQueueResult> {

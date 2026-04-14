@@ -1,7 +1,7 @@
 import { Comment, Post, TriggerContext, User } from "@devvit/public-api";
 import { isCommentId, isLinkId } from "@devvit/public-api/types/tid.js";
-import { addHours, formatDuration, intervalToDuration } from "date-fns";
-import { isModerator } from "devvit-helpers";
+import { addDays, addHours, formatDuration, intervalToDuration } from "date-fns";
+import { isBanned, isModerator } from "devvit-helpers";
 import Pako from "pako";
 
 export function getUsernameFromUrl (url: string) {
@@ -32,6 +32,30 @@ export async function isModeratorWithCache (username: string, context: TriggerCo
 
     await context.redis.set(cacheKey, JSON.stringify(isAMod), { expiration: addHours(new Date(), 1) });
     return isAMod;
+}
+
+function getBanCacheKey (username: string, subredditName: string) {
+    return `banStatus:${subredditName}:${username}`;
+}
+
+export async function removeCachedBanStatus (username: string, context: TriggerContext) {
+    const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
+    const cacheKey = getBanCacheKey(username, subredditName);
+    await context.redis.del(cacheKey);
+}
+
+export async function isBannedWithCache (username: string, context: TriggerContext, subredditName?: string, cacheUntil?: Date): Promise<boolean> {
+    const subName = subredditName ?? context.subredditName ?? await context.reddit.getCurrentSubredditName();
+
+    const cacheKey = getBanCacheKey(username, subName);
+    const cachedValue = await context.redis.get(cacheKey);
+    if (cachedValue !== undefined) {
+        return JSON.parse(cachedValue) as boolean;
+    }
+
+    const isUserBanned = await isBanned(context.reddit, subName, username);
+    await context.redis.set(cacheKey, JSON.stringify(isUserBanned), { expiration: cacheUntil ?? addDays(new Date(), 1) });
+    return isUserBanned;
 }
 
 export function getPostOrCommentById (thingId: string, context: TriggerContext): Promise<Post | Comment> {
