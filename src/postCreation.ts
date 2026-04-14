@@ -7,6 +7,7 @@ import { getControlSubSettings } from "./settings.js";
 import pluralize from "pluralize";
 import { queueSendFeedback } from "./submissionFeedback.js";
 import { formatTimeSince, sendMessageToWebhook, updateWebhookMessage } from "./utility.js";
+import { isBanned } from "devvit-helpers";
 
 export const statusToFlair: Record<UserStatus, PostFlairTemplate> = {
     [UserStatus.Pending]: PostFlairTemplate.Pending,
@@ -155,6 +156,30 @@ export enum PostCreationQueueResult {
     Error = "error",
 }
 
+function getBanCacheKey (username: string, subredditName: string) {
+    return `banStatus:${subredditName}:${username}`;
+}
+
+async function isBannedWithCache (username: string, context: TriggerContext): Promise<boolean> {
+    const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
+
+    const cacheKey = getBanCacheKey(username, subredditName);
+    const cachedValue = await context.redis.get(cacheKey);
+    if (cachedValue !== undefined) {
+        return JSON.parse(cachedValue) as boolean;
+    }
+
+    const isUserBanned = await isBanned(context.reddit, username, subredditName);
+    await context.redis.set(cacheKey, JSON.stringify(isUserBanned), { expiration: addDays(new Date(), 1) });
+    return isUserBanned;
+}
+
+export async function removeCachedBanStatus (username: string, context: TriggerContext) {
+    const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
+    const cacheKey = getBanCacheKey(username, subredditName);
+    await context.redis.del(cacheKey);
+}
+
 export async function queuePostCreation (submission: AsyncSubmission, context: TriggerContext): Promise<PostCreationQueueResult> {
     const controlSubSettings = await getControlSubSettings(context);
     if (!controlSubSettings.allowNewSubmissions) {
@@ -166,6 +191,11 @@ export async function queuePostCreation (submission: AsyncSubmission, context: T
     if (currentStatus) {
         console.log(`Post Creation: User ${submission.user.username} already has a status of ${currentStatus.userStatus}.`);
         return PostCreationQueueResult.AlreadyInDatabase;
+    }
+
+    if (await isBannedWithCache(submission.user.username, context)) {
+        console.log(`Post Creation: User ${submission.user.username} is banned from the control subreddit.`);
+        return PostCreationQueueResult.Error;
     }
 
     let score = submission.immediate ? new Date().getTime() / 1000 : new Date().getTime();

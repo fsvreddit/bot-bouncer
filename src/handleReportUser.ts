@@ -11,6 +11,7 @@ import { recordReportForSummary } from "./modmail/actionSummary.js";
 import { canUserReceiveFeedback } from "./submissionFeedback.js";
 import { isLinkId } from "@devvit/public-api/types/tid.js";
 import { addClassificationQueryToQueue } from "./modmail/classificationQuery.js";
+import { isBanned } from "devvit-helpers";
 
 enum ReportFormField {
     ReportContext = "reportContext",
@@ -121,6 +122,11 @@ export async function handleReportUser (event: MenuItemOnPressEvent, context: Co
 
     if (await isModeratorWithCache(target.authorName, context)) {
         context.ui.showToast("You cannot report a moderator of this subreddit.");
+        return;
+    }
+
+    if (await isBanned(context.reddit, currentUser.username, CONTROL_SUBREDDIT)) {
+        context.ui.showToast("You are currently banned from r/BotBouncer, so you cannot report other users.");
         return;
     }
 

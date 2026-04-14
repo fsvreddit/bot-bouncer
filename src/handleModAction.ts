@@ -11,6 +11,7 @@ import { handleObserverSubsWikiPageCopy } from "./statistics/observerSubWikiPage
 import { isModeratorWithCache, sendMessageToWebhook } from "./utility.js";
 import { getExtendedDevvit } from "devvit-helpers";
 import { getInstallDate } from "./installActions.js";
+import { removeCachedBanStatus } from "./postCreation.js";
 
 export async function handleModAction (event: ModAction, context: TriggerContext) {
     if (context.subredditName === CONTROL_SUBREDDIT) {
@@ -170,6 +171,10 @@ async function handleModActionControlSub (event: ModAction, context: TriggerCont
             + `[${post.title}](https://www.reddit.com${post.permalink})`;
 
         await sendMessageToWebhook(controlSubSettings.monitoringWebhook, message);
+    }
+
+    if ((event.action === "banuser" || event.action === "unbanuser") && event.targetUser) {
+        await removeCachedBanStatus(event.targetUser.name, context);
     }
 }
 
