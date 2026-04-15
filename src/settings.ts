@@ -64,6 +64,8 @@ export enum AppSetting {
 
     // App-scoped secrets
     OpenAIKey = "openAIKey",
+    OpenAIAdminKey = "openAIAdminKey",
+    OpenAIProjectId = "openAIProjectId",
 }
 
 export enum ActionType {
@@ -235,6 +237,20 @@ export const appSettings: SettingsFormField[] = [
         scope: "app",
         isSecret: true,
     },
+    {
+        type: "string",
+        label: "OpenAI API Admin Key",
+        name: AppSetting.OpenAIAdminKey,
+        scope: "app",
+        isSecret: true,
+    },
+    {
+        type: "string",
+        label: "OpenAI API Project ID",
+        name: AppSetting.OpenAIProjectId,
+        scope: "app",
+        isSecret: true,
+    },
 ];
 
 export interface ControlSubSettings {
@@ -267,6 +283,7 @@ export interface ControlSubSettings {
     enableModQueueRemoval?: boolean;
     openAIMinimumAccountAgeInDays?: number;
     openAIMinimumContentCount?: number;
+    openAINotificationsWebhook?: string;
     appRemovedMessage?: string;
 }
 
@@ -305,6 +322,7 @@ const schema: JSONSchemaType<ControlSubSettings> = {
         enableModQueueRemoval: { type: "boolean", nullable: true },
         openAIMinimumAccountAgeInDays: { type: "number", nullable: true },
         openAIMinimumContentCount: { type: "number", nullable: true },
+        openAINotificationsWebhook: { type: "string", nullable: true },
         appRemovedMessage: { type: "string", nullable: true },
     },
     required: ["evaluationDisabled", "trustedSubmitters", "reporterBlacklist"],
