@@ -325,7 +325,7 @@ function effectiveStatus (userDetails?: UserDetails): "human" | "bot" | undefine
 }
 
 export async function handleClassificationChanges (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
-    const recentlyRunKey = "classificationChangesLastRun";
+    const recentlyRunKey = "classificationChangesInProgress";
     if (event.data?.firstRun && await context.redis.exists(recentlyRunKey)) {
         console.log("Classification Update: Classification changes job ran recently, skipping this run.");
         return;
@@ -401,7 +401,7 @@ export async function handleClassificationChanges (event: ScheduledJobEvent<JSON
     }
 }
 
-const APP_PERMISSIONS_CACHE_KEY = "AppPermissionsCache";
+const APP_PERMISSIONS_CACHE_KEY = "AppPermissionsCheckCache";
 
 async function appAccountHasPermissions (context: TriggerContext): Promise<boolean> {
     const cachedResult = await context.redis.get(APP_PERMISSIONS_CACHE_KEY);

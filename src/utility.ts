@@ -22,7 +22,7 @@ export async function isModeratorWithCache (username: string, context: TriggerCo
         return true;
     }
 
-    const cacheKey = `modStatus:${subredditName}:${username}`;
+    const cacheKey = `modStatusValue:${subredditName}:${username}`;
     const cachedValue = await context.redis.get(cacheKey);
     if (cachedValue !== undefined) {
         return JSON.parse(cachedValue) as boolean;
@@ -35,7 +35,7 @@ export async function isModeratorWithCache (username: string, context: TriggerCo
 }
 
 function getBanCacheKey (username: string, subredditName: string) {
-    return `banStatus:${subredditName}:${username}`;
+    return `banStatusValue:${subredditName}:${username}`;
 }
 
 export async function removeCachedBanStatus (username: string, context: TriggerContext) {

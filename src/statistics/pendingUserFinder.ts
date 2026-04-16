@@ -5,7 +5,7 @@ import json2md from "json2md";
 import { StatsUserEntry } from "../scheduler/sixHourlyJobs.js";
 
 export async function pendingUserFinder (_event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
-    const runRecentlyKey = "pendingUserFinderLastRun";
+    const runRecentlyKey = "pendingUserFinderLastRunValue";
     if (await context.redis.exists(runRecentlyKey)) {
         return;
     }
@@ -36,7 +36,7 @@ export async function pendingUserFinder (_event: ScheduledJobEvent<JSONObject | 
         return;
     }
 
-    const lastReportSentKey = "pendingUsersReportSentRecently";
+    const lastReportSentKey = "pendingUsersReportSentRecentlyValue";
     const lastReportVal = await context.redis.get(lastReportSentKey);
     if (lastReportVal && parseInt(lastReportVal, 10) > subDays(new Date(), 1).getTime()) {
         return; // Report already sent in the last 24 hours

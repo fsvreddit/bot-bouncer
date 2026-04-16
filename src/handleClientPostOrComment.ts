@@ -96,7 +96,7 @@ export async function handleClientCommentCreate (event: CommentCreate, context: 
         return;
     }
 
-    const redisKey = `lastbotcheck:${event.author.name}`;
+    const redisKey = `lastBotCheckForUser:${event.author.name}`;
     const recentlyChecked = await context.redis.get(redisKey);
     if (recentlyChecked) {
         // Allow some rechecks within 15 minutes, to find rapid fire bots.
@@ -149,7 +149,7 @@ export async function handleClientCommentUpdate (event: CommentUpdate, context: 
         return;
     }
 
-    const redisKey = `lastbotcheck:${event.author.name}`;
+    const redisKey = `lastBotCheckForUser:${event.author.name}`;
     const recentlyChecked = await context.redis.get(redisKey);
     if (recentlyChecked) {
         // Allow some rechecks within 15 minutes, to find rapid fire bots.

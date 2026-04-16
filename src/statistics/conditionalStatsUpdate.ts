@@ -80,7 +80,7 @@ export async function conditionalStatsUpdate (_: unknown, context: JobContext) {
 }
 
 export async function shouldUpdateStatistic (config: ConditionalStatsUpdateConfig, variables: Record<string, JSONValue>, context: JobContext): Promise<boolean> {
-    const redisKey = `${config.statName}ConfigCached`;
+    const redisKey = `${config.statName}ConfigCachedValue`;
     const currentConfig: Record<string, unknown> = {};
 
     for (const key of config.variableKeys) {

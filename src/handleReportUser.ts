@@ -48,7 +48,7 @@ export const reportFormDefinition: FormFunction = data => ({
 });
 
 function getAlreadyReportedKey (username: string): string {
-    return `alreadyReported:${username}`;
+    return `userAlreadyReported:${username}`;
 }
 
 async function getAlreadyReported (username: string, context: TriggerContext): Promise<boolean> {

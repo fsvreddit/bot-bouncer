@@ -32,8 +32,8 @@ export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, contex
     // Remove legacy redis keys
     const obsoleteKeys = [
         "evaluatorVariables",
+        "controlSubSettings",
         "clientSubWikiUpdateCron",
-        "ReclassificationQueue",
         "oneOffReaffirmation",
         "EvaluatorStats",
         "UserStore",
@@ -44,6 +44,12 @@ export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, contex
         "installedSubredditsReportLastUpdated",
         "modmailSummaryPrompt",
         "aiPromptCache",
+        "classificationChangesLastRun",
+        "AppPermissionsCache",
+        "permissionChecksLastRun",
+        "installedSubredditsReportLastUpdated",
+        "definedHandlesStatsLastRun",
+        "BioTextAnalysisRecentlyRun",
     ];
 
     await context.redis.del(...obsoleteKeys);
@@ -197,7 +203,7 @@ async function checkJobsAreApplicable (context: TriggerContext) {
 }
 
 export async function ensureClientSubJobsExist (context: TriggerContext) {
-    const lastCheckKey = "clientJobCheckerLastCheck";
+    const lastCheckKey = "clientJobCheckerLastCheckValue";
     if (await context.redis.exists(lastCheckKey)) {
         return;
     }

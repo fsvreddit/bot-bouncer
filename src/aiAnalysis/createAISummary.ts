@@ -256,7 +256,7 @@ export async function openAISummaryLookupAndRespond (event: ScheduledJobEvent<JS
         prompt,
     }, context);
 
-    const cacheKey = `aiSummary:${username}`;
+    const cacheKey = `cachedAISummary:${username}`;
     await context.redis.set(cacheKey, result, { expiration: addHours(new Date(), 6) });
 
     await createResponse({

@@ -53,7 +53,6 @@ export enum ControlSubredditJob {
     UpdateEvaluatorVariables = "updateEvaluatorVariables",
     EvaluatorReDoSChecker = "evaluatorReDoSChecker",
     CheckPermissionQueueItems = "checkPermissionQueueItems",
-    CheckUpgradeNotifierForLegacySubs = "checkUpgradeNotifierForLegacySubs",
     AccountReview = "accountReview",
     PendingUserFinder = "pendingUserFinder",
     BotSleuthBotExtract = "botSleuthBotExtract",

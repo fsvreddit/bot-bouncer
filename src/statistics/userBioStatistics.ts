@@ -13,7 +13,7 @@ import escapeStringRegexp from "escape-string-regexp";
 import { hSetChunked } from "../redisHelper.js";
 
 const BIO_STATS_SUCCESSFUL_RETRIEVALS = "BioTextStatsSuccessfulRetrievals";
-const BIO_STATS_UPDATE_IN_PROGRESS = "BioTextStatsUpdateInProgress";
+const BIO_STATS_UPDATE_IN_PROGRESS = "BioTextStatsUpdateInProgressKey";
 
 function getBioQueueKey (statsId: string): string {
     return `bioTextQueue:${statsId}`;

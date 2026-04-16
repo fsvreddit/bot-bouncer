@@ -29,7 +29,7 @@ interface UserDefinedHandlePost {
     seen?: number;
 }
 
-const definedHandlesRecentlyRunKey = "definedHandlesStatsLastRun";
+const definedHandlesRecentlyRunKey = "definedHandlesStatsLastRunValue";
 
 export async function updateDefinedHandlesStats (allEntries: StatsUserEntry[], context: JobContext) {
     if (await context.redis.exists(definedHandlesRecentlyRunKey)) {

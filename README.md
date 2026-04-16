@@ -46,53 +46,13 @@ Users who have been unfairly banned by Bot Bouncer should be encouraged to modma
 
 # Change History
 
-## v1.27.0
+## v1.28.0
 
-* Internal changes for finer grained control over settings
-
-## v1.26.2
-
-* Add configurable option to control whether approved users are exempted from checks or not (turned on by default)#
-* Add optional bot checking on inbound modmail (off by default)
-* New installs look through the last week's worth of reclassifications rather than the last few hours
-* Remove erroneous "reported" entries from modmail summaries
-
-## v1.25.0
-
-* Fixed issue that could result in posts/comments being removed or reported for users not classified as bots
-* Enhanced detection capabilities
-
-## v1.24.0
-
-* Fixed erroneous errors referencing no recent posts/comments when reporting users
-* Add new evaluator type
-* Improved performance (reducing Dev Platform resource usage)
-* Improve reliability of banning users already classified as bots when they post or comment
-* Add option (disabled by default) to lock posts/comments when the app removes them
-* If "Add mod note on classification change" is turned on, a link to the account's tracking post is included on the mod note when banning or unbanning
-* Internal changes to support operations on /r/BotBouncer
-
-## v1.23.1
-
-* Bot Bouncer can now accept a moderator invite if it has been accidentally removed from the mod list
-* Reduced Dev Platform resource usage
-* Internal changes to support operations on /r/BotBouncer
-
-## v1.22.1
-
-* Improve resilience of app if required permissions are accidentally removed from the app's user account
-* Reduce false positives on one evaluator
-* Action summary (formerly daily digest) can now be sent either daily or weekly on Mondays
-* Action summary (formerly daily digest) no longer incorrectly shows deleted users as if they have been unbanned by Bot Bouncer
-* Improved performance to reduce compute load on Dev Platform infrastructure
-* Improved evaluation capabilities for the Bot Group Advanced evaluator
-* Internal changes to support operations on /r/BotBouncer
-
-## v1.21.0
-
-* Faster response to bot classification changes, down from up to ten minutes to up to one minute
-* Faster refreshes of bot detection config, down from up to an hour to up to five minutes
-* Embolden instruction in default ban message to emphasise contacting /r/BotBouncer
-* Internal changes to support operations on /r/BotBouncer
+* Fixed an issue that prevents classification changes working after April 15 2026 on some subreddits
+* Improve wording on "Report user to Bot Bouncer" form to clarify that review is manual
+* Add option to permit modmail digests to be added to the same modmail thread
+* All subreddits now run bot detection code
+* Better access controls preventing users banned on r/BotBouncer from submitting bots
+* Performance improvements
 
 For older versions, please see the [full changelog](https://github.com/fsvreddit/bot-bouncer/blob/main/changelog.md).

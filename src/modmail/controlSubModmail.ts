@@ -144,7 +144,7 @@ export async function handleControlSubredditModmail (modmail: ModmailMessage, co
 
             const currentStatus = await getUserStatus(modmail.participant, context);
             if (currentStatus && isLinkId(currentStatus.trackingPostId) && currentStatus.userStatus !== newStatus) {
-                await context.redis.set(`userStatusOverride~${username}`, modmail.messageAuthor, { expiration: addHours(new Date(), 2) });
+                await context.redis.set(`userStatusOverrideValue~${username}`, modmail.messageAuthor, { expiration: addHours(new Date(), 2) });
 
                 const newFlairTemplate = statusToFlair[newStatus];
                 let newFlairText: string | undefined;
@@ -255,7 +255,7 @@ async function handleModmailFromUser (modmail: ModmailMessage, context: TriggerC
         return;
     }
 
-    const recentAppealKey = `recentAppeal~${username}`;
+    const recentAppealKey = `recentAppealMade~${username}`;
     const recentAppealMade = await context.redis.get(recentAppealKey);
 
     if (recentAppealMade) {
@@ -433,7 +433,7 @@ async function showUserHistory (modmail: ModmailMessage, context: TriggerContext
 }
 
 function getOverrideKeyForSetStatusCommand (conversationId: string): string {
-    return `setStatusOverride~${conversationId}`;
+    return `setStatusOverridValuee~${conversationId}`;
 }
 
 export async function setOverrideForSetStatusCommand (conversationId: string, username: string, context: TriggerContext) {

@@ -247,7 +247,7 @@ export async function deleteAccountInitialEvaluationResults (username: string, c
 }
 
 async function subIsNSFW (subredditName: string, context: TriggerContext): Promise<boolean> {
-    const redisKey = `subisnsfw:${subredditName}`;
+    const redisKey = `isSubNSFW:${subredditName}`;
     const cachedValue = await context.redis.get(redisKey);
     if (cachedValue) {
         return JSON.parse(cachedValue) as boolean;

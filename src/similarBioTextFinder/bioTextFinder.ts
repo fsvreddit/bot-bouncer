@@ -71,7 +71,7 @@ interface Match {
 }
 
 export async function analyseBioText (context: TriggerContext) {
-    const recentlyRunKey = "BioTextAnalysisRecentlyRun";
+    const recentlyRunKey = "BioTextAnalysisRecentlyRunValue";
     if (await context.redis.exists(recentlyRunKey)) {
         console.log("Bio text analysis recently run, skipping this execution.");
         return;

@@ -20,7 +20,7 @@ export async function handlePermissionCheckEnqueueJob (_: unknown, context: JobC
 }
 
 async function addSubToPermissionChecksQueue (subredditName: string, context: TriggerContext | JobContext) {
-    const recentCheckKey = `permissionCheckedRecently:${subredditName}`;
+    const recentCheckKey = `permissionCheckedRecentlyForSub:${subredditName}`;
     if (await context.redis.global.get(recentCheckKey)) {
         console.log(`Permission Checks: Recently checked /r/${subredditName}, skipping enqueue.`);
         return;
@@ -36,7 +36,7 @@ export async function checkPermissionQueueItems (event: ScheduledJobEvent<JSONOb
         throw new Error("checkPermissionQueueItems should only be called from control subreddit");
     }
 
-    const recentlyRunKey = "permissionChecksLastRun";
+    const recentlyRunKey = "permissionChecksLastRunValue";
     if (event.data?.firstRun && await context.redis.exists(recentlyRunKey)) {
         console.log("Permission Checks: Recently run, skipping this execution.");
         return;
@@ -166,7 +166,7 @@ async function recordInstallDate (subredditName: string, context: TriggerContext
 }
 
 async function buildInstalledSubredditsReport (context: TriggerContext) {
-    const reportLastUpdatedKey = "installedSubredditsReportLastUpdated";
+    const reportLastUpdatedKey = "installedSubredditsReportLastUpdate";
     if (await context.redis.exists(reportLastUpdatedKey)) {
         return;
     }

@@ -30,7 +30,6 @@ import { continueDataExtract } from "./modmail/dataExtract.js";
 import { redosChecker } from "./userEvaluation/redosChecker.js";
 import { checkPermissionQueueItems, handlePermissionCheckEnqueueJob } from "./permissionChecksAndInstallDates.js";
 import { handleFiveMinutelyJob } from "./scheduler/fiveMinutelyJobs.js";
-import { processLegacySubUpgradeNotifications } from "./upgradeNotifierForLegacySubs.js";
 import { checkAccountsForReview } from "./modmail/accountReview.js";
 import { pendingUserFinder } from "./statistics/pendingUserFinder.js";
 import { doBotSleuthBotExtract } from "./botSleuthBotExtract.js";
@@ -234,11 +233,6 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: ControlSubredditJob.CheckPermissionQueueItems,
     onRun: checkPermissionQueueItems,
-});
-
-Devvit.addSchedulerJob({
-    name: ControlSubredditJob.CheckUpgradeNotifierForLegacySubs,
-    onRun: processLegacySubUpgradeNotifications,
 });
 
 Devvit.addSchedulerJob({

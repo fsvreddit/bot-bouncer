@@ -15,12 +15,6 @@ export async function handleFiveMinutelyJob (_: unknown, context: JobContext) {
     });
 
     await context.scheduler.runJob({
-        name: ControlSubredditJob.CheckUpgradeNotifierForLegacySubs,
-        runAt: new Date(),
-        data: { firstRun: true },
-    });
-
-    await context.scheduler.runJob({
         name: ControlSubredditJob.AccountReview,
         runAt: new Date(),
         data: { firstRun: true },

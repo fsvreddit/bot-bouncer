@@ -8,7 +8,7 @@ async function isAppModOfSub (subredditName: string, context: TriggerContext): P
         return true;
     }
 
-    const redisKey = `mod:${subredditName}`;
+    const redisKey = `modOfSub:${subredditName}`;
     const isMod = await context.redis.get(redisKey);
     if (isMod) {
         return JSON.parse(isMod) as boolean;

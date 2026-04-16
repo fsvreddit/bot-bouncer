@@ -13,7 +13,6 @@ import json2md from "json2md";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { queueKarmaFarmingAccounts } from "./karmaFarmingSubsCheck.js";
 import { userIsTrustedSubmitter } from "./trustedSubmitterHelpers.js";
-import { queueUpgradeNotificationsForLegacySubs } from "./upgradeNotifierForLegacySubs.js";
 import { expireKeyAt } from "devvit-helpers";
 
 const WIKI_PAGE = "externalsubmissions";
@@ -263,11 +262,6 @@ export async function handleExternalSubmissionsPageUpdate (context: TriggerConte
     await context.redis.del(externalSubmissionLock);
 
     await processAccountsToCheckFromObserverSubreddit(context);
-
-    // For items enqueued from a client subreddit, enqueue for permissions checks.
-    if (context.subredditName === CONTROL_SUBREDDIT) {
-        await queueUpgradeNotificationsForLegacySubs(currentSubmissionList, context);
-    }
 }
 
 export async function processExternalSubmissionsQueue (context: JobContext): Promise<number> {
