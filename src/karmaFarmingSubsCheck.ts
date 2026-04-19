@@ -189,7 +189,7 @@ export async function queueKarmaFarmingSubs (_: unknown, context: JobContext) {
 
 async function rebalanceCohorts (context: JobContext) {
     const entriesInQueue = await context.redis.global.zCard(ACCOUNTS_QUEUED_KEY);
-    if (entriesInQueue > 10000) {
+    if (entriesInQueue > 20000) {
         console.warn(`Karma Farming Subs: Queue has ${entriesInQueue} entries, skipping rebalance to avoid excessive operations.`);
         return;
     }
@@ -260,7 +260,7 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
         return;
     }
 
-    const accounts = await context.redis.global.zRange(ACCOUNTS_QUEUED_KEY, 0, 4999)
+    const accounts = await context.redis.global.zRange(ACCOUNTS_QUEUED_KEY, 0, 9999)
         .then((allAccounts) => {
             if (cohort === "evens") {
                 return allAccounts.filter(item => item.score % 2 === 0);
