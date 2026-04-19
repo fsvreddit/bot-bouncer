@@ -188,6 +188,12 @@ export async function queueKarmaFarmingSubs (_: unknown, context: JobContext) {
 }
 
 async function rebalanceCohorts (context: JobContext) {
+    const entriesInQueue = await context.redis.global.zCard(ACCOUNTS_QUEUED_KEY);
+    if (entriesInQueue > 10000) {
+        console.warn(`Karma Farming Subs: Queue has ${entriesInQueue} entries, skipping rebalance to avoid excessive operations.`);
+        return;
+    }
+
     const allAccounts = await context.redis.global.zRange(ACCOUNTS_QUEUED_KEY, 0, -1);
     const evenAccounts = allAccounts.filter(item => item.score % 2 === 0);
     const oddAccounts = allAccounts.filter(item => item.score % 2 === 1);
@@ -241,7 +247,7 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
         return;
     }
 
-    const inProgressKey = `KarmaFarmingSubsInProgress:${cohort}`;
+    const inProgressKey = `KarmaFarmingSubsOngoing:${cohort}`;
     if (event.data?.firstRun && await context.redis.exists(inProgressKey)) {
         return;
     }
@@ -254,7 +260,7 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
         return;
     }
 
-    const accounts = await context.redis.global.zRange(ACCOUNTS_QUEUED_KEY, 0, -1)
+    const accounts = await context.redis.global.zRange(ACCOUNTS_QUEUED_KEY, 0, 4999)
         .then((allAccounts) => {
             if (cohort === "evens") {
                 return allAccounts.filter(item => item.score % 2 === 0);
