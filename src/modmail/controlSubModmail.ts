@@ -4,7 +4,7 @@ import { getUserStatus, UserStatus } from "../dataStore.js";
 import { getSummaryForUser } from "../UserSummary/userSummary.js";
 import { getUserOrUndefined, isModeratorWithCache } from "../utility.js";
 import { CONFIGURATION_DEFAULTS, getControlSubSettings } from "../settings.js";
-import { addDays, addHours, addSeconds, addWeeks, format, subMinutes } from "date-fns";
+import { addDays, addHours, addSeconds, addWeeks, format, subDays, subMinutes } from "date-fns";
 import json2md from "json2md";
 import { ModmailMessage } from "./modmail.js";
 import { dataExtract } from "./dataExtract.js";
@@ -258,7 +258,7 @@ async function handleModmailFromUser (modmail: ModmailMessage, context: TriggerC
     const recentAppealKey = `recentAppealMade~${username}`;
     const recentAppealMade = await context.redis.get(recentAppealKey);
 
-    if (recentAppealMade) {
+    if (recentAppealMade && new Date(parseInt(recentAppealMade, 10)) > subDays(new Date(), 1)) {
         // User has already made an appeal recently, so we should tell the user it's already being handled.
         await context.reddit.modMail.reply({
             body: CONFIGURATION_DEFAULTS.recentAppealMade,
@@ -268,6 +268,9 @@ async function handleModmailFromUser (modmail: ModmailMessage, context: TriggerC
         });
         await context.reddit.modMail.archiveConversation(modmail.conversationId);
         return;
+    } else if (recentAppealMade) {
+        // User has made an appeal, but it's been more than a day, so we can remove the key and allow them to appeal again if they want.
+        await context.redis.del(recentAppealKey);
     }
 
     await storeKeyForAppeal(modmail.conversationId, context);
