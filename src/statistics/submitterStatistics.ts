@@ -1,10 +1,11 @@
 import { JobContext, TriggerContext, WikiPage, WikiPagePermissionLevel } from "@devvit/public-api";
-import { UserDetails, UserStatus } from "../dataStore.js";
+import { UserStatus } from "../dataStore.js";
 import _ from "lodash";
 import { subMonths } from "date-fns";
 import json2md from "json2md";
 import { ZMember } from "@devvit/protos";
 import { getControlSubSettings } from "../settings.js";
+import { StatsUserEntry } from "../scheduler/sixHourlyJobs.js";
 
 interface SubmitterStatistic {
     submitter: string;
@@ -14,11 +15,11 @@ interface SubmitterStatistic {
 
 const SUBMITTER_SUCCESS_RATE_KEY = "SubmitterSuccessRate";
 
-export async function updateSubmitterStatistics (allStatuses: UserDetails[], context: JobContext) {
+export async function updateSubmitterStatistics (allStatuses: StatsUserEntry[], context: JobContext) {
     const organicStatuses: Record<string, number> = {};
     const bannedStatuses: Record<string, number> = {};
 
-    for (const status of allStatuses) {
+    for (const status of allStatuses.map(entry => entry.data)) {
         if (!status.submitter || !status.reportedAt) {
             continue;
         }
