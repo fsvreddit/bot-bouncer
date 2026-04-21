@@ -58,6 +58,7 @@ export enum ControlSubredditJob {
     BotSleuthBotExtract = "botSleuthBotExtract",
     OpenAISummaryGather = "openAISummary",
     OpenAISummaryLookup = "openAISummaryLookup",
+    OpenAIUpdateTokenStatsMessage = "openAIUpdateTokenStatsMessage",
 }
 
 /**

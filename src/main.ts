@@ -35,6 +35,7 @@ import { pendingUserFinder } from "./statistics/pendingUserFinder.js";
 import { doBotSleuthBotExtract } from "./botSleuthBotExtract.js";
 import { handleMinutelyJob } from "./scheduler/handleMinutelyJob.js";
 import { generateOpenAISummary, openAISummaryLookupAndRespond } from "./aiAnalysis/createAISummary.js";
+import { updateTokenStatsMessage } from "./aiAnalysis/statistics.js";
 
 Devvit.addSettings(appSettings);
 
@@ -258,6 +259,11 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: ControlSubredditJob.OpenAISummaryLookup,
     onRun: openAISummaryLookupAndRespond,
+});
+
+Devvit.addSchedulerJob({
+    name: ControlSubredditJob.OpenAIUpdateTokenStatsMessage,
+    onRun: updateTokenStatsMessage,
 });
 
 /**

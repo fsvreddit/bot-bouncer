@@ -2,6 +2,7 @@ import { JobContext, TriggerContext } from "@devvit/public-api";
 import { AppSetting } from "../settings.js";
 import { CONTROL_SUBREDDIT } from "../constants.js";
 import OpenAI from "openai";
+import { storeTokenStatsForResponse } from "./statistics.js";
 
 interface OpenAIQuery {
     model?: string;
@@ -32,6 +33,7 @@ export async function callOpenAI (input: OpenAIQuery, context: TriggerContext | 
     console.log(`OpenAI: Model used: ${response.model}`);
     if (response.usage) {
         console.log(`OpenAI: Total tokens used: ${response.usage.total_tokens}`);
+        await storeTokenStatsForResponse(response, context);
     }
 
     if (response.status === "failed") {

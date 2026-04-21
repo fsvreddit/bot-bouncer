@@ -266,4 +266,9 @@ export async function openAISummaryLookupAndRespond (event: ScheduledJobEvent<JS
     }, context);
 
     console.log(`AI Summary: Finished generating OpenAI summary about user ${username}`);
+
+    await context.scheduler.runJob({
+        name: ControlSubredditJob.OpenAIUpdateTokenStatsMessage,
+        runAt: new Date(),
+    });
 }

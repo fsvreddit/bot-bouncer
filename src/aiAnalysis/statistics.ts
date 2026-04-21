@@ -1,7 +1,9 @@
 import { JobContext } from "@devvit/public-api";
 import { AppSetting, getControlSubSettings } from "../settings.js";
-import { format, startOfDay, subDays } from "date-fns";
-import { sendMessageToWebhook } from "../utility.js";
+import { addDays, endOfDay, format, startOfDay, subDays } from "date-fns";
+import { sendMessageToWebhook, updateWebhookMessage } from "../utility.js";
+import OpenAI from "openai";
+import { expireKeyAt } from "devvit-helpers";
 
 interface OpenAIUsageResponse {
     object: string;
@@ -50,6 +52,9 @@ function formatNumber (num: number): string {
         return num.toString();
     }
 }
+
+const CURRENT_MESSAGE_ID_KEY = "openAIUsageMessageId";
+const BASE_MESSAGE_KEY = "openAIUsageOriginalMessage";
 
 export async function gatherTokenStatistics (context: JobContext) {
     const messageLastSentKey = "openAIUsageMessageLastSent";
@@ -104,7 +109,54 @@ export async function gatherTokenStatistics (context: JobContext) {
     const webhookUrl = controlSubSettings.openAINotificationsWebhook;
 
     if (webhookUrl) {
-        await sendMessageToWebhook(webhookUrl, message);
+        const messageId = await sendMessageToWebhook(webhookUrl, message);
         await context.redis.set(messageLastSentKey, format(new Date(), "yyyy-MM-dd"));
+        if (messageId) {
+            await context.redis.set(CURRENT_MESSAGE_ID_KEY, messageId, { expiration: endOfDay(new Date()) });
+            await context.redis.set(BASE_MESSAGE_KEY, message, { expiration: endOfDay(new Date()) });
+        }
     }
+}
+
+function getTokenStatsKey (date = new Date()): string {
+    return `openAITokensToday:${format(date, "yyyy-MM-dd")}`;
+}
+
+export async function storeTokenStatsForResponse (response: OpenAI.Responses.Response, context: JobContext) {
+    if (!response.usage) {
+        return;
+    }
+
+    try {
+        await context.redis.incrBy(getTokenStatsKey(), response.usage.total_tokens);
+        await expireKeyAt(context.redis, getTokenStatsKey(), addDays(new Date(), 1));
+    } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error("Error storing token stats:", message);
+    }
+}
+
+export async function updateTokenStatsMessage (_: unknown, context: JobContext) {
+    const messageId = await context.redis.get(CURRENT_MESSAGE_ID_KEY);
+    const baseMessage = await context.redis.get(BASE_MESSAGE_KEY);
+
+    if (!messageId || !baseMessage) {
+        return;
+    }
+
+    const controlSubSettings = await getControlSubSettings(context);
+    const webhookUrl = controlSubSettings.openAINotificationsWebhook;
+
+    if (!webhookUrl) {
+        return;
+    }
+
+    const todaysTokens = await context.redis.get(getTokenStatsKey());
+    if (!todaysTokens) {
+        return;
+    }
+
+    const updatedMessage = `${baseMessage}\n\nCumulative tokens used today: ${formatNumber(parseInt(todaysTokens))}*`;
+
+    await updateWebhookMessage(webhookUrl, messageId, updatedMessage);
 }
