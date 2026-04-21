@@ -4,6 +4,7 @@ import { addDays, endOfDay, format, startOfDay, subDays } from "date-fns";
 import { sendMessageToWebhook, updateWebhookMessage } from "../utility.js";
 import OpenAI from "openai";
 import { expireKeyAt } from "devvit-helpers";
+import pluralize from "pluralize";
 
 interface OpenAIUsageResponse {
     object: string;
@@ -122,6 +123,10 @@ function getTokenStatsKey (date = new Date()): string {
     return `openAITokensToday:${format(date, "yyyy-MM-dd")}`;
 }
 
+function getOpenAICallCountKey (date = new Date()): string {
+    return `openAICallCountToday:${format(date, "yyyy-MM-dd")}`;
+}
+
 export async function storeTokenStatsForResponse (response: OpenAI.Responses.Response, context: JobContext) {
     if (!response.usage) {
         return;
@@ -129,7 +134,12 @@ export async function storeTokenStatsForResponse (response: OpenAI.Responses.Res
 
     try {
         await context.redis.incrBy(getTokenStatsKey(), response.usage.total_tokens);
-        await expireKeyAt(context.redis, getTokenStatsKey(), addDays(new Date(), 1));
+        await context.redis.incrBy(getOpenAICallCountKey(), 1);
+        const expiryDateForKeys = startOfDay(addDays(new Date(), 1));
+        await Promise.all([
+            expireKeyAt(context.redis, getTokenStatsKey(), expiryDateForKeys),
+            expireKeyAt(context.redis, getOpenAICallCountKey(), expiryDateForKeys),
+        ]);
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         console.error("Error storing token stats:", message);
@@ -152,11 +162,12 @@ export async function updateTokenStatsMessage (_: unknown, context: JobContext) 
     }
 
     const todaysTokens = await context.redis.get(getTokenStatsKey());
-    if (!todaysTokens) {
+    const todaysCallCount = await context.redis.get(getOpenAICallCountKey());
+    if (!todaysTokens || !todaysCallCount) {
         return;
     }
 
-    const updatedMessage = `${baseMessage}\n\nCumulative tokens used today: ${formatNumber(parseInt(todaysTokens))}*`;
+    const updatedMessage = `${baseMessage}\n\nCumulative tokens used today: ${formatNumber(parseInt(todaysTokens))} from ${parseInt(todaysCallCount).toLocaleString()} ${pluralize("request", parseInt(todaysCallCount))}.`;
 
     await updateWebhookMessage(webhookUrl, messageId, updatedMessage);
 }
