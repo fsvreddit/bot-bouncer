@@ -38,6 +38,7 @@ export async function updateSubmitterStatistics (allStatuses: StatsUserEntry[], 
     const distinctUsers = _.uniq([...Object.keys(organicStatuses), ...Object.keys(bannedStatuses)]);
     const submitterStatistics: SubmitterStatistic[] = [];
     const successRatesToStore: ZMember[] = [];
+    const controlSubSettings = await getControlSubSettings(context);
 
     for (const user of distinctUsers) {
         const organicCount = organicStatuses[user] ?? 0;
@@ -46,7 +47,7 @@ export async function updateSubmitterStatistics (allStatuses: StatsUserEntry[], 
         const ratio = Math.round(100 * bannedCount / totalCount);
         submitterStatistics.push({ submitter: user, count: totalCount, ratio });
 
-        if (organicCount + bannedCount >= 5) {
+        if (organicCount + bannedCount >= (controlSubSettings.thresholdForSubmitterCalculation ?? 10)) {
             successRatesToStore.push({ member: user, score: ratio });
         }
     }
@@ -55,10 +56,8 @@ export async function updateSubmitterStatistics (allStatuses: StatsUserEntry[], 
     wikiContent.push({ h1: "Submitter statistics" });
     wikiContent.push({ p: "This lists all users who have submitted an account for review within the last month." });
 
-    const controlSubSettings = await getControlSubSettings(context);
-
     const tableRows = submitterStatistics
-        .filter(item => item.count >= 5)
+        .filter(item => item.count >= (controlSubSettings.thresholdForSubmitterCalculation ?? 10))
         .sort((a, b) => b.count - a.count)
         .map(item => [
             item.submitter,

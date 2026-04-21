@@ -261,6 +261,7 @@ export interface ControlSubSettings {
     trustedSubmitters: string[];
     trustedSubmitterAutoThreshold?: number;
     trustedSubmitterAutoExcludedUsers?: string[];
+    thresholdForSubmitterCalculation?: number;
     reporterBlacklist: string[];
     numberOfWikiPages?: number;
     bulkSubmitters?: string[];
@@ -299,6 +300,7 @@ const schema: JSONSchemaType<ControlSubSettings> = {
         trustedSubmitters: { type: "array", items: { type: "string" } },
         trustedSubmitterAutoThreshold: { type: "number", nullable: true },
         trustedSubmitterAutoExcludedUsers: { type: "array", items: { type: "string" }, nullable: true },
+        thresholdForSubmitterCalculation: { type: "number", nullable: true },
         reporterBlacklist: { type: "array", items: { type: "string" } },
         numberOfWikiPages: { type: "number", nullable: true },
         bulkSubmitters: { type: "array", items: { type: "string" }, nullable: true },
