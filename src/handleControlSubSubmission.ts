@@ -208,6 +208,7 @@ export async function handleControlSubPostCreate (event: PostCreate, context: Tr
                 comment: json2md([
                     { p: "Hi, thanks for your submission." },
                     { p: `The post tracking ${markdownEscape(user.username)} can be found [here]({{permalink}}).` },
+                    { p: "Accounts submitted are reviewed **manually** by our team if not automatically classified. Please take care to only submit accounts that you suspect with a reasonable degree of confidence." },
                     { p: `Your post has been removed, and can be deleted. Consider reporting the account for Spam->Bots, as this may result in the account being suspended or shadowbanned.` },
                 ]),
             },
