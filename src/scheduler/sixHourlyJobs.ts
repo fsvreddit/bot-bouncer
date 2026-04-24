@@ -1,5 +1,4 @@
 import { JobContext, TriggerContext } from "@devvit/public-api";
-import { updateMainStatisticsPage } from "../statistics/mainStatistics.js";
 import { updateSubmitterStatistics } from "../statistics/submitterStatistics.js";
 import { createTimeOfSubmissionStatistics } from "../statistics/timeOfSubmissionStatistics.js";
 import { checkDataStoreIntegrity, getFullDataStore, removeStaleRecentChangesEntries, UserDetails, UserFlag } from "../dataStore.js";
@@ -55,11 +54,17 @@ export async function perform6HourlyJobs (_: unknown, context: JobContext) {
             name: ControlSubredditJob.PendingUserFinder,
             runAt: addMinutes(new Date(), 3),
         }),
+
+        context.scheduler.runJob({
+            name: ControlSubredditJob.MainStatisticsUpdate,
+            runAt: addMinutes(new Date(), 4),
+        }),
     ]);
     console.log("6 Hourly Jobs: Scheduled subsequent jobs.");
 
     const allData = await getFullDataStore(context, {
         omitFlags: FLAGS_TO_EXCLUDE_FROM_STATS,
+        since: subMonths(new Date(), 1),
     });
     console.log("6 Hourly Jobs: Retrieved full data store.");
 
@@ -67,7 +72,6 @@ export async function perform6HourlyJobs (_: unknown, context: JobContext) {
     console.log(`6 Hourly Jobs: Processing statistics for ${allValues.length} user records.`);
 
     await Promise.all([
-        updateMainStatisticsPage(allValues, context),
         createTimeOfSubmissionStatistics(allValues, context),
         updateClassificationStatistics(context),
         updateAppealStatistics(context),

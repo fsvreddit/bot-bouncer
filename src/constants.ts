@@ -49,6 +49,7 @@ export enum ControlSubredditJob {
     AsyncWikiUpdate = "asyncWikiUpdate",
     BioStatsUpdate = "bioStatsUpdate",
     BioStatsGenerateReport = "bioStatsGenerateReport",
+    MainStatisticsUpdate = "mainStatisticsUpdate",
     DataExtractJob = "dataExtractJob",
     UpdateEvaluatorVariables = "updateEvaluatorVariables",
     EvaluatorReDoSChecker = "evaluatorReDoSChecker",

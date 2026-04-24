@@ -36,6 +36,7 @@ import { doBotSleuthBotExtract } from "./botSleuthBotExtract.js";
 import { handleMinutelyJob } from "./scheduler/handleMinutelyJob.js";
 import { generateOpenAISummary, openAISummaryLookupAndRespond } from "./aiAnalysis/createAISummary.js";
 import { updateTokenStatsMessage } from "./aiAnalysis/statistics.js";
+import { updateMainStatisticsPage } from "./statistics/mainStatistics.js";
 
 Devvit.addSettings(appSettings);
 
@@ -219,6 +220,11 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: ControlSubredditJob.BioStatsGenerateReport,
     onRun: generateBioStatisticsReport,
+});
+
+Devvit.addSchedulerJob({
+    name: ControlSubredditJob.MainStatisticsUpdate,
+    onRun: updateMainStatisticsPage,
 });
 
 Devvit.addSchedulerJob({

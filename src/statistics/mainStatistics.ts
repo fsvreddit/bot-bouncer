@@ -3,8 +3,9 @@ import { AGGREGATE_STORE, UserDetails, UserStatus } from "../dataStore.js";
 import _ from "lodash";
 import json2md from "json2md";
 
-export async function updateMainStatisticsPage (entries: UserDetails[], context: JobContext) {
-    await correctAggregateData(entries, context);
+export async function updateMainStatisticsPage (_event: unknown, context: JobContext) {
+    // TODO: Safe, performant implementation of correctAggregateStore
+    // await correctAggregateData(entries, context);
 
     let results = await context.redis.zRange(AGGREGATE_STORE, 0, -1);
     results = results.filter(item => item.member !== "pending");
@@ -48,6 +49,7 @@ export async function updateMainStatisticsPage (entries: UserDetails[], context:
     }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function correctAggregateData (entries: UserDetails[], context: JobContext) {
     const statusesToUpdate = [UserStatus.Banned, UserStatus.Pending, UserStatus.Organic, UserStatus.Service];
     const statuses = Object.entries(_.countBy(entries.map(item => item.userStatus)))
