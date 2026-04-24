@@ -259,7 +259,12 @@ export async function recompressAccountInitialEvaluationResults (username: strin
     const currentSize = await context.redis.strLen(getEvaluationResultsKey(username));
     const evaluationResults = await getAccountInitialEvaluationResults(username, context);
     const newSize = await storeAccountInitialEvaluationResults(username, evaluationResults, context);
-    console.log(`Data store: Recompressed initial evaluation results for ${username}. Before: ${currentSize}, after: ${newSize}.`);
+
+    let logMessage = `Data store: Recompressed initial eval for ${username}.`;
+    if (newSize && newSize < currentSize) {
+        logMessage = `Saved: ${currentSize - newSize} bytes.`;
+    }
+    console.log(logMessage);
 }
 
 async function subIsNSFW (subredditName: string, context: TriggerContext): Promise<boolean> {
