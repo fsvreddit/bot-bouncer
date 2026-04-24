@@ -190,6 +190,7 @@ export async function dataExtract (message: ModmailMessage, conversationId: stri
     });
 
     const data = Object.entries(allData)
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
         .map(([username, data]) => ({ username, data: data as UserDetailsWithBioAndSocialLinks }))
         .filter((entry) => {
             if (request.submitter && !request.submitter.includes(entry.data.submitter ?? "")) {

@@ -17,6 +17,7 @@ export async function pendingUserFinder (_event: ScheduledJobEvent<JSONObject | 
     });
 
     const allEntries = Object.entries(allData)
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
         .map(([key, value]) => ({ username: key, data: value } as StatsUserEntry));
 
     const cutoff = subDays(new Date(), 2).getTime();

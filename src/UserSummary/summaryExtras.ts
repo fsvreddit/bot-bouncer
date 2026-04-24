@@ -23,7 +23,7 @@ export function getSummaryExtras (evaluatorConfig: Record<string, unknown>): Sum
                 type: key.startsWith("summary-extras:comment") ? "comment" : "post",
                 title,
                 regex,
-            } as SummaryExtra;
+            };
         });
 
     return _.compact(extras);

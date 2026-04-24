@@ -8,6 +8,7 @@ export async function handleControlSubPostDelete (event: PostDelete, context: Tr
         return;
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
     if (event.source as number !== 1) {
         // Not deleted by user.
         return;

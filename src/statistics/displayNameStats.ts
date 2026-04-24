@@ -10,6 +10,7 @@ type UserDetailsWithDisplayName = UserDetails & { displayName?: string };
 
 export async function updateDisplayNameStatistics (allEntries: StatsUserEntry[], context: JobContext) {
     let recentData = allEntries
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
         .map(item => ({ username: item.username, data: item.data as UserDetailsWithDisplayName }))
         .filter(item => item.data.reportedAt && new Date(item.data.reportedAt) >= subWeeks(new Date(), 2));
 

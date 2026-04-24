@@ -86,6 +86,7 @@ export async function perform6HourlyJobsPart2 (_: unknown, context: JobContext) 
     });
 
     const allEntries = Object.entries(allData)
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
         .map(([key, value]) => ({ username: key, data: value } as StatsUserEntry));
 
     await Promise.all([

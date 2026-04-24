@@ -64,6 +64,7 @@ interface SocialLinksEntry {
 
 export async function updateSocialLinksStatistics (allEntries: StatsUserEntry[], context: JobContext) {
     const recentDataInit = allEntries
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
         .map(item => ({ username: item.username, data: item.data as UserDetailsWithSocialLink }))
         .filter(item => item.data.reportedAt && new Date(item.data.reportedAt) >= subMonths(new Date(), 3))
         .filter(item => userIsBanned(item.data));

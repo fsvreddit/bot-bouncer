@@ -68,6 +68,7 @@ export async function conditionalStatsUpdate (_: unknown, context: JobContext) {
     });
 
     const allEntries = Object.entries(allData)
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
         .map(([key, value]) => ({ username: key, data: value } as StatsUserEntry));
 
     const promises: Promise<unknown>[] = [];
