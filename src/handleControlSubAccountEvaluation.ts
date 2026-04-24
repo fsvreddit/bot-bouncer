@@ -10,6 +10,7 @@ import _ from "lodash";
 import { getSubmitterSuccessRate } from "./statistics/submitterStatistics.js";
 import { conditionallyCompressString, conditionallyDecompressString, getPostOrCommentById } from "./utility.js";
 import { getControlSubSettings } from "./settings.js";
+import pluralize from "pluralize";
 
 export interface EvaluatorStats {
     hitCount: number;
@@ -262,7 +263,7 @@ export async function recompressAccountInitialEvaluationResults (username: strin
 
     let logMessage = `Data store: Recompressed initial eval for ${username}.`;
     if (newSize && newSize < currentSize) {
-        logMessage = `Saved: ${currentSize - newSize} bytes.`;
+        logMessage += ` Saved: ${currentSize - newSize} ${pluralize("byte", currentSize - newSize)}.`;
     }
     console.log(logMessage);
 }
