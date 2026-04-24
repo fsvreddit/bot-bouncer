@@ -259,6 +259,12 @@ export async function recompressAccountInitialEvaluationResults (username: strin
 
     const currentSize = await context.redis.strLen(getEvaluationResultsKey(username));
     const evaluationResults = await getAccountInitialEvaluationResults(username, context);
+    if (evaluationResults.length === 0) {
+        await deleteAccountInitialEvaluationResults(username, context);
+        console.log(`Data store: Deleted empty initial eval for ${username}.`);
+        return;
+    }
+
     const newSize = await storeAccountInitialEvaluationResults(username, evaluationResults, context);
 
     let logMessage = `Data store: Recompressed initial eval for ${username}.`;
