@@ -14,7 +14,7 @@
     "@devvit/protos": "0.12.20",
     "@devvit/public-api": "0.12.20",
     "@fsvreddit/bot-bouncer-evaluation": "github:fsvreddit/bot-bouncer-evaluation",
-    "@wordpress/wordcount": "^4.14.0",
+    "@wordpress/wordcount": "^4.44.0",
     "ajv": "^8.17.1",
     "date-fns": "^4.1.0",
     "devvit-helpers": "^0.9.0",
@@ -38,7 +38,6 @@
     "@types/pako": "^2.0.4",
     "@types/pluralize": "^0.0.33",
     "@types/semver": "^7.5.8",
-    "@types/wordpress__wordcount": "^2.4.5",
     "eslint": "^10.0.2",
     "typescript": "5.8.3",
     "vitest": "^4.0.2"

@@ -4,7 +4,7 @@ import { getUserStatus, UserStatus } from "./dataStore.js";
 import { ALL_RELEVANT_EVALUTORS, CONTROL_SUBREDDIT, ControlSubredditJob, PostFlairTemplate } from "./constants.js";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { createUserSummary } from "./UserSummary/userSummary.js";
-import { addMonths, addSeconds, addWeeks, subMonths } from "date-fns";
+import { addSeconds, addWeeks, subMonths } from "date-fns";
 import { getUserExtended } from "./extendedDevvit.js";
 import _ from "lodash";
 import { getSubmitterSuccessRate } from "./statistics/submitterStatistics.js";
@@ -229,7 +229,7 @@ export async function storeAccountInitialEvaluationResults (username: string, re
     }));
 
     const resultsKey = getEvaluationResultsKey(username);
-    await context.redis.set(resultsKey, conditionallyCompressString(JSON.stringify(resultsToStore)), { expiration: addMonths(new Date(), 12) });
+    await context.redis.set(resultsKey, conditionallyCompressString(JSON.stringify(resultsToStore)));
 }
 
 export async function getAccountInitialEvaluationResults (username: string, context: TriggerContext): Promise<EvaluationResult[]> {
@@ -244,6 +244,18 @@ export async function getAccountInitialEvaluationResults (username: string, cont
 
 export async function deleteAccountInitialEvaluationResults (username: string, context: TriggerContext) {
     await context.redis.del(getEvaluationResultsKey(username));
+}
+
+export async function recompressAccountInitialEvaluationResults (username: string, context: TriggerContext) {
+    const existingTtl = await context.redis.expireTime(getEvaluationResultsKey(username));
+    if (existingTtl < 0) {
+        // Key does not exist or has no expiration, no need to recompress.
+        return;
+    }
+
+    const evaluationResults = await getAccountInitialEvaluationResults(username, context);
+    await storeAccountInitialEvaluationResults(username, evaluationResults, context);
+    console.log(`Data store: Recompressed initial evaluation results for ${username}`);
 }
 
 async function subIsNSFW (subredditName: string, context: TriggerContext): Promise<boolean> {
