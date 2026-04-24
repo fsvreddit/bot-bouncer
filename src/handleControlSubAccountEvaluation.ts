@@ -229,7 +229,10 @@ export async function storeAccountInitialEvaluationResults (username: string, re
     }));
 
     const resultsKey = getEvaluationResultsKey(username);
-    await context.redis.set(resultsKey, conditionallyCompressString(JSON.stringify(resultsToStore)));
+    const newData = conditionallyCompressString(JSON.stringify(resultsToStore));
+    await context.redis.set(resultsKey, newData);
+
+    return newData.length;
 }
 
 export async function getAccountInitialEvaluationResults (username: string, context: TriggerContext): Promise<EvaluationResult[]> {
@@ -253,9 +256,10 @@ export async function recompressAccountInitialEvaluationResults (username: strin
         return;
     }
 
+    const currentSize = await context.redis.strLen(getEvaluationResultsKey(username));
     const evaluationResults = await getAccountInitialEvaluationResults(username, context);
-    await storeAccountInitialEvaluationResults(username, evaluationResults, context);
-    console.log(`Data store: Recompressed initial evaluation results for ${username}`);
+    const newSize = await storeAccountInitialEvaluationResults(username, evaluationResults, context);
+    console.log(`Data store: Recompressed initial evaluation results for ${username}. Before: ${currentSize}, after: ${newSize}.`);
 }
 
 async function subIsNSFW (subredditName: string, context: TriggerContext): Promise<boolean> {
