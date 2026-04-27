@@ -13,6 +13,16 @@ import { recordBanForSummary } from "./modmail/actionSummary.js";
 import { getUserExtended } from "./extendedDevvit.js";
 import { expireKeyAt, isBanned, isContributor } from "devvit-helpers";
 
+async function getTrueUsername (username: string, targetId: string, context: TriggerContext): Promise<string> {
+    if (username !== "[redacted]") {
+        return username;
+    }
+
+    const target = await getPostOrCommentById(targetId, context);
+    console.log(`Bot check: Author is redacted, true username for ${targetId} is ${target.authorName}`);
+    return target.authorName;
+}
+
 export async function handleClientPostCreate (event: PostCreate, context: TriggerContext) {
     if (context.subredditName === CONTROL_SUBREDDIT) {
         return;
@@ -22,15 +32,17 @@ export async function handleClientPostCreate (event: PostCreate, context: Trigge
         return;
     }
 
-    await recordUserContentCreation(event.author.name, context);
+    const username = await getTrueUsername(event.author.name, event.post.id, context);
 
-    if (event.author.name === "AutoModerator" || event.author.name === `${context.subredditName}-ModTeam`) {
+    await recordUserContentCreation(username, context);
+
+    if (username === "AutoModerator" || username === `${context.subredditName}-ModTeam`) {
         return;
     }
 
-    const currentStatus = await getUserStatus(event.author.name, context);
+    const currentStatus = await getUserStatus(username, context);
     if (currentStatus) {
-        await handleContentCreation(event.author.name, currentStatus, event.post.id, context);
+        await handleContentCreation(username, currentStatus, event.post.id, context);
         return;
     }
 
@@ -52,7 +64,7 @@ export async function handleClientPostCreate (event: PostCreate, context: Trigge
 
     if (possibleBot) {
         const settings = await context.settings.getAll();
-        await checkAndReportPotentialBot(event.author.name, post, settings, variables, context);
+        await checkAndReportPotentialBot(username, post, settings, variables, context);
     }
 }
 
@@ -65,19 +77,26 @@ export async function handleClientCommentCreate (event: CommentCreate, context: 
         return;
     }
 
-    await recordUserContentCreation(event.author.name, context);
+    const username = await getTrueUsername(event.author.name, event.comment.id, context);
 
-    if (event.author.name === "AutoModerator" || event.author.name === `${context.subredditName}-ModTeam`) {
+    await recordUserContentCreation(username, context);
+
+    if (username === "AutoModerator" || username === `${context.subredditName}-ModTeam`) {
         return;
     }
 
-    const currentStatus = await getUserStatus(event.author.name, context);
+    const currentStatus = await getUserStatus(username, context);
     if (currentStatus) {
-        await handleContentCreation(event.author.name, currentStatus, event.comment.id, context);
+        await handleContentCreation(username, currentStatus, event.comment.id, context);
         return;
     }
 
     const variables = await getEvaluatorVariables(context);
+
+    const eventToCheck = { ...event };
+    if (eventToCheck.author?.name === "[redacted]") {
+        eventToCheck.author.name = username;
+    }
 
     let possibleBot = false;
     for (const Evaluator of ALL_RELEVANT_EVALUTORS) {
@@ -86,7 +105,7 @@ export async function handleClientCommentCreate (event: CommentCreate, context: 
             continue;
         }
 
-        if (await Promise.resolve(evaluator.preEvaluateComment(event))) {
+        if (await Promise.resolve(evaluator.preEvaluateComment(eventToCheck))) {
             possibleBot = true;
             break;
         }
@@ -96,7 +115,7 @@ export async function handleClientCommentCreate (event: CommentCreate, context: 
         return;
     }
 
-    const redisKey = `lastBotCheckForUser:${event.author.name}`;
+    const redisKey = `lastBotCheckForUser:${username}`;
     const recentlyChecked = await context.redis.get(redisKey);
     if (recentlyChecked) {
         // Allow some rechecks within 15 minutes, to find rapid fire bots.
@@ -107,7 +126,7 @@ export async function handleClientCommentCreate (event: CommentCreate, context: 
     }
 
     const settings = await context.settings.getAll();
-    await checkAndReportPotentialBot(event.author.name, event, settings, variables, context);
+    await checkAndReportPotentialBot(username, event, settings, variables, context);
 
     await context.redis.set(redisKey, new Date().getTime().toString(), { expiration: addDays(new Date(), 2) });
 }
@@ -121,16 +140,23 @@ export async function handleClientCommentUpdate (event: CommentUpdate, context: 
         return;
     }
 
-    if (event.author.name === "AutoModerator" || event.author.name === `${context.subredditName}-ModTeam`) {
+    const username = await getTrueUsername(event.author.name, event.comment.id, context);
+
+    if (username === "AutoModerator" || username === `${context.subredditName}-ModTeam`) {
         return;
     }
 
-    const currentStatus = await getUserStatus(event.author.name, context);
+    const currentStatus = await getUserStatus(username, context);
     if (currentStatus) {
         return;
     }
 
     const variables = await getEvaluatorVariables(context);
+
+    const eventToCheck = { ...event };
+    if (eventToCheck.author?.name === "[redacted]") {
+        eventToCheck.author.name = username;
+    }
 
     let possibleBot = false;
     for (const Evaluator of ALL_RELEVANT_EVALUTORS) {
@@ -139,7 +165,7 @@ export async function handleClientCommentUpdate (event: CommentUpdate, context: 
             continue;
         }
 
-        if (evaluator.preEvaluateCommentEdit(event)) {
+        if (evaluator.preEvaluateCommentEdit(eventToCheck)) {
             possibleBot = true;
             break;
         }
@@ -149,7 +175,7 @@ export async function handleClientCommentUpdate (event: CommentUpdate, context: 
         return;
     }
 
-    const redisKey = `lastBotCheckForUser:${event.author.name}`;
+    const redisKey = `lastBotCheckForUser:${username}`;
     const recentlyChecked = await context.redis.get(redisKey);
     if (recentlyChecked) {
         // Allow some rechecks within 15 minutes, to find rapid fire bots.
@@ -160,7 +186,7 @@ export async function handleClientCommentUpdate (event: CommentUpdate, context: 
     }
 
     const settings = await context.settings.getAll();
-    await checkAndReportPotentialBot(event.author.name, event, settings, variables, context);
+    await checkAndReportPotentialBot(username, event, settings, variables, context);
 
     await context.redis.set(redisKey, new Date().getTime().toString(), { expiration: addDays(new Date(), 2) });
 }
