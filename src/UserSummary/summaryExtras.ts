@@ -8,7 +8,7 @@ interface SummaryExtra {
 }
 
 export function getSummaryExtras (evaluatorConfig: Record<string, unknown>): SummaryExtra[] {
-    const extras = Object.entries(evaluatorConfig)
+    const extras: (SummaryExtra | undefined)[] = Object.entries(evaluatorConfig)
         .filter(([key]) => key.startsWith("summary-extras:comment") || key.startsWith("summary-extras:post"))
         .map(([key, value]) => {
             const valueObj = value as JSONObject;
@@ -16,7 +16,7 @@ export function getSummaryExtras (evaluatorConfig: Record<string, unknown>): Sum
             const regex = valueObj.regex as string | undefined;
             if (typeof title !== "string" || typeof regex !== "string") {
                 console.warn(`Invalid summary extra configuration for key ${key}`);
-                return;
+                return undefined;
             }
 
             return {
