@@ -44,15 +44,11 @@ If you think that you've found a bot that's already marked as human, write in to
 
 Users who have been unfairly banned by Bot Bouncer should be encouraged to modmail in to /r/BotBouncer to appeal their ban. Alternatively, you can do this on the user's behalf. While you can unban the user yourself, this only affects the user on your subreddit and does not prevent the user from being banned from other subreddits.
 
-# Change History
+# Latest Changes
 
-## v1.28.1
+## v1.29.0
 
-* Fixed an issue that prevents classification changes working after April 15 2026 on some subreddits
-* Improve wording on "Report user to Bot Bouncer" form to clarify that review is manual
-* Add option to permit modmail digests to be added to the same modmail thread
-* All subreddits now run bot detection code
-* Better access controls preventing users banned on r/BotBouncer from submitting bots
-* Performance improvements
+* Fixed an issue that prevented some users from being checked when they posted or commented
+* Fixed an issue with detecting some bot styles (introduced in a recent version)
 
 For older versions, please see the [full changelog](https://github.com/fsvreddit/bot-bouncer/blob/main/changelog.md).

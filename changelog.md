@@ -1,5 +1,14 @@
 # Changelog for Bot Bouncer
 
+## v1.28.1
+
+* Fixed an issue that prevents classification changes working after April 15 2026 on some subreddits
+* Improve wording on "Report user to Bot Bouncer" form to clarify that review is manual
+* Add option to permit modmail digests to be added to the same modmail thread
+* All subreddits now run bot detection code
+* Better access controls preventing users banned on r/BotBouncer from submitting bots
+* Performance improvements
+
 ## v1.27.0
 
 * Internal changes for finer grained control over settings
