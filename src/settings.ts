@@ -1,8 +1,9 @@
 import { SettingsFormField, TriggerContext, WikiPage } from "@devvit/public-api";
-import { CONTROL_SUBREDDIT } from "./constants.js";
+import { CONTROL_SUBREDDIT, FeatureFlags } from "./constants.js";
 import Ajv, { JSONSchemaType } from "ajv";
 import { addMinutes } from "date-fns";
 import json2md from "json2md";
+import _ from "lodash";
 
 export const CONFIGURATION_DEFAULTS = {
     banMessage: `Bots and bot-like accounts are not welcome on /r/{subreddit}.
@@ -47,6 +48,7 @@ If you are removing Bot Bouncer because of concerns about how it works, we would
 export enum AppSetting {
     Action = "action",
     LockContentWhenRemoving = "lockContentWhenRemoving",
+    RemoveFromModqueueWhenBanning = "removeFromModqueueWhenBanning",
     BanMessage = "banMessage",
     AutoWhitelist = "autoWhitelist",
     ExemptApprovedUsers = "exemptApprovedUsers",
@@ -82,7 +84,7 @@ export const appSettings: SettingsFormField[] = [
     {
         type: "group",
         label: "Ban/Report and unban settings",
-        fields: [
+        fields: _.compact([
             {
                 type: "select",
                 name: AppSetting.Action,
@@ -100,6 +102,14 @@ export const appSettings: SettingsFormField[] = [
                     }
                 },
             },
+            // eslint-disable-next-line @stylistic/multiline-ternary
+            FeatureFlags.enableModqueueRemovalAfterBan ? {
+                type: "boolean",
+                name: AppSetting.RemoveFromModqueueWhenBanning,
+                label: "Remove content from modqueue when banning",
+                helpText: "If banning users, also remove user content from the modqueue",
+                defaultValue: true,
+            } : undefined,
             {
                 type: "boolean",
                 name: AppSetting.LockContentWhenRemoving,
@@ -136,7 +146,7 @@ export const appSettings: SettingsFormField[] = [
                 helpText: "If this is turned on, a mod note will be added to the account when it is banned or unbanned by Bot Bouncer. The note will include the date and time of the action.",
                 defaultValue: false,
             },
-        ],
+        ]),
     },
     {
         type: "group",

@@ -69,6 +69,7 @@ export enum ControlSubredditJob {
 export enum ClientSubredditJob {
     QueueReclassificationChanges = "queueReclassificationChanges",
     HandleClassificationChanges = "handleClassificationChanges",
+    RemoveUsersFromModqueueAfterBan = "removeUsersFromModqueueAfterBan",
     UpgradeNotifier = "upgradeNotifier",
     SendDailyDigest = "sendDailyDigest",
     NotifyModTeamOnDemod = "notifyModTeamOnDemod",
@@ -82,3 +83,12 @@ export const ALL_RELEVANT_EVALUTORS = [
     ...ALL_EVALUATORS,
     ...ALL_INTERNAL_EVALUATORS,
 ];
+
+/**
+ * Feature flags for quick testing of new features without having to remove large amounts of code.
+ * Not true feature flags in the sense that they won't be dynamically updated without a code change,
+ * but useful for quickly toggling features on and off during development and testing.
+ */
+export const FeatureFlags: Record<string, boolean> = {
+    enableModqueueRemovalAfterBan: false,
+};

@@ -5,7 +5,7 @@ import { getRecentlyChangedUsers, getUserStatus, isUserInTempDeclineStore, UserD
 import { setCleanupForUser } from "./cleanup.js";
 import { ActionType, AppSetting, CONFIGURATION_DEFAULTS, ControlSubSettings, getControlSubSettings } from "./settings.js";
 import { getPostOrCommentById, getUserOrUndefined, isModeratorWithCache, postIdToShortLink } from "./utility.js";
-import { ClientSubredditJob } from "./constants.js";
+import { ClientSubredditJob, FeatureFlags } from "./constants.js";
 import _ from "lodash";
 import { recordBanForSummary, recordUnbanForSummary, removeRecordOfBanForSummary } from "./modmail/actionSummary.js";
 import { expireKeyAt, hasPermissions, isBanned, isContributor } from "devvit-helpers";
@@ -241,7 +241,7 @@ async function handleSetBanned (username: string, subredditName: string, setting
             console.error(`Classification Update: Some errors occurred banning ${username} on ${subredditName}.`);
             console.log(failedPromises);
         } else {
-            console.log(`Classification Update: ${username} has been banned following classification update. ${removableContent.length} ${pluralize("item", removableContent.length)} removed.`);
+            console.log(`Classification Update: 💥${username} has been banned following classification update. ${removableContent.length} ${pluralize("item", removableContent.length)} removed.`);
         }
 
         if (settings[AppSetting.AddModNoteOnClassificationChange]) {
@@ -257,6 +257,10 @@ async function handleSetBanned (username: string, subredditName: string, setting
                 user: username,
                 label: "BOT_BAN",
             });
+        }
+
+        if (FeatureFlags.enableModqueueRemovalAfterBan && settings[AppSetting.RemoveFromModqueueWhenBanning]) {
+            await addUserToModqueueRemovalStore(username, context);
         }
     } else {
         // Report content instead of banning.
@@ -445,4 +449,39 @@ export async function storeRecordOfContentCreationGracePeriod (context: TriggerC
 
     await context.redis.set(IN_GRACE_PERIOD_KEY, "true", { expiration: addDays(new Date(), 7) });
     await context.redis.set(gracePeriodStoredKey, "true");
+}
+
+const MODQUEUE_REMOVAL_STORE = "ModqueueRemovalStore";
+
+async function addUserToModqueueRemovalStore (username: string, context: TriggerContext) {
+    if (!FeatureFlags.enableModqueueRemovalAfterBan) {
+        return;
+    }
+
+    await context.redis.zAdd(MODQUEUE_REMOVAL_STORE, { member: username, score: new Date().getTime() });
+}
+
+export async function processModqueueRemovalStore (_: unknown, context: JobContext) {
+    if (!FeatureFlags.enableModqueueRemovalAfterBan) {
+        return;
+    }
+
+    const removalQueue = await context.redis.zRange(MODQUEUE_REMOVAL_STORE, 0, -1);
+    if (removalQueue.length === 0) {
+        return;
+    }
+
+    const usersToCheck = new Set(removalQueue.map(item => item.member));
+
+    const modQueue = await context.reddit.getModQueue({
+        subreddit: context.subredditName ?? await context.reddit.getCurrentSubredditName(),
+        type: "all",
+        limit: 25,
+    }).all();
+
+    const itemsToRemove = modQueue.filter(item => usersToCheck.has(item.authorName));
+    await Promise.all(itemsToRemove.map(item => item.remove()));
+    await context.redis.zRem(MODQUEUE_REMOVAL_STORE, removalQueue.map(item => item.member));
+
+    console.log(`Modqueue Removal: Removed ${itemsToRemove.length} ${pluralize("item", itemsToRemove.length)} from modqueue for ${usersToCheck.size} ${pluralize("user", usersToCheck.size)}.`);
 }
