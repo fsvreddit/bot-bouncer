@@ -40,6 +40,11 @@ export async function setCleanupForSubmittersAndMods (usernames: string[], conte
     await Promise.all(usernames.map(username => setCleanupForUser(username, context.redis)));
 }
 
+export async function isUserSubmitterOrMod (username: string, context: JobContext | TriggerContext): Promise<boolean> {
+    const score = await context.redis.zScore(SUB_OR_MOD_LOG_KEY, username);
+    return score !== undefined;
+}
+
 enum UserActiveStatus {
     Active = "active",
     Deleted = "deleted",
@@ -146,8 +151,7 @@ export async function cleanupDeletedAccounts (event: ScheduledJobEvent<JSONObjec
 
         // If no current status is defined, then this entry should not have been reached.
         if (!currentStatus) {
-            const submitterOrModFlag = await context.redis.zScore(SUB_OR_MOD_LOG_KEY, username);
-            if (submitterOrModFlag) {
+            if (await isUserSubmitterOrMod(username, context)) {
                 console.log(`Cleanup: ${username} has no status, but was in submitter or mod log.`);
                 await setCleanupForUser(username, context.redis);
                 continue;
@@ -285,7 +289,7 @@ async function handleDeletedAccount (username: string, context: TriggerContext) 
 
 async function handleDeletedAccountControlSub (username: string, context: TriggerContext) {
     const status = await getUserStatus(username, context);
-    const submitterOrModFlag = await context.redis.zScore(SUB_OR_MOD_LOG_KEY, username);
+    const submitterOrModFlag = await isUserSubmitterOrMod(username, context);
 
     if (!status && !submitterOrModFlag) {
         console.log(`Cleanup: ${username} has no status to delete.`);

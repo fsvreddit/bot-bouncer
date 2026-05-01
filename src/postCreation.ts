@@ -7,6 +7,7 @@ import { getControlSubSettings } from "./settings.js";
 import pluralize from "pluralize";
 import { queueSendFeedback } from "./submissionFeedback.js";
 import { formatTimeSince, isBannedWithCache, sendMessageToWebhook, updateWebhookMessage } from "./utility.js";
+import { isUserSubmitterOrMod } from "./cleanup.js";
 
 export const statusToFlair: Record<UserStatus, PostFlairTemplate> = {
     [UserStatus.Pending]: PostFlairTemplate.Pending,
@@ -60,6 +61,35 @@ async function createNewSubmission (submission: AsyncSubmission, context: Trigge
         return;
     }
 
+    let forceManualReview = false;
+    const forceManualReviewReasons: string[] = [];
+    if (submission.user.isGold) {
+        forceManualReview = true;
+        forceManualReviewReasons.push("Reddit Premium");
+    }
+
+    if (submission.user.isAdmin) {
+        forceManualReview = true;
+        forceManualReviewReasons.push("Reddit Admin");
+    }
+
+    if (submission.user.linkKarma + submission.user.commentKarma > 100000) {
+        forceManualReview = true;
+        forceManualReviewReasons.push("High Karma");
+    }
+
+    // Check to see if the user being submitted is a Bot Bouncer submitter.
+    const userIsSubmitterOrMod = await isUserSubmitterOrMod(submission.user.username, context);
+    if (userIsSubmitterOrMod) {
+        forceManualReview = true;
+        forceManualReviewReasons.push("Bot Submitter");
+        console.log(`Post Creation: User ${submission.user.username} is a submitter or mod, forcing manual review.`);
+    }
+
+    if (forceManualReview) {
+        submission.details.userStatus = UserStatus.Pending;
+    }
+
     const postCreationLockKey = `postCreationLock:${submission.user.username}`;
     if (await context.redis.exists(postCreationLockKey)) {
         console.log(`Post Creation: User ${submission.user.username}'s lock already set.`);
@@ -100,6 +130,8 @@ async function createNewSubmission (submission: AsyncSubmission, context: Trigge
                 data: {
                     username: submission.user.username,
                     postId: newPost.id,
+                    forceManualReview,
+                    forceManualReviewReasons,
                 },
             });
         }

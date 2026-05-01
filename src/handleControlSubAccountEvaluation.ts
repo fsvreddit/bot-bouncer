@@ -121,6 +121,18 @@ export async function evaluateUserAccount (options: EvaluateUserAccountOptions, 
     return results;
 }
 
+function getEvaluationResultText (result: EvaluationResult): string {
+    let text = result.botName;
+    if (result.botName.includes("Bot Group") && result.hitReason) {
+        if (typeof result.hitReason === "string") {
+            text += `(${result.hitReason})`;
+        } else {
+            text += `: ${result.hitReason.reason}`;
+        }
+    }
+    return text;
+}
+
 export async function handleControlSubAccountEvaluation (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
         return;
@@ -128,6 +140,8 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
 
     const username = event.data?.username as string | undefined;
     const postId = event.data?.postId as string | undefined;
+    const forceManualReview = event.data?.forceManualReview as boolean | undefined;
+    const forceManualReviewReasons = event.data?.forceManualReviewReasons as string[] | undefined;
 
     if (!username || !postId) {
         return;
@@ -153,9 +167,14 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
     if (evaluationResults.length === 0) {
         reportReason = "Needs manual review.";
     } else if (evaluationResults.every(result => !result.metThreshold)) {
-        reportReason = `Possible bot via evaluation, but insufficient content: ${evaluationResults.map(result => result.botName).join(", ")}`;
+        reportReason = `Possible bot via evaluation, but insufficient content: ${evaluationResults.map(getEvaluationResultText).join(", ")}`;
     } else if (!evaluationResults.some(result => result.canAutoBan)) {
-        reportReason = `Possible bot via evaluation, tagged as no-auto-ban: ${evaluationResults.map(result => result.botName).join(", ")}`;
+        reportReason = `Possible bot via evaluation, tagged as no-auto-ban: ${evaluationResults.map(getEvaluationResultText).join(", ")}`;
+    } else if (forceManualReview && evaluationResults.length > 0) {
+        reportReason = `Likely bot via evaluation, needs manual check: ${evaluationResults.map(getEvaluationResultText).join(", ")}`;
+        if (forceManualReviewReasons && forceManualReviewReasons.length > 0) {
+            reportReason += `. Additional reasons: ${forceManualReviewReasons.join(", ")}`;
+        }
     } else if (await userHasContinuousNSFWHistory(username, context)) {
         reportReason = "Possible bot via evaluation, but continuous NSFW history detected.";
     }
