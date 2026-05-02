@@ -319,7 +319,7 @@ export async function invalidEvaluatorVariableCondition (variables: Record<strin
         }
     }
 
-    const validSubNameRegex = /^[A-Za-z0-9_]{3,21}$/;
+    const validSubNameRegex = /^[A-Za-z0-9_]{2,21}$/;
     for (const sub of subs) {
         if (!validSubNameRegex.test(sub)) {
             results.push({ severity: "warning", message: `Subreddit \`${sub}\` in SFW karma farming list is not a valid subreddit name.` });
