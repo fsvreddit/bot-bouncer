@@ -5,7 +5,7 @@ import { EvaluationResult, getAccountInitialEvaluationResults } from "../handleC
 import json2md from "json2md";
 import { callOpenAI } from "./openAI.js";
 import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
-import { addHours, differenceInDays } from "date-fns";
+import { addDays, differenceInDays } from "date-fns";
 import { getPromptData, PromptData } from "./common.js";
 import { getControlSubSettings } from "../settings.js";
 import pluralize from "pluralize";
@@ -257,7 +257,7 @@ export async function openAISummaryLookupAndRespond (event: ScheduledJobEvent<JS
     }, context);
 
     const cacheKey = `cachedAISummary:${username}`;
-    await context.redis.set(cacheKey, result, { expiration: addHours(new Date(), 6) });
+    await context.redis.set(cacheKey, result, { expiration: addDays(new Date(), 1) });
 
     await createResponse({
         conversationId,
