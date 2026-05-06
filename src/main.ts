@@ -37,6 +37,7 @@ import { handleMinutelyJob } from "./scheduler/handleMinutelyJob.js";
 import { generateOpenAISummary, openAISummaryLookupAndRespond } from "./aiAnalysis/createAISummary.js";
 import { updateTokenStatsMessage } from "./aiAnalysis/statistics.js";
 import { updateMainStatisticsPage } from "./statistics/mainStatistics.js";
+import { checkUserFlaggedRechecksQueue } from "./userEvaluation/flaggedUsersRechecks.js";
 
 Devvit.addSettings(appSettings);
 
@@ -270,6 +271,11 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: ControlSubredditJob.OpenAIUpdateTokenStatsMessage,
     onRun: updateTokenStatsMessage,
+});
+
+Devvit.addSchedulerJob({
+    name: ControlSubredditJob.FlaggedUsersRechecks,
+    onRun: checkUserFlaggedRechecksQueue,
 });
 
 /**

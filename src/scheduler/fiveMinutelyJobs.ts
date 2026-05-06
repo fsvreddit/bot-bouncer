@@ -20,6 +20,12 @@ export async function handleFiveMinutelyJob (_: unknown, context: JobContext) {
         data: { firstRun: true },
     });
 
+    await context.scheduler.runJob({
+        name: ControlSubredditJob.FlaggedUsersRechecks,
+        data: { firstRun: true },
+        runAt: new Date(),
+    });
+
     await processHighlightedModmailQueue(context);
     await gatherTokenStatistics(context);
 }

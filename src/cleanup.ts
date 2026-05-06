@@ -220,6 +220,10 @@ export async function cleanupDeletedAccounts (event: ScheduledJobEvent<JSONObjec
                     overrideCleanupDate = addDays(new Date(), 3);
                 }
             }
+
+            if (currentStatus.flags?.some(flag => [UserFlag.HackedAndRecovered, UserFlag.Scammed, UserFlag.FutureNSFW].includes(flag))) {
+                await context.redis.zAdd("flaggedRechecksQueue", { member: username, score: new Date().getTime() });
+            }
         } else {
             suspendedCount++;
             // User's current status is Suspended or Shadowbanned.
