@@ -19,6 +19,7 @@ export async function addUserToFlaggedRechecksQueue (username: string, context: 
 export async function checkUserFlaggedRechecksQueue (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext): Promise<void> {
     const inProgressKey = "flaggedRechecksInProgress";
     if (event.data?.firstRun && await context.redis.exists(inProgressKey)) {
+        console.log("FlaggedRechecks: Job already in progress on first run, skipping execution to avoid duplicate jobs");
         return;
     }
 
@@ -46,6 +47,8 @@ export async function checkUserFlaggedRechecksQueue (event: ScheduledJobEvent<JS
         const errorMessage = error instanceof Error ? error.message : String(error);
         console.error(`FlaggedRechecks: Error rechecking flagged user ${username}: ${errorMessage}`);
     }
+
+    await context.redis.zRem(FLAGGED_RECHECKS_QUEUE_KEY, [username]);
 
     if (queue.length > 0) {
         await context.scheduler.runJob({
