@@ -9,6 +9,7 @@ import { getControlSubSettings } from "./settings.js";
 import { formatTimeSince } from "./utility.js";
 import { submitAccountForReview } from "./modmail/accountReview.js";
 import { recompressAccountInitialEvaluationResults } from "./handleControlSubAccountEvaluation.js";
+import { recheckFlaggedUser } from "./userEvaluation/flaggedUsersRechecks.js";
 
 export const CLEANUP_LOG_KEY = "CleanupLog";
 const SUB_OR_MOD_LOG_KEY = "SubOrModLog";
@@ -218,6 +219,18 @@ export async function cleanupDeletedAccounts (event: ScheduledJobEvent<JSONObjec
                     await submitAccountForReview(currentStatus.trackingPostId, context.appSlug, 0, "User was flagged as a potential future adult content creator and now has NSFW content", context);
                 } else {
                     overrideCleanupDate = addDays(new Date(), 3);
+                }
+            }
+
+            if (currentStatus.flags && currentStatus.flags.length > 0) {
+                try {
+                    const needsRapidCheck = await recheckFlaggedUser(username, currentStatus, context);
+                    if (needsRapidCheck && !overrideCleanupDate) {
+                        overrideCleanupDate = addDays(new Date(), 1);
+                    }
+                } catch (error) {
+                    const errorMessage = error instanceof Error ? error.message : String(error);
+                    console.error(`Cleanup: error rechecking flagged user ${username}:`, errorMessage);
                 }
             }
         } else {
