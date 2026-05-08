@@ -5,7 +5,7 @@ import { getUserStatus, setUserStatus, UserDetails, UserFlag, UserStatus, writeU
 import { getUsernameFromUrl } from "./utility.js";
 import { queueSendFeedback } from "./submissionFeedback.js";
 import _ from "lodash";
-import { addHours } from "date-fns";
+import { addHours, addSeconds } from "date-fns";
 import { addToReversalsQueue } from "./modmail/evaluatorReversals.js";
 import { statusToFlair } from "./postCreation.js";
 import { submitAccountForReview } from "./modmail/accountReview.js";
@@ -49,14 +49,21 @@ export async function handleControlSubFlairUpdate (event: PostFlairUpdate, conte
         return;
     }
 
-    const appUser = await context.reddit.getAppUser();
-
-    if (event.post.authorId !== appUser.id) {
+    const postFlair = event.post.linkFlair?.text as UserStatus | undefined;
+    if (!postFlair) {
         return;
     }
 
-    const postFlair = event.post.linkFlair?.text as UserStatus | undefined;
-    if (!postFlair) {
+    const flairUpdateHandledKey = `flairUpdateHandled~${event.post.id}~${postFlair}`;
+    if (await context.redis.exists(flairUpdateHandledKey)) {
+        console.log(`Flair Update: Duplicate event for post ${event.post.id} with flair ${postFlair}, ignoring.`);
+        return;
+    }
+    await context.redis.set(flairUpdateHandledKey, Date.now().toString(), { expiration: addSeconds(new Date(), 10) });
+
+    const appUser = await context.reddit.getAppUser();
+
+    if (event.post.authorId !== appUser.id) {
         return;
     }
 
