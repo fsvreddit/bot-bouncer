@@ -1,11 +1,10 @@
-import { Comment, Post, TriggerContext } from "@devvit/public-api";
+import { TriggerContext } from "@devvit/public-api";
 import Ajv, { JSONSchemaType } from "ajv";
 import { getUserStatus, UserStatus } from "../dataStore.js";
 import _ from "lodash";
-import { subMonths } from "date-fns";
 import json2md from "json2md";
 import { AsyncSubmission, queuePostCreation } from "../postCreation.js";
-import { getUserExtended, UserExtended } from "../extendedDevvit.js";
+import { getUserExtended } from "../extendedDevvit.js";
 import { CONTROL_SUBREDDIT } from "../constants.js";
 import pluralize from "pluralize";
 import { EvaluationResult, storeAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
@@ -68,14 +67,6 @@ async function handleBulkItem (username: string, initialStatus: UserStatus, subm
     if (currentStatus) {
         console.log(`Bulk submission: User ${username} already has a status of ${currentStatus.userStatus}.`);
         return false;
-    }
-
-    if (initialStatus === UserStatus.Banned) {
-        const overrideStatus = await trustedSubmitterInitialStatus(submitter, user, context);
-        if (overrideStatus === UserStatus.Pending) {
-            console.log(`Bulk submission: Initial status for ${username} is Pending, skipping submission.`);
-            return false;
-        }
     }
 
     let commentToAdd: string | undefined;
@@ -188,45 +179,6 @@ export async function handleBulkSubmission (submitter: string, trusted: boolean,
     }
 
     return true;
-}
-
-async function trustedSubmitterInitialStatus (submitter: string, submittedAccount: UserExtended, context: TriggerContext): Promise<UserStatus | undefined> {
-    if (submitter !== "HelpfulJanitor") {
-        return UserStatus.Banned;
-    }
-
-    console.log(`Checking trusted submitter status for ${submittedAccount.username}`);
-
-    if (submittedAccount.commentKarma > 10000 || submittedAccount.linkKarma > 10000 || submittedAccount.createdAt < subMonths(new Date(), 6)) {
-        console.log(`Trusted submitter override: ${submittedAccount.username} has high karma or is older than 6 months`);
-        return UserStatus.Pending;
-    }
-
-    let history: (Post | Comment)[];
-    try {
-        history = await context.reddit.getCommentsAndPostsByUser({
-            username: submittedAccount.username,
-            limit: 100,
-        }).all();
-    } catch {
-        return;
-    }
-
-    const recentHistory = history.filter(item => item.createdAt > subMonths(new Date(), 3));
-
-    if (recentHistory.some(item => item.edited)) {
-        console.log(`Trusted submitter override: ${submittedAccount.username} has edited comments or posts`);
-        return UserStatus.Pending;
-    }
-
-    const recentComments = recentHistory.filter(item => item instanceof Comment);
-    const commentPosts = _.countBy(recentComments.map(comment => comment.postId));
-    if (Object.values(commentPosts).some(count => count > 1)) {
-        console.log(`Trusted submitter override: ${submittedAccount.username} has commented multiple times in the same post`);
-        return UserStatus.Pending;
-    }
-
-    return UserStatus.Banned;
 }
 
 export async function retryBulkSubmission (modmail: ModmailMessage, context: TriggerContext) {
