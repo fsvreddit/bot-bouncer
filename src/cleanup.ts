@@ -192,7 +192,7 @@ export async function cleanupDeletedAccounts (event: ScheduledJobEvent<JSONObjec
             if (currentStatus.userStatus === UserStatus.Inactive) {
                 // Check for recent activity to potentially change status from Inactive to Pending.
                 const latestContent = await getLatestContentDate(username, context);
-                if (latestContent && new Date(latestContent) > subDays(new Date(), 14)) {
+                if (latestContent && new Date(latestContent) > subDays(new Date(), 14) && new Date(latestContent) > new Date(currentStatus.lastUpdate)) {
                     newFlair = PostFlairTemplate.Pending;
                 }
                 overrideCleanupDate = addWeeks(new Date(), 1);
