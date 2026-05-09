@@ -3,7 +3,7 @@ import { ModMail } from "@devvit/protos";
 import { CONTROL_SUBREDDIT } from "../constants.js";
 import { handleClientSubredditModmail } from "./clientSubModmail.js";
 import { handleControlSubredditModmail } from "./controlSubModmail.js";
-import { hasTriggerBeenHandled } from "../utility.js";
+import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
 
 export interface ModmailMessage {
     conversationId: string;
@@ -47,7 +47,7 @@ export async function handleModmail (event: ModMail, context: TriggerContext) {
         return;
     }
 
-    if (await hasTriggerBeenHandled(event.messageId, context)) {
+    if (await hasTriggerBeenHandled(context.redis, event.messageId)) {
         return;
     }
 

@@ -8,12 +8,12 @@ import { forceEvaluatorVariablesRefresh } from "./userEvaluation/evaluatorVariab
 import { storeRecordOfContentCreationGracePeriod } from "./handleClientSubredditClassificationChanges.js";
 import { isModerator } from "devvit-helpers";
 import json2md from "json2md";
-import { hasTriggerBeenHandled } from "./utility.js";
+import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
 
 export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, context: TriggerContext) {
     console.log("App Install: Detected an app install or update event");
 
-    if (await hasTriggerBeenHandled("installOrUpgrade", context, addSeconds(new Date(), 10))) {
+    if (await hasTriggerBeenHandled(context.redis, "installOrUpgrade", { expiration: addSeconds(new Date(), 10) })) {
         return;
     }
 

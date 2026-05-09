@@ -4,7 +4,7 @@ import { addDays, addSeconds, formatDate, subMinutes } from "date-fns";
 import { getUserStatus, UserDetails, UserStatus } from "./dataStore.js";
 import { isUserWhitelisted, recordBan, recordUserContentCreation } from "./handleClientSubredditClassificationChanges.js";
 import { ALL_RELEVANT_EVALUTORS, CONTROL_SUBREDDIT } from "./constants.js";
-import { getPostOrCommentById, getUserOrUndefined, hasTriggerBeenHandled, isModeratorWithCache } from "./utility.js";
+import { getUserOrUndefined, isModeratorWithCache } from "./utility.js";
 import { ActionType, AppSetting, CONFIGURATION_DEFAULTS, getControlSubSettings } from "./settings.js";
 import { addExternalSubmissionFromClientSub } from "./externalSubmissions.js";
 import { isLinkId } from "@devvit/public-api/types/tid.js";
@@ -12,13 +12,14 @@ import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { recordBanForSummary } from "./modmail/actionSummary.js";
 import { getUserExtended } from "./extendedDevvit.js";
 import { expireKeyAt, isBanned, isContributor } from "devvit-helpers";
+import { getPostOrCommentById, hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
 
 async function getTrueUsername (username: string, targetId: string, context: TriggerContext): Promise<string> {
     if (username !== "[redacted]") {
         return username;
     }
 
-    const target = await getPostOrCommentById(targetId, context);
+    const target = await getPostOrCommentById(context.reddit, targetId);
     console.log(`Bot check: Author is redacted, true username for ${targetId} is ${target.authorName}`);
     return target.authorName;
 }
@@ -140,7 +141,7 @@ export async function handleClientCommentUpdate (event: CommentUpdate, context: 
         return;
     }
 
-    if (await hasTriggerBeenHandled(`CommentUpdate:${event.comment.id}`, context, addSeconds(new Date(), 10))) {
+    if (await hasTriggerBeenHandled(context.redis, `CommentUpdate:${event.comment.id}`, { expiration: addSeconds(new Date(), 10) })) {
         return;
     }
 
@@ -244,7 +245,7 @@ async function handleContentCreation (username: string, currentStatus: UserDetai
     const [actionToTake] = settings[AppSetting.Action] as ActionType[] | undefined ?? [ActionType.Ban];
 
     const promises: Promise<unknown>[] = [];
-    const target = await getPostOrCommentById(targetId, context);
+    const target = await getPostOrCommentById(context.reddit, targetId);
 
     if (actionToTake === ActionType.Ban) {
         const isCurrentlyBanned = await isBanned(context.reddit, subredditName, user.username);
@@ -275,7 +276,7 @@ async function handleContentCreation (username: string, currentStatus: UserDetai
         if (!removedByMod) {
             promises.push(context.reddit.remove(targetId, true));
             if (settings[AppSetting.LockContentWhenRemoving]) {
-                const target = await getPostOrCommentById(targetId, context);
+                const target = await getPostOrCommentById(context.reddit, targetId);
                 if (!target.locked) {
                     promises.push(target.lock());
                     await context.redis.hSet(`lockedItems:${username}`, { [targetId]: targetId });
@@ -350,7 +351,7 @@ async function checkAndReportPotentialBot (username: string, target: Post | Comm
         }
 
         if (!userItems.some(item => item.id === targetId)) {
-            userItems.unshift(await getPostOrCommentById(targetId, context));
+            userItems.unshift(await getPostOrCommentById(context.reddit, targetId));
         }
 
         evaluator.setHistory(userItems);
@@ -391,7 +392,7 @@ async function checkAndReportPotentialBot (username: string, target: Post | Comm
 
     const currentUser = await context.reddit.getCurrentUser();
 
-    const targetItem = await getPostOrCommentById(targetId, context);
+    const targetItem = await getPostOrCommentById(context.reddit, targetId);
     const reportContext = `Automatically reported via a [${isLinkId(targetItem.id) ? "post" : "comment"}](${targetItem.permalink}) on /r/${targetItem.subredditName}`;
 
     await addExternalSubmissionFromClientSub({

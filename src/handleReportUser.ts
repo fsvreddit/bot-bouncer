@@ -1,6 +1,6 @@
 import { Context, MenuItemOnPressEvent, JSONObject, FormOnSubmitEvent, FormFunction, TriggerContext } from "@devvit/public-api";
 import { CONTROL_SUBREDDIT } from "./constants.js";
-import { getPostOrCommentById, getUserOrUndefined, isBannedWithCache, isModeratorWithCache } from "./utility.js";
+import { getUserOrUndefined, isBannedWithCache, isModeratorWithCache } from "./utility.js";
 import { getUserStatus, UserStatus } from "./dataStore.js";
 import { addExternalSubmissionFromClientSub } from "./externalSubmissions.js";
 import { queryForm, reportForm } from "./main.js";
@@ -11,6 +11,7 @@ import { recordReportForSummary } from "./modmail/actionSummary.js";
 import { canUserReceiveFeedback } from "./submissionFeedback.js";
 import { isLinkId } from "@devvit/public-api/types/tid.js";
 import { addClassificationQueryToQueue } from "./modmail/classificationQuery.js";
+import { getPostOrCommentById } from "@fsvreddit/fsv-devvit-helpers";
 
 enum ReportFormField {
     ReportContext = "reportContext",
@@ -63,7 +64,7 @@ async function setAlreadyReported (username: string, context: TriggerContext) {
 }
 
 export async function handleReportUser (event: MenuItemOnPressEvent, context: Context) {
-    const target = await getPostOrCommentById(event.targetId, context);
+    const target = await getPostOrCommentById(context.reddit, event.targetId);
     if (context.subredditName === CONTROL_SUBREDDIT) {
         await handleControlSubReportUser(target, context);
         return;
@@ -157,7 +158,7 @@ export async function reportFormHandler (event: FormOnSubmitEvent<JSONObject>, c
         return;
     }
 
-    const target = await getPostOrCommentById(targetId, context);
+    const target = await getPostOrCommentById(context.reddit, targetId);
 
     const user = await getUserOrUndefined(target.authorName, context);
 

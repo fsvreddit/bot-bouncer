@@ -3,7 +3,7 @@ import { CONTROL_SUBREDDIT, INTERNAL_BOT } from "./constants.js";
 import { addUserToTempDeclineStore, getUserStatus, UserStatus } from "./dataStore.js";
 import { getControlSubSettings } from "./settings.js";
 import { addDays, addMinutes, addSeconds, addWeeks } from "date-fns";
-import { getPostOrCommentById, getUserOrUndefined } from "./utility.js";
+import { getUserOrUndefined } from "./utility.js";
 import { isLinkId } from "@devvit/public-api/types/tid.js";
 import { AsyncSubmission, isUserAlreadyQueued, PostCreationQueueResult, promotePositionInQueue, queuePostCreation } from "./postCreation.js";
 import pluralize from "pluralize";
@@ -14,6 +14,7 @@ import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { queueKarmaFarmingAccounts } from "./karmaFarmingSubsCheck.js";
 import { userIsTrustedSubmitter } from "./trustedSubmitterHelpers.js";
 import { expireKeyAt } from "devvit-helpers";
+import { getPostOrCommentById } from "@fsvreddit/fsv-devvit-helpers";
 
 const WIKI_PAGE = "externalsubmissions";
 
@@ -144,7 +145,7 @@ export async function addExternalSubmissionToPostCreationQueue (item: ExternalSu
         ];
 
         if (item.targetId) {
-            const target = await getPostOrCommentById(item.targetId, context);
+            const target = await getPostOrCommentById(context.reddit, item.targetId);
             body.push({ p: `User was reported via [this ${isLinkId(target.id) ? "post" : "comment"}](${target.permalink})` });
         }
 
@@ -355,7 +356,7 @@ export async function getSubredditsFromExternalSubmissions (externalSubmissions:
         }
 
         if (!itemAdded && submission.targetId) {
-            const target = await getPostOrCommentById(submission.targetId, context);
+            const target = await getPostOrCommentById(context.reddit, submission.targetId);
             subreddits.add(target.subredditName);
         }
     }

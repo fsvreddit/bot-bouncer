@@ -8,12 +8,13 @@ import { addDays, addMinutes, addSeconds, subMinutes } from "date-fns";
 import { validateAndSaveAppealConfig } from "./modmail/autoAppealHandling.js";
 import { checkIfStatsNeedUpdating } from "./scheduler/sixHourlyJobs.js";
 import { handleObserverSubsWikiPageCopy } from "./statistics/observerSubWikiPageCopy.js";
-import { hasTriggerBeenHandled, isModeratorWithCache, removeCachedBanStatus, sendMessageToWebhook } from "./utility.js";
+import { isModeratorWithCache, removeCachedBanStatus, sendMessageToWebhook } from "./utility.js";
 import { getExtendedDevvit } from "devvit-helpers";
 import { getInstallDate } from "./installActions.js";
+import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
 
 export async function handleModAction (event: ModAction, context: TriggerContext) {
-    if (await hasTriggerBeenHandled(`ModAction:${event.action}:${event.moderator?.name}:${event.actionedAt?.getTime()}`, context, addMinutes(new Date(), 10))) {
+    if (await hasTriggerBeenHandled(context.redis, `ModAction:${event.action}:${event.moderator?.name}:${event.actionedAt?.getTime()}`, { expiration: addMinutes(new Date(), 10) })) {
         return;
     }
 

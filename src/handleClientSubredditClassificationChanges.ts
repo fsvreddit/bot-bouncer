@@ -4,11 +4,12 @@ import pluralize from "pluralize";
 import { getRecentlyChangedUsers, getUserStatus, isUserInTempDeclineStore, UserDetails, UserStatus } from "./dataStore.js";
 import { setCleanupForUser } from "./cleanup.js";
 import { ActionType, AppSetting, CONFIGURATION_DEFAULTS, ControlSubSettings, getControlSubSettings } from "./settings.js";
-import { getPostOrCommentById, getUserOrUndefined, isModeratorWithCache, postIdToShortLink } from "./utility.js";
+import { getUserOrUndefined, isModeratorWithCache, postIdToShortLink } from "./utility.js";
 import { ClientSubredditJob, FeatureFlags } from "./constants.js";
 import _ from "lodash";
 import { recordBanForSummary, recordUnbanForSummary, removeRecordOfBanForSummary } from "./modmail/actionSummary.js";
 import { expireKeyAt, hasPermissions, isBanned, isContributor } from "devvit-helpers";
+import { getPostOrCommentById } from "@fsvreddit/fsv-devvit-helpers";
 
 const UNBAN_WHITELIST = "UnbanWhitelist";
 const BAN_STORE = "BanStore";
@@ -91,7 +92,7 @@ async function handleSetOrganic (username: string, subredditName: string, settin
     const lockedItemIds = Object.keys(lockedItems);
     if (lockedItemIds.length > 0) {
         await Promise.all(lockedItemIds.map(async (id) => {
-            const item = await getPostOrCommentById(id, context);
+            const item = await getPostOrCommentById(context.reddit, id);
             if (item.locked) {
                 await item.unlock();
             }
@@ -159,7 +160,7 @@ async function handleSetBanned (username: string, subredditName: string, setting
     for (const itemId of userContextItems) {
         if (!userContent.some(item => item.id === itemId)) {
             console.log(`Classification Update: Adding context item ${itemId} for ${username}`);
-            userContent.unshift(await getPostOrCommentById(itemId, context));
+            userContent.unshift(await getPostOrCommentById(context.reddit, itemId));
         }
     }
 

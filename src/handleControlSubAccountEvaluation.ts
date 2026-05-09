@@ -8,9 +8,10 @@ import { addSeconds, addWeeks, subMonths } from "date-fns";
 import { getUserExtended } from "./extendedDevvit.js";
 import _ from "lodash";
 import { getSubmitterSuccessRate } from "./statistics/submitterStatistics.js";
-import { conditionallyCompressString, conditionallyDecompressString, getPostOrCommentById } from "./utility.js";
+import { conditionallyCompressString, conditionallyDecompressString } from "./utility.js";
 import { getControlSubSettings } from "./settings.js";
 import pluralize from "pluralize";
+import { getPostOrCommentById } from "@fsvreddit/fsv-devvit-helpers";
 
 export interface EvaluatorStats {
     hitCount: number;
@@ -69,7 +70,7 @@ export async function evaluateUserAccount (options: EvaluateUserAccountOptions, 
 
     if (options.targetId && !userItems.some(item => item.id === options.targetId)) {
         console.log(`Evaluator: Adding target item ${options.targetId} to evaluation for ${options.username}`);
-        userItems.unshift(await getPostOrCommentById(options.targetId, context));
+        userItems.unshift(await getPostOrCommentById(context.reddit, options.targetId));
     }
 
     const socialLinks = await getSocialLinksWithCache(user.username, context);

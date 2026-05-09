@@ -2,7 +2,7 @@ import { PostDelete } from "@devvit/protos";
 import { TriggerContext } from "@devvit/public-api";
 import { CONTROL_SUBREDDIT } from "./constants.js";
 import pluralize from "pluralize";
-import { hasTriggerBeenHandled } from "./utility.js";
+import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
 
 export async function handleControlSubPostDelete (event: PostDelete, context: TriggerContext) {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
@@ -15,7 +15,7 @@ export async function handleControlSubPostDelete (event: PostDelete, context: Tr
         return;
     }
 
-    if (await hasTriggerBeenHandled(`PostDelete:${event.postId}:${event.deletedAt?.getTime()}`, context)) {
+    if (await hasTriggerBeenHandled(context.redis, `PostDelete:${event.postId}:${event.deletedAt?.getTime()}`)) {
         return;
     }
 

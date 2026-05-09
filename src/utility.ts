@@ -1,5 +1,4 @@
-import { Comment, Post, TriggerContext, User } from "@devvit/public-api";
-import { isCommentId, isLinkId } from "@devvit/public-api/types/tid.js";
+import { TriggerContext, User } from "@devvit/public-api";
 import { addDays, addHours, formatDuration, intervalToDuration } from "date-fns";
 import { isBanned, isModerator } from "devvit-helpers";
 import Pako from "pako";
@@ -56,16 +55,6 @@ export async function isBannedWithCache (username: string, context: TriggerConte
     const isUserBanned = await isBanned(context.reddit, subName, username);
     await context.redis.set(cacheKey, JSON.stringify(isUserBanned), { expiration: cacheUntil ?? addDays(new Date(), 1) });
     return isUserBanned;
-}
-
-export function getPostOrCommentById (thingId: string, context: TriggerContext): Promise<Post | Comment> {
-    if (isCommentId(thingId)) {
-        return context.reddit.getCommentById(thingId);
-    } else if (isLinkId(thingId)) {
-        return context.reddit.getPostById(thingId);
-    } else {
-        throw new Error(`Invalid thingId ${thingId}`);
-    }
 }
 
 export async function getUserOrUndefined (username: string, context: TriggerContext, logError = false): Promise<User | undefined> {
@@ -194,27 +183,4 @@ export function conditionallyDecompressString (input: string): string {
 export function formatTimeSince (date: Date): string {
     const interval = intervalToDuration({ start: date, end: new Date() });
     return formatDuration(interval, { format: ["days", "hours", "minutes"] });
-}
-
-export async function hasTriggerBeenHandled (identifier: string, context: TriggerContext, expiration = addDays(new Date(), 1)): Promise<boolean> {
-    const redisKey = `triggerLock:${identifier}`;
-    const txn = await context.redis.watch(redisKey);
-    await txn.multi();
-
-    if (await context.redis.exists(redisKey)) {
-        console.log(`Trigger Lock: Duplicate trigger for ${identifier} ignored.`);
-        await txn.discard();
-        return true;
-    }
-
-    await txn.set(redisKey, Date.now().toString(), { expiration });
-
-    try {
-        await txn.exec();
-        return false;
-    } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : String(err);
-        console.log(`Trigger Lock: Duplicate trigger for ${identifier} ignored:`, errorMessage);
-        return true;
-    }
 }

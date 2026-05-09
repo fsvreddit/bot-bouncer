@@ -2,13 +2,14 @@ import { TriggerContext } from "@devvit/public-api";
 import { PostFlairUpdate } from "@devvit/protos";
 import { CONTROL_SUBREDDIT, PostFlairTemplate } from "./constants.js";
 import { getUserStatus, setUserStatus, UserDetails, UserFlag, UserStatus, writeUserStatus } from "./dataStore.js";
-import { getUsernameFromUrl, hasTriggerBeenHandled } from "./utility.js";
+import { getUsernameFromUrl } from "./utility.js";
 import { queueSendFeedback } from "./submissionFeedback.js";
 import _ from "lodash";
 import { addHours, addSeconds } from "date-fns";
 import { addToReversalsQueue } from "./modmail/evaluatorReversals.js";
 import { statusToFlair } from "./postCreation.js";
 import { submitAccountForReview } from "./modmail/accountReview.js";
+import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
 
 interface FlairMapping {
     postFlair: string;
@@ -54,7 +55,7 @@ export async function handleControlSubFlairUpdate (event: PostFlairUpdate, conte
         return;
     }
 
-    if (await hasTriggerBeenHandled(`PostFlairUpdate:${event.post.id}:${postFlair}`, context, addSeconds(new Date(), 10))) {
+    if (await hasTriggerBeenHandled(context.redis, `PostFlairUpdate:${event.post.id}:${postFlair}`, { expiration: addSeconds(new Date(), 10) })) {
         return;
     }
 
