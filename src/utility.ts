@@ -195,3 +195,26 @@ export function formatTimeSince (date: Date): string {
     const interval = intervalToDuration({ start: date, end: new Date() });
     return formatDuration(interval, { format: ["days", "hours", "minutes"] });
 }
+
+export async function hasTriggerBeenHandled (identifier: string, context: TriggerContext, expiration = addDays(new Date(), 1)): Promise<boolean> {
+    const redisKey = `triggerLock:${identifier}`;
+    const txn = await context.redis.watch(redisKey);
+    await txn.multi();
+
+    if (await context.redis.exists(redisKey)) {
+        console.log(`Trigger Lock: Duplicate trigger for ${identifier} ignored.`);
+        await txn.discard();
+        return true;
+    }
+
+    await txn.set(redisKey, Date.now().toString(), { expiration });
+
+    try {
+        await txn.exec();
+        return false;
+    } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        console.log(`Trigger Lock: Duplicate trigger for ${identifier} ignored:`, errorMessage);
+        return true;
+    }
+}

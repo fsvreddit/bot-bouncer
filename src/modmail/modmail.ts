@@ -3,7 +3,7 @@ import { ModMail } from "@devvit/protos";
 import { CONTROL_SUBREDDIT } from "../constants.js";
 import { handleClientSubredditModmail } from "./clientSubModmail.js";
 import { handleControlSubredditModmail } from "./controlSubModmail.js";
-import { addDays } from "date-fns";
+import { hasTriggerBeenHandled } from "../utility.js";
 
 export interface ModmailMessage {
     conversationId: string;
@@ -47,13 +47,9 @@ export async function handleModmail (event: ModMail, context: TriggerContext) {
         return;
     }
 
-    const messageHandledKey = `messageHandled~${event.messageId}`;
-    if (await context.redis.exists(messageHandledKey)) {
-        console.log(`Modmail: Message ${event.messageId} has already been handled - duplicate trigger.`);
+    if (await hasTriggerBeenHandled(event.messageId, context)) {
         return;
     }
-
-    await context.redis.set(messageHandledKey, "true", { expiration: addDays(new Date(), 28) });
 
     const modmail: ModmailMessage = {
         conversationId: event.conversationId,

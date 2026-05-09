@@ -2,7 +2,7 @@ import { TriggerContext } from "@devvit/public-api";
 import { PostFlairUpdate } from "@devvit/protos";
 import { CONTROL_SUBREDDIT, PostFlairTemplate } from "./constants.js";
 import { getUserStatus, setUserStatus, UserDetails, UserFlag, UserStatus, writeUserStatus } from "./dataStore.js";
-import { getUsernameFromUrl } from "./utility.js";
+import { getUsernameFromUrl, hasTriggerBeenHandled } from "./utility.js";
 import { queueSendFeedback } from "./submissionFeedback.js";
 import _ from "lodash";
 import { addHours, addSeconds } from "date-fns";
@@ -54,12 +54,9 @@ export async function handleControlSubFlairUpdate (event: PostFlairUpdate, conte
         return;
     }
 
-    const flairUpdateHandledKey = `flairUpdateHandled~${event.post.id}~${postFlair}`;
-    if (await context.redis.exists(flairUpdateHandledKey)) {
-        console.log(`Flair Update: Duplicate event for post ${event.post.id} with flair ${postFlair}, ignoring.`);
+    if (await hasTriggerBeenHandled(`PostFlairUpdate:${event.post.id}:${postFlair}`, context, addSeconds(new Date(), 10))) {
         return;
     }
-    await context.redis.set(flairUpdateHandledKey, Date.now().toString(), { expiration: addSeconds(new Date(), 10) });
 
     const appUser = await context.reddit.getAppUser();
 

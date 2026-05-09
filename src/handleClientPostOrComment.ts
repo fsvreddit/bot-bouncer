@@ -1,10 +1,10 @@
 import { Post, Comment, TriggerContext, SettingsValues, JSONValue, UserSocialLink } from "@devvit/public-api";
 import { CommentCreate, CommentUpdate, PostCreate } from "@devvit/protos";
-import { addDays, formatDate, subMinutes } from "date-fns";
+import { addDays, addSeconds, formatDate, subMinutes } from "date-fns";
 import { getUserStatus, UserDetails, UserStatus } from "./dataStore.js";
 import { isUserWhitelisted, recordBan, recordUserContentCreation } from "./handleClientSubredditClassificationChanges.js";
 import { ALL_RELEVANT_EVALUTORS, CONTROL_SUBREDDIT } from "./constants.js";
-import { getPostOrCommentById, getUserOrUndefined, isModeratorWithCache } from "./utility.js";
+import { getPostOrCommentById, getUserOrUndefined, hasTriggerBeenHandled, isModeratorWithCache } from "./utility.js";
 import { ActionType, AppSetting, CONFIGURATION_DEFAULTS, getControlSubSettings } from "./settings.js";
 import { addExternalSubmissionFromClientSub } from "./externalSubmissions.js";
 import { isLinkId } from "@devvit/public-api/types/tid.js";
@@ -23,27 +23,12 @@ async function getTrueUsername (username: string, targetId: string, context: Tri
     return target.authorName;
 }
 
-async function hasPostOrCommentBeenHandled (targetId: string, context: TriggerContext): Promise<boolean> {
-    const redisKey = `postOrCommentHandled:${targetId}`;
-    if (await context.redis.exists(redisKey)) {
-        console.log(`Content Create: ${targetId} has already been handled recently.`);
-        return true;
-    }
-
-    await context.redis.set(redisKey, "true", { expiration: addDays(new Date(), 1) });
-    return false;
-}
-
 export async function handleClientPostCreate (event: PostCreate, context: TriggerContext) {
     if (context.subredditName === CONTROL_SUBREDDIT) {
         return;
     }
 
     if (!event.post || !event.author?.name) {
-        return;
-    }
-
-    if (await hasPostOrCommentBeenHandled(event.post.id, context)) {
         return;
     }
 
@@ -89,10 +74,6 @@ export async function handleClientCommentCreate (event: CommentCreate, context: 
     }
 
     if (!event.comment || !event.author?.name) {
-        return;
-    }
-
-    if (await hasPostOrCommentBeenHandled(event.comment.id, context)) {
         return;
     }
 
@@ -156,6 +137,10 @@ export async function handleClientCommentUpdate (event: CommentUpdate, context: 
     }
 
     if (!event.comment || !event.author?.name) {
+        return;
+    }
+
+    if (await hasTriggerBeenHandled(`CommentUpdate:${event.comment.id}`, context, addSeconds(new Date(), 10))) {
         return;
     }
 

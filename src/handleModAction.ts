@@ -8,11 +8,15 @@ import { addDays, addMinutes, addSeconds, subMinutes } from "date-fns";
 import { validateAndSaveAppealConfig } from "./modmail/autoAppealHandling.js";
 import { checkIfStatsNeedUpdating } from "./scheduler/sixHourlyJobs.js";
 import { handleObserverSubsWikiPageCopy } from "./statistics/observerSubWikiPageCopy.js";
-import { isModeratorWithCache, removeCachedBanStatus, sendMessageToWebhook } from "./utility.js";
+import { hasTriggerBeenHandled, isModeratorWithCache, removeCachedBanStatus, sendMessageToWebhook } from "./utility.js";
 import { getExtendedDevvit } from "devvit-helpers";
 import { getInstallDate } from "./installActions.js";
 
 export async function handleModAction (event: ModAction, context: TriggerContext) {
+    if (await hasTriggerBeenHandled(`ModAction:${event.action}:${event.moderator?.name}:${event.actionedAt?.getTime()}`, context, addMinutes(new Date(), 10))) {
+        return;
+    }
+
     if (context.subredditName === CONTROL_SUBREDDIT) {
         await handleModActionControlSub(event, context);
     } else {

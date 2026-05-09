@@ -3,14 +3,19 @@ import { TriggerContext } from "@devvit/public-api";
 import { ClientSubredditJob, CONTROL_SUBREDDIT, ControlSubredditJob, FeatureFlags, UniversalJob } from "./constants.js";
 import { handleExternalSubmissionsPageUpdate } from "./externalSubmissions.js";
 import { getControlSubSettings } from "./settings.js";
-import { addDays, addMinutes, isSameDay } from "date-fns";
+import { addDays, addMinutes, addSeconds, isSameDay } from "date-fns";
 import { forceEvaluatorVariablesRefresh } from "./userEvaluation/evaluatorVariables.js";
 import { storeRecordOfContentCreationGracePeriod } from "./handleClientSubredditClassificationChanges.js";
 import { isModerator } from "devvit-helpers";
 import json2md from "json2md";
+import { hasTriggerBeenHandled } from "./utility.js";
 
 export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, context: TriggerContext) {
     console.log("App Install: Detected an app install or update event");
+
+    if (await hasTriggerBeenHandled("installOrUpgrade", context, addSeconds(new Date(), 10))) {
+        return;
+    }
 
     const currentJobs = await context.scheduler.listJobs();
     await Promise.all(currentJobs.map(job => context.scheduler.cancelJob(job.id)));
