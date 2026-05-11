@@ -168,8 +168,10 @@ export async function handleBulkSubmission (submitter: string, trusted: boolean,
 
     if (data.userDetails) {
         const initialStatus = trusted ? UserStatus.Banned : UserStatus.Pending;
-        const results = await Promise.all(data.userDetails.map(entry => handleBulkItem(entry.username, initialStatus, submitter, entry.submitter, entry.reason ?? data.reason, context)));
-        queued += _.compact(results).length;
+        for (const entry of data.userDetails) {
+            await handleBulkItem(entry.username, initialStatus, submitter, entry.submitter, entry.reason ?? data.reason, context);
+            queued++;
+        }
     }
 
     await context.reddit.modMail.archiveConversation(conversationId);
