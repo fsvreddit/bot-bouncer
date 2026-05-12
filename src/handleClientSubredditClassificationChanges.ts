@@ -10,6 +10,7 @@ import _ from "lodash";
 import { recordBanForSummary, recordUnbanForSummary, removeRecordOfBanForSummary } from "./modmail/actionSummary.js";
 import { expireKeyAt, hasPermissions, isBanned, isContributor } from "devvit-helpers";
 import { getPostOrCommentById } from "@fsvreddit/fsv-devvit-helpers";
+import { filterContent } from "./extendedDevvit.js";
 
 const UNBAN_WHITELIST = "UnbanWhitelist";
 const BAN_STORE = "BanStore";
@@ -263,7 +264,11 @@ async function handleSetBanned (username: string, subredditName: string, setting
         if (FeatureFlags.enableModqueueRemovalAfterBan && settings[AppSetting.RemoveFromModqueueWhenBanning]) {
             await addUserToModqueueRemovalStore(username, context);
         }
-    } else {
+    } else if (actionToTake === ActionType.Filter) {
+        await Promise.all(removableContent.map(async (item) => {
+            await filterContent(context, { itemId: item.id, reason: "User is listed as a bot on r/BotBouncer" });
+        }));
+    } else { // Report
         // Report content instead of banning.
         await Promise.all(removableContent.map(async (item) => {
             const itemReported = await context.redis.get(`reported:${item.id}`);

@@ -82,3 +82,11 @@ export async function getUserExtendedFromUser (user: User, context: TriggerConte
         username: user.username,
     };
 }
+
+export async function filterContent (context: TriggerContext, opts: { itemId: string; reason: string; keep?: boolean }) {
+    await getExtendedDevvit().redditAPIPlugins.Moderation.Filter({
+        id: opts.itemId,
+        reason: opts.reason,
+        keep: opts.keep ?? false,
+    }, context.metadata);
+}

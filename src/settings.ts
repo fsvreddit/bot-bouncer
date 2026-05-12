@@ -72,6 +72,7 @@ export enum AppSetting {
 
 export enum ActionType {
     Ban = "ban",
+    Filter = "filter",
     Report = "report",
 }
 
@@ -92,6 +93,7 @@ export const appSettings: SettingsFormField[] = [
                 helpText: "This action applies to accounts that are listed on /r/BotBouncer as a bot",
                 options: [
                     { label: "Ban and remove content", value: ActionType.Ban },
+                    { label: "Filter content to the mod queue", value: ActionType.Filter },
                     { label: "Report content", value: ActionType.Report },
                 ],
                 multiSelect: false,

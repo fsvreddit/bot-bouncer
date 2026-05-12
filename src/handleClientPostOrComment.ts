@@ -10,7 +10,7 @@ import { addExternalSubmissionFromClientSub } from "./externalSubmissions.js";
 import { isLinkId } from "@devvit/public-api/types/tid.js";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { recordBanForSummary } from "./modmail/actionSummary.js";
-import { getUserExtended } from "./extendedDevvit.js";
+import { filterContent, getUserExtended } from "./extendedDevvit.js";
 import { expireKeyAt, isBanned, isContributor } from "devvit-helpers";
 import { getPostOrCommentById, hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
 
@@ -285,8 +285,9 @@ async function handleContentCreation (username: string, currentStatus: UserDetai
             }
             console.log(`Content Create: ${targetId} removed for ${user.username}`);
         }
-    } else {
-        // Report, not ban.
+    } else if (actionToTake === ActionType.Filter) {
+        promises.push(filterContent(context, { itemId: targetId, reason: "User is listed as a bot on r/BotBouncer" }));
+    } else { // Report
         promises.push(context.reddit.report(target, { reason: "User is listed as a bot on /r/BotBouncer" }));
     }
 
