@@ -189,7 +189,7 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
             }
         }
         const post = await context.reddit.getPostById(postId);
-        await context.reddit.report(post, { reason: reportReason });
+        await context.reddit.report(post, { reason: reportReason.trim().substring(0, 99) }); // Reddit's API limits report reasons to 100 characters.
         if (!event.data?.skipSummary) {
             await createUserSummary(username, postId, context);
             const controlSubSettings = await getControlSubSettings(context);
