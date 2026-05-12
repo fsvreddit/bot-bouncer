@@ -5,13 +5,12 @@ import { ALL_RELEVANT_EVALUTORS, CONTROL_SUBREDDIT, ControlSubredditJob, PostFla
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { createUserSummary } from "./UserSummary/userSummary.js";
 import { addSeconds, addWeeks, subMonths } from "date-fns";
-import { getUserExtended } from "./extendedDevvit.js";
 import _ from "lodash";
 import { getSubmitterSuccessRate } from "./statistics/submitterStatistics.js";
 import { conditionallyCompressString, conditionallyDecompressString } from "./utility.js";
 import { getControlSubSettings } from "./settings.js";
 import pluralize from "pluralize";
-import { getPostOrCommentById } from "@fsvreddit/fsv-devvit-helpers";
+import { getPostOrCommentById, getUserExtended } from "@fsvreddit/fsv-devvit-helpers";
 
 export interface EvaluatorStats {
     hitCount: number;

@@ -1,7 +1,6 @@
 import { JobContext, JSONObject, ScheduledJobEvent } from "@devvit/public-api";
 import { EvaluateBotGroupAdvanced } from "@fsvreddit/bot-bouncer-evaluation/dist/userEvaluation/EvaluateBotGroupAdvanced.js";
 import { getUserStatus, UserFlag, UserStatus } from "../dataStore.js";
-import { getUserExtended } from "../extendedDevvit.js";
 import { getEvaluatorVariables } from "./evaluatorVariables.js";
 import { getSummaryForUser } from "../UserSummary/userSummary.js";
 import json2md from "json2md";
@@ -9,6 +8,7 @@ import { markdownToText } from "../modmail/controlSubModmail.js";
 import { addMinutes, addSeconds } from "date-fns";
 import { ControlSubredditJob } from "../constants.js";
 import pluralize from "pluralize";
+import { getUserExtended } from "@fsvreddit/fsv-devvit-helpers";
 
 const FLAGGED_RECHECKS_QUEUE_KEY = "flaggedRechecksQueue";
 

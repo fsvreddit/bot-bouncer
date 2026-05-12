@@ -6,7 +6,7 @@ import { getUserStatus, UserDetails, UserStatus } from "./dataStore.js";
 import { addHours, subMonths } from "date-fns";
 import { getControlSubSettings } from "./settings.js";
 import { AsyncSubmission, PostCreationQueueResult, queuePostCreation } from "./postCreation.js";
-import { getUserExtendedFromUser } from "./extendedDevvit.js";
+import { getUserExtendedFromUser } from "@fsvreddit/fsv-devvit-helpers";
 import json2md from "json2md";
 import { userIsTrustedSubmitter } from "./trustedSubmitterHelpers.js";
 import markdownEscape from "markdown-escape";

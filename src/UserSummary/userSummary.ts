@@ -6,7 +6,7 @@ import { count } from "@wordpress/wordcount";
 import { isUserPotentiallyBlockingBot } from "./blockChecker.js";
 import pluralize from "pluralize";
 import { isLinkId } from "@devvit/public-api/types/tid.js";
-import { getUserExtended, UserExtended } from "../extendedDevvit.js";
+import { getUserExtended, UserExtended } from "@fsvreddit/fsv-devvit-helpers";
 import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
 import { EvaluationResult, getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
 import json2md from "json2md";

@@ -9,8 +9,7 @@ import { ClientSubredditJob, FeatureFlags } from "./constants.js";
 import _ from "lodash";
 import { recordBanForSummary, recordUnbanForSummary, removeRecordOfBanForSummary } from "./modmail/actionSummary.js";
 import { expireKeyAt, hasPermissions, isBanned, isContributor } from "devvit-helpers";
-import { getPostOrCommentById } from "@fsvreddit/fsv-devvit-helpers";
-import { filterContent } from "./extendedDevvit.js";
+import { filterContent, getPostOrCommentById } from "@fsvreddit/fsv-devvit-helpers";
 
 const UNBAN_WHITELIST = "UnbanWhitelist";
 const BAN_STORE = "BanStore";

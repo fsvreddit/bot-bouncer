@@ -1,6 +1,6 @@
 import { Comment, Post, TriggerContext } from "@devvit/public-api";
 import { isLinkId } from "@devvit/public-api/types/tid.js";
-import { getUserExtended } from "../extendedDevvit.js";
+import { getUserExtended } from "@fsvreddit/fsv-devvit-helpers";
 import _ from "lodash";
 import { getUserSocialLinks } from "devvit-helpers";
 

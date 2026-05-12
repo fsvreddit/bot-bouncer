@@ -21,7 +21,7 @@ import { evaluateAccountFromModmail } from "./modmailEvaluaton.js";
 import { isBanned } from "devvit-helpers";
 import { handleReversalCommand } from "./evaluatorReversals.js";
 import { handleHighlightedModmail } from "./unhighlighter.js";
-import { getUserExtended } from "../extendedDevvit.js";
+import { getUserExtended } from "@fsvreddit/fsv-devvit-helpers";
 import { generateOpenAISummary } from "../aiAnalysis/createAISummary.js";
 import { handleAskAI } from "../aiAnalysis/askAI.js";
 

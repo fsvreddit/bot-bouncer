@@ -6,7 +6,7 @@ import { compressData, sendMessageToWebhook } from "../utility.js";
 import json2md from "json2md";
 import { getControlSubSettings } from "../settings.js";
 import { EvaluateBotGroupAdvanced } from "@fsvreddit/bot-bouncer-evaluation/dist/userEvaluation/EvaluateBotGroupAdvanced.js";
-import { getUserExtended } from "../extendedDevvit.js";
+import { getUserExtended } from "@fsvreddit/fsv-devvit-helpers";
 import { addSeconds } from "date-fns";
 import { checkNonexistentSubs } from "./subExistenceChecks.js";
 

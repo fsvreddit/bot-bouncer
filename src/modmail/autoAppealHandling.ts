@@ -10,7 +10,7 @@ import json2md from "json2md";
 import { sendMessageToWebhook } from "../utility.js";
 import { ModmailMessage } from "./modmail.js";
 import { evaluateUserAccount, EvaluationResult, getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
-import { getUserExtended } from "../extendedDevvit.js";
+import { getUserExtended } from "@fsvreddit/fsv-devvit-helpers";
 import { statusToFlair } from "../postCreation.js";
 import { addMinutes, addSeconds, differenceInMonths, format, getYear } from "date-fns";
 import { getPossibleSetStatusValues } from "./controlSubModmail.js";

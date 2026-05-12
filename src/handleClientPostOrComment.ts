@@ -10,9 +10,8 @@ import { addExternalSubmissionFromClientSub } from "./externalSubmissions.js";
 import { isLinkId } from "@devvit/public-api/types/tid.js";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { recordBanForSummary } from "./modmail/actionSummary.js";
-import { filterContent, getUserExtended } from "./extendedDevvit.js";
 import { expireKeyAt, isBanned, isContributor } from "devvit-helpers";
-import { getPostOrCommentById, hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
+import { filterContent, getPostOrCommentById, getUserExtended, hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
 
 async function getTrueUsername (username: string, targetId: string, context: TriggerContext): Promise<string> {
     if (username !== "[redacted]") {

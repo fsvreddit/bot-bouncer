@@ -2,7 +2,7 @@ import { Comment, JobContext, JSONObject, Post, RedisClient, ScheduledJobEvent, 
 import { addDays, addHours, addSeconds, addWeeks, subDays, subMinutes, subSeconds } from "date-fns";
 import { CONTROL_SUBREDDIT, PostFlairTemplate, UniversalJob } from "./constants.js";
 import { deleteUserStatus, getUserStatus, removeRecordOfSubmitterOrMod, updateAggregate, UserFlag, UserStatus, writeUserStatus } from "./dataStore.js";
-import { getUserExtended } from "./extendedDevvit.js";
+import { getUserExtended } from "@fsvreddit/fsv-devvit-helpers";
 import { removeRecordOfBan, removeWhitelistUnban } from "./handleClientSubredditClassificationChanges.js";
 import _ from "lodash";
 import { getControlSubSettings } from "./settings.js";

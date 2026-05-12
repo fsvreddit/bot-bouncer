@@ -7,14 +7,13 @@ import { getUserOrUndefined } from "./utility.js";
 import { isLinkId } from "@devvit/public-api/types/tid.js";
 import { AsyncSubmission, isUserAlreadyQueued, PostCreationQueueResult, promotePositionInQueue, queuePostCreation } from "./postCreation.js";
 import pluralize from "pluralize";
-import { getUserExtendedFromUser } from "./extendedDevvit.js";
+import { getPostOrCommentById, getUserExtendedFromUser } from "@fsvreddit/fsv-devvit-helpers";
 import { evaluateUserAccount, EvaluationResult, storeAccountInitialEvaluationResults } from "./handleControlSubAccountEvaluation.js";
 import json2md from "json2md";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { queueKarmaFarmingAccounts } from "./karmaFarmingSubsCheck.js";
 import { userIsTrustedSubmitter } from "./trustedSubmitterHelpers.js";
 import { expireKeyAt } from "devvit-helpers";
-import { getPostOrCommentById } from "@fsvreddit/fsv-devvit-helpers";
 
 const WIKI_PAGE = "externalsubmissions";
 

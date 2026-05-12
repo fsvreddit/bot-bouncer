@@ -4,7 +4,7 @@ import { getUserStatus, UserStatus } from "../dataStore.js";
 import _ from "lodash";
 import json2md from "json2md";
 import { AsyncSubmission, queuePostCreation } from "../postCreation.js";
-import { getUserExtended } from "../extendedDevvit.js";
+import { getUserExtended } from "@fsvreddit/fsv-devvit-helpers";
 import { CONTROL_SUBREDDIT } from "../constants.js";
 import pluralize from "pluralize";
 import { EvaluationResult, storeAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";

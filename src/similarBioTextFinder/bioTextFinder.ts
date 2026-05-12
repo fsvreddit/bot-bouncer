@@ -1,5 +1,5 @@
 import { JSONValue, Post, TriggerContext } from "@devvit/public-api";
-import { getUserExtended } from "../extendedDevvit.js";
+import { getUserExtended } from "@fsvreddit/fsv-devvit-helpers";
 import { addDays, addHours } from "date-fns";
 import _ from "lodash";
 import { SequenceMatcher } from "./difflib.js";
