@@ -170,7 +170,7 @@ export async function addExternalSubmissionToPostCreationQueue (item: ExternalSu
         evaluatorsChecked: item.evaluationResults !== undefined && item.evaluationResults.length > 0,
     };
 
-    const result = await queuePostCreation(submission, context);
+    const [result] = await queuePostCreation([submission], context);
     if (result === PostCreationQueueResult.Queued) {
         let message = `External Submissions: Queued post creation for ${item.username}`;
         if (item.submitter) {

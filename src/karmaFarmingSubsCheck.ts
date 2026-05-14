@@ -142,7 +142,7 @@ async function evaluateAndHandleUser (username: string, variables: Record<string
         evaluatorsChecked: evaluationResults.length > 0,
     };
 
-    const result = await queuePostCreation(submission, context);
+    const [result] = await queuePostCreation([submission], context);
     if (result === PostCreationQueueResult.Queued) {
         console.log(`Karma Farming Subs: Queued post creation for ${username}`);
     } else {

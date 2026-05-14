@@ -1,13 +1,11 @@
 import { TriggerContext } from "@devvit/public-api";
 import Ajv, { JSONSchemaType } from "ajv";
 import { getUserStatus, UserStatus } from "../dataStore.js";
-import _ from "lodash";
 import json2md from "json2md";
-import { AsyncSubmission, queuePostCreation } from "../postCreation.js";
+import { AsyncSubmission, PostCreationQueueResult, queuePostCreation } from "../postCreation.js";
 import { getUserExtended } from "@fsvreddit/fsv-devvit-helpers";
 import { CONTROL_SUBREDDIT } from "../constants.js";
 import pluralize from "pluralize";
-import { EvaluationResult, storeAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
 import { ModmailMessage } from "./modmail.js";
 import { getControlSubSettings } from "../settings.js";
 import markdownEscape from "markdown-escape";
@@ -56,56 +54,60 @@ const schema: JSONSchemaType<BulkSubmission> = {
     additionalProperties: false,
 };
 
-async function handleBulkItem (username: string, initialStatus: UserStatus, submitter: string, externalSubmitter: string | undefined, reason: string | undefined, context: TriggerContext): Promise<boolean> {
-    const user = await getUserExtended(username, context);
-    if (!user) {
-        console.log(`Bulk submission: User ${username} is deleted or shadowbanned, skipping.`);
-        return false;
-    }
+interface BulkItem {
+    username: string;
+    initialStatus: UserStatus;
+    submitter: string;
+    reason?: string;
+}
 
-    const currentStatus = await getUserStatus(username, context);
-    if (currentStatus) {
-        console.log(`Bulk submission: User ${username} already has a status of ${currentStatus.userStatus}.`);
-        return false;
-    }
+async function handleBulkItems (items: BulkItem[], context: TriggerContext): Promise<number> {
+    const submissions: AsyncSubmission[] = [];
 
-    let commentToAdd: string | undefined;
-    if (reason) {
-        commentToAdd = json2md([
-            { p: "The submitter added the following context for this submission:" },
-            { blockquote: reason },
-            { p: `*I am a bot, and this action was performed automatically. Please [contact the moderators of this subreddit](/message/compose/?to=/r/${CONTROL_SUBREDDIT}) if you have any questions or concerns.*` },
-        ]);
-    }
+    await Promise.all(items.map(async (item) => {
+        const { username, initialStatus, submitter, reason } = item;
 
-    const submission: AsyncSubmission = {
-        user,
-        submitter,
-        reportContext: reason,
-        details: {
-            userStatus: initialStatus,
-            lastUpdate: new Date().getTime(),
+        const user = await getUserExtended(username, context);
+        if (!user) {
+            console.log(`Bulk submission: User ${username} is deleted or shadowbanned, skipping.`);
+            return;
+        }
+
+        const currentStatus = await getUserStatus(username, context);
+        if (currentStatus) {
+            console.log(`Bulk submission: User ${username} already has a status of ${currentStatus.userStatus}.`);
+            return;
+        }
+
+        let commentToAdd: string | undefined;
+        if (reason) {
+            commentToAdd = json2md([
+                { p: "The submitter added the following context for this submission:" },
+                { blockquote: reason },
+                { p: `*I am a bot, and this action was performed automatically. Please [contact the moderators of this subreddit](/message/compose/?to=/r/${CONTROL_SUBREDDIT}) if you have any questions or concerns.*` },
+            ]);
+        }
+
+        submissions.push({
+            user,
             submitter,
-            operator: context.appSlug,
-            trackingPostId: "",
-        },
-        commentToAdd,
-        immediate: false,
-        evaluatorsChecked: false,
-    };
+            reportContext: reason,
+            details: {
+                userStatus: initialStatus,
+                lastUpdate: new Date().getTime(),
+                submitter,
+                operator: context.appSlug,
+                trackingPostId: "",
+            },
+            commentToAdd,
+            immediate: false,
+            evaluatorsChecked: false,
+        });
+    }));
 
-    await queuePostCreation(submission, context);
+    const results = await queuePostCreation(submissions, context);
 
-    if (externalSubmitter) {
-        const evaluationResult: EvaluationResult = {
-            botName: "Modmail Bulk Submission",
-            hitReason: `Submitted via ${submitter} due to report by ${externalSubmitter}`,
-            canAutoBan: initialStatus === UserStatus.Banned,
-            metThreshold: true,
-        };
-        await storeAccountInitialEvaluationResults(username, [evaluationResult], context);
-    }
-    return true;
+    return results.filter(result => result === PostCreationQueueResult.Queued).length;
 }
 
 export async function handleBulkSubmission (submitter: string, trusted: boolean, conversationId: string, message: string, context: TriggerContext): Promise<boolean> {
@@ -162,16 +164,22 @@ export async function handleBulkSubmission (submitter: string, trusted: boolean,
 
     if (data.usernames) {
         const initialStatus = trusted ? UserStatus.Banned : UserStatus.Pending;
-        const results = await Promise.all(_.uniq(data.usernames).map(username => handleBulkItem(username, initialStatus, submitter, undefined, data.reason, context)));
-        queued += _.compact(results).length;
+        queued = await handleBulkItems(data.usernames.map(username => ({
+            username,
+            initialStatus,
+            submitter,
+            reason: data.reason,
+        })), context);
     }
 
     if (data.userDetails) {
         const initialStatus = trusted ? UserStatus.Banned : UserStatus.Pending;
-        for (const entry of data.userDetails) {
-            await handleBulkItem(entry.username, initialStatus, submitter, entry.submitter, entry.reason ?? data.reason, context);
-            queued++;
-        }
+        queued = await handleBulkItems(data.userDetails.map(entry => ({
+            username: entry.username,
+            initialStatus,
+            submitter: entry.submitter,
+            reason: entry.reason,
+        })), context);
     }
 
     await context.reddit.modMail.archiveConversation(conversationId);

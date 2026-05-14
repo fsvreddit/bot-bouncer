@@ -1,4 +1,4 @@
-import { JobContext, TriggerContext } from "@devvit/public-api";
+import { JobContext, TriggerContext, ZMember } from "@devvit/public-api";
 import { getUserStatus, setUserStatus, storeInitialAccountProperties, UserDetails, UserStatus } from "./dataStore.js";
 import { CONTROL_SUBREDDIT, ControlSubredditJob, INTERNAL_BOT, PostFlairTemplate } from "./constants.js";
 import { UserExtended } from "@fsvreddit/fsv-devvit-helpers";
@@ -35,6 +35,7 @@ export interface AsyncSubmission {
     immediate: boolean;
     reportContext?: string;
     evaluatorsChecked: boolean;
+    queueTime?: number;
 }
 
 export async function isUserAlreadyQueued (username: string, context: JobContext): Promise<boolean> {
@@ -187,56 +188,74 @@ export enum PostCreationQueueResult {
     Error = "error",
 }
 
-export async function queuePostCreation (submission: AsyncSubmission, context: TriggerContext): Promise<PostCreationQueueResult> {
+export async function queuePostCreation (submissions: AsyncSubmission[], context: TriggerContext): Promise<PostCreationQueueResult[]> {
+    const results: PostCreationQueueResult[] = [];
+
+    const submissionsToAdd: Record<string, string> = {};
+    const queueEntriesToAdd: ZMember[] = [];
+
     const controlSubSettings = await getControlSubSettings(context);
     if (!controlSubSettings.allowNewSubmissions) {
         console.log("Post Creation: Post creation queue is disabled in control sub settings.");
-        return PostCreationQueueResult.Error;
+        return [PostCreationQueueResult.Error];
     }
 
-    const currentStatus = await getUserStatus(submission.user.username, context);
-    if (currentStatus) {
-        console.log(`Post Creation: User ${submission.user.username} already has a status of ${currentStatus.userStatus}.`);
-        return PostCreationQueueResult.AlreadyInDatabase;
+    for (const submission of submissions) {
+        const currentStatus = await getUserStatus(submission.user.username, context);
+        if (currentStatus) {
+            console.log(`Post Creation: User ${submission.user.username} already has a status of ${currentStatus.userStatus}.`);
+            results.push(PostCreationQueueResult.AlreadyInDatabase);
+            continue;
+        }
+
+        if (submission.submitter && await isBannedWithCache(submission.submitter, context)) {
+            console.log(`Post Creation: Submitter ${submission.submitter} is banned from the control subreddit.`);
+            results.push(PostCreationQueueResult.Error);
+            continue;
+        }
+
+        let score = submission.immediate ? new Date().getTime() / 1000 : new Date().getTime();
+
+        // Hacky workaround to promote private bot submissions
+        if (submission.details.submitter?.startsWith(`${context.appSlug}-`) && submission.details.submitter !== INTERNAL_BOT) {
+            score /= 2;
+        }
+
+        const alreadyInQueue = await isUserAlreadyQueued(submission.user.username, context);
+        if (alreadyInQueue) {
+            console.log(`Post Creation: User ${submission.user.username} is already in the queue.`);
+            if (submission.immediate) {
+                // If the new submission is immediate, we need to update the score to be sooner.
+                await context.redis.zAdd(SUBMISSION_QUEUE, { member: submission.user.username, score });
+                console.log(`Post Creation: Updated ${submission.user.username}'s position in the queue to be sooner.`);
+            }
+            results.push(PostCreationQueueResult.AlreadyInQueue);
+            continue;
+        }
+
+        submissionsToAdd[submission.user.username] = JSON.stringify(submission);
+        queueEntriesToAdd.push({ member: submission.user.username, score });
+        results.push(PostCreationQueueResult.Queued);
     }
 
-    if (submission.submitter && await isBannedWithCache(submission.submitter, context)) {
-        console.log(`Post Creation: Submitter ${submission.submitter} is banned from the control subreddit.`);
-        return PostCreationQueueResult.Error;
-    }
-
-    let score = submission.immediate ? new Date().getTime() / 1000 : new Date().getTime();
-
-    // Hacky workaround to promote private bot submissions
-    if (submission.details.submitter?.startsWith(`${context.appSlug}-`) && submission.details.submitter !== INTERNAL_BOT) {
-        score /= 2;
+    if (Object.keys(submissionsToAdd).length === 0) {
+        return results;
     }
 
     const txn = await context.redis.watch();
     await txn.multi();
 
     try {
-        const alreadyInQueue = await isUserAlreadyQueued(submission.user.username, context);
-        if (alreadyInQueue) {
-            console.log(`Post Creation: User ${submission.user.username} is already in the queue.`);
-            await txn.discard();
-            if (submission.immediate) {
-                // If the new submission is immediate, we need to update the score to be sooner.
-                await context.redis.zAdd(SUBMISSION_QUEUE, { member: submission.user.username, score });
-                console.log(`Post Creation: Updated ${submission.user.username}'s position in the queue to be sooner.`);
-            }
-            return PostCreationQueueResult.AlreadyInQueue;
-        }
-
-        await txn.hSet(SUBMISSION_DETAILS, { [submission.user.username]: JSON.stringify(submission) });
-        await txn.zAdd(SUBMISSION_QUEUE, { member: submission.user.username, score });
+        await txn.hSet(SUBMISSION_DETAILS, submissionsToAdd);
+        await txn.zAdd(SUBMISSION_QUEUE, ...queueEntriesToAdd);
         await txn.exec();
-        return PostCreationQueueResult.Queued;
     } catch (error) {
-        console.error(`Post Creation: Error queueing post for user ${submission.user.username}.`, error);
+        const message = error instanceof Error ? error.message : String(error);
+        console.error(`Post Creation: Error queueing posts.`, message);
         await txn.discard();
-        return PostCreationQueueResult.Error;
     }
+
+    return results;
 }
 
 export async function processQueuedSubmission (context: JobContext) {

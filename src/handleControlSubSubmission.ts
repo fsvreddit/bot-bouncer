@@ -216,7 +216,7 @@ export async function handleControlSubPostCreate (event: PostCreate, context: Tr
             evaluatorsChecked: false,
         };
 
-        submissionResult = await queuePostCreation(submission, context);
+        [submissionResult] = await queuePostCreation([submission], context);
     } catch {
         submissionResult = PostCreationQueueResult.Error;
     }

@@ -202,32 +202,34 @@ export async function addAllUsersFromModmail (conversationId: string, submitter:
         return;
     };
 
+    const submissions: AsyncSubmission[] = [];
     for (const username of usersToAdd) {
         const user = await getUserExtended(username, context);
         if (!user) {
             continue;
         }
 
-        const submission: AsyncSubmission = {
+        submissions.push({
             user,
             details: {
                 userStatus: initialStatus,
                 lastUpdate: new Date().getTime(),
-                submitter,
+                submitter: submitter ?? "unknown",
                 operator: context.appSlug,
                 trackingPostId: "",
                 reportedAt: new Date().getTime(),
             },
             immediate: false,
             evaluatorsChecked: false,
-        };
+        });
+    }
 
-        const result = await queuePostCreation(submission, context);
-        if (result === PostCreationQueueResult.Queued) {
-            console.log(`Added user ${username} to queue following !addall command in modmail.`);
-        } else {
-            console.error(`Failed to add user ${username} to queue following !addall command in modmail. Reason: ${result}`);
-        }
+    const results = await queuePostCreation(submissions, context);
+    const queuedCount = results.filter(result => result === PostCreationQueueResult.Queued).length;
+
+    console.log(`Added ${queuedCount} users to the queue following !addall command in modmail.`);
+    if (results.some(result => result !== PostCreationQueueResult.Queued)) {
+        console.error(`Some users were not added to the queue following !addall command in modmail. Reasons: ${_.uniq(results).join(", ")}`);
     }
 
     await context.reddit.modMail.reply({
