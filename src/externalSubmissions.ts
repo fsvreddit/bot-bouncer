@@ -284,11 +284,21 @@ export async function processExternalSubmissionsQueue (context: JobContext): Pro
             break;
         }
 
-        await context.redis.global.zRem(EXTERNAL_SUBMISSION_QUEUE_KEY, [username]);
+        const keyForUser = `externalSubmissionAttempt:${username}`;
+        const attemptCount = await context.redis.incrBy(keyForUser, 1);
+        if (attemptCount === 1) {
+            await context.redis.expire(keyForUser, 60 * 60); // Expire after 1 hour
+        } else if (attemptCount > 3) {
+            console.log(`External Submissions: User ${username} has failed processing too many times, skipping and removing from queue.`);
+            await context.redis.global.zRem(EXTERNAL_SUBMISSION_QUEUE_KEY, [username]);
+            await context.redis.del(keyForUser);
+            continue;
+        }
 
         const submissionDataRaw = await context.redis.global.get(getExternalSubmissionDataKey(username));
         if (!submissionDataRaw) {
             console.error(`External Submissions: No data found for ${username}, skipping.`);
+            await context.redis.global.zRem(EXTERNAL_SUBMISSION_QUEUE_KEY, [username]);
             continue;
         }
 
@@ -298,6 +308,8 @@ export async function processExternalSubmissionsQueue (context: JobContext): Pro
         if (postSubmitted) {
             processed++;
         }
+
+        await context.redis.global.zRem(EXTERNAL_SUBMISSION_QUEUE_KEY, [username]);
     }
 
     console.log(`External Submissions: Processed ${processed} external ${pluralize("submission", processed)} from the queue.`);
