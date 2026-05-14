@@ -200,8 +200,8 @@ export async function queuePostCreation (submission: AsyncSubmission, context: T
         return PostCreationQueueResult.AlreadyInDatabase;
     }
 
-    if (await isBannedWithCache(submission.user.username, context)) {
-        console.log(`Post Creation: User ${submission.user.username} is banned from the control subreddit.`);
+    if (submission.submitter && await isBannedWithCache(submission.submitter, context)) {
+        console.log(`Post Creation: Submitter ${submission.submitter} is banned from the control subreddit.`);
         return PostCreationQueueResult.Error;
     }
 
