@@ -4,7 +4,7 @@ import { addDays, addSeconds, formatDate, subMinutes } from "date-fns";
 import { getUserStatus, UserDetails, UserStatus } from "./dataStore.js";
 import { isUserWhitelisted, recordBan, recordUserContentCreation } from "./handleClientSubredditClassificationChanges.js";
 import { ALL_RELEVANT_EVALUTORS, CONTROL_SUBREDDIT } from "./constants.js";
-import { getUserOrUndefined, isModeratorWithCache } from "./utility.js";
+import { getTrueUsername, getUserOrUndefined, isModeratorWithCache } from "./utility.js";
 import { ActionType, AppSetting, CONFIGURATION_DEFAULTS, getControlSubSettings } from "./settings.js";
 import { addExternalSubmissionFromClientSub } from "./externalSubmissions.js";
 import { isLinkId } from "@devvit/public-api/types/tid.js";
@@ -12,16 +12,6 @@ import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { recordBanForSummary } from "./modmail/actionSummary.js";
 import { expireKeyAt, isBanned, isContributor } from "devvit-helpers";
 import { filterContent, getPostOrCommentById, getUserExtended, hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
-
-async function getTrueUsername (username: string, targetId: string, context: TriggerContext): Promise<string> {
-    if (username !== "[redacted]") {
-        return username;
-    }
-
-    const target = await getPostOrCommentById(context.reddit, targetId);
-    console.log(`Bot check: Author is redacted, true username for ${targetId} is ${target.authorName}`);
-    return target.authorName;
-}
 
 export async function handleClientPostCreate (event: PostCreate, context: TriggerContext) {
     if (context.subredditName === CONTROL_SUBREDDIT) {

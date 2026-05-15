@@ -1,4 +1,5 @@
 import { TriggerContext, User } from "@devvit/public-api";
+import { getPostOrCommentById } from "@fsvreddit/fsv-devvit-helpers";
 import { addDays, addHours, formatDuration, intervalToDuration } from "date-fns";
 import { isBanned, isModerator } from "devvit-helpers";
 import Pako from "pako";
@@ -183,4 +184,14 @@ export function conditionallyDecompressString (input: string): string {
 export function formatTimeSince (date: Date): string {
     const interval = intervalToDuration({ start: date, end: new Date() });
     return formatDuration(interval, { format: ["days", "hours", "minutes"] });
+}
+
+export async function getTrueUsername (username: string, targetId: string, context: TriggerContext): Promise<string> {
+    if (username !== "[redacted]") {
+        return username;
+    }
+
+    const target = await getPostOrCommentById(context.reddit, targetId);
+    console.warn(`Content Creation: Author is redacted, true username for ${targetId} is ${target.authorName}`);
+    return target.authorName;
 }
