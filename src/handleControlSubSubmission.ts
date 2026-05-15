@@ -1,12 +1,12 @@
 import { TriggerContext, User } from "@devvit/public-api";
 import { PostCreate } from "@devvit/protos";
 import { CONTROL_SUBREDDIT } from "./constants.js";
-import { getTrueUsername, getUsernameFromUrl, getUserOrUndefined, isModeratorWithCache } from "./utility.js";
+import { getUsernameFromUrl, getUserOrUndefined, isModeratorWithCache } from "./utility.js";
 import { getUserStatus, UserDetails, UserStatus } from "./dataStore.js";
 import { subMonths } from "date-fns";
 import { getControlSubSettings } from "./settings.js";
 import { AsyncSubmission, PostCreationQueueResult, queuePostCreation } from "./postCreation.js";
-import { getUserExtendedFromUser } from "@fsvreddit/fsv-devvit-helpers";
+import { getTrueUsername, getUserExtendedFromUser } from "@fsvreddit/fsv-devvit-helpers";
 import json2md from "json2md";
 import { userIsTrustedSubmitter } from "./trustedSubmitterHelpers.js";
 import markdownEscape from "markdown-escape";
@@ -40,7 +40,7 @@ export async function handleControlSubPostCreate (event: PostCreate, context: Tr
         return;
     }
 
-    const submitterName = await getTrueUsername(event.author.name, event.post.id, context);
+    const submitterName = await getTrueUsername(context.reddit, event.author.name, event.post.id);
     if (submitterName === context.appSlug) {
         if (event.post.spam) {
             await context.reddit.approve(event.post.id);

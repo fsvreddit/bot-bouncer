@@ -3,7 +3,7 @@ import { CommentCreate } from "@devvit/protos";
 import { CONTROL_SUBREDDIT } from "./constants.js";
 import { getUserStatus, UserStatus } from "./dataStore.js";
 import json2md from "json2md";
-import { getTrueUsername } from "./utility.js";
+import { getTrueUsername } from "@fsvreddit/fsv-devvit-helpers";
 
 export async function handleControlSubCommentCreate (event: CommentCreate, context: TriggerContext) {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
@@ -14,7 +14,7 @@ export async function handleControlSubCommentCreate (event: CommentCreate, conte
         return;
     }
 
-    const username = await getTrueUsername(event.author.name, event.comment.id, context);
+    const username = await getTrueUsername(context.reddit, event.author.name, event.comment.id);
 
     if (username === context.appSlug) {
         return;
