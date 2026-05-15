@@ -1,5 +1,10 @@
 # Changelog for Bot Bouncer
 
+## v1.29.0
+
+* Fixed an issue that prevented some users from being checked when they posted or commented
+* Fixed an issue with detecting some bot styles (introduced in a recent version)
+
 ## v1.28.1
 
 * Fixed an issue that prevents classification changes working after April 15 2026 on some subreddits

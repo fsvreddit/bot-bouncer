@@ -2,7 +2,7 @@ Bot Bouncer is a Dev Platform app that bans bots and other harmful accounts from
 
 Bots are classified via submissions on [/r/BotBouncer](https://www.reddit.com/r/BotBouncer/), via a mix of automated and human classification.
 
-If you add Bot Bouncer to your sub via the Dev Platform app directory, it will watch for all new submissions and comments from users, and if the account is classified as a bot by the app, it will be banned.
+If you add Bot Bouncer to your sub via the Dev Platform app directory, it will watch for all new submissions and comments from users, and if the account is classified as a bot by the app, it will be banned or the content removed/filtered, depending on settings.
 
 Bot Bouncer is open source. [You can find the source code on GitHub here](https://github.com/fsvreddit/bot-bouncer). Bot Bouncer has a [wiki] that describes in more detail how the app operates.
 
@@ -10,11 +10,11 @@ Bot Bouncer is open source. [You can find the source code on GitHub here](https:
 
 If a user creates a post or comment on your subreddit and the user is classified as a bot already, the post or comment will be removed immediately and the user banned. Newly classified bots will also be banned if they have posted or commented on your subreddit within the past week shortly after being classified.
 
-Mods can choose to configure the app to report users rather than ban and remove. This might be useful if you want to get a feel for the accuracy of Bot Bouncer's detections before putting it in full "ban" mode.
+Mods can choose to configure the app to report or filter users rather than ban and remove. This might be useful if you want to get a feel for the accuracy of Bot Bouncer's detections before putting it in full "ban" mode.
 
 ## Exempting Users
 
-By default, any bots that you unban are automatically allowlisted and will not be banned again (although this can be turned off).
+By default, any accounts that you unban are automatically allowlisted and will not be banned again (although this can be turned off).
 
 If you want to preemptively allowlist a user, add the account as an Approved Submitter to your subreddit - Bot Bouncer will never ban approved submitters or moderators unless you specifically choose to turn off that option in the app settings.
 
@@ -32,7 +32,7 @@ Also, consider **reporting the account**. Bot accounts should be reported to Red
 
 ## Accounts in scope for Bot Bouncer
 
-Bot Bouncer bans any bot that makes automatic comments or posts without being explicitly summoned. This includes LLM karma farming bots, annoying "reply" bots that break Bottiquette, and so on.
+Bot Bouncer bans any bot that makes automatic comments or posts without being explicitly summoned. This includes LLM karma farming bots, annoying "reply" bots that break Bottiquette, and so on. It also considers certain accounts involved in inauthentic promotional activity as in scope.
 
 Bot Bouncer will not ban useful service bots, such as ones that respond to user commands (e.g. RemindMeBot or stabbot), nor will it add bots that have been added as moderators or approved users, or have a flair with a CSS class ending in `proof`.
 
@@ -44,11 +44,13 @@ If you think that you've found a bot that's already marked as human, write in to
 
 Users who have been unfairly banned by Bot Bouncer should be encouraged to modmail in to /r/BotBouncer to appeal their ban. Alternatively, you can do this on the user's behalf. While you can unban the user yourself, this only affects the user on your subreddit and does not prevent the user from being banned from other subreddits.
 
+If an account was banned by Bot Bouncer on a sub but successfully appeals via r/BotBouncer, they will be unbanned from that sub automatically.
+
 # Latest Changes
 
-## v1.29.0
+## v1.30.0
 
-* Fixed an issue that prevented some users from being checked when they posted or commented
-* Fixed an issue with detecting some bot styles (introduced in a recent version)
+* Fixed an issue with detecting some bots if their content is filtered or removed
+* Allow posts/comments to be filtered rather than removed when an account is detected as a possible bot. Note: due to an issue with the Dev Platform, no reason will be visible in the mod queue but you will see that the item was filtered by Bot Bouncer.
 
 For older versions, please see the [full changelog](https://github.com/fsvreddit/bot-bouncer/blob/main/changelog.md).
