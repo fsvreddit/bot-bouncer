@@ -3,7 +3,7 @@ import { PostCreate } from "@devvit/protos";
 import { CONTROL_SUBREDDIT } from "./constants.js";
 import { getTrueUsername, getUsernameFromUrl, getUserOrUndefined, isModeratorWithCache } from "./utility.js";
 import { getUserStatus, UserDetails, UserStatus } from "./dataStore.js";
-import { addHours, subMonths } from "date-fns";
+import { subMonths } from "date-fns";
 import { getControlSubSettings } from "./settings.js";
 import { AsyncSubmission, PostCreationQueueResult, queuePostCreation } from "./postCreation.js";
 import { getUserExtendedFromUser } from "@fsvreddit/fsv-devvit-helpers";
@@ -40,22 +40,13 @@ export async function handleControlSubPostCreate (event: PostCreate, context: Tr
         return;
     }
 
-    if (event.author.name === context.appSlug) {
+    const submitterName = await getTrueUsername(event.author.name, event.post.id, context);
+    if (submitterName === context.appSlug) {
         if (event.post.spam) {
             await context.reddit.approve(event.post.id);
         }
         return;
     }
-
-    const postHandledKey = `controlSubPostHandled:${event.post.id}`;
-    if (await context.redis.exists(postHandledKey)) {
-        // Duplicate event
-        return;
-    }
-
-    const submitterName = await getTrueUsername(event.author.name, event.post.id, context);
-
-    await context.redis.set(postHandledKey, "", { expiration: addHours(new Date(), 1) });
 
     const username = getUsernameFromUrl(event.post.url);
 

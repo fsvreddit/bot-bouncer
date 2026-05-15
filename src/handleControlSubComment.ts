@@ -16,6 +16,10 @@ export async function handleControlSubCommentCreate (event: CommentCreate, conte
 
     const username = await getTrueUsername(event.author.name, event.comment.id, context);
 
+    if (username === context.appSlug) {
+        return;
+    }
+
     const userStatus = await getUserStatus(username, context);
 
     if (userStatus?.userStatus !== UserStatus.Banned) {
