@@ -282,8 +282,10 @@ async function handleContentCreation (username: string, currentStatus: UserDetai
         }
     } else if (actionToTake === ActionType.Filter) {
         promises.push(filterContent(context, { itemId: targetId, reason: "User is listed as a bot on r/BotBouncer" }));
+        console.log(`Content Create: ${targetId} filtered for ${user.username}`);
     } else { // Report
         promises.push(context.reddit.report(target, { reason: "User is listed as a bot on /r/BotBouncer" }));
+        console.log(`Content Create: ${targetId} reported for ${user.username}`);
     }
 
     await Promise.allSettled(promises);
