@@ -58,6 +58,12 @@ export async function handleClientPostCreate (event: PostCreate, context: Trigge
     }
 }
 
+/**
+ * Fixes CommentCreate or CommentUpdate events where the comment body and author have been redacted due to being removed or filtered
+ * @param event A CommentCreate or CommentUpdate event
+ * @param context Reddit's TriggerContext
+ * @returns A fixed event of the same type with redacted information restored
+ */
 async function fixedCommentEvent<T extends CommentCreate | CommentUpdate> (event: T, context: TriggerContext): Promise<T> {
     const eventToReturn: T = { ...event };
     if (!eventToReturn.comment?.id || eventToReturn.author?.name !== "[redacted]") {
@@ -67,6 +73,9 @@ async function fixedCommentEvent<T extends CommentCreate | CommentUpdate> (event
     const comment = await context.reddit.getCommentById(eventToReturn.comment.id);
 
     eventToReturn.author.name = comment.authorName;
+    if (comment.authorId) {
+        eventToReturn.comment.author = comment.authorId;
+    }
     eventToReturn.comment.body = comment.body;
 
     console.log(`Bot check: Fixed event for comment ${comment.id} by ${comment.authorName}`);
