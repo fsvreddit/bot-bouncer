@@ -175,10 +175,10 @@ export async function handleControlSubPostCreate (event: PostCreate, context: Tr
     let submissionResult: PostCreationQueueResult;
 
     let contextComment: string | undefined;
-    if (event.post.selftext && event.post.selftext.trim().length > 0) {
+    if (submissionPost.body && submissionPost.body.trim().length > 0) {
         const body: json2md.DataObject[] = [
             { p: "The submitter added the following context for this submission:" },
-            { blockquote: event.post.selftext.trim() },
+            { blockquote: submissionPost.body.trim() },
         ];
 
         body.push({ p: `*I am a bot, and this action was performed automatically. Please [contact the moderators of this subreddit](/message/compose/?to=/r/${CONTROL_SUBREDDIT}) if you have any questions or concerns.*` });
