@@ -58,6 +58,8 @@ interface AppealConfig {
 
 const acceptableMuteDurations = [3, 7, 28];
 
+const dateRegex = /^\d{4}-\d{2}-\d{2}(?: \d{2}:\d{2})?$/;
+
 const appealConfigSchema: JSONSchemaType<AppealConfig[]> = {
     type: "array",
     items: {
@@ -70,8 +72,8 @@ const appealConfigSchema: JSONSchemaType<AppealConfig[]> = {
             usernameRegex: { type: "array", items: { type: "string" }, nullable: true },
             "~usernameRegex": { type: "array", items: { type: "string" }, nullable: true },
             messageBodyRegex: { type: "array", items: { type: "string" }, nullable: true },
-            banDateFrom: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$", nullable: true },
-            banDateTo: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$", nullable: true },
+            banDateFrom: { type: "string", pattern: dateRegex.source, nullable: true },
+            banDateTo: { type: "string", pattern: dateRegex.source, nullable: true },
             evaluatorNameRegex: { type: "array", items: { type: "string" }, nullable: true },
             evaluatorHitReasonRegex: { type: "array", items: { type: "string" }, nullable: true },
             currentEvaluatorNameRegex: { type: "array", items: { type: "string" }, nullable: true },

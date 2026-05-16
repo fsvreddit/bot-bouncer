@@ -33,6 +33,8 @@ interface ModmailDataExtract {
     omitUserDetails?: boolean;
 }
 
+const dateRegex = /^\d{4}-\d{2}-\d{2}(?: \d{2}:\d{2})?$/;
+
 const schema: JSONSchemaType<ModmailDataExtract> = {
     type: "object",
     properties: {
@@ -62,8 +64,8 @@ const schema: JSONSchemaType<ModmailDataExtract> = {
             items: { type: "string", enum: Object.values(UserFlag) },
             nullable: true,
         },
-        since: { type: "string", nullable: true, pattern: "^\\d{4}-\\d{2}-\\d{2}(?: \\d{2}:\\d{2})?$" },
-        until: { type: "string", nullable: true, pattern: "^\\d{4}-\\d{2}-\\d{2}(?: \\d{2}:\\d{2})?$" },
+        since: { type: "string", nullable: true, pattern: dateRegex.source },
+        until: { type: "string", nullable: true, pattern: dateRegex.source },
         recheck: { type: "boolean", nullable: true },
         omitUserDetails: { type: "boolean", nullable: true },
     },
