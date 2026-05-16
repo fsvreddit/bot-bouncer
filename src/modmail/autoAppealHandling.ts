@@ -1,5 +1,5 @@
 /* eslint-disable @stylistic/quote-props */
-import { Comment, Post, TriggerContext, UserSocialLink } from "@devvit/public-api";
+import { Comment, ModNote, Post, TriggerContext, UserSocialLink } from "@devvit/public-api";
 import Ajv, { JSONSchemaType } from "ajv";
 import { BIO_TEXT_STORE, SOCIAL_LINKS_STORE, UserDetails, UserFlag, UserStatus } from "../dataStore.js";
 import { getControlSubSettings } from "../settings.js";
@@ -43,6 +43,8 @@ interface AppealConfig {
     originalSocialLinkRegex?: string[];
     flags?: UserFlag[];
     "~flags"?: UserFlag[];
+    modNoteTextRegex?: string[];
+    "~modNoteTextRegex"?: string[];
     hasMoreThanOneCommentOnPost?: boolean;
     setStatus?: string;
     privateReply?: string;
@@ -86,6 +88,8 @@ const appealConfigSchema: JSONSchemaType<AppealConfig[]> = {
             originalSocialLinkRegex: { type: "array", items: { type: "string" }, nullable: true },
             flags: { type: "array", items: { type: "string", enum: Object.values(UserFlag) }, nullable: true },
             "~flags": { type: "array", items: { type: "string", enum: Object.values(UserFlag) }, nullable: true },
+            modNoteTextRegex: { type: "array", items: { type: "string" }, nullable: true },
+            "~modNoteTextRegex": { type: "array", items: { type: "string" }, nullable: true },
             hasMoreThanOneCommentOnPost: { type: "boolean", nullable: true },
             setStatus: { type: "string", enum: getPossibleSetStatusValues(), nullable: true },
             privateReply: { type: "string", nullable: true },
@@ -208,7 +212,55 @@ export async function validateAndSaveAppealConfig (username: string, context: Tr
 
     const validate = ajv.compile(appealConfigSchema);
 
-    if (validate(parsedConfigs)) {
+    const issues: string[] = [];
+
+    if (validate.errors) {
+        issues.push(ajv.errorsText(validate.errors));
+    }
+
+    for (const config of parsedConfigs) {
+        if (config.currentEvaluatorHitReasonRegex) {
+            for (const regex of config.currentEvaluatorHitReasonRegex) {
+                try {
+                    new RegExp(regex);
+                } catch (error) {
+                    issues.push(`Invalid regex in currentEvaluatorHitReasonRegex for config ${config.name}: ${error instanceof Error ? error.message : String(error)}`);
+                }
+            }
+        }
+
+        if (config.evaluatorHitReasonRegex) {
+            for (const regex of config.evaluatorHitReasonRegex) {
+                try {
+                    new RegExp(regex);
+                } catch (error) {
+                    issues.push(`Invalid regex in evaluatorHitReasonRegex for config ${config.name}: ${error instanceof Error ? error.message : String(error)}`);
+                }
+            }
+        }
+
+        if (config.modNoteTextRegex) {
+            for (const regex of config.modNoteTextRegex) {
+                try {
+                    new RegExp(regex);
+                } catch (error) {
+                    issues.push(`Invalid regex in modNoteTextRegex for config ${config.name}: ${error instanceof Error ? error.message : String(error)}`);
+                }
+            }
+        }
+
+        if (config["~modNoteTextRegex"]) {
+            for (const regex of config["~modNoteTextRegex"]) {
+                try {
+                    new RegExp(regex);
+                } catch (error) {
+                    issues.push(`Invalid regex in ~modNoteTextRegex for config ${config.name}: ${error instanceof Error ? error.message : String(error)}`);
+                }
+            }
+        }
+    }
+
+    if (issues.length === 0) {
         // Save the valid config to Redis
         await context.redis.set(APPEAL_CONFIG_REDIS_KEY, JSON.stringify(parsedConfigs));
         await context.redis.set(appealConfigRevisionKey, wikiPage.revisionId);
@@ -216,26 +268,24 @@ export async function validateAndSaveAppealConfig (username: string, context: Tr
         return;
     }
 
-    if (validate.errors) {
-        console.error("Invalid appeal config:", validate.errors);
+    console.error("Invalid appeal config:", issues);
 
-        await context.reddit.sendPrivateMessage({
-            to: username,
-            subject: "Error in appeal configuration",
-            text: json2md([
-                { p: "There was an error in your appeal configuration:" },
-                { blockquote: ajv.errorsText(validate.errors) },
-            ]),
-        });
+    await context.reddit.sendPrivateMessage({
+        to: username,
+        subject: "Error in appeal configuration",
+        text: json2md([
+            { p: "There was an error in your appeal configuration:" },
+            { ul: issues },
+        ]),
+    });
 
-        const webhookUrl = await getControlSubSettings(context).then(s => s.monitoringWebhook);
-        if (webhookUrl) {
-            await sendMessageToWebhook(webhookUrl, json2md([
-                { p: `There was an error in the appeal configuration, last updated by ${username}:` },
-                { p: "Last known good values will be used until this is corrected." },
-                { ul: validate.errors.map(err => `${err.instancePath} ${err.message}`) },
-            ]));
-        }
+    const webhookUrl = await getControlSubSettings(context).then(s => s.monitoringWebhook);
+    if (webhookUrl) {
+        await sendMessageToWebhook(webhookUrl, json2md([
+            { p: `There was an error in the appeal configuration, last updated by ${username}:` },
+            { p: "Last known good values will be used until this is corrected." },
+            { ul: issues },
+        ]));
     }
 }
 
@@ -284,6 +334,16 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
     const originalBio = await context.redis.hGet(BIO_TEXT_STORE, username.toLowerCase());
     const originalSocialLinks = await context.redis.hGet(SOCIAL_LINKS_STORE, username.toLowerCase())
         .then(data => data ? JSON.parse(data) as UserSocialLink[] : []);
+
+    let modNotes: ModNote[] = [];
+
+    if (appealConfig.some(config => config.modNoteTextRegex?.length ?? config["~modNoteTextRegex"]?.length)) {
+        modNotes = await context.reddit.getModNotes({
+            subreddit: context.subredditName ?? await context.reddit.getCurrentSubredditName(),
+            user: username,
+            filter: "NOTE",
+        }).all().then(items => items.filter(item => item.userNote?.note));
+    }
 
     let currentEvaluationResults: EvaluationResult[] = [];
     // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
@@ -458,6 +518,18 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
             const hasMoreThanOneCommentOnPost = Object.values(commentsPerPost).some(count => count > 1);
 
             if (config.hasMoreThanOneCommentOnPost !== hasMoreThanOneCommentOnPost) {
+                return;
+            }
+        }
+
+        if (config.modNoteTextRegex) {
+            if (!modNotes.some(modNote => config.modNoteTextRegex?.some(regex => new RegExp(regex, "u").test(modNote.userNote?.note ?? "")))) {
+                return;
+            }
+        }
+
+        if (config["~modNoteTextRegex"]) {
+            if (modNotes.some(modNote => config["~modNoteTextRegex"]?.some(regex => new RegExp(regex, "u").test(modNote.userNote?.note ?? "")))) {
                 return;
             }
         }
