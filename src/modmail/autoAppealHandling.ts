@@ -214,7 +214,7 @@ export async function validateAndSaveAppealConfig (username: string, context: Tr
 
     const issues: string[] = [];
 
-    if (validate.errors) {
+    if (!validate(parsedConfigs)) {
         issues.push(ajv.errorsText(validate.errors));
     }
 
@@ -365,176 +365,181 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
     }
 
     const matchedAppealConfig = appealConfig.find((config) => {
-        if (config.usernameRegex && !config.usernameRegex.some(regex => new RegExp(regex, "i").test(username))) {
-            return;
-        }
+        try {
+            if (config.usernameRegex && !config.usernameRegex.some(regex => new RegExp(regex, "i").test(username))) {
+                return;
+            }
 
-        if (config["~usernameRegex"]?.some(regex => new RegExp(regex, "i").test(username))) {
-            return;
-        }
+            if (config["~usernameRegex"]?.some(regex => new RegExp(regex, "i").test(username))) {
+                return;
+            }
 
-        if (config.messageBodyRegex && !config.messageBodyRegex.some(regex => new RegExp(regex, "i").test(modmail.bodyMarkdown))) {
-            return;
-        }
+            if (config.messageBodyRegex && !config.messageBodyRegex.some(regex => new RegExp(regex, "i").test(modmail.bodyMarkdown))) {
+                return;
+            }
 
-        if (config.banDateFrom && (userDetails.reportedAt ?? userDetails.lastUpdate) < new Date(config.banDateFrom).getTime()) {
-            return;
-        }
+            if (config.banDateFrom && (userDetails.reportedAt ?? userDetails.lastUpdate) < new Date(config.banDateFrom).getTime()) {
+                return;
+            }
 
-        if (config.banDateTo && (userDetails.reportedAt ?? userDetails.lastUpdate) > new Date(config.banDateTo).getTime()) {
-            return;
-        }
+            if (config.banDateTo && (userDetails.reportedAt ?? userDetails.lastUpdate) > new Date(config.banDateTo).getTime()) {
+                return;
+            }
 
-        if (config.submitter && config.submitter !== userDetails.submitter) {
-            return;
-        }
+            if (config.submitter && config.submitter !== userDetails.submitter) {
+                return;
+            }
 
-        if (config.operator && config.operator !== userDetails.operator) {
-            return;
-        }
+            if (config.operator && config.operator !== userDetails.operator) {
+                return;
+            }
 
-        if (config.evaluatorNameRegex || config.evaluatorHitReasonRegex) {
-            let anyMatched = false;
-            for (const evaluationResult of initialAccountEvaluationResults) {
-                if (config.evaluatorNameRegex && !config.evaluatorNameRegex.some(regex => new RegExp(regex, "i").test(evaluationResult.botName))) {
-                    continue;
-                }
-
-                if (config.evaluatorHitReasonRegex && !config.evaluatorHitReasonRegex.some((regex) => {
-                    if (!evaluationResult.hitReason) {
-                        return false;
+            if (config.evaluatorNameRegex || config.evaluatorHitReasonRegex) {
+                let anyMatched = false;
+                for (const evaluationResult of initialAccountEvaluationResults) {
+                    if (config.evaluatorNameRegex && !config.evaluatorNameRegex.some(regex => new RegExp(regex, "i").test(evaluationResult.botName))) {
+                        continue;
                     }
 
-                    if (typeof evaluationResult.hitReason === "string") {
-                        return new RegExp(regex, "i").test(evaluationResult.hitReason);
+                    if (config.evaluatorHitReasonRegex && !config.evaluatorHitReasonRegex.some((regex) => {
+                        if (!evaluationResult.hitReason) {
+                            return false;
+                        }
+
+                        if (typeof evaluationResult.hitReason === "string") {
+                            return new RegExp(regex, "i").test(evaluationResult.hitReason);
+                        }
+
+                        return new RegExp(regex, "i").test(evaluationResult.hitReason.reason);
+                    })) {
+                        continue;
                     }
-
-                    return new RegExp(regex, "i").test(evaluationResult.hitReason.reason);
-                })) {
-                    continue;
-                }
-                anyMatched = true;
-            }
-
-            if (!anyMatched) {
-                return;
-            }
-        }
-
-        if (config.currentEvaluatorNameRegex || config.currentEvaluatorHitReasonRegex) {
-            let anyMatched = false;
-            for (const evaluationResult of currentEvaluationResults) {
-                if (config.currentEvaluatorNameRegex && !config.currentEvaluatorNameRegex.some(regex => new RegExp(regex, "i").test(evaluationResult.botName))) {
-                    continue;
+                    anyMatched = true;
                 }
 
-                if (config.currentEvaluatorHitReasonRegex && !config.currentEvaluatorHitReasonRegex.some((regex) => {
-                    if (!evaluationResult.hitReason) {
-                        return false;
-                    }
-
-                    if (typeof evaluationResult.hitReason === "string") {
-                        return new RegExp(regex, "i").test(evaluationResult.hitReason);
-                    }
-
-                    return new RegExp(regex, "i").test(evaluationResult.hitReason.reason);
-                })) {
-                    continue;
+                if (!anyMatched) {
+                    return;
                 }
-                anyMatched = true;
             }
 
-            if (!anyMatched) {
-                return;
+            if (config.currentEvaluatorNameRegex || config.currentEvaluatorHitReasonRegex) {
+                let anyMatched = false;
+                for (const evaluationResult of currentEvaluationResults) {
+                    if (config.currentEvaluatorNameRegex?.length && !config.currentEvaluatorNameRegex.some(regex => new RegExp(regex, "i").test(evaluationResult.botName))) {
+                        continue;
+                    }
+
+                    if (config.currentEvaluatorHitReasonRegex?.length && !config.currentEvaluatorHitReasonRegex.some((regex) => {
+                        if (!evaluationResult.hitReason) {
+                            return false;
+                        }
+
+                        if (typeof evaluationResult.hitReason === "string") {
+                            return new RegExp(regex, "i").test(evaluationResult.hitReason);
+                        }
+
+                        return new RegExp(regex, "i").test(evaluationResult.hitReason.reason);
+                    })) {
+                        continue;
+                    }
+                    anyMatched = true;
+                }
+
+                if (!anyMatched) {
+                    return;
+                }
             }
+
+            if (config.bioRegex) {
+                if (!user?.userDescription) {
+                    return;
+                }
+
+                if (!config.bioRegex.some(regex => new RegExp(regex, "iu").test(user.userDescription ?? ""))) {
+                    return;
+                }
+            }
+
+            if (config["~bioRegex"] && user?.userDescription) {
+                if (config["~bioRegex"].some(regex => new RegExp(regex, "iu").test(user.userDescription ?? ""))) {
+                    return;
+                }
+            }
+
+            if (config.originalBioRegex) {
+                if (!originalBio) {
+                    return;
+                }
+
+                if (!config.originalBioRegex.some(regex => new RegExp(regex, "iu").test(originalBio))) {
+                    return;
+                }
+            }
+
+            if (config.socialLinkRegex) {
+                if (!socialLinks.length) {
+                    return;
+                }
+
+                if (!config.socialLinkRegex.some(regex => socialLinks.some(link => new RegExp(regex, "i").test(link.outboundUrl)))) {
+                    return;
+                }
+            }
+
+            if (config["~socialLinkRegex"] && socialLinks.length > 0) {
+                if (config["~socialLinkRegex"].some(regex => socialLinks.some(link => new RegExp(regex, "i").test(link.outboundUrl)))) {
+                    return;
+                }
+            }
+
+            if (config.originalSocialLinkRegex) {
+                if (originalSocialLinks.length === 0) {
+                    return;
+                }
+
+                if (!config.originalSocialLinkRegex.some(regex => originalSocialLinks.some(link => new RegExp(regex, "i").test(link.outboundUrl)))) {
+                    return;
+                }
+            }
+
+            if (config.flags) {
+                if (!userDetails.flags || !config.flags.every(flag => userDetails.flags?.includes(flag))) {
+                    return;
+                }
+            }
+
+            if (config["~flags"]) {
+                if (userDetails.flags && config["~flags"].some(flag => userDetails.flags?.includes(flag))) {
+                    return;
+                }
+            }
+
+            if (config.hasMoreThanOneCommentOnPost !== undefined) {
+                const commentsPerPost = countBy(history.filter(item => item instanceof Comment).map(comment => comment.postId));
+                const hasMoreThanOneCommentOnPost = Object.values(commentsPerPost).some(count => count > 1);
+
+                if (config.hasMoreThanOneCommentOnPost !== hasMoreThanOneCommentOnPost) {
+                    return;
+                }
+            }
+
+            if (config.modNoteTextRegex) {
+                if (!modNotes.some(modNote => config.modNoteTextRegex?.some(regex => new RegExp(regex, "u").test(modNote.userNote?.note ?? "")))) {
+                    return;
+                }
+            }
+
+            if (config["~modNoteTextRegex"]) {
+                if (modNotes.some(modNote => config["~modNoteTextRegex"]?.some(regex => new RegExp(regex, "u").test(modNote.userNote?.note ?? "")))) {
+                    return;
+                }
+            }
+
+            return config;
+        } catch (error) {
+            console.error(`Error processing appeal config ${config.name}:`, error instanceof Error ? error.message : String(error));
+            return;
         }
-
-        if (config.bioRegex) {
-            if (!user?.userDescription) {
-                return;
-            }
-
-            if (!config.bioRegex.some(regex => new RegExp(regex, "iu").test(user.userDescription ?? ""))) {
-                return;
-            }
-        }
-
-        if (config["~bioRegex"] && user?.userDescription) {
-            if (config["~bioRegex"].some(regex => new RegExp(regex, "iu").test(user.userDescription ?? ""))) {
-                return;
-            }
-        }
-
-        if (config.originalBioRegex) {
-            if (!originalBio) {
-                return;
-            }
-
-            if (!config.originalBioRegex.some(regex => new RegExp(regex, "iu").test(originalBio))) {
-                return;
-            }
-        }
-
-        if (config.socialLinkRegex) {
-            if (!socialLinks.length) {
-                return;
-            }
-
-            if (!config.socialLinkRegex.some(regex => socialLinks.some(link => new RegExp(regex, "i").test(link.outboundUrl)))) {
-                return;
-            }
-        }
-
-        if (config["~socialLinkRegex"] && socialLinks.length > 0) {
-            if (config["~socialLinkRegex"].some(regex => socialLinks.some(link => new RegExp(regex, "i").test(link.outboundUrl)))) {
-                return;
-            }
-        }
-
-        if (config.originalSocialLinkRegex) {
-            if (originalSocialLinks.length === 0) {
-                return;
-            }
-
-            if (!config.originalSocialLinkRegex.some(regex => originalSocialLinks.some(link => new RegExp(regex, "i").test(link.outboundUrl)))) {
-                return;
-            }
-        }
-
-        if (config.flags) {
-            if (!userDetails.flags || !config.flags.every(flag => userDetails.flags?.includes(flag))) {
-                return;
-            }
-        }
-
-        if (config["~flags"]) {
-            if (userDetails.flags && config["~flags"].some(flag => userDetails.flags?.includes(flag))) {
-                return;
-            }
-        }
-
-        if (config.hasMoreThanOneCommentOnPost !== undefined) {
-            const commentsPerPost = countBy(history.filter(item => item instanceof Comment).map(comment => comment.postId));
-            const hasMoreThanOneCommentOnPost = Object.values(commentsPerPost).some(count => count > 1);
-
-            if (config.hasMoreThanOneCommentOnPost !== hasMoreThanOneCommentOnPost) {
-                return;
-            }
-        }
-
-        if (config.modNoteTextRegex) {
-            if (!modNotes.some(modNote => config.modNoteTextRegex?.some(regex => new RegExp(regex, "u").test(modNote.userNote?.note ?? "")))) {
-                return;
-            }
-        }
-
-        if (config["~modNoteTextRegex"]) {
-            if (modNotes.some(modNote => config["~modNoteTextRegex"]?.some(regex => new RegExp(regex, "u").test(modNote.userNote?.note ?? "")))) {
-                return;
-            }
-        }
-
-        return config;
     });
 
     let appealOutcome: AppealOutcome;
