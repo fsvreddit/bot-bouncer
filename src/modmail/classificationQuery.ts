@@ -5,6 +5,7 @@ import { getSummaryForUser } from "../UserSummary/userSummary.js";
 import { setOverrideForSetStatusCommand } from "./controlSubModmail.js";
 
 const CLASSIFICATION_QUERY_QUEUE = "classificationQueryQueue";
+const CLASSIFICATION_QUERY_ID_KEY = "classificationQueryQueueNextId";
 
 export interface QueryData {
     username: string;
@@ -17,7 +18,9 @@ export async function addClassificationQueryToQueue (queryData: QueryData, conte
         throw new Error("Cannot add classification query in control subreddit");
     }
 
-    await context.redis.global.hSet(CLASSIFICATION_QUERY_QUEUE, { [Date.now().toString()]: JSON.stringify(queryData) });
+    const nextId = await context.redis.global.incrBy(CLASSIFICATION_QUERY_ID_KEY, 1);
+    const entryId = `${Date.now().toString(36)}:${nextId.toString(36)}`;
+    await context.redis.global.hSet(CLASSIFICATION_QUERY_QUEUE, { [entryId]: JSON.stringify(queryData) });
     console.log(`Classification Queries: Submitted query for /u/${queryData.username} from /u/${queryData.submittingUser}`);
 }
 

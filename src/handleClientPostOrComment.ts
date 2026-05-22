@@ -129,8 +129,8 @@ export async function handleClientCommentCreate (event: CommentCreate, context: 
     const recentlyChecked = await context.redis.get(redisKey);
     if (recentlyChecked) {
         // Allow some rechecks within 15 minutes, to find rapid fire bots.
-        const lastCheck = new Date(parseInt(recentlyChecked));
-        if (lastCheck < subMinutes(new Date(), 15)) {
+        const lastCheck = new Date(parseInt(recentlyChecked, 10));
+        if (lastCheck > subMinutes(new Date(), 15)) {
             return;
         }
     }
@@ -188,8 +188,8 @@ export async function handleClientCommentUpdate (event: CommentUpdate, context: 
     const recentlyChecked = await context.redis.get(redisKey);
     if (recentlyChecked) {
         // Allow some rechecks within 15 minutes, to find rapid fire bots.
-        const lastCheck = new Date(parseInt(recentlyChecked));
-        if (lastCheck < subMinutes(new Date(), 15)) {
+        const lastCheck = new Date(parseInt(recentlyChecked, 10));
+        if (lastCheck > subMinutes(new Date(), 15)) {
             return;
         }
     }

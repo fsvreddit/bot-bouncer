@@ -50,18 +50,31 @@ export async function processDelayedMessages (context: JobContext) {
         return;
     }
 
-    const firstMessage = JSON.parse(queuedMessages[0].member) as DelayedMessageOptions;
-    await context.redis.zRem(DELAYED_MESSAGE_QUEUE, [queuedMessages[0].member]);
+    for (const queuedMessage of queuedMessages) {
+        let messageData: DelayedMessageOptions;
+        try {
+            messageData = JSON.parse(queuedMessage.member) as DelayedMessageOptions;
+        } catch (error) {
+            console.error("Delayed Messages: Failed to parse queued message, removing entry.", error);
+            await context.redis.zRem(DELAYED_MESSAGE_QUEUE, [queuedMessage.member]);
+            continue;
+        }
 
-    await context.reddit.modMail.reply({
-        conversationId: firstMessage.conversationId,
-        isAuthorHidden: true,
-        body: firstMessage.message,
-    });
+        try {
+            await context.reddit.modMail.reply({
+                conversationId: messageData.conversationId,
+                isAuthorHidden: true,
+                body: messageData.message,
+            });
 
-    if (firstMessage.archive) {
-        await context.reddit.modMail.archiveConversation(firstMessage.conversationId);
+            if (messageData.archive) {
+                await context.reddit.modMail.archiveConversation(messageData.conversationId);
+            }
+
+            await context.redis.zRem(DELAYED_MESSAGE_QUEUE, [queuedMessage.member]);
+            console.log(`Delayed Messages: Processed message for conversation ${messageData.conversationId}`);
+        } catch (error) {
+            console.error(`Delayed Messages: Failed processing message for conversation ${messageData.conversationId}.`, error);
+        }
     }
-
-    console.log(`Delayed Messages: Processed message for conversation ${firstMessage.conversationId}`);
 }

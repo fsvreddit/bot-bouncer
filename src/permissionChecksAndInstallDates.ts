@@ -60,7 +60,6 @@ export async function checkPermissionQueueItems (event: ScheduledJobEvent<JSONOb
     const problemFound: json2md.DataObject[] = [];
     let issueFound: string | undefined;
 
-    let checkSucceeded = false;
     await context.redis.global.zRem(PERMISSION_CHECKS_QUEUE, [subredditName]);
 
     try {
@@ -88,16 +87,23 @@ export async function checkPermissionQueueItems (event: ScheduledJobEvent<JSONOb
                 issueFound = "missing permissions";
             }
         }
-        checkSucceeded = true;
-    } catch {
-        console.log(`Permission Checks: Failed to check moderator status for /r/${subredditName}, assuming sub banned or platform issues.`);
-        issueFound = "sub likely banned";
+    } catch (error) {
+        console.log(`Permission Checks: Failed to check moderator status for /r/${subredditName}, requeueing.`, error);
+        await context.redis.global.zAdd(PERMISSION_CHECKS_QUEUE, { member: subredditName, score: Date.now() + 60_000 });
+
+        if (inBacklog) {
+            await context.scheduler.runJob({
+                name: ControlSubredditJob.CheckPermissionQueueItems,
+                runAt: addSeconds(new Date(), 2),
+                data: { firstRun: false },
+            });
+        }
+
+        return;
     }
 
     if (problemFound.length === 0) {
-        if (checkSucceeded) {
-            console.log(`Permission Checks: ${subredditName} passed permission checks.`);
-        }
+        console.log(`Permission Checks: ${subredditName} passed permission checks.`);
 
         await context.redis.hDel(PERMISSION_MESSAGE_SENT_HASH, [subredditName]);
         if (inBacklog) {

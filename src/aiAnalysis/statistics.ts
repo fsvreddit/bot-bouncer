@@ -111,11 +111,14 @@ export async function gatherTokenStatistics (context: JobContext) {
 
     if (webhookUrl) {
         const messageId = await sendMessageToWebhook(webhookUrl, message);
-        await context.redis.set(messageLastSentKey, format(new Date(), "yyyy-MM-dd"));
-        if (messageId) {
-            await context.redis.set(CURRENT_MESSAGE_ID_KEY, messageId, { expiration: endOfDay(new Date()) });
-            await context.redis.set(BASE_MESSAGE_KEY, message, { expiration: endOfDay(new Date()) });
+        if (!messageId) {
+            console.error("OpenAI Stats: Failed to send usage message to webhook.");
+            return;
         }
+
+        await context.redis.set(messageLastSentKey, format(new Date(), "yyyy-MM-dd"));
+        await context.redis.set(CURRENT_MESSAGE_ID_KEY, messageId, { expiration: endOfDay(new Date()) });
+        await context.redis.set(BASE_MESSAGE_KEY, message, { expiration: endOfDay(new Date()) });
     }
 }
 
@@ -167,7 +170,12 @@ export async function updateTokenStatsMessage (_: unknown, context: JobContext) 
         return;
     }
 
-    const updatedMessage = `${baseMessage}\n\nCumulative tokens used today: ${formatNumber(parseInt(todaysTokens))} from ${parseInt(todaysCallCount).toLocaleString()} ${pluralize("request", parseInt(todaysCallCount))}.`;
+    const todaysTokensValue = parseInt(todaysTokens, 10);
+    const todaysCallCountValue = parseInt(todaysCallCount, 10);
+    const updatedMessage = `${baseMessage}\n\nCumulative tokens used today: ${formatNumber(todaysTokensValue)} from ${todaysCallCountValue.toLocaleString()} ${pluralize("request", todaysCallCountValue)}.`;
 
-    await updateWebhookMessage(webhookUrl, messageId, updatedMessage);
+    const updated = await updateWebhookMessage(webhookUrl, messageId, updatedMessage);
+    if (!updated) {
+        console.error("OpenAI Stats: Failed to update usage message on webhook.");
+    }
 }

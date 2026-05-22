@@ -246,7 +246,7 @@ export async function openAISummaryLookupAndRespond (event: ScheduledJobEvent<JS
     const prompt = event.data?.prompt as string | undefined;
 
     if (!username || !prompt || (!conversationId && !postId)) {
-        console.error("Missing username, promp or conversationId/postId in job event data");
+        console.error("Missing username, prompt or conversationId/postId in job event data");
         return;
     }
 
@@ -256,7 +256,7 @@ export async function openAISummaryLookupAndRespond (event: ScheduledJobEvent<JS
         prompt,
     }, context);
 
-    const cacheKey = `cachedAISummary:${username}`;
+    const cacheKey = `aiSummary:${username}`;
     await context.redis.set(cacheKey, result, { expiration: addDays(new Date(), 1) });
 
     await createResponse({
