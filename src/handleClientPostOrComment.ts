@@ -1,6 +1,6 @@
 import { Post, Comment, TriggerContext, SettingsValues, JSONValue, UserSocialLink } from "@devvit/public-api";
 import { CommentCreate, CommentUpdate, PostCreate } from "@devvit/protos";
-import { addDays, addSeconds, formatDate, subMinutes } from "date-fns";
+import { addDays, addSeconds, formatDate } from "date-fns";
 import { getUserStatus, UserDetails, UserStatus } from "./dataStore.js";
 import { isUserWhitelisted, recordBan, recordUserContentCreation } from "./handleClientSubredditClassificationChanges.js";
 import { ALL_RELEVANT_EVALUTORS, CONTROL_SUBREDDIT } from "./constants.js";
@@ -125,20 +125,12 @@ export async function handleClientCommentCreate (event: CommentCreate, context: 
         return;
     }
 
-    const redisKey = `lastBotCheckForUser:${fixedEvent.author.name}`;
-    const recentlyChecked = await context.redis.get(redisKey);
-    if (recentlyChecked) {
-        // Allow some rechecks within 15 minutes, to find rapid fire bots.
-        const lastCheck = new Date(parseInt(recentlyChecked, 10));
-        if (lastCheck > subMinutes(new Date(), 15)) {
-            return;
-        }
+    if (await hasTriggerBeenHandled(context.redis, `lastBotCheckForUser:${fixedEvent.author.name}`, { expiration: addSeconds(new Date(), 15 * 60) })) {
+        return;
     }
 
     const settings = await context.settings.getAll();
     await checkAndReportPotentialBot(fixedEvent.author.name, fixedEvent, settings, variables, context);
-
-    await context.redis.set(redisKey, new Date().getTime().toString(), { expiration: addDays(new Date(), 2) });
 }
 
 export async function handleClientCommentUpdate (event: CommentUpdate, context: TriggerContext) {
@@ -184,20 +176,12 @@ export async function handleClientCommentUpdate (event: CommentUpdate, context: 
         return;
     }
 
-    const redisKey = `lastBotCheckForUser:${fixedEvent.author.name}`;
-    const recentlyChecked = await context.redis.get(redisKey);
-    if (recentlyChecked) {
-        // Allow some rechecks within 15 minutes, to find rapid fire bots.
-        const lastCheck = new Date(parseInt(recentlyChecked, 10));
-        if (lastCheck > subMinutes(new Date(), 15)) {
-            return;
-        }
+    if (await hasTriggerBeenHandled(context.redis, `lastBotCheckForUser:${fixedEvent.author.name}`, { expiration: addSeconds(new Date(), 15 * 60) })) {
+        return;
     }
 
     const settings = await context.settings.getAll();
     await checkAndReportPotentialBot(fixedEvent.author.name, fixedEvent, settings, variables, context);
-
-    await context.redis.set(redisKey, new Date().getTime().toString(), { expiration: addDays(new Date(), 2) });
 }
 
 async function handleContentCreation (username: string, currentStatus: UserDetails, targetId: string, context: TriggerContext) {
