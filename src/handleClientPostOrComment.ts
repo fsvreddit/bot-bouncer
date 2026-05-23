@@ -13,6 +13,52 @@ import { recordBanForSummary } from "./modmail/actionSummary.js";
 import { expireKeyAt, isBanned, isContributor } from "devvit-helpers";
 import { filterContent, getPostOrCommentById, getTrueUsername, getUserExtended, hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
 
+const BOT_CHECK_WINDOW_SECONDS = 900; // 15 minutes
+const BOT_CHECK_RECHECK_INTERVAL = 25; // Re-check every 25 additional events
+
+interface ClaimResult {
+    burstCount: number;
+}
+
+/**
+ * Atomic burst-count + claim mechanism for bot checks.
+ * - INCRBY is atomic: concurrent events all increment correctly, no lost counts.
+ * - SET NX is atomic: only one worker proceeds to the expensive check.
+ * - The counter auto-expires after 15 minutes, so it resets naturally.
+ * - Re-checks trigger every 25 additional events to catch escalating bursts.
+ */
+async function tryClaimBotCheck (username: string, context: TriggerContext): Promise<ClaimResult | undefined> {
+    const countKey = `botCheck:count:${username}`;
+    const claimKey = `botCheck:claim:${username}`;
+
+    // Every event increments the counter (cheap, atomic, no race)
+    const hitCount = await context.redis.incrBy(countKey, 1);
+    if (hitCount === 1) {
+        // First hit — set TTL on the counter window
+        await context.redis.expire(countKey, BOT_CHECK_WINDOW_SECONDS);
+    }
+
+    // Only one worker runs the expensive check
+    const claimed = await context.redis.set(claimKey, "1", { nx: true, expiration: addSeconds(new Date(), BOT_CHECK_WINDOW_SECONDS) });
+    if (claimed) {
+        return { burstCount: hitCount };
+    }
+
+    // Re-check if burst escalates (e.g., every 25 additional events)
+    const shouldRecheck = hitCount > 1 && hitCount % BOT_CHECK_RECHECK_INTERVAL === 0;
+    if (!shouldRecheck) {
+        return undefined;
+    }
+
+    // If rechecking, claim a new short-lived key so only one worker does it
+    const recheckClaim = await context.redis.set(`botCheck:recheck:${username}:${hitCount}`, "1", { nx: true, expiration: addSeconds(new Date(), 60) });
+    if (!recheckClaim) {
+        return undefined;
+    }
+
+    return { burstCount: hitCount };
+}
+
 export async function handleClientPostCreate (event: PostCreate, context: TriggerContext) {
     if (context.subredditName === CONTROL_SUBREDDIT) {
         return;
@@ -53,8 +99,13 @@ export async function handleClientPostCreate (event: PostCreate, context: Trigge
     }
 
     if (possibleBot) {
+        const claimResult = await tryClaimBotCheck(username, context);
+        if (!claimResult) {
+            return;
+        }
+
         const settings = await context.settings.getAll();
-        await checkAndReportPotentialBot(username, post, settings, variables, context);
+        await checkAndReportPotentialBot(username, post, settings, variables, context, { burstCount: claimResult.burstCount });
     }
 }
 
@@ -125,12 +176,13 @@ export async function handleClientCommentCreate (event: CommentCreate, context: 
         return;
     }
 
-    if (await hasTriggerBeenHandled(context.redis, `lastBotCheckForUser:${fixedEvent.author.name}`, { expiration: addSeconds(new Date(), 15 * 60) })) {
+    const claimResult = await tryClaimBotCheck(fixedEvent.author.name, context);
+    if (!claimResult) {
         return;
     }
 
     const settings = await context.settings.getAll();
-    await checkAndReportPotentialBot(fixedEvent.author.name, fixedEvent, settings, variables, context);
+    await checkAndReportPotentialBot(fixedEvent.author.name, fixedEvent, settings, variables, context, { burstCount: claimResult.burstCount });
 }
 
 export async function handleClientCommentUpdate (event: CommentUpdate, context: TriggerContext) {
@@ -176,12 +228,13 @@ export async function handleClientCommentUpdate (event: CommentUpdate, context: 
         return;
     }
 
-    if (await hasTriggerBeenHandled(context.redis, `lastBotCheckForUser:${fixedEvent.author.name}`, { expiration: addSeconds(new Date(), 15 * 60) })) {
+    const claimResult = await tryClaimBotCheck(fixedEvent.author.name, context);
+    if (!claimResult) {
         return;
     }
 
     const settings = await context.settings.getAll();
-    await checkAndReportPotentialBot(fixedEvent.author.name, fixedEvent, settings, variables, context);
+    await checkAndReportPotentialBot(fixedEvent.author.name, fixedEvent, settings, variables, context, { burstCount: claimResult.burstCount });
 }
 
 async function handleContentCreation (username: string, currentStatus: UserDetails, targetId: string, context: TriggerContext) {
@@ -284,7 +337,11 @@ async function handleContentCreation (username: string, currentStatus: UserDetai
     await Promise.allSettled(promises);
 }
 
-async function checkAndReportPotentialBot (username: string, target: Post | CommentCreate, settings: SettingsValues, variables: Record<string, JSONValue>, context: TriggerContext) {
+interface BotCheckOptions {
+    burstCount: number;
+}
+
+async function checkAndReportPotentialBot (username: string, target: Post | CommentCreate, settings: SettingsValues, variables: Record<string, JSONValue>, context: TriggerContext, options: BotCheckOptions) {
     const user = await getUserExtended(username, context);
     if (!user) {
         return;
@@ -395,5 +452,5 @@ async function checkAndReportPotentialBot (username: string, target: Post | Comm
         targetId: targetItem.id,
     }, context);
 
-    console.log(`Created external submission via automated evaluation for ${user.username} for bot style ${botName}`);
+    console.log(`Created external submission via automated evaluation for ${user.username} for bot style ${botName} (burst count: ${options.burstCount})`);
 }
