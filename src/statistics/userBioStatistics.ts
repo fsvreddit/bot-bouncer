@@ -302,7 +302,9 @@ export async function generateBioStatisticsReport (event: ScheduledJobEvent<JSON
         currentContent.push({ hr: {} });
 
         if (record.record.inEvaluators) {
-            coveredByEvaluatorData.push(...currentContent);
+            if (record.record.hits > 2) {
+                coveredByEvaluatorData.push(...currentContent);
+            }
         } else {
             if (record.record.lastSeen > subWeeks(new Date(), 1).getTime()) {
                 notCoveredByEvaluatorData.push(...currentContent);
@@ -318,6 +320,7 @@ export async function generateBioStatisticsReport (event: ScheduledJobEvent<JSON
     }
 
     content.push({ h2: "Bio text covered by Evaluator configuration and seen in the last four weeks" });
+    content.push({ p: "Now only shows entries used more than twice." });
     if (coveredByEvaluatorData.length === 0) {
         content.push({ p: "None" });
     } else {
