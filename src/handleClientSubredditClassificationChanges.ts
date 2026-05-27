@@ -131,6 +131,7 @@ async function handleSetOrganic (username: string, subredditName: string, settin
 
 async function handleSetBanned (username: string, subredditName: string, settings: SettingsValues, controlSubSettings: ControlSubSettings, context: TriggerContext) {
     if (!controlSubSettings.allowBans) {
+        console.log(`Classification Update: ${username} is classified as a bot but allowBans is false, so will not be actioned.`);
         return;
     }
 
@@ -242,7 +243,7 @@ async function handleSetBanned (username: string, subredditName: string, setting
             console.error(`Classification Update: Some errors occurred banning ${username} on ${subredditName}.`);
             console.log(failedPromises);
         } else {
-            console.log(`Classification Update: 💥${username} has been banned following classification update. ${removableContent.length} ${pluralize("item", removableContent.length)} removed.`);
+            console.log(`Classification Update: 💥 ${username} has been banned following classification update. ${removableContent.length} ${pluralize("item", removableContent.length)} removed.`);
         }
 
         if (settings[AppSetting.AddModNoteOnClassificationChange]) {

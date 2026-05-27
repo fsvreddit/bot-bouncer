@@ -201,22 +201,24 @@ export async function handleClientCommentUpdate (event: CommentUpdate, context: 
 }
 
 async function handleContentCreation (username: string, currentStatus: UserDetails, targetId: string, context: TriggerContext) {
+    console.log(`Content Create: ℹ️ User ${username} has status ${currentStatus.userStatus}.`);
     if (currentStatus.userStatus !== UserStatus.Banned) {
         return;
     }
 
     const controlSubSettings = await getControlSubSettings(context);
     if (!controlSubSettings.allowBans) {
+        console.log(`Content Create: ${username} is banned but allowBans is false, so will not be actioned.`);
         return;
     }
 
     const userWhitelisted = await isUserWhitelisted(username, context);
     if (userWhitelisted) {
-        console.log(`${username} is allowlisted after a previous unban, so will not be actioned.`);
+        console.log(`Content Create: ${username} is allowlisted after a previous unban, so will not be actioned.`);
         return;
     }
 
-    console.log(`Content Create: Status for ${username} is banned`);
+    console.log(`Content Create: Status for ${username} is marked as banned`);
 
     const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
 
@@ -273,7 +275,7 @@ async function handleContentCreation (username: string, currentStatus: UserDetai
 
             promises.push(recordBan(username, context.redis));
             promises.push(recordBanForSummary(username, context.redis));
-            console.log(`Content Create: ${user.username} banned from ${subredditName}`);
+            console.log(`Content Create: 💥 ${user.username} banned from ${subredditName}`);
         }
 
         const removedByMod = await context.redis.exists(`removedbymod:${targetId}`);

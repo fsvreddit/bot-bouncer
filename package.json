@@ -11,8 +11,8 @@
     "test:unit": "vitest --run"
   },
   "dependencies": {
-    "@devvit/protos": "0.12.23",
-    "@devvit/public-api": "0.12.23",
+    "@devvit/protos": "0.12.24",
+    "@devvit/public-api": "0.12.24",
     "@fsvreddit/bot-bouncer-evaluation": "github:fsvreddit/bot-bouncer-evaluation",
     "@fsvreddit/fsv-devvit-helpers": "github:fsvreddit/fsv-devvit-helpers",
     "@wordpress/wordcount": "^4.44.0",
