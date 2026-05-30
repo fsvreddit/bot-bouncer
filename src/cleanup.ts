@@ -8,8 +8,6 @@ import _ from "lodash";
 import { getControlSubSettings } from "./settings.js";
 import { formatTimeSince } from "./utility.js";
 import { submitAccountForReview } from "./modmail/accountReview.js";
-import { recompressAccountInitialEvaluationResults } from "./handleControlSubAccountEvaluation.js";
-
 export const CLEANUP_LOG_KEY = "CleanupLog";
 const SUB_OR_MOD_LOG_KEY = "SubOrModLog";
 const DAYS_BETWEEN_CHECKS = 28;
@@ -143,8 +141,6 @@ export async function cleanupDeletedAccounts (event: ScheduledJobEvent<JSONObjec
             await setCleanupForUser(username, context.redis);
             continue;
         }
-
-        await recompressAccountInitialEvaluationResults(username, context);
 
         let overrideCleanupDate: Date | undefined;
         const currentStatus = await getUserStatus(username, context);

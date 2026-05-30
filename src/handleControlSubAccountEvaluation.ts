@@ -9,7 +9,6 @@ import _ from "lodash";
 import { getSubmitterSuccessRate } from "./statistics/submitterStatistics.js";
 import { conditionallyCompressString, conditionallyDecompressString } from "./utility.js";
 import { getControlSubSettings } from "./settings.js";
-import pluralize from "pluralize";
 import { getPostOrCommentById, getUserExtended } from "@fsvreddit/fsv-devvit-helpers";
 
 export interface EvaluatorStats {
@@ -267,30 +266,6 @@ export async function getAccountInitialEvaluationResults (username: string, cont
 
 export async function deleteAccountInitialEvaluationResults (username: string, context: TriggerContext) {
     await context.redis.del(getEvaluationResultsKey(username));
-}
-
-export async function recompressAccountInitialEvaluationResults (username: string, context: TriggerContext) {
-    const existingTtl = await context.redis.expireTime(getEvaluationResultsKey(username));
-    if (existingTtl < 0) {
-        // Key does not exist or has no expiration, no need to recompress.
-        return;
-    }
-
-    const currentSize = await context.redis.strLen(getEvaluationResultsKey(username));
-    const evaluationResults = await getAccountInitialEvaluationResults(username, context);
-    if (evaluationResults.length === 0) {
-        await deleteAccountInitialEvaluationResults(username, context);
-        console.log(`Data store: Deleted empty initial eval for ${username}.`);
-        return;
-    }
-
-    const newSize = await storeAccountInitialEvaluationResults(username, evaluationResults, context);
-
-    let logMessage = `Data store: Recompressed initial eval for ${username}.`;
-    if (newSize && newSize < currentSize) {
-        logMessage += ` Saved: ${currentSize - newSize} ${pluralize("byte", currentSize - newSize)}.`;
-    }
-    console.log(logMessage);
 }
 
 async function subIsNSFW (subredditName: string, context: TriggerContext): Promise<boolean> {
