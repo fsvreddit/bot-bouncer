@@ -106,7 +106,7 @@ export async function handleReportUser (event: MenuItemOnPressEvent, context: Co
         return;
     }
 
-    if (target.authorName === `${context.subredditName}-ModTeam}`) {
+    if (target.authorName === `${context.subredditName}-ModTeam`) {
         context.ui.showToast("You cannot report the subreddit's -ModTeam user.");
         return;
     }
