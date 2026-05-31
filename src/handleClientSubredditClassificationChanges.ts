@@ -168,6 +168,7 @@ async function handleSetBanned (username: string, subredditName: string, setting
     const recentLocalContent = userContent.filter(item => item.subredditName === subredditName && item.createdAt > subWeeks(new Date(), 1));
 
     if (recentLocalContent.length === 0) {
+        console.log(`Classification Update: ${username} has no recent content on ${subredditName}. Skipping ban to avoid banning potentially inactive users.`);
         return;
     }
 
