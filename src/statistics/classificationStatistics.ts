@@ -1,5 +1,5 @@
 import { JobContext, TriggerContext } from "@devvit/public-api";
-import { eachDayOfInterval, format, startOfDay, subDays } from "date-fns";
+import { addHours, eachDayOfInterval, format, startOfDay, subDays } from "date-fns";
 import json2md from "json2md";
 import pluralize from "pluralize";
 
@@ -14,6 +14,12 @@ export async function storeClassificationEvent (username: string, context: Trigg
 }
 
 export async function updateClassificationStatistics (context: JobContext) {
+    const runRecentlyKey = "classificationStatisticsRunRecently";
+    if (await context.redis.exists(runRecentlyKey)) {
+        return;
+    }
+    await context.redis.set(runRecentlyKey, Date.now().toString(), { expiration: addHours(new Date(), 1) });
+
     const startDate = startOfDay(subDays(new Date(), 7));
     const endDate = startOfDay(subDays(new Date(), 1));
     const dayToDelete = subDays(new Date(), 8);
@@ -45,7 +51,19 @@ export async function updateClassificationStatistics (context: JobContext) {
     const rows = Object.entries(classificationData).map(([username, count]) => [`/u/${username}`, count.toLocaleString()]);
 
     wikiContent.push({ table: { headers, rows } });
-    wikiContent.push({ p: "This page updates every 6 hours, and may update more frequently." });
+
+    wikiContent.push({ h2: "Today's activity since midnight UTC" });
+
+    const todaysData = await context.redis.zRange(classificationKeyForDate(new Date()), 0, -1);
+    if (todaysData.length === 0) {
+        wikiContent.push({ p: "No classifications have been made today." });
+    } else {
+        const todayHeaders = ["Username", "Classifications"];
+        const todayRows = todaysData.map(({ member, score }) => [`/u/${member}`, score.toLocaleString()]);
+        wikiContent.push({ table: { headers: todayHeaders, rows: todayRows } });
+    }
+
+    wikiContent.push({ p: "This page updates every hour, and may update more frequently." });
 
     const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
     await context.reddit.updateWikiPage({

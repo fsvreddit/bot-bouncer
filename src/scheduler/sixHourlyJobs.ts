@@ -3,8 +3,6 @@ import { updateSubmitterStatistics } from "../statistics/submitterStatistics.js"
 import { createTimeOfSubmissionStatistics } from "../statistics/timeOfSubmissionStatistics.js";
 import { checkDataStoreIntegrity, getFullDataStore, removeStaleRecentChangesEntries, UserDetails, UserFlag } from "../dataStore.js";
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "../constants.js";
-import { updateClassificationStatistics } from "../statistics/classificationStatistics.js";
-import { updateAppealStatistics } from "../statistics/appealStatistics.js";
 import { addMinutes, subMonths } from "date-fns";
 import { updateUsernameStatistics } from "../statistics/usernameStatistics.js";
 import { updateDisplayNameStatistics } from "../statistics/displayNameStats.js";
@@ -73,8 +71,6 @@ export async function perform6HourlyJobs (_: unknown, context: JobContext) {
 
     await Promise.all([
         createTimeOfSubmissionStatistics(allValues, context),
-        updateClassificationStatistics(context),
-        updateAppealStatistics(context),
         updateFailedFeedbackStorage(context),
         analyseBioText(context),
         checkDataStoreIntegrity(context),

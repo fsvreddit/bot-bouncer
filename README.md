@@ -48,6 +48,10 @@ If an account was banned by Bot Bouncer on a sub but successfully appeals via r/
 
 # Latest Changes
 
+## v1.31.0 (coming soon)
+
+* Introduce new evaluator type
+
 ## v1.30.0
 
 * Fixed an issue with detecting some bots if their content is filtered or removed

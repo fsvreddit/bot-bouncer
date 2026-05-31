@@ -4,6 +4,7 @@ import Ajv, { JSONSchemaType } from "ajv";
 import { addMinutes } from "date-fns";
 import json2md from "json2md";
 import _ from "lodash";
+import { sendMessageToWebhook } from "./utility.js";
 
 export const CONFIGURATION_DEFAULTS = {
     banMessage: `Bots and bot-like accounts are not welcome on /r/{subreddit}.
@@ -372,7 +373,7 @@ async function reportControlSubValidationError (username: string, message: strin
         { p: `Hi ${username}, ` },
         { p: `There is an issue with the control sub settings on r/${CONTROL_SUBREDDIT}:` },
         { blockquote: message },
-        { p: `Please correct this issue as soon as possible. The settings can be found [here](https://www.reddit.com/r/BotBouncer/wiki/controlsubsettings).` },
+        { p: `Please correct this issue as soon as possible. The settings can be found [here](https://www.reddit.com/r/${CONTROL_SUBREDDIT}/wiki/control-sub-settings).` },
     ];
 
     await context.reddit.sendPrivateMessage({
@@ -380,6 +381,16 @@ async function reportControlSubValidationError (username: string, message: strin
         text: json2md(messageBody),
         to: username,
     });
+
+    const controlSubSettings = await getControlSubSettings(context);
+    if (controlSubSettings.monitoringWebhook) {
+        const discordMessageBody: json2md.DataObject[] = [
+            { p: `There is an issue with the control sub settings on r/${CONTROL_SUBREDDIT} as edited by ${username}:` },
+            { blockquote: message },
+            { p: `Please correct this issue as soon as possible. The settings can be found [here](<https://www.reddit.com/r/${CONTROL_SUBREDDIT}/wiki/control-sub-settings>).` },
+        ];
+        await sendMessageToWebhook(controlSubSettings.monitoringWebhook, json2md(discordMessageBody));
+    }
 }
 
 export async function validateControlSubConfigChange (username: string, context: TriggerContext) {

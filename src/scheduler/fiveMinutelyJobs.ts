@@ -2,6 +2,8 @@ import { JobContext } from "@devvit/public-api";
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "../constants.js";
 import { processHighlightedModmailQueue } from "../modmail/unhighlighter.js";
 import { gatherTokenStatistics } from "../aiAnalysis/statistics.js";
+import { updateClassificationStatistics } from "../statistics/classificationStatistics.js";
+import { updateAppealStatistics } from "../statistics/appealStatistics.js";
 
 export async function handleFiveMinutelyJob (_: unknown, context: JobContext) {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
@@ -26,6 +28,10 @@ export async function handleFiveMinutelyJob (_: unknown, context: JobContext) {
         runAt: new Date(),
     });
 
-    await processHighlightedModmailQueue(context);
-    await gatherTokenStatistics(context);
+    await Promise.allSettled([
+        processHighlightedModmailQueue(context),
+        gatherTokenStatistics(context),
+        updateClassificationStatistics(context),
+        updateAppealStatistics(context),
+    ]);
 }

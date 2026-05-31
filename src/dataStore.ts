@@ -221,7 +221,7 @@ export async function setUserStatus (username: string, details: UserDetails, con
         }, context);
     }
 
-    if (currentStatus?.userStatus === UserStatus.Pending && details.userStatus !== UserStatus.Pending && details.operator && details.operator !== context.appSlug) {
+    if (currentStatus?.userStatus === UserStatus.Pending && details.userStatus !== UserStatus.Pending && details.operator && details.operator !== details.submitter && details.operator !== context.appSlug) {
         await storeClassificationEvent(details.operator, context);
     }
 

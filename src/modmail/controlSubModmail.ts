@@ -422,7 +422,7 @@ async function showUserHistory (modmail: ModmailMessage, context: TriggerContext
 
         for (const item of userHistory) {
             message.push({ p: `[${item instanceof Comment ? "Comment" : "Post"}](${item.permalink}) in /r/${item.subredditName} on ${format(item.createdAt, "yyyy-MM-dd hh:mm")}` });
-            if (item instanceof Comment) {
+            if (item.body) {
                 message.push({ blockquote: item.body });
             }
         }

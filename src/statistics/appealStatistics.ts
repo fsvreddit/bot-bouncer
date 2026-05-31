@@ -1,5 +1,5 @@
 import { JobContext, TriggerContext } from "@devvit/public-api";
-import { eachDayOfInterval, format, startOfDay, subDays } from "date-fns";
+import { addHours, eachDayOfInterval, format, startOfDay, subDays } from "date-fns";
 import { deleteKeyForAppeal, isActiveAppeal } from "../modmail/controlSubModmail.js";
 import json2md from "json2md";
 import { ModmailMessage } from "../modmail/modmail.js";
@@ -25,6 +25,12 @@ export async function markAppealAsHandled (modmail: ModmailMessage, context: Tri
 }
 
 export async function updateAppealStatistics (context: JobContext) {
+    const runRecentlyKey = "appealStatisticsRunRecently";
+    if (await context.redis.exists(runRecentlyKey)) {
+        return;
+    }
+    await context.redis.set(runRecentlyKey, Date.now().toString(), { expiration: addHours(new Date(), 1) });
+
     const startDate = startOfDay(subDays(new Date(), 7));
     const endDate = startOfDay(subDays(new Date(), 1));
     const dayToDelete = subDays(new Date(), 8);
@@ -56,7 +62,19 @@ export async function updateAppealStatistics (context: JobContext) {
     const rows = Object.entries(appealData).map(([username, count]) => [`/u/${username}`, count.toLocaleString()]);
 
     wikiContent.push({ table: { headers, rows } });
-    wikiContent.push({ p: "This page updates every 6 hours, and may update more frequently." });
+
+    wikiContent.push({ h2: "Today's activity since midnight UTC" });
+
+    const todayData = await context.redis.zRange(getKeyForDate(), 0, -1);
+    if (todayData.length === 0) {
+        wikiContent.push({ p: "No appeals have been handled today." });
+    } else {
+        const todayHeaders = ["Username", "Appeals"];
+        const todayRows = todayData.map(({ member, score }) => [`/u/${member}`, score.toLocaleString()]);
+        wikiContent.push({ table: { headers: todayHeaders, rows: todayRows } });
+    }
+
+    wikiContent.push({ p: "This page updates every hour, and may update more frequently." });
 
     const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
     await context.reddit.updateWikiPage({

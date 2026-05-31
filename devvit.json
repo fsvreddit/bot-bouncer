@@ -11,6 +11,7 @@
             "onCommentUpdate",
             "onPostFlairUpdate",
             "onPostDelete",
+            "onPostSubmit",
             "onModAction",
             "onModMail"
         ]
