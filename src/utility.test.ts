@@ -1,4 +1,4 @@
-import { conditionallyCompressString, conditionallyDecompressString, getUsernameFromUrl, median } from "./utility.js";
+import { conditionallyCompressString, conditionallyDecompressString, getUsernameFromUrl, median, sendMessageToWebhook, updateWebhookMessage } from "./utility.js";
 
 test("URL parsing", () => {
     const expected = [
@@ -58,4 +58,56 @@ test("Conditionally compress and decompress string that is not large enough to c
     const decompressed = conditionallyDecompressString(compressed);
     expect(decompressed).toEqual(input);
     expect(compressed).toEqual(input);
+});
+
+test("sendMessageToWebhook returns message id when webhook responds successfully", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        // eslint-disable-next-line @typescript-eslint/require-await
+        json: async () => ({ id: "abc123" }),
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const messageId = await sendMessageToWebhook("https://example.com/webhook", "hello");
+
+    expect(messageId).toBe("abc123");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    vi.unstubAllGlobals();
+});
+
+test("sendMessageToWebhook returns undefined when webhook responds with failure", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+        // eslint-disable-next-line @typescript-eslint/require-await
+        text: async () => "server error",
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const messageId = await sendMessageToWebhook("https://example.com/webhook", "hello");
+
+    expect(messageId).toBeUndefined();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    vi.unstubAllGlobals();
+});
+
+test("updateWebhookMessage returns true on success and false on failure", async () => {
+    const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce({ ok: true, status: 200 })
+        // eslint-disable-next-line @typescript-eslint/require-await
+        .mockResolvedValueOnce({ ok: false, status: 404, text: async () => "not found" });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const success = await updateWebhookMessage("https://example.com/webhook", "message-1", "updated");
+    const failure = await updateWebhookMessage("https://example.com/webhook", "message-2", "updated");
+
+    expect(success).toBe(true);
+    expect(failure).toBe(false);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    vi.unstubAllGlobals();
 });
