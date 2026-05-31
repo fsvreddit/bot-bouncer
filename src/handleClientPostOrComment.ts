@@ -15,14 +15,17 @@ import { filterContent, getPostOrCommentById, getTrueUsername, getUserExtended, 
 
 export async function handleClientPostCreate (event: PostCreate, context: TriggerContext) {
     if (context.subredditName === CONTROL_SUBREDDIT) {
-        return;
+        throw new Error("Content Create: handleClientPostCreate should not be called for the control subreddit, check the subreddit name handling logic");
     }
 
     if (!event.post || !event.author?.name) {
+        console.error("Content Create: PostCreate event missing post or author information", JSON.stringify(event));
         return;
     }
 
     const username = await getTrueUsername(context.reddit, event.author.name, event.post.id);
+
+    console.log(`Content Create: Received new post ${event.post.id} by ${username}`);
 
     await recordUserContentCreation(username, context);
 
@@ -85,7 +88,7 @@ async function fixedCommentEvent<T extends CommentCreate | CommentUpdate> (event
 
 export async function handleClientCommentCreate (event: CommentCreate, context: TriggerContext) {
     if (context.subredditName === CONTROL_SUBREDDIT) {
-        return;
+        throw new Error("Content Create: handleClientCommentCreate should not be called for the control subreddit, check the subreddit name handling logic");
     }
 
     const fixedEvent = await fixedCommentEvent(event, context);

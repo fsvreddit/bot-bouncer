@@ -7,11 +7,11 @@ import { getTrueUsername } from "@fsvreddit/fsv-devvit-helpers";
 
 export async function handleControlSubCommentCreate (event: CommentCreate, context: TriggerContext) {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
-        return;
+        throw new Error("Content Create: handleControlSubCommentCreate should only be called for the control subreddit, check the subreddit name handling logic");
     }
 
     if (!event.comment?.id || !event.author?.name) {
-        return;
+        throw new Error("Content Create: handleControlSubCommentCreate should not be called with missing comment or author information");
     }
 
     const username = await getTrueUsername(context.reddit, event.author.name, event.comment.id);

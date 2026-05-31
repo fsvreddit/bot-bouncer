@@ -33,11 +33,11 @@ async function postSubmissionResponse (opts: {
 
 export async function handleControlSubPostCreate (event: PostCreate, context: TriggerContext) {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
-        return;
+        throw new Error("Content Create: handleControlSubPostCreate should only be called for the control subreddit, check the subreddit name handling logic");
     }
 
     if (!event.post || !event.author) {
-        return;
+        throw new Error("Content Create: handleControlSubPostCreate should not be called with missing post or author information");
     }
 
     const submitterName = await getTrueUsername(context.reddit, event.author.name, event.post.id);
