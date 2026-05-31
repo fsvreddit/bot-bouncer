@@ -51,6 +51,7 @@ If an account was banned by Bot Bouncer on a sub but successfully appeals via r/
 ## v1.31.0 (coming soon)
 
 * Introduce new evaluator type
+* Stability changes to r/BotBouncer operations (credit: [MailGuardianReddit on GitHub](https://github.com/MailGuardianReddit))
 
 ## v1.30.0
 
