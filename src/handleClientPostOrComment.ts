@@ -25,7 +25,7 @@ export async function handleClientPostCreate (event: PostCreate, context: Trigge
 
     const username = await getTrueUsername(context.reddit, event.author.name, event.post.id);
 
-    console.log(`Content Create: Received new post ${event.post.id} by ${username}`);
+    console.log(`Content Create: PostCreate ${event.post.id} by ${username}`);
 
     await recordUserContentCreation(username, context);
 
