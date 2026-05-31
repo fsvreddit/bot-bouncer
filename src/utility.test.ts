@@ -64,8 +64,9 @@ test("sendMessageToWebhook returns message id when webhook responds successfully
     const fetchMock = vi.fn().mockResolvedValue({
         ok: true,
         status: 200,
+        // eslint-disable-next-line @typescript-eslint/require-await
         json: async () => ({ id: "abc123" }),
-    } as Response);
+    });
 
     vi.stubGlobal("fetch", fetchMock);
 
@@ -80,8 +81,9 @@ test("sendMessageToWebhook returns undefined when webhook responds with failure"
     const fetchMock = vi.fn().mockResolvedValue({
         ok: false,
         status: 500,
+        // eslint-disable-next-line @typescript-eslint/require-await
         text: async () => "server error",
-    } as Response);
+    });
 
     vi.stubGlobal("fetch", fetchMock);
 
@@ -95,8 +97,9 @@ test("sendMessageToWebhook returns undefined when webhook responds with failure"
 test("updateWebhookMessage returns true on success and false on failure", async () => {
     const fetchMock = vi
         .fn()
-        .mockResolvedValueOnce({ ok: true, status: 200 } as Response)
-        .mockResolvedValueOnce({ ok: false, status: 404, text: async () => "not found" } as Response);
+        .mockResolvedValueOnce({ ok: true, status: 200 })
+        // eslint-disable-next-line @typescript-eslint/require-await
+        .mockResolvedValueOnce({ ok: false, status: 404, text: async () => "not found" });
 
     vi.stubGlobal("fetch", fetchMock);
 
