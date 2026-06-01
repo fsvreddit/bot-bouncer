@@ -11,14 +11,14 @@
     "test:unit": "vitest --run"
   },
   "dependencies": {
-    "@devvit/protos": "0.12.24",
-    "@devvit/public-api": "0.12.24",
+    "@devvit/protos": "0.13.0",
+    "@devvit/public-api": "0.13.0",
     "@fsvreddit/bot-bouncer-evaluation": "github:fsvreddit/bot-bouncer-evaluation",
     "@fsvreddit/fsv-devvit-helpers": "github:fsvreddit/fsv-devvit-helpers",
     "@wordpress/wordcount": "^4.44.0",
     "ajv": "^8.17.1",
     "date-fns": "^4.1.0",
-    "devvit-helpers": "^0.9.0",
+    "devvit-helpers": "^0.10.0",
     "escape-string-regexp": "^5.0.0",
     "json2md": "^2.0.3",
     "lodash": "^4.17.21",
