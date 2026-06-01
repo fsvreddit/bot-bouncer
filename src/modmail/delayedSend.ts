@@ -1,6 +1,7 @@
-import { JobContext, TriggerContext } from "@devvit/public-api";
+import { JobContext, JSONObject, ScheduledJobEvent, TriggerContext } from "@devvit/public-api";
 import { addMinutes, addSeconds } from "date-fns";
 import json2md from "json2md";
+import { ControlSubredditJob } from "../constants.js";
 
 interface DelayedMessageOptions {
     conversationId: string;
@@ -43,7 +44,14 @@ export async function sendMessageOnDelay (context: TriggerContext, params: Delay
     }
 }
 
-export async function processDelayedMessages (context: JobContext) {
+export async function processDelayedMessages (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
+    const recentlyRunKey = "processDelayedMessagesRecentlyRun";
+    if (event.data?.firstRun && await context.redis.exists(recentlyRunKey)) {
+        return;
+    }
+
+    await context.redis.set(recentlyRunKey, Date.now().toString(), { expiration: addMinutes(new Date(), 1) });
+
     const queuedMessages = await context.redis.zRange(DELAYED_MESSAGE_QUEUE, 0, Date.now(), { by: "score" });
 
     if (queuedMessages.length === 0) {
@@ -63,5 +71,20 @@ export async function processDelayedMessages (context: JobContext) {
         await context.reddit.modMail.archiveConversation(firstMessage.conversationId);
     }
 
+    if (queuedMessages.length > 1) {
+        await context.scheduler.runJob({
+            name: ControlSubredditJob.ProcessDelayedMessages,
+            data: { firstRun: false },
+            runAt: addSeconds(new Date(), 5),
+        });
+    } else {
+        await context.redis.del(recentlyRunKey);
+    }
+
     console.log(`Delayed Messages: Processed message for conversation ${firstMessage.conversationId}`);
+}
+
+export async function areAnyDelayedMessagesQueued (context: JobContext) {
+    const queuedMessages = await context.redis.zRange(DELAYED_MESSAGE_QUEUE, 0, Date.now(), { by: "score" });
+    return queuedMessages.length > 0;
 }

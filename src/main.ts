@@ -38,6 +38,7 @@ import { generateOpenAISummary, openAISummaryLookupAndRespond } from "./aiAnalys
 import { updateTokenStatsMessage } from "./aiAnalysis/statistics.js";
 import { updateMainStatisticsPage } from "./statistics/mainStatistics.js";
 import { checkUserFlaggedRechecksQueue } from "./userEvaluation/flaggedUsersRechecks.js";
+import { processDelayedMessages } from "./modmail/delayedSend.js";
 
 Devvit.addSettings(appSettings);
 
@@ -281,6 +282,11 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: ControlSubredditJob.FlaggedUsersRechecks,
     onRun: checkUserFlaggedRechecksQueue,
+});
+
+Devvit.addSchedulerJob({
+    name: ControlSubredditJob.ProcessDelayedMessages,
+    onRun: processDelayedMessages,
 });
 
 /**

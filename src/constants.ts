@@ -61,6 +61,7 @@ export enum ControlSubredditJob {
     OpenAISummaryLookup = "openAISummaryLookup",
     OpenAIUpdateTokenStatsMessage = "openAIUpdateTokenStatsMessage",
     FlaggedUsersRechecks = "flaggedUsersRechecks",
+    ProcessDelayedMessages = "processDelayedMessages",
 }
 
 /**
