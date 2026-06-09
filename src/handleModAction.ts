@@ -44,7 +44,7 @@ async function handleModActionClientSub (event: ModAction, context: TriggerConte
      * be set when the CommentCreate or PostCreate trigger is fired, this is a failsafe.
      */
     const actions = ["removecomment", "removelink", "spamcomment", "spamlink"];
-    if (actions.includes(event.action) && event.moderator?.name !== context.appSlug && event.targetUser) {
+    if (actions.includes(event.action) && event.moderator?.name !== context.appSlug && event.moderator?.name !== "reddit" && event.moderator?.name !== "AutoModerator" && event.targetUser) {
         await context.redis.del(`removed:${event.targetUser.name}`);
         let targetId: string | undefined;
         if (event.action === "removecomment" || event.action === "spamcomment") {
