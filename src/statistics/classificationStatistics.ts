@@ -52,6 +52,17 @@ export async function updateClassificationStatistics (context: JobContext) {
 
     wikiContent.push({ table: { headers, rows } });
 
+    wikiContent.push({ h2: "Yesterday's activity (UTC)" });
+
+    const yesterdayData = await context.redis.zRange(classificationKeyForDate(subDays(new Date(), 1)), 0, -1);
+    if (yesterdayData.length === 0) {
+        wikiContent.push({ p: "No classifications were made yesterday." });
+    } else {
+        const yesterdayHeaders = ["Username", "Classifications"];
+        const yesterdayRows = yesterdayData.map(({ member, score }) => [`/u/${member}`, score.toLocaleString()]);
+        wikiContent.push({ table: { headers: yesterdayHeaders, rows: yesterdayRows } });
+    }
+
     wikiContent.push({ h2: "Today's activity since midnight UTC" });
 
     const todaysData = await context.redis.zRange(classificationKeyForDate(new Date()), 0, -1);

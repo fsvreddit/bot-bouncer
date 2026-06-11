@@ -63,6 +63,17 @@ export async function updateAppealStatistics (context: JobContext) {
 
     wikiContent.push({ table: { headers, rows } });
 
+    wikiContent.push({ h2: "Yesterday's activity (UTC)" });
+
+    const yesterdayData = await context.redis.zRange(getKeyForDate(subDays(new Date(), 1)), 0, -1);
+    if (yesterdayData.length === 0) {
+        wikiContent.push({ p: "No appeals were handled yesterday." });
+    } else {
+        const yesterdayHeaders = ["Username", "Appeals"];
+        const yesterdayRows = yesterdayData.map(({ member, score }) => [`/u/${member}`, score.toLocaleString()]);
+        wikiContent.push({ table: { headers: yesterdayHeaders, rows: yesterdayRows } });
+    }
+
     wikiContent.push({ h2: "Today's activity since midnight UTC" });
 
     const todayData = await context.redis.zRange(getKeyForDate(), 0, -1);
