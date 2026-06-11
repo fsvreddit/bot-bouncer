@@ -274,7 +274,7 @@ export async function processExternalSubmissionsQueue (context: JobContext): Pro
         return 0;
     }
 
-    const executionLimit = addSeconds(new Date(), 10);
+    const executionLimit = addSeconds(new Date(), 15);
 
     // Process each submission in the queue.
     let processed = 0;
