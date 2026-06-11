@@ -1,5 +1,10 @@
 # Changelog for Bot Bouncer
 
+## v1.30.0
+
+* Fixed an issue with detecting some bots if their content is filtered or removed
+* Allow posts/comments to be filtered rather than removed when an account is detected as a possible bot. Note: due to an issue with the Dev Platform, no reason will be visible in the mod queue but you will see that the item was filtered by Bot Bouncer.
+
 ## v1.29.0
 
 * Fixed an issue that prevented some users from being checked when they posted or commented

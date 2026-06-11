@@ -48,16 +48,11 @@ If an account was banned by Bot Bouncer on a sub but successfully appeals via r/
 
 # Latest Changes
 
-## v1.31.0 (coming soon)
+## v1.31.0
 
 * Add option (enabled by default when action type is "Ban and remove") to remove queued posts/comments from users after they are banned
 * Introduce new evaluator type
-* Improve removal of content from users flagged as bots
+* Improve reliability of content from users flagged as bots
 * Stability changes to r/BotBouncer operations (credit: [MailGuardianReddit on GitHub](https://github.com/MailGuardianReddit))
-
-## v1.30.0
-
-* Fixed an issue with detecting some bots if their content is filtered or removed
-* Allow posts/comments to be filtered rather than removed when an account is detected as a possible bot. Note: due to an issue with the Dev Platform, no reason will be visible in the mod queue but you will see that the item was filtered by Bot Bouncer.
 
 For older versions, please see the [full changelog](https://github.com/fsvreddit/bot-bouncer/blob/main/changelog.md).
