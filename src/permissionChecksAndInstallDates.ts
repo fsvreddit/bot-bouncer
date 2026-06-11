@@ -192,7 +192,6 @@ async function buildInstalledSubredditsReport (context: TriggerContext) {
 
     const report: json2md.DataObject[] = [
         { p: "This page shows the list of subreddits that have installed Bot Bouncer in the last week." },
-        { p: "Report covers new installs made since April 7, 2026 at 01:00 UTC." },
     ];
 
     const permissionIssues = await hMGetAsRecord(context.redis, PERMISSION_MESSAGE_SENT_HASH, installedSubs.map(sub => sub.member));
