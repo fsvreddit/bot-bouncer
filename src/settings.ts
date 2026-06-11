@@ -1,9 +1,8 @@
 import { SettingsFormField, TriggerContext, WikiPage } from "@devvit/public-api";
-import { CONTROL_SUBREDDIT, FeatureFlags } from "./constants.js";
+import { CONTROL_SUBREDDIT } from "./constants.js";
 import Ajv, { JSONSchemaType } from "ajv";
 import { addMinutes } from "date-fns";
 import json2md from "json2md";
-import _ from "lodash";
 import { sendMessageToWebhook } from "./utility.js";
 
 export const CONFIGURATION_DEFAULTS = {
@@ -86,7 +85,7 @@ export const appSettings: SettingsFormField[] = [
     {
         type: "group",
         label: "Ban/Report and unban settings",
-        fields: _.compact([
+        fields: [
             {
                 type: "select",
                 name: AppSetting.Action,
@@ -105,14 +104,13 @@ export const appSettings: SettingsFormField[] = [
                     }
                 },
             },
-            // eslint-disable-next-line @stylistic/multiline-ternary
-            FeatureFlags.enableModqueueRemovalAfterBan ? {
+            {
                 type: "boolean",
                 name: AppSetting.RemoveFromModqueueWhenBanning,
                 label: "Remove content from modqueue when banning",
                 helpText: "If banning users, also remove user content from the modqueue",
                 defaultValue: true,
-            } : undefined,
+            },
             {
                 type: "boolean",
                 name: AppSetting.LockContentWhenRemoving,
@@ -149,7 +147,7 @@ export const appSettings: SettingsFormField[] = [
                 helpText: "If this is turned on, a mod note will be added to the account when it is banned or unbanned by Bot Bouncer. The note will include the date and time of the action.",
                 defaultValue: false,
             },
-        ]),
+        ],
     },
     {
         type: "group",

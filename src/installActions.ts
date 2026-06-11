@@ -1,6 +1,6 @@
 import { AppInstall, AppUpgrade } from "@devvit/protos";
 import { TriggerContext } from "@devvit/public-api";
-import { ClientSubredditJob, CONTROL_SUBREDDIT, ControlSubredditJob, FeatureFlags, UniversalJob } from "./constants.js";
+import { ClientSubredditJob, CONTROL_SUBREDDIT, ControlSubredditJob, UniversalJob } from "./constants.js";
 import { handleExternalSubmissionsPageUpdate } from "./externalSubmissions.js";
 import { getControlSubSettings } from "./settings.js";
 import { addDays, addMinutes, addSeconds, isSameDay } from "date-fns";
@@ -145,12 +145,10 @@ async function addClientSubredditJobs (context: TriggerContext) {
         cron: "* * * * *",
     });
 
-    if (FeatureFlags.enableModqueueRemovalAfterBan) {
-        await context.scheduler.runJob({
-            name: ClientSubredditJob.RemoveUsersFromModqueueAfterBan,
-            cron: "* * * * *",
-        });
-    }
+    await context.scheduler.runJob({
+        name: ClientSubredditJob.RemoveUsersFromModqueueAfterBan,
+        cron: "* * * * *",
+    });
 
     let randomMinute = Math.floor(Math.random() * 60);
     let randomHour = Math.floor(Math.random() * 24);

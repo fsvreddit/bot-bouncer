@@ -5,7 +5,7 @@ import { getRecentlyChangedUsers, getUserStatus, isUserInTempDeclineStore, UserD
 import { setCleanupForUser } from "./cleanup.js";
 import { ActionType, AppSetting, CONFIGURATION_DEFAULTS, ControlSubSettings, getControlSubSettings } from "./settings.js";
 import { getUserOrUndefined, isModeratorWithCache, postIdToShortLink } from "./utility.js";
-import { ClientSubredditJob, FeatureFlags } from "./constants.js";
+import { ClientSubredditJob } from "./constants.js";
 import _ from "lodash";
 import { recordBanForSummary, recordUnbanForSummary, removeRecordOfBanForSummary } from "./modmail/actionSummary.js";
 import { expireKeyAt, hasPermissions, isBanned, isContributor } from "devvit-helpers";
@@ -262,7 +262,7 @@ async function handleSetBanned (username: string, subredditName: string, setting
             });
         }
 
-        if (FeatureFlags.enableModqueueRemovalAfterBan && settings[AppSetting.RemoveFromModqueueWhenBanning]) {
+        if (settings[AppSetting.RemoveFromModqueueWhenBanning]) {
             await addUserToModqueueRemovalStore(username, context);
         }
     } else if (actionToTake === ActionType.Filter) {
@@ -460,21 +460,21 @@ export async function storeRecordOfContentCreationGracePeriod (context: TriggerC
 
 const MODQUEUE_REMOVAL_STORE = "ModqueueRemovalStore";
 
-async function addUserToModqueueRemovalStore (username: string, context: TriggerContext) {
-    if (!FeatureFlags.enableModqueueRemovalAfterBan) {
-        return;
-    }
-
+export async function addUserToModqueueRemovalStore (username: string, context: TriggerContext) {
     await context.redis.zAdd(MODQUEUE_REMOVAL_STORE, { member: username, score: new Date().getTime() });
 }
 
 export async function processModqueueRemovalStore (_: unknown, context: JobContext) {
-    if (!FeatureFlags.enableModqueueRemovalAfterBan) {
+    const removalQueue = await context.redis.zRange(MODQUEUE_REMOVAL_STORE, 0, -1);
+    if (removalQueue.length === 0) {
         return;
     }
 
-    const removalQueue = await context.redis.zRange(MODQUEUE_REMOVAL_STORE, 0, -1);
-    if (removalQueue.length === 0) {
+    const settings = await context.settings.getAll();
+    const action = settings[AppSetting.Action] as ActionType[] | undefined ?? [ActionType.Ban];
+    if (!settings[AppSetting.RemoveFromModqueueWhenBanning] || !action.includes(ActionType.Ban)) {
+        await context.redis.zRem(MODQUEUE_REMOVAL_STORE, removalQueue.map(item => item.member));
+        console.log("Modqueue Removal: Setting to remove from modqueue when banning is disabled, skipping processing of modqueue removal store.");
         return;
     }
 
@@ -483,7 +483,7 @@ export async function processModqueueRemovalStore (_: unknown, context: JobConte
     const modQueue = await context.reddit.getModQueue({
         subreddit: context.subredditName ?? await context.reddit.getCurrentSubredditName(),
         type: "all",
-        limit: 25,
+        limit: 1000,
     }).all();
 
     const itemsToRemove = modQueue.filter(item => usersToCheck.has(item.authorName));

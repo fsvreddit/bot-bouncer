@@ -2,7 +2,7 @@ import { Post, Comment, TriggerContext, SettingsValues, JSONValue, UserSocialLin
 import { CommentCreate, CommentUpdate, PostCreate } from "@devvit/protos";
 import { addDays, addSeconds, formatDate, subMinutes } from "date-fns";
 import { getUserStatus, UserDetails, UserStatus } from "./dataStore.js";
-import { isUserWhitelisted, recordBan, recordUserContentCreation } from "./handleClientSubredditClassificationChanges.js";
+import { addUserToModqueueRemovalStore, isUserWhitelisted, recordBan, recordUserContentCreation } from "./handleClientSubredditClassificationChanges.js";
 import { ALL_RELEVANT_EVALUTORS, CONTROL_SUBREDDIT } from "./constants.js";
 import { getUserOrUndefined, isModeratorWithCache } from "./utility.js";
 import { ActionType, AppSetting, CONFIGURATION_DEFAULTS, getControlSubSettings } from "./settings.js";
@@ -293,6 +293,10 @@ async function handleContentCreation (username: string, currentStatus: UserDetai
                 }
             }
             console.log(`Content Create: ${targetId} removed for ${user.username}`);
+        }
+
+        if (settings[AppSetting.RemoveFromModqueueWhenBanning]) {
+            await addUserToModqueueRemovalStore(username, context);
         }
     } else if (actionToTake === ActionType.Filter) {
         promises.push(filterContent(context, { itemId: targetId, reason: "User is listed as a bot on r/BotBouncer" }));

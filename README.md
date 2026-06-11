@@ -50,6 +50,7 @@ If an account was banned by Bot Bouncer on a sub but successfully appeals via r/
 
 ## v1.31.0 (coming soon)
 
+* Add option (enabled by default when action type is "Ban and remove") to remove queued posts/comments from users after they are banned
 * Introduce new evaluator type
 * Improve removal of content from users flagged as bots
 * Stability changes to r/BotBouncer operations (credit: [MailGuardianReddit on GitHub](https://github.com/MailGuardianReddit))
