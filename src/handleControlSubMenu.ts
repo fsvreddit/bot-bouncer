@@ -3,7 +3,7 @@ import { getUsernameFromUrl } from "./utility.js";
 import { deleteUserStatus, getUsernameFromPostId, getUserStatus, updateAggregate, UserStatus } from "./dataStore.js";
 import { controlSubForm, controlSubQuerySubmissionForm } from "./main.js";
 import { CONTROL_SUBREDDIT } from "./constants.js";
-import { createUserSummary } from "./UserSummary/userSummary.js";
+import { createUserSummary, getSummaryForUser } from "./UserSummary/userSummary.js";
 import { evaluateUserAccount, getAccountInitialEvaluationResults } from "./handleControlSubAccountEvaluation.js";
 import json2md from "json2md";
 import { CLEANUP_LOG_KEY } from "./cleanup.js";
@@ -11,6 +11,7 @@ import { CLEANUP_LOG_KEY } from "./cleanup.js";
 import { FieldConfig_Selection_Item } from "@devvit/protos";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { isUserPotentiallyBlockingBot } from "./UserSummary/blockChecker.js";
+import { markdownToText } from "./modmail/controlSubModmail.js";
 
 enum ControlSubAction {
     RegenerateSummary = "generateSummary",
@@ -245,6 +246,24 @@ export async function sendQueryToSubmitter (event: FormOnSubmitEvent<JSONObject>
     });
 
     if (response.conversation.id) {
+        const message = await getSummaryForUser(username, "modmail", context);
+
+        const currentUser = await context.reddit.getCurrentUser();
+        if (currentUser) {
+            message.unshift({ hr: "" });
+            message.unshift({ p: `This query was sent by u/${currentUser.username}.` });
+        }
+
+        const modmailStrings = markdownToText(message);
+
+        for (const string of modmailStrings) {
+            await context.reddit.modMail.reply({
+                body: string,
+                conversationId: response.conversation.id,
+                isInternal: true,
+            });
+        }
+
         await context.reddit.modMail.archiveConversation(response.conversation.id);
     }
 
