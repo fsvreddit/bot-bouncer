@@ -5,7 +5,7 @@ import { BIO_TEXT_STORE, SOCIAL_LINKS_STORE, UserDetails, UserFlag, UserStatus }
 import { getControlSubSettings } from "../settings.js";
 import { CONTROL_SUBREDDIT } from "../constants.js";
 import { parseAllDocuments } from "yaml";
-import _, { countBy } from "lodash";
+import _ from "lodash";
 import json2md from "json2md";
 import { sendMessageToWebhook } from "../utility.js";
 import { ModmailMessage } from "./modmail.js";
@@ -515,7 +515,7 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
             }
 
             if (config.hasMoreThanOneCommentOnPost !== undefined) {
-                const commentsPerPost = countBy(history.filter(item => item instanceof Comment).map(comment => comment.postId));
+                const commentsPerPost = _.countBy(history.filter(item => item instanceof Comment).map(comment => comment.postId));
                 const hasMoreThanOneCommentOnPost = Object.values(commentsPerPost).some(count => count > 1);
 
                 if (config.hasMoreThanOneCommentOnPost !== hasMoreThanOneCommentOnPost) {
