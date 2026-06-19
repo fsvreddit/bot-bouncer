@@ -8,6 +8,7 @@ import { ModmailMessage } from "./modmail.js";
 import Ajv, { JSONSchemaType } from "ajv";
 import { AsyncSubmission } from "../postCreation.js";
 import pluralize from "pluralize";
+import json2md from "json2md";
 
 const REVERSED_USERS = "ReversedUsers";
 
@@ -241,9 +242,14 @@ export async function reversePostCreationQueue (event: ScheduledJobEvent<JSONObj
 
     const queueUsers = event.data?.queueUsers as string[] | undefined ?? [];
     if (queueUsers.length === 0) {
+        const remainingCount = await context.redis.zCard(SUBMISSION_QUEUE);
+        const message: json2md.DataObject[] = [
+            { p: `✅ Completed post creation queue reversals. A total of ${reversedTotal} ${pluralize("user", reversedTotal)} had their entries removed from the post creation queue.` },
+            { p: `There are ${remainingCount} ${pluralize("user", remainingCount)} remaining in the post creation queue.` },
+        ];
         await context.reddit.modMail.reply({
             conversationId,
-            body: `✅ Completed post creation queue reversals. A total of ${reversedTotal} ${pluralize("user", reversedTotal)} had their entries removed from the post creation queue.`,
+            body: json2md(message),
             isInternal: true,
         });
         return;
@@ -280,18 +286,15 @@ export async function reversePostCreationQueue (event: ScheduledJobEvent<JSONObj
                 } else {
                     hitReason = entry.hitReason.reason;
                 }
-                return hitReason === hitReasonFilter || (hitReasonRegexFilter && new RegExp(hitReasonRegexFilter).test(hitReason));
+                return hitReason.includes(hitReasonFilter) || (hitReasonRegexFilter && new RegExp(hitReasonRegexFilter).test(hitReason));
             })) {
                 continue;
             }
         }
 
         // Reversible.
-        const txn = await context.redis.watch();
-        await txn.multi();
-        await txn.zRem(SUBMISSION_QUEUE, [username]);
-        await txn.hDel(SUBMISSION_DETAILS, [username]);
-        await txn.exec();
+        await context.redis.zRem(SUBMISSION_QUEUE, [username]);
+        await context.redis.hDel(SUBMISSION_DETAILS, [username]);
         await deleteAccountInitialEvaluationResults(username, context);
         console.log(`Evaluator Reversals: Removed ${username} from the post creation queue.`);
         reversedTotal++;
@@ -337,11 +340,8 @@ export async function deleteRecordsForRemovedUsers (_: unknown, context: JobCont
             continue;
         }
 
-        const txn = await context.redis.watch();
-        await txn.multi();
-        await updateAggregate(userStatus.userStatus, -1, txn);
-        await txn.zRem(CLEANUP_LOG_KEY, [username]);
-        await txn.exec();
+        await updateAggregate(userStatus.userStatus, -1, context.redis);
+        await context.redis.zRem(CLEANUP_LOG_KEY, [username]);
 
         await deleteUserStatus(username, context);
 
