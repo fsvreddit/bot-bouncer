@@ -1,5 +1,5 @@
 import { JobContext, JSONObject, Post, ScheduledJobEvent, ZMember } from "@devvit/public-api";
-import { BIO_TEXT_STORE, DISPLAY_NAME_STORE, getDataStoreFiltered, UserStatus } from "../dataStore.js";
+import { BIO_TEXT_STORE, DISPLAY_NAME_STORE, getDataStoreFiltered, USER_DEFINED_HANDLES_POSTS, UserStatus } from "../dataStore.js";
 import { addMinutes, addSeconds, format, subMonths } from "date-fns";
 import { getEvaluatorVariable } from "../userEvaluation/evaluatorVariables.js";
 import _ from "lodash";
@@ -14,7 +14,6 @@ import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
 
 const DEFINED_HANDLES_QUEUE = "definedHandlesQueue";
 const DEFINED_HANDLES_DATA = "definedHandlesData";
-export const USER_DEFINED_HANDLES_POSTS = "userDefinedHandlesPosts";
 
 interface DefinedHandleData {
     count: number;

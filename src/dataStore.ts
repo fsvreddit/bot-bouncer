@@ -11,8 +11,9 @@ import json2md from "json2md";
 import { getUsernameFromUrl, sendMessageToWebhook } from "./utility.js";
 import { getUserExtended } from "@fsvreddit/fsv-devvit-helpers";
 import { storeClassificationEvent } from "./statistics/classificationStatistics.js";
-import { USER_DEFINED_HANDLES_POSTS } from "./statistics/definedHandlesStatistics.js";
 import { ZMember } from "@devvit/protos";
+
+export const USER_DEFINED_HANDLES_POSTS = "userDefinedHandlesPosts";
 import { getUserSocialLinks, hGetAllChunked } from "devvit-helpers";
 import { removeUserFromReversalsQueue } from "./modmail/evaluatorReversals.js";
 
