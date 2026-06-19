@@ -11,7 +11,6 @@ import json2md from "json2md";
 import { getUsernameFromUrl, sendMessageToWebhook } from "./utility.js";
 import { getUserExtended } from "@fsvreddit/fsv-devvit-helpers";
 import { storeClassificationEvent } from "./statistics/classificationStatistics.js";
-import { USER_DEFINED_HANDLES_POSTS } from "./statistics/definedHandlesStatistics.js";
 import { ZMember } from "@devvit/protos";
 import { getUserSocialLinks, hGetAllChunked } from "devvit-helpers";
 import { removeUserFromReversalsQueue } from "./modmail/evaluatorReversals.js";
@@ -24,6 +23,8 @@ export const DISPLAY_NAME_STORE = "DisplayNameStore";
 export const SOCIAL_LINKS_STORE = "SocialLinksStore";
 
 export const AGGREGATE_STORE = "AggregateStore";
+
+const USER_DEFINED_HANDLES_POSTS = "userDefinedHandlesPosts";
 
 export enum UserStatus {
     Pending = "pending",

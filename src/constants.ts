@@ -44,6 +44,7 @@ export enum ControlSubredditJob {
     DefinedHandlesPostStore = "definedHandlesPostStore",
     ClassificationReversals = "classificationReversals",
     PostCreationQueueReversals = "postCreationQueueReversals",
+    EmergencyConfigCleanup = "emergencyConfigCleanup",
     DeleteRecordsForRemovedUsers = "deleteRecordsForRemovedUsers",
     HandleConfigWikiChange = "handleConfigWikiChange",
     ConditionalStatsUpdate = "conditionalStatsUpdate",

@@ -9,6 +9,7 @@ import { EvaluateBotGroupAdvanced } from "@fsvreddit/bot-bouncer-evaluation/dist
 import { getUserExtended } from "@fsvreddit/fsv-devvit-helpers";
 import { addSeconds } from "date-fns";
 import { checkNonexistentSubs } from "./subExistenceChecks.js";
+import { cacheCurrentConfigRevisionCodeLocally, getChangedVariableKeys, recordEvaluatorConfigRevisionReceipt } from "../configRevisionReceipts.js";
 
 const EVALUATOR_VARIABLES_KEY = "evaluatorVariablesHash";
 const EVALUATOR_VARIABLES_YAML_PAGE_ROOT = "evaluator-config";
@@ -46,6 +47,7 @@ export async function getEvaluatorVariables (context: TriggerContext | JobContex
             allVariables = await context.redis.global.hGetAll(EVALUATOR_VARIABLES_KEY);
             await context.redis.hSet(EVALUATOR_VARIABLES_KEY, allVariables);
             await context.redis.expire(EVALUATOR_VARIABLES_KEY, 300); // 5 minutes
+            await cacheCurrentConfigRevisionCodeLocally(context);
             console.log(`Evaluator Variables: Refreshed ${Object.keys(allVariables).length} evaluator variables to subreddit ${context.subredditName} from global store.`);
         }
     }
@@ -218,6 +220,7 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
     const converted = _.fromPairs(Object.entries(variables).map(([key, value]) => [key, JSON.stringify(value)]));
 
     const existingVariables = await context.redis.global.hGetAll(EVALUATOR_VARIABLES_KEY);
+    const changedVariableKeys = getChangedVariableKeys(existingVariables, converted);
     const keysToRemove = Object.keys(existingVariables).filter(key => !(key in converted));
 
     await context.redis.global.hSet(EVALUATOR_VARIABLES_KEY, converted);
@@ -228,8 +231,23 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
     const newRevisions = _.fromPairs(pages.map(page => [page.name, page.revisionId]));
     await context.redis.hSet(EVALUATOR_VARIABLES_LAST_REVISIONS_KEY, newRevisions);
 
+    const revisionReceipt = await recordEvaluatorConfigRevisionReceipt({
+        updatedBy: event.data?.username as string | undefined,
+        changedVariableKeys,
+    }, context);
+
     const variablesCount = Object.keys(converted).length;
     console.log(`Evaluator Variables: Updated ${variablesCount} variables and removed ${keysToRemove.length} from wiki edit by /u/${event.data?.username as string | undefined ?? "unknown"}.`);
+
+    if (revisionReceipt) {
+        console.log(`Evaluator Variables: Config revision receipt ${revisionReceipt.code} recorded for ${changedVariableKeys.length} changed ${changedVariableKeys.length === 1 ? "variable" : "variables"}.`);
+        if (controlSubSettings.monitoringWebhook) {
+            const changedEvaluators = revisionReceipt.appliesToAllEvaluators
+                ? "shared evaluator variables"
+                : revisionReceipt.changedEvaluatorNames.length > 0 ? revisionReceipt.changedEvaluatorNames.join(", ") : "unknown evaluator variables";
+            await sendMessageToWebhook(controlSubSettings.monitoringWebhook, `Config revision saved: ${revisionReceipt.code}\nUpdated by: u/${revisionReceipt.updatedBy ?? "unknown"}\nChanged: ${changedEvaluators}\nChanged variable count: ${changedVariableKeys.length}`);
+        }
+    }
 
     const compressedVariables = compressData(variables);
 

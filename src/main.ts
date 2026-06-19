@@ -21,8 +21,7 @@ import { checkUptimeAndMessages } from "./uptimeMonitor.js";
 import { handleRapidJob } from "./scheduler/handleRapidJob.js";
 import { buildEvaluatorAccuracyStatistics } from "./statistics/evaluatorAccuracyStatistics.js";
 import { definedHandlesStatsInitializer, gatherDefinedHandlesStats, storeDefinedHandlesDataJob } from "./statistics/definedHandlesStatistics.js";
-import { deleteRecordsForRemovedUsers, classificationReversalsJob, reversePostCreationQueue } from "./modmail/evaluatorReversals.js";
-import { handleCommentCreate, handlePostCreate, handlePostSubmit } from "./handleContentCreation.js";
+import { deleteRecordsForRemovedUsers, classificationReversalsJob, reversePostCreationQueue, emergencyConfigCleanupJob } from "./modmail/evaluatorReversals.js";import { handleCommentCreate, handlePostCreate, handlePostSubmit } from "./handleContentCreation.js";
 import { conditionalStatsUpdate } from "./statistics/conditionalStatsUpdate.js";
 import { asyncWikiUpdate } from "./statistics/asyncWikiUpdate.js";
 import { generateBioStatisticsReport, updateBioStatisticsJob } from "./statistics/userBioStatistics.js";
@@ -202,6 +201,11 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: ControlSubredditJob.PostCreationQueueReversals,
     onRun: reversePostCreationQueue,
+});
+
+Devvit.addSchedulerJob({
+    name: ControlSubredditJob.EmergencyConfigCleanup,
+    onRun: emergencyConfigCleanupJob,
 });
 
 Devvit.addSchedulerJob({

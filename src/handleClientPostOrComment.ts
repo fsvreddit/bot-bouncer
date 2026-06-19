@@ -12,6 +12,7 @@ import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { recordBanForSummary } from "./modmail/actionSummary.js";
 import { expireKeyAt, isBanned, isContributor } from "devvit-helpers";
 import { filterContent, getPostOrCommentById, getTrueUsername, getUserExtended, hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
+import { ConfigRevisionUserHit, getLoadedConfigRevisionReceiptForEvaluator, recordConfigRevisionUserHit } from "./configRevisionReceipts.js";
 
 export async function handleClientPostCreate (event: PostCreate, context: TriggerContext) {
     if (context.subredditName === CONTROL_SUBREDDIT) {
@@ -324,6 +325,7 @@ async function checkAndReportPotentialBot (username: string, target: Post | Comm
     let isLikelyBot = false;
     let anyEvaluatorsChecked = false;
     let botName: string | undefined;
+    let botShortname: string | undefined;
 
     let socialLinks: UserSocialLink[] | undefined;
 
@@ -381,6 +383,7 @@ async function checkAndReportPotentialBot (username: string, target: Post | Comm
         if (evaluationResult) {
             isLikelyBot = true;
             botName = evaluator.name;
+            botShortname = evaluator.shortname;
             break;
         }
     }
@@ -411,6 +414,23 @@ async function checkAndReportPotentialBot (username: string, target: Post | Comm
     const targetItem = await getPostOrCommentById(context.reddit, targetId);
     const reportContext = `Automatically reported via a [${isLinkId(targetItem.id) ? "post" : "comment"}](${targetItem.permalink}) on /r/${targetItem.subredditName}`;
 
+    let configRevisionHit: ConfigRevisionUserHit | undefined;
+    if (botShortname && botName) {
+        const revisionReceipt = await getLoadedConfigRevisionReceiptForEvaluator(botShortname, context);
+        if (revisionReceipt) {
+            configRevisionHit = {
+                username: user.username,
+                revisionCode: revisionReceipt.code,
+                evaluatorShortname: botShortname,
+                evaluatorName: botName,
+                caughtAt: Date.now(),
+                targetId: targetItem.id,
+                subreddit: targetItem.subredditName,
+            };
+            await recordConfigRevisionUserHit(configRevisionHit, context);
+        }
+    }
+
     await addExternalSubmissionFromClientSub({
         username: user.username,
         subreddit: context.subredditName,
@@ -418,6 +438,7 @@ async function checkAndReportPotentialBot (username: string, target: Post | Comm
         reportContext,
         immediate: true,
         targetId: targetItem.id,
+        configRevisionHit,
     }, context);
 
     console.log(`Created external submission via automated evaluation for ${user.username} for bot style ${botName}`);

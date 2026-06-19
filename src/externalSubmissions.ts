@@ -14,6 +14,7 @@ import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { queueKarmaFarmingAccounts } from "./karmaFarmingSubsCheck.js";
 import { userIsTrustedSubmitter } from "./trustedSubmitterHelpers.js";
 import { expireKeyAt } from "devvit-helpers";
+import { ConfigRevisionUserHit, recordConfigRevisionUserHit } from "./configRevisionReceipts.js";
 
 const WIKI_PAGE = "externalsubmissions";
 
@@ -35,6 +36,7 @@ export interface ExternalSubmission {
     sendFeedback?: boolean;
     proactive?: boolean;
     immediate?: boolean;
+    configRevisionHit?: ConfigRevisionUserHit;
 };
 
 export async function addExternalSubmissionFromClientSub (data: ExternalSubmission, context: TriggerContext) {
@@ -54,6 +56,10 @@ export async function addExternalSubmissionFromClientSub (data: ExternalSubmissi
         await context.redis.global.zAdd(EXTERNAL_SUBMISSION_QUEUE_KEY, { member: data.username, score: new Date().getTime() });
         await context.redis.global.set(getExternalSubmissionDataKey(data.username), JSON.stringify(data), { expiration: addDays(new Date(), 7) });
         console.log(`External Submissions: Added external submission for ${data.username} to the queue.`);
+    }
+
+    if (data.configRevisionHit) {
+        await recordConfigRevisionUserHit(data.configRevisionHit, context);
     }
 
     if (data.targetId) {
@@ -152,6 +158,10 @@ export async function addExternalSubmissionToPostCreationQueue (item: ExternalSu
         commentToAdd = json2md(body);
     }
 
+    if (item.configRevisionHit) {
+        await recordConfigRevisionUserHit(item.configRevisionHit, context);
+    }
+
     const submission: AsyncSubmission = {
         user: await getUserExtendedFromUser(user, context),
         submitter: item.submitter,
@@ -168,6 +178,7 @@ export async function addExternalSubmissionToPostCreationQueue (item: ExternalSu
         removeComment: item.publicContext === false,
         reportContext: item.reportContext,
         evaluatorsChecked: item.evaluationResults !== undefined && item.evaluationResults.length > 0,
+        configRevisionHit: item.configRevisionHit,
     };
 
     const [result] = await queuePostCreation([submission], context);
