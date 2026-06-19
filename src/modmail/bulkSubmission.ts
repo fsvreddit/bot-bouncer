@@ -9,6 +9,7 @@ import pluralize from "pluralize";
 import { ModmailMessage } from "./modmail.js";
 import { getControlSubSettings } from "../settings.js";
 import markdownEscape from "markdown-escape";
+import { recordBulkSubmittedAccounts } from "../statistics/moderatorActivityStatistics.js";
 
 interface UserWithDetails {
     username: string;
@@ -160,9 +161,12 @@ export async function handleBulkSubmission (submitter: string, trusted: boolean,
         return false;
     }
 
+    const submittedAccountCounts: Record<string, number> = {};
     let queued = 0;
 
     if (data.usernames) {
+        submittedAccountCounts[submitter] = (submittedAccountCounts[submitter] ?? 0) + data.usernames.length;
+
         const initialStatus = trusted ? UserStatus.Banned : UserStatus.Pending;
         queued = await handleBulkItems(data.usernames.map(username => ({
             username,
@@ -173,6 +177,10 @@ export async function handleBulkSubmission (submitter: string, trusted: boolean,
     }
 
     if (data.userDetails) {
+        for (const entry of data.userDetails) {
+            submittedAccountCounts[entry.submitter] = (submittedAccountCounts[entry.submitter] ?? 0) + 1;
+        }
+
         const initialStatus = trusted ? UserStatus.Banned : UserStatus.Pending;
         queued = await handleBulkItems(data.userDetails.map(entry => ({
             username: entry.username,
@@ -181,6 +189,9 @@ export async function handleBulkSubmission (submitter: string, trusted: boolean,
             reason: entry.reason,
         })), context);
     }
+
+    await Promise.all(Object.entries(submittedAccountCounts)
+        .map(([username, accountCount]) => recordBulkSubmittedAccounts(username, accountCount, `modmail:${conversationId}`, context)));
 
     await context.reddit.modMail.archiveConversation(conversationId);
 

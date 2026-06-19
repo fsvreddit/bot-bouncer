@@ -1,6 +1,7 @@
 import { JobContext, JSONObject, JSONValue, ScheduledJobEvent, TriggerContext } from "@devvit/public-api";
 import { ValidationIssue, yamlToVariables } from "@fsvreddit/bot-bouncer-evaluation";
 import { ALL_RELEVANT_EVALUTORS, CONTROL_SUBREDDIT, ControlSubredditJob } from "../constants.js";
+import { recordConfigEditSession } from "../statistics/moderatorActivityStatistics.js";
 import _ from "lodash";
 import { compressData, sendMessageToWebhook } from "../utility.js";
 import json2md from "json2md";
@@ -230,6 +231,7 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
 
     const variablesCount = Object.keys(converted).length;
     console.log(`Evaluator Variables: Updated ${variablesCount} variables and removed ${keysToRemove.length} from wiki edit by /u/${event.data?.username as string | undefined ?? "unknown"}.`);
+    await recordConfigEditSession(event.data?.username as string | undefined, context);
 
     const compressedVariables = compressData(variables);
 

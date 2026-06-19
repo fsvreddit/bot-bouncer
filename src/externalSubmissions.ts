@@ -14,6 +14,7 @@ import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { queueKarmaFarmingAccounts } from "./karmaFarmingSubsCheck.js";
 import { userIsTrustedSubmitter } from "./trustedSubmitterHelpers.js";
 import { expireKeyAt } from "devvit-helpers";
+import { recordBulkSubmittedAccounts } from "./statistics/moderatorActivityStatistics.js";
 
 const WIKI_PAGE = "externalsubmissions";
 
@@ -248,6 +249,18 @@ export async function handleExternalSubmissionsPageUpdate (context: TriggerConte
     }));
 
     const enqueued = results.filter(r => r).length;
+
+    if (currentSubmissionList.length >= 5) {
+        const submittedAccountCounts: Record<string, number> = {};
+        for (const item of currentSubmissionList) {
+            if (item.submitter) {
+                submittedAccountCounts[item.submitter] = (submittedAccountCounts[item.submitter] ?? 0) + 1;
+            }
+        }
+
+        await Promise.all(Object.entries(submittedAccountCounts)
+            .map(([username, accountCount]) => recordBulkSubmittedAccounts(username, accountCount, `external:${context.subredditName}:${wikiPage?.revisionId ?? "unknown"}`, context)));
+    }
 
     console.log(`External Submissions: Enqueued ${enqueued} external ${pluralize("submission", enqueued)} for processing.`);
 

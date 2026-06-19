@@ -12,6 +12,7 @@ import { isModeratorWithCache, removeCachedBanStatus, sendMessageToWebhook } fro
 import { getExtendedDevvit } from "devvit-helpers";
 import { getInstallDate } from "./installActions.js";
 import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
+import { recordConfigEditSession } from "./statistics/moderatorActivityStatistics.js";
 
 export async function handleModAction (event: ModAction, context: TriggerContext) {
     if (await hasTriggerBeenHandled(context.redis, `ModAction:${event.action}:${event.moderator?.name}:${event.actionedAt?.getTime()}`, { expiration: addMinutes(new Date(), 10) })) {
@@ -209,10 +210,14 @@ export async function handleConfigWikiChange (event: ScheduledJobEvent<JSONObjec
 
     switch (configWikiPage) {
         case ConfigWikiPage.AutoAppealHandling:
-            await validateAndSaveAppealConfig(updatedBy, context);
+            if (await validateAndSaveAppealConfig(updatedBy, context)) {
+                await recordConfigEditSession(updatedBy, context);
+            }
             break;
         case ConfigWikiPage.ControlSubSettings:
-            await validateControlSubConfigChange(updatedBy, context);
+            if (await validateControlSubConfigChange(updatedBy, context)) {
+                await recordConfigEditSession(updatedBy, context);
+            }
             break;
         default:
             console.error(`handleConfigWikiChange: Unknown config wiki page: ${configWikiPage}`);

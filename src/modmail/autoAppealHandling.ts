@@ -160,13 +160,13 @@ function getSubstitutions (wikiPage: string): Record<string, string | string[]> 
     return results;
 }
 
-export async function validateAndSaveAppealConfig (username: string, context: TriggerContext): Promise<void> {
+export async function validateAndSaveAppealConfig (username: string, context: TriggerContext): Promise<boolean> {
     const appealConfigRevisionKey = "AppealConfigRevision";
     const wikiPage = await context.reddit.getWikiPage(CONTROL_SUBREDDIT, APPEAL_CONFIG_WIKI_PAGE);
     const lastAppealConfigRevision = await context.redis.get(appealConfigRevisionKey);
     if (wikiPage.revisionId === lastAppealConfigRevision) {
         // The saved config is up-to-date with the latest revision
-        return;
+        return false;
     }
 
     let substitutions: Record<string, string | string[]>;
@@ -193,7 +193,7 @@ export async function validateAndSaveAppealConfig (username: string, context: Tr
             ]));
         }
 
-        return;
+        return false;
     }
 
     let pageToParse = wikiPage.content;
@@ -265,7 +265,7 @@ export async function validateAndSaveAppealConfig (username: string, context: Tr
         await context.redis.set(APPEAL_CONFIG_REDIS_KEY, JSON.stringify(parsedConfigs));
         await context.redis.set(appealConfigRevisionKey, wikiPage.revisionId);
         console.log(`Appeal config updated to revision ${wikiPage.revisionId}`);
-        return;
+        return true;
     }
 
     console.error("Invalid appeal config:", issues);
@@ -287,6 +287,8 @@ export async function validateAndSaveAppealConfig (username: string, context: Tr
             { ul: issues },
         ]));
     }
+
+    return false;
 }
 
 async function getAppealConfig (context: TriggerContext): Promise<AppealConfig[]> {

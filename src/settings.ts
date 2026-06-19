@@ -391,7 +391,7 @@ async function reportControlSubValidationError (username: string, message: strin
     }
 }
 
-export async function validateControlSubConfigChange (username: string, context: TriggerContext) {
+export async function validateControlSubConfigChange (username: string, context: TriggerContext): Promise<boolean> {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
         throw new Error("validateControlSubConfigChange can only be called in the control subreddit");
     }
@@ -407,7 +407,7 @@ export async function validateControlSubConfigChange (username: string, context:
     }
 
     if (!wikiPage || wikiPage.revisionId === lastRevision) {
-        return;
+        return false;
     }
 
     let json: ControlSubSettings | undefined;
@@ -415,17 +415,18 @@ export async function validateControlSubConfigChange (username: string, context:
         json = JSON.parse(wikiPage.content) as ControlSubSettings;
     } catch {
         await reportControlSubValidationError(username, "Invalid JSON in control sub settings", context);
-        return;
+        return false;
     }
 
     const ajv = new Ajv.default();
     const validate = ajv.compile(schema);
     if (!validate(json)) {
         await reportControlSubValidationError(username, `Control sub settings are invalid: ${ajv.errorsText(validate.errors)}`, context);
-        return;
+        return false;
     }
 
     await context.redis.set(redisKey, wikiPage.revisionId);
     await context.redis.global.set(CONTROL_SUB_SETTINGS_CACHE_KEY, wikiPage.content);
     console.log("Control sub settings validated successfully");
+    return true;
 }
