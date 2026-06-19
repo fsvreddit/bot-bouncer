@@ -123,7 +123,6 @@ export async function recheckFlaggedUser (username: string, context: JobContext)
         }
 
         if (!await Promise.resolve(evaluator.preEvaluateUser(user))) {
-            console.log(`FlaggedRechecks: User ${user.username} did not pass pre-evaluation for ${Evaluator.name}`);
             userSocialLinks ??= evaluator.socialLinks;
             continue;
         }
