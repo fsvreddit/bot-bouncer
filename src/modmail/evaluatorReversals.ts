@@ -287,11 +287,8 @@ export async function reversePostCreationQueue (event: ScheduledJobEvent<JSONObj
         }
 
         // Reversible.
-        const txn = await context.redis.watch();
-        await txn.multi();
-        await txn.zRem(SUBMISSION_QUEUE, [username]);
-        await txn.hDel(SUBMISSION_DETAILS, [username]);
-        await txn.exec();
+        await context.redis.zRem(SUBMISSION_QUEUE, [username]);
+        await context.redis.hDel(SUBMISSION_DETAILS, [username]);
         await deleteAccountInitialEvaluationResults(username, context);
         console.log(`Evaluator Reversals: Removed ${username} from the post creation queue.`);
         reversedTotal++;
@@ -337,11 +334,8 @@ export async function deleteRecordsForRemovedUsers (_: unknown, context: JobCont
             continue;
         }
 
-        const txn = await context.redis.watch();
-        await txn.multi();
-        await updateAggregate(userStatus.userStatus, -1, txn);
-        await txn.zRem(CLEANUP_LOG_KEY, [username]);
-        await txn.exec();
+        await updateAggregate(userStatus.userStatus, -1, context.redis);
+        await context.redis.zRem(CLEANUP_LOG_KEY, [username]);
 
         await deleteUserStatus(username, context);
 
