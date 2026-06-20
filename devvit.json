@@ -9,6 +9,7 @@
             "onPostCreate",
             "onCommentCreate",
             "onCommentUpdate",
+            "onPostUpdate",
             "onPostFlairUpdate",
             "onPostDelete",
             "onPostSubmit",

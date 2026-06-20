@@ -1,0 +1,58 @@
+warning: in the working copy of 'src/handleReportUser.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/main.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/modmail/evaluatorReversals.ts', LF will be replaced by CRLF the next time Git touches it
+[1mdiff --git a/src/handleReportUser.ts b/src/handleReportUser.ts[m
+[1mindex 90f1842..054db37 100644[m
+[1m--- a/src/handleReportUser.ts[m
+[1m+++ b/src/handleReportUser.ts[m
+[36m@@ -185,12 +185,8 @@[m [mexport async function handleReportUser (event: MenuItemOnPressEvent, context: Co[m
+ [m
+     const data = {[m
+         username: target.authorName,[m
+[31m-<<<<<<< Updated upstream[m
+         userFeedbackPreference: await getUserFeedbackPreference(currentUser.username, context),[m
+[31m-=======[m
+[31m-        configRevisionNotice,[m
+[31m->>>>>>> Stashed changes[m
+[31m-        feedbackHelpText: canReceiveFeedback ? "You must be able to receive chat messages from /u/bot-bouncer to receive this notification" : "We've tried to send feedback for you several times but this hasn't worked. Check to make sure you can receive chats from /u/bot-bouncer. This option will return within 24h.",[m
+[32m+[m[32m        configRevisionNotice,        feedbackHelpText: canReceiveFeedback ? "You must be able to receive chat messages from /u/bot-bouncer to receive this notification" : "We've tried to send feedback for you several times but this hasn't worked. Check to make sure you can receive chats from /u/bot-bouncer. This option will return within 24h.",[m
+         feedbackDisabled: !canReceiveFeedback,[m
+     };[m
+ [m
+[1mdiff --git a/src/main.ts b/src/main.ts[m
+[1mindex f673150..580e4e6 100644[m
+[1m--- a/src/main.ts[m
+[1m+++ b/src/main.ts[m
+[36m@@ -20,14 +20,8 @@[m [mimport { perform6HourlyJobs, perform6HourlyJobsPart2 } from "./scheduler/sixHour[m
+ import { checkUptimeAndMessages } from "./uptimeMonitor.js";[m
+ import { handleRapidJob } from "./scheduler/handleRapidJob.js";[m
+ import { buildEvaluatorAccuracyStatistics } from "./statistics/evaluatorAccuracyStatistics.js";[m
+[31m-<<<<<<< Updated upstream[m
+ import { definedHandlesStatsInitializer, gatherDefinedHandlesStats, storeDefinedHandlesDataJob } from "./statistics/definedHandlesStatistics.js";[m
+[31m-import { deleteRecordsForRemovedUsers, classificationReversalsJob, reversePostCreationQueue } from "./modmail/evaluatorReversals.js";[m
+[31m-=======[m
+[31m-import { gatherDefinedHandlesStats, storeDefinedHandlesDataJob } from "./statistics/definedHandlesStatistics.js";[m
+[31m-import { deleteRecordsForRemovedUsers, classificationReversalsJob, reversePostCreationQueue, emergencyConfigCleanupJob } from "./modmail/evaluatorReversals.js";[m
+[31m->>>>>>> Stashed changes[m
+[31m-import { handleCommentCreate, handlePostCreate, handlePostSubmit } from "./handleContentCreation.js";[m
+[32m+[m[32mimport { deleteRecordsForRemovedUsers, classificationReversalsJob, reversePostCreationQueue, emergencyConfigCleanupJob } from "./modmail/evaluatorReversals.js";import { handleCommentCreate, handlePostCreate, handlePostSubmit } from "./handleContentCreation.js";[m
+ import { conditionalStatsUpdate } from "./statistics/conditionalStatsUpdate.js";[m
+ import { asyncWikiUpdate } from "./statistics/asyncWikiUpdate.js";[m
+ import { generateBioStatisticsReport, updateBioStatisticsJob } from "./statistics/userBioStatistics.js";[m
+[1mdiff --git a/src/modmail/evaluatorReversals.ts b/src/modmail/evaluatorReversals.ts[m
+[1mindex 2273198..ab8aa97 100644[m
+[1m--- a/src/modmail/evaluatorReversals.ts[m
+[1m+++ b/src/modmail/evaluatorReversals.ts[m
+[36m@@ -9,11 +9,8 @@[m [mimport Ajv, { JSONSchemaType } from "ajv";[m
+ import { AsyncSubmission } from "../postCreation.js";[m
+ import pluralize from "pluralize";[m
+ import json2md from "json2md";[m
+[31m-<<<<<<< Updated upstream[m
+[31m-=======[m
+[32m+[m[32mimport json2md from "json2md";[m
+ import { getConfigRevisionReceipt } from "../configRevisionReceipts.js";[m
+[31m->>>>>>> Stashed changes[m
+[31m-[m
+ const REVERSED_USERS = "ReversedUsers";[m
+ [m
+ export async function addToReversalsQueue (username: string, days: number, context: TriggerContext) {[m

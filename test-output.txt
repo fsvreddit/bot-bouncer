@@ -1,0 +1,141 @@
+
+> bot-bouncer@0.0.0 test:unit
+> vitest --run
+
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.9 [39m[90mC:/Users/15738/Documents/Reddit/BotBouncer/repo/bot-bouncer[39m
+
+ [32m✓[39m src/statistics/socialLinksStatistics.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+ [32m✓[39m src/constants.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+[90mstderr[2m | src/userEvaluation/evaluatorVariables.test.ts[2m > [22m[2mInvalid regex
+[22m[39mMissing killswitch for Bad Username Bot
+Missing killswitch for Bio Text Bot
+Missing killswitch for Bio Text Defined Handle Bot
+Missing killswitch for Bad Display Name Bot
+Missing killswitch for Bad Display Name Defined Handle Bot
+Missing killswitch for Obfuscated Bio Keywords Bot
+Missing killswitch for Domain Sharer
+Missing killswitch for Sticky Post Title Bot
+Missing killswitch for Self Comment
+Missing killswitch for Bad Post Title Bot
+Missing killswitch for Bad Post Title Defined Handles Bot
+Missing killswitch for Bad Post Title Multi Bot
+Missing killswitch for Suspicious First Post
+Missing killswitch for Inconsistent Age Bot
+Missing killswitch for Inconsistent Gender Bot
+Missing killswitch for World Traveller
+Missing killswitch for Comment Phrase
+Missing killswitch for Telegram Group Bot
+Missing killswitch for Warmup Bot
+Missing killswitch for Social Links Bot
+Missing killswitch for Bot Group Advanced
+Missing killswitch for Title Copy Bot
+Missing killswitch for Bot Group Advanced Internal
+
+[90mstderr[2m | src/userEvaluation/evaluatorVariables.test.ts[2m > [22m[2mRegex with || condition
+[22m[39mMissing killswitch for Bad Username Bot
+Missing killswitch for Bio Text Bot
+Missing killswitch for Bio Text Defined Handle Bot
+Missing killswitch for Bad Display Name Bot
+Missing killswitch for Bad Display Name Defined Handle Bot
+Missing killswitch for Obfuscated Bio Keywords Bot
+Missing killswitch for Domain Sharer
+Missing killswitch for Sticky Post Title Bot
+Missing killswitch for Self Comment
+Missing killswitch for Bad Post Title Bot
+Missing killswitch for Bad Post Title Defined Handles Bot
+Missing killswitch for Bad Post Title Multi Bot
+Missing killswitch for Suspicious First Post
+Missing killswitch for Inconsistent Age Bot
+Missing killswitch for Inconsistent Gender Bot
+Missing killswitch for World Traveller
+Missing killswitch for Comment Phrase
+Missing killswitch for Telegram Group Bot
+Missing killswitch for Warmup Bot
+Missing killswitch for Social Links Bot
+Missing killswitch for Bot Group Advanced
+Missing killswitch for Title Copy Bot
+Missing killswitch for Bot Group Advanced Internal
+
+[90mstdout[2m | src/userEvaluation/evaluatorVariables.test.ts[2m > [22m[2mRegex with || condition
+[22m[39m[
+  {
+    severity: [32m'error'[39m,
+    message: [32m'Bio Text Bot: Bio Text regex is too greedy: (?:addison|adele||allie)'[39m
+  }
+]
+
+[90mstderr[2m | src/userEvaluation/evaluatorVariables.test.ts[2m > [22m[2mRegex with badly formed array
+[22m[39mMissing killswitch for Bad Username Bot
+Missing killswitch for Bio Text Bot
+Missing killswitch for Bio Text Defined Handle Bot
+Missing killswitch for Bad Display Name Bot
+Missing killswitch for Bad Display Name Defined Handle Bot
+Missing killswitch for Obfuscated Bio Keywords Bot
+Missing killswitch for Domain Sharer
+Missing killswitch for Sticky Post Title Bot
+Missing killswitch for Self Comment
+Missing killswitch for Bad Post Title Bot
+Missing killswitch for Bad Post Title Defined Handles Bot
+Missing killswitch for Bad Post Title Multi Bot
+Missing killswitch for Suspicious First Post
+Missing killswitch for Inconsistent Age Bot
+Missing killswitch for Inconsistent Gender Bot
+Missing killswitch for World Traveller
+Missing killswitch for Comment Phrase
+Missing killswitch for Telegram Group Bot
+Missing killswitch for Warmup Bot
+Missing killswitch for Social Links Bot
+Missing killswitch for Bot Group Advanced
+Missing killswitch for Title Copy Bot
+Missing killswitch for Bot Group Advanced Internal
+
+[90mstderr[2m | src/userEvaluation/evaluatorVariables.test.ts[2m > [22m[2mBot Groups test
+[22m[39mMissing killswitch for Bad Username Bot
+Missing killswitch for Bio Text Bot
+Missing killswitch for Bio Text Defined Handle Bot
+Missing killswitch for Bad Display Name Bot
+Missing killswitch for Bad Display Name Defined Handle Bot
+Missing killswitch for Obfuscated Bio Keywords Bot
+Missing killswitch for Domain Sharer
+Missing killswitch for Sticky Post Title Bot
+Missing killswitch for Self Comment
+Missing killswitch for Bad Post Title Bot
+Missing killswitch for Bad Post Title Defined Handles Bot
+Missing killswitch for Bad Post Title Multi Bot
+Missing killswitch for Suspicious First Post
+Missing killswitch for Inconsistent Age Bot
+Missing killswitch for Inconsistent Gender Bot
+Missing killswitch for World Traveller
+Missing killswitch for Comment Phrase
+Missing killswitch for Telegram Group Bot
+Missing killswitch for Warmup Bot
+Missing killswitch for Social Links Bot
+Missing killswitch for Bot Group Advanced
+Missing killswitch for Title Copy Bot
+Missing killswitch for Bot Group Advanced Internal
+
+ [32m✓[39m src/userEvaluation/evaluatorVariables.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 84[2mms[22m[39m
+ [32m✓[39m src/statistics/submitterStatistics.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+ [32m✓[39m src/dataStore.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+ [32m✓[39m src/handleControlSubFlairUpdate.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+ [32m✓[39m src/postCreation.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 13[2mms[22m[39m
+[90mstdout[2m | src/utility.test.ts[2m > [22m[2msendMessageToWebhook returns message id when webhook responds successfully
+[22m[39mWebhook message sent, status: [33m200[39m
+
+[90mstderr[2m | src/utility.test.ts[2m > [22m[2msendMessageToWebhook returns undefined when webhook responds with failure
+[22m[39mWebhook send failed with status 500: server error
+
+[90mstdout[2m | src/utility.test.ts[2m > [22m[2mupdateWebhookMessage returns true on success and false on failure
+[22m[39mWebhook message updated, status: [33m200[39m
+
+[90mstderr[2m | src/utility.test.ts[2m > [22m[2mupdateWebhookMessage returns true on success and false on failure
+[22m[39mWebhook update failed with status 404: not found
+
+ [32m✓[39m src/utility.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 29[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m8 passed[39m[22m[90m (8)[39m
+[2m      Tests [22m [1m[32m34 passed[39m[22m[90m (34)[39m
+[2m   Start at [22m 04:28:46
+[2m   Duration [22m 28.01s[2m (transform 3.79s, setup 0ms, import 158.05s, tests 200ms, environment 3ms)[22m
+

@@ -1,5 +1,5 @@
 import { Post, Comment, TriggerContext, SettingsValues, JSONValue, UserSocialLink } from "@devvit/public-api";
-import { CommentCreate, CommentUpdate, PostCreate } from "@devvit/protos";
+import { CommentCreate, CommentUpdate, PostCreate, PostUpdate } from "@devvit/protos";
 import { addDays, addSeconds, formatDate, subMinutes } from "date-fns";
 import { getUserStatus, UserDetails, UserStatus } from "./dataStore.js";
 import { addUserToModqueueRemovalStore, isUserWhitelisted, recordBan, recordUserContentCreation } from "./handleClientSubredditClassificationChanges.js";
@@ -12,6 +12,41 @@ import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { recordBanForSummary } from "./modmail/actionSummary.js";
 import { expireKeyAt, isBanned, isContributor } from "devvit-helpers";
 import { filterContent, getPostOrCommentById, getTrueUsername, getUserExtended, hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
+
+interface EditedContentPreEvaluator {
+    preEvaluatePost: (post: Post) => boolean | Promise<boolean>;
+    preEvaluateComment: (event: CommentCreate | CommentUpdate) => boolean | Promise<boolean>;
+    preEvaluatePostEdit?: (post: Post) => boolean | Promise<boolean>;
+    preEvaluateCommentEdit?: (event: CommentUpdate) => boolean | Promise<boolean>;
+}
+
+interface PotentialBotCheckOptions {
+    contentEdited?: boolean;
+}
+
+async function preEvaluateEditedPost (evaluator: EditedContentPreEvaluator, post: Post): Promise<boolean> {
+    if (await Promise.resolve(evaluator.preEvaluatePost(post))) {
+        return true;
+    }
+
+    if (typeof evaluator.preEvaluatePostEdit === "function") {
+        return await Promise.resolve(evaluator.preEvaluatePostEdit(post));
+    }
+
+    return false;
+}
+
+async function preEvaluateEditedComment (evaluator: EditedContentPreEvaluator, event: CommentUpdate): Promise<boolean> {
+    if (await Promise.resolve(evaluator.preEvaluateComment(event))) {
+        return true;
+    }
+
+    if (typeof evaluator.preEvaluateCommentEdit === "function") {
+        return await Promise.resolve(evaluator.preEvaluateCommentEdit(event));
+    }
+
+    return false;
+}
 
 export async function handleClientPostCreate (event: PostCreate, context: TriggerContext) {
     if (context.subredditName === CONTROL_SUBREDDIT) {
@@ -59,6 +94,71 @@ export async function handleClientPostCreate (event: PostCreate, context: Trigge
         const settings = await context.settings.getAll();
         await checkAndReportPotentialBot(username, post, settings, variables, context);
     }
+}
+
+export async function handleClientPostUpdate (event: PostUpdate, context: TriggerContext) {
+    if (context.subredditName === CONTROL_SUBREDDIT) {
+        return;
+    }
+
+    if (!event.post?.id) {
+        console.error("Content Edit: PostUpdate event missing post information", JSON.stringify(event));
+        return;
+    }
+
+    if (await hasTriggerBeenHandled(context.redis, `PostUpdate:${event.post.id}`, { expiration: addSeconds(new Date(), 10) })) {
+        return;
+    }
+
+    const post = await context.reddit.getPostById(event.post.id);
+    const username = event.author?.name
+        ? await getTrueUsername(context.reddit, event.author.name, event.post.id)
+        : post.authorName;
+
+    console.log(`Content Edit: PostUpdate ${event.post.id} by ${username}`);
+
+    if (username === "AutoModerator" || username === `${context.subredditName}-ModTeam` || username === "[deleted]") {
+        return;
+    }
+
+    const currentStatus = await getUserStatus(username, context);
+    if (currentStatus) {
+        return;
+    }
+
+    const variables = await getEvaluatorVariables(context);
+
+    let possibleBot = false;
+    for (const Evaluator of ALL_RELEVANT_EVALUTORS) {
+        const evaluator = new Evaluator(context, [], undefined, variables);
+        if (evaluator.evaluatorDisabled()) {
+            continue;
+        }
+
+        if (await preEvaluateEditedPost(evaluator as EditedContentPreEvaluator, post)) {
+            possibleBot = true;
+            break;
+        }
+    }
+
+    if (!possibleBot) {
+        return;
+    }
+
+    const redisKey = `lastBotCheckForUser:${username}`;
+    const recentlyChecked = await context.redis.get(redisKey);
+    if (recentlyChecked) {
+        // Allow some rechecks within 15 minutes, to find rapid fire bots.
+        const lastCheck = new Date(parseInt(recentlyChecked));
+        if (lastCheck < subMinutes(new Date(), 15)) {
+            return;
+        }
+    }
+
+    const settings = await context.settings.getAll();
+    await checkAndReportPotentialBot(username, post, settings, variables, context, { contentEdited: true });
+
+    await context.redis.set(redisKey, new Date().getTime().toString(), { expiration: addDays(new Date(), 2) });
 }
 
 /**
@@ -177,7 +277,7 @@ export async function handleClientCommentUpdate (event: CommentUpdate, context: 
             continue;
         }
 
-        if (evaluator.preEvaluateCommentEdit(fixedEvent)) {
+        if (await preEvaluateEditedComment(evaluator as EditedContentPreEvaluator, fixedEvent)) {
             possibleBot = true;
             break;
         }
@@ -198,7 +298,7 @@ export async function handleClientCommentUpdate (event: CommentUpdate, context: 
     }
 
     const settings = await context.settings.getAll();
-    await checkAndReportPotentialBot(fixedEvent.author.name, fixedEvent, settings, variables, context);
+    await checkAndReportPotentialBot(fixedEvent.author.name, fixedEvent, settings, variables, context, { contentEdited: true });
 
     await context.redis.set(redisKey, new Date().getTime().toString(), { expiration: addDays(new Date(), 2) });
 }
@@ -309,7 +409,7 @@ async function handleContentCreation (username: string, currentStatus: UserDetai
     await Promise.allSettled(promises);
 }
 
-async function checkAndReportPotentialBot (username: string, target: Post | CommentCreate, settings: SettingsValues, variables: Record<string, JSONValue>, context: TriggerContext) {
+async function checkAndReportPotentialBot (username: string, target: Post | CommentCreate | CommentUpdate, settings: SettingsValues, variables: Record<string, JSONValue>, context: TriggerContext, options: PotentialBotCheckOptions = {}) {
     const user = await getUserExtended(username, context);
     if (!user) {
         return;
@@ -334,11 +434,17 @@ async function checkAndReportPotentialBot (username: string, target: Post | Comm
         }
 
         if (target instanceof Post) {
-            if (!evaluator.preEvaluatePost(target)) {
+            const shouldEvaluatePost = options.contentEdited
+                ? await preEvaluateEditedPost(evaluator as EditedContentPreEvaluator, target)
+                : await Promise.resolve(evaluator.preEvaluatePost(target));
+            if (!shouldEvaluatePost) {
                 continue;
             }
         } else {
-            if (!await Promise.resolve(evaluator.preEvaluateComment(target))) {
+            const shouldEvaluateComment = options.contentEdited
+                ? await preEvaluateEditedComment(evaluator as EditedContentPreEvaluator, target as CommentUpdate)
+                : await Promise.resolve(evaluator.preEvaluateComment(target as CommentCreate));
+            if (!shouldEvaluateComment) {
                 continue;
             }
         }
