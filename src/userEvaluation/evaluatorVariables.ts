@@ -35,22 +35,32 @@ async function getExtraSubstititionValues (context: TriggerContext | JobContext)
 }
 
 export async function getEvaluatorVariables (context: TriggerContext | JobContext): Promise<Record<string, JSONValue>> {
-    let allVariables: Record<string, string>;
+    const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
 
-    if (context.subredditName === CONTROL_SUBREDDIT) {
-        allVariables = await context.redis.global.hGetAll(EVALUATOR_VARIABLES_KEY);
-    } else {
-        allVariables = await context.redis.hGetAll(EVALUATOR_VARIABLES_KEY);
+    return await context.cache(
+        async () => {
+            let allVariables: Record<string, string>;
 
-        if (Object.keys(allVariables).length === 0) {
-            allVariables = await context.redis.global.hGetAll(EVALUATOR_VARIABLES_KEY);
-            await context.redis.hSet(EVALUATOR_VARIABLES_KEY, allVariables);
-            await context.redis.expire(EVALUATOR_VARIABLES_KEY, 300); // 5 minutes
-            console.log(`Evaluator Variables: Refreshed ${Object.keys(allVariables).length} evaluator variables to subreddit ${context.subredditName} from global store.`);
-        }
-    }
+            if (subredditName === CONTROL_SUBREDDIT) {
+                allVariables = await context.redis.global.hGetAll(EVALUATOR_VARIABLES_KEY);
+            } else {
+                allVariables = await context.redis.hGetAll(EVALUATOR_VARIABLES_KEY);
 
-    return _.fromPairs(Object.entries(allVariables).map(([key, value]) => [key, JSON.parse(value)]));
+                if (Object.keys(allVariables).length === 0) {
+                    allVariables = await context.redis.global.hGetAll(EVALUATOR_VARIABLES_KEY);
+                    await context.redis.hSet(EVALUATOR_VARIABLES_KEY, allVariables);
+                    await context.redis.expire(EVALUATOR_VARIABLES_KEY, 300); // 5 minutes
+                    console.log(`Evaluator Variables: Refreshed ${Object.keys(allVariables).length} evaluator variables to subreddit ${subredditName} from global store.`);
+                }
+            }
+
+            return _.fromPairs(Object.entries(allVariables).map(([key, value]) => [key, JSON.parse(value)]));
+        },
+        {
+            key: `evaluatorVariables:${subredditName}`,
+            ttl: 30_000, // 30 seconds
+        },
+    );
 }
 
 export async function forceEvaluatorVariablesRefresh (context: TriggerContext | JobContext) {

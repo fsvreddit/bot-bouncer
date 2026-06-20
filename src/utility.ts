@@ -17,20 +17,28 @@ export function getUsernameFromUrl (url: string) {
 export async function isModeratorWithCache (username: string, context: TriggerContext, subreddit?: string): Promise<boolean> {
     const subredditName = subreddit ?? context.subredditName ?? await context.reddit.getCurrentSubredditName();
 
-    if (username === "AutoModerator" || username === `${subredditName}-ModTeam`) {
-        return true;
-    }
+    return await context.cache(
+        async () => {
+            if (username === "AutoModerator" || username === `${subredditName}-ModTeam`) {
+                return true;
+            }
 
-    const cacheKey = `modStatusValue:${subredditName}:${username}`;
-    const cachedValue = await context.redis.get(cacheKey);
-    if (cachedValue !== undefined) {
-        return JSON.parse(cachedValue) as boolean;
-    }
+            const cacheKey = `modStatusValue:${subredditName}:${username}`;
+            const cachedValue = await context.redis.get(cacheKey);
+            if (cachedValue !== undefined) {
+                return JSON.parse(cachedValue) as boolean;
+            }
 
-    const isAMod = await isModerator(context.reddit, subredditName, username);
+            const isAMod = await isModerator(context.reddit, subredditName, username);
 
-    await context.redis.set(cacheKey, JSON.stringify(isAMod), { expiration: addHours(new Date(), 1) });
-    return isAMod;
+            await context.redis.set(cacheKey, JSON.stringify(isAMod), { expiration: addHours(new Date(), 1) });
+            return isAMod;
+        },
+        {
+            key: `isModeratorWithCache:${subredditName}:${username}`,
+            ttl: 60 * 1000,
+        },
+    );
 }
 
 function getBanCacheKey (username: string, subredditName: string) {
@@ -46,15 +54,23 @@ export async function removeCachedBanStatus (username: string, context: TriggerC
 export async function isBannedWithCache (username: string, context: TriggerContext, subredditName?: string, cacheUntil?: Date): Promise<boolean> {
     const subName = subredditName ?? context.subredditName ?? await context.reddit.getCurrentSubredditName();
 
-    const cacheKey = getBanCacheKey(username, subName);
-    const cachedValue = await context.redis.get(cacheKey);
-    if (cachedValue !== undefined) {
-        return JSON.parse(cachedValue) as boolean;
-    }
+    return await context.cache(
+        async () => {
+            const cacheKey = getBanCacheKey(username, subName);
+            const cachedValue = await context.redis.get(cacheKey);
+            if (cachedValue !== undefined) {
+                return JSON.parse(cachedValue) as boolean;
+            }
 
-    const isUserBanned = await isBanned(context.reddit, subName, username);
-    await context.redis.set(cacheKey, JSON.stringify(isUserBanned), { expiration: cacheUntil ?? addDays(new Date(), 1) });
-    return isUserBanned;
+            const isUserBanned = await isBanned(context.reddit, subName, username);
+            await context.redis.set(cacheKey, JSON.stringify(isUserBanned), { expiration: cacheUntil ?? addDays(new Date(), 1) });
+            return isUserBanned;
+        },
+        {
+            key: `isBannedWithCache:${subName}:${username}`,
+            ttl: 60 * 1000 * 5, // 5 minutes
+        },
+    );
 }
 
 export async function getUserOrUndefined (username: string, context: TriggerContext, logError = false): Promise<User | undefined> {
