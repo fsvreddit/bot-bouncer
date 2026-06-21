@@ -51,7 +51,7 @@ If an account was banned by Bot Bouncer on a sub but successfully appeals via r/
 ## v1.32.0
 
 * When reporting bots, the "Receive Feedback" option defaults to the last value chosen
-* Performance improvements
+* Better handling of bot accounts that edit content into posts and comments
 
 ## v1.31.0
 

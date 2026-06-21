@@ -6,14 +6,15 @@
         "triggers": [
             "onAppInstall",
             "onAppUpgrade",
-            "onPostCreate",
             "onCommentCreate",
             "onCommentUpdate",
-            "onPostFlairUpdate",
-            "onPostDelete",
-            "onPostSubmit",
             "onModAction",
-            "onModMail"
+            "onModMail",
+            "onPostCreate",
+            "onPostDelete",
+            "onPostFlairUpdate",
+            "onPostSubmit",
+            "onPostUpdate"
         ]
     }
 }

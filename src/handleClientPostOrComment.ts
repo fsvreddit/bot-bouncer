@@ -1,5 +1,5 @@
 import { Post, Comment, TriggerContext, SettingsValues, JSONValue, UserSocialLink } from "@devvit/public-api";
-import { CommentCreate, CommentUpdate, PostCreate } from "@devvit/protos";
+import { CommentCreate, CommentUpdate, PostCreate, PostUpdate } from "@devvit/protos";
 import { addDays, addSeconds, formatDate, subMinutes } from "date-fns";
 import { getUserStatus, UserDetails, UserStatus } from "./dataStore.js";
 import { addUserToModqueueRemovalStore, isUserWhitelisted, recordBan, recordUserContentCreation } from "./handleClientSubredditClassificationChanges.js";
@@ -201,6 +201,51 @@ export async function handleClientCommentUpdate (event: CommentUpdate, context: 
     await checkAndReportPotentialBot(fixedEvent.author.name, fixedEvent, settings, variables, context);
 
     await context.redis.set(redisKey, new Date().getTime().toString(), { expiration: addDays(new Date(), 2) });
+}
+
+export async function handleClientPostUpdate (event: PostUpdate, context: TriggerContext) {
+    if (context.subredditName === CONTROL_SUBREDDIT) {
+        return;
+    }
+
+    if (!event.post || !event.author?.name) {
+        console.error("Content Update: PostUpdate event missing post or author information", JSON.stringify(event));
+        return;
+    }
+
+    const username = await getTrueUsername(context.reddit, event.author.name, event.post.id);
+
+    console.log(`Content Create: PostUpdate ${event.post.id} by ${username}`);
+
+    if (username === "AutoModerator" || username === `${context.subredditName}-ModTeam`) {
+        return;
+    }
+
+    const currentStatus = await getUserStatus(username, context);
+    if (currentStatus) {
+        return;
+    }
+
+    const variables = await getEvaluatorVariables(context);
+
+    const post = await context.reddit.getPostById(event.post.id);
+    let possibleBot = false;
+    for (const Evaluator of ALL_RELEVANT_EVALUTORS) {
+        const evaluator = new Evaluator(context, [], undefined, variables);
+        if (evaluator.evaluatorDisabled()) {
+            continue;
+        }
+
+        if (evaluator.preEvaluatePost(post)) {
+            possibleBot = true;
+            break;
+        }
+    }
+
+    if (possibleBot) {
+        const settings = await context.settings.getAll();
+        await checkAndReportPotentialBot(username, post, settings, variables, context);
+    }
 }
 
 async function handleContentCreation (username: string, currentStatus: UserDetails, targetId: string, context: TriggerContext) {
