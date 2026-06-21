@@ -346,34 +346,24 @@ const CONTROL_SUB_SETTINGS_CACHE_KEY = "controlSubSettings";
 export async function getControlSubSettings (context: TriggerContext): Promise<ControlSubSettings> {
     const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
 
-    const cachedSettings = await context.cache(
-        async () => {
-            let cachedSettings: string | undefined;
-            if (subredditName !== CONTROL_SUBREDDIT) {
-                cachedSettings = await context.redis.get(CONTROL_SUB_SETTINGS_CACHE_KEY);
-                if (cachedSettings) {
-                    return cachedSettings;
-                }
-            }
+    let cachedSettings: string | undefined;
+    if (subredditName !== CONTROL_SUBREDDIT) {
+        cachedSettings = await context.redis.get(CONTROL_SUB_SETTINGS_CACHE_KEY);
+        if (cachedSettings) {
+            return JSON.parse(cachedSettings) as ControlSubSettings;
+        }
+    }
 
-            cachedSettings = await context.redis.global.get(CONTROL_SUB_SETTINGS_CACHE_KEY);
+    cachedSettings = await context.redis.global.get(CONTROL_SUB_SETTINGS_CACHE_KEY);
 
-            if (!cachedSettings) {
-                throw new Error("Control sub settings not found in global redis");
-            }
+    if (!cachedSettings) {
+        throw new Error("Control sub settings not found in global redis");
+    }
 
-            if (subredditName !== CONTROL_SUBREDDIT) {
-                await context.redis.set(CONTROL_SUB_SETTINGS_CACHE_KEY, cachedSettings, { expiration: addMinutes(new Date(), 15) });
-                console.log("Control sub settings refreshed for client subreddit");
-            }
-
-            return cachedSettings;
-        },
-        {
-            key: `controlSubSettings:${subredditName}`,
-            ttl: 10_000, // 10 seconds
-        },
-    );
+    if (subredditName !== CONTROL_SUBREDDIT) {
+        await context.redis.set(CONTROL_SUB_SETTINGS_CACHE_KEY, cachedSettings, { expiration: addMinutes(new Date(), 15) });
+        console.log("Control sub settings refreshed for client subreddit");
+    }
 
     return JSON.parse(cachedSettings) as ControlSubSettings;
 }
