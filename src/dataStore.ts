@@ -96,6 +96,10 @@ export async function getDataStoreFiltered (prefix: string, context: TriggerCont
     const filteredData: Record<string, UserDetails> = {};
 
     Object.entries(data).forEach(([username, value]) => {
+        if (filter.usernameRegex && !filter.usernameRegex.test(username)) {
+            return;
+        }
+
         const details = JSON.parse(value) as UserDetails;
         if (sinceTime && details.reportedAt && details.reportedAt < sinceTime) {
             return;
@@ -114,10 +118,6 @@ export async function getDataStoreFiltered (prefix: string, context: TriggerCont
         }
 
         if (filter.submitter && !filter.submitter.includes(details.submitter ?? "")) {
-            return;
-        }
-
-        if (filter.usernameRegex && !filter.usernameRegex.test(username)) {
             return;
         }
 
