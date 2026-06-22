@@ -554,7 +554,7 @@ async function createDataExtract (
         headers.push("Operator");
     }
 
-    if (includeFlags) {
+    if (includeFlags && !request.omitUserDetails) {
         headers.push("Flags");
     }
     if (request.bioRegex) {
@@ -580,7 +580,7 @@ async function createDataExtract (
             row.push(entry.data.operator ?? "unknown");
         }
 
-        if (includeFlags) {
+        if (includeFlags && !request.omitUserDetails) {
             row.push(entry.data.flags?.join(", ") ?? "");
         }
 
