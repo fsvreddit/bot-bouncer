@@ -9,7 +9,7 @@ import Ajv, { JSONSchemaType } from "ajv";
 import { AsyncSubmission } from "../postCreation.js";
 import pluralize from "pluralize";
 import json2md from "json2md";
-import { getConfigRevisionReceipt } from "../configRevisionReceipts.js";
+
 const REVERSED_USERS = "ReversedUsers";
 
 export async function addToReversalsQueue (username: string, days: number, context: TriggerContext) {

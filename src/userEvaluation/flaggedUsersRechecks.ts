@@ -1,5 +1,5 @@
-import { JobContext, JSONObject, ScheduledJobEvent } from "@devvit/public-api";
-import { EvaluateBotGroupAdvanced } from "@fsvreddit/bot-bouncer-evaluation/dist/userEvaluation/EvaluateBotGroupAdvanced.js";
+import { JobContext, JSONObject, ScheduledJobEvent, UserSocialLink } from "@devvit/public-api";
+import { EvaluateBioTextDefinedHandles, EvaluateBotGroupAdvanced, EvaluateBotGroupAdvancedInternal, EvaluatePostTitleDefinedHandles, EvaluateSocialLinks } from "@fsvreddit/bot-bouncer-evaluation";
 import { getUserStatus, UserFlag, UserStatus } from "../dataStore.js";
 import { getEvaluatorVariables } from "./evaluatorVariables.js";
 import { getSummaryForUser } from "../UserSummary/userSummary.js";
@@ -62,6 +62,17 @@ export async function checkUserFlaggedRechecksQueue (event: ScheduledJobEvent<JS
     }
 }
 
+const FLAGGED_USER_RECHECKS_EVALUATORS = [
+    // Synchronous evaluators
+    EvaluateBioTextDefinedHandles,
+    EvaluatePostTitleDefinedHandles,
+
+    // Evaluators that may need asynchronous calls
+    EvaluateBotGroupAdvanced,
+    EvaluateBotGroupAdvancedInternal,
+    EvaluateSocialLinks,
+];
+
 /**
  * Rechecks users flagged as "Hacked and Recovered", "Scammed", or "Future NSFW" to see if they now match Bot Group Advanced evaluation
  * @param username The username of the user to check
@@ -101,23 +112,33 @@ export async function recheckFlaggedUser (username: string, context: JobContext)
     }).all();
 
     const variables = await getEvaluatorVariables(context);
+    let matchesEvaluator = false;
+    let userSocialLinks: UserSocialLink[] | undefined;
 
-    const evaluator = new EvaluateBotGroupAdvanced(context, userHistory, undefined, variables);
+    for (const Evaluator of FLAGGED_USER_RECHECKS_EVALUATORS) {
+        const evaluator = new Evaluator(context, userHistory, userSocialLinks, variables);
 
-    const evaluationResult = await evaluator.evaluate(user);
-    if (!evaluationResult || !evaluator.canAutoBan || !evaluator.hitReasons || evaluator.hitReasons.length === 0) {
-        return;
+        if (evaluator.evaluatorDisabled()) {
+            continue;
+        }
+
+        if (!await Promise.resolve(evaluator.preEvaluateUser(user))) {
+            userSocialLinks ??= evaluator.socialLinks;
+            continue;
+        }
+
+        if (await Promise.resolve(evaluator.evaluate(user))) {
+            matchesEvaluator = true;
+            break;
+        }
+
+        userSocialLinks ??= evaluator.socialLinks;
     }
 
-    const formattedHitReaasons = evaluator.hitReasons.map((reason) => {
-        if (typeof reason === "string") {
-            return reason;
-        } else {
-            return reason.reason;
-        }
-    });
-
-    console.log(`FlaggedRechecks: User ${user.username} hit reasons: ${formattedHitReaasons.join(", ")}`);
+    if (!matchesEvaluator) {
+        console.log(`FlaggedRechecks: User ${user.username} does not match any evaluators`);
+        return;
+    }
 
     const message: json2md.DataObject[] = [
         { p: `User ${user.username} has flags ${currentStatus.flags.join(", ")} and is marked as organic, but currently matches evaluators. Check to see if action is needed` },

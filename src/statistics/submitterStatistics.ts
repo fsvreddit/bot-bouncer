@@ -21,7 +21,7 @@ const BULK_RECOMMENDATION_MINIMUM_RATIO = 85;
 const TRUSTED_RECOMMENDATION_MINIMUM_COUNT = 100;
 const TRUSTED_RECOMMENDATION_MINIMUM_RATIO = 90;
 
-type SubmitterStatusCell = "**Yes**" | "Recommended" | "";
+type SubmitterStatusCell = "**Yes**" | "Auto" | "Recommended" | "";
 
 function usernameIsInList (username: string, list: string[] | undefined): boolean {
     return list?.some(item => item.toLowerCase() === username.toLowerCase()) ?? false;
@@ -67,6 +67,8 @@ export function getSubmitterStatusCells (item: SubmitterStatistic, controlSubSet
     let trustedCell: SubmitterStatusCell = "";
     if (isTrustedSubmitter) {
         trustedCell = "**Yes**";
+    } else if (controlSubSettings.trustedSubmitterAutoThreshold && item.ratio > controlSubSettings.trustedSubmitterAutoThreshold && !isTrustedRecommendationExcluded) {
+        trustedCell = "Auto";
     } else if (!isExistingSubmitter && !isTrustedRecommendationExcluded && submitterMeetsTrustedRecommendationCriteria(item, trustedRecommendationMinimumRatio)) {
         trustedCell = "Recommended";
     }

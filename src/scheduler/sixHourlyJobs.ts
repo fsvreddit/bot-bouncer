@@ -1,7 +1,7 @@
 import { JobContext, TriggerContext } from "@devvit/public-api";
 import { updateSubmitterStatistics } from "../statistics/submitterStatistics.js";
 import { createTimeOfSubmissionStatistics } from "../statistics/timeOfSubmissionStatistics.js";
-import { checkDataStoreIntegrity, getFullDataStore, removeStaleRecentChangesEntries, UserDetails, UserFlag } from "../dataStore.js";
+import { ALL_POTENTIAL_USER_PREFIXES, checkDataStoreIntegrity, getFullDataStore, removeStaleRecentChangesEntries, UserDetails, UserFlag } from "../dataStore.js";
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "../constants.js";
 import { addMinutes, subMonths } from "date-fns";
 import { updateUsernameStatistics } from "../statistics/usernameStatistics.js";
@@ -10,6 +10,7 @@ import { updateSocialLinksStatistics } from "../statistics/socialLinksStatistics
 import { updateBioStatistics } from "../statistics/userBioStatistics.js";
 import { updateFailedFeedbackStorage } from "../submissionFeedback.js";
 import { analyseBioText } from "../similarBioTextFinder/bioTextFinder.js";
+import { DefinedHandlesStatsInitializerJobData } from "../statistics/definedHandlesStatistics.js";
 
 export const FLAGS_TO_EXCLUDE_FROM_STATS: UserFlag[] = [
     UserFlag.HackedAndRecovered,
@@ -50,6 +51,10 @@ export async function perform6HourlyJobs (_: unknown, context: JobContext) {
         context.scheduler.runJob({
             name: ControlSubredditJob.DefinedHandlesStatisticsInitialiser,
             runAt: addMinutes(new Date(), 2),
+            data: {
+                firstRun: true,
+                prefixes: ALL_POTENTIAL_USER_PREFIXES,
+            } satisfies DefinedHandlesStatsInitializerJobData,
         }),
 
         context.scheduler.runJob({

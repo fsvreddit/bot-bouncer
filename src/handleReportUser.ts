@@ -186,7 +186,7 @@ export async function handleReportUser (event: MenuItemOnPressEvent, context: Co
     const data = {
         username: target.authorName,
         userFeedbackPreference: await getUserFeedbackPreference(currentUser.username, context),
-        configRevisionNotice,        feedbackHelpText: canReceiveFeedback ? "You must be able to receive chat messages from /u/bot-bouncer to receive this notification" : "We've tried to send feedback for you several times but this hasn't worked. Check to make sure you can receive chats from /u/bot-bouncer. This option will return within 24h.",
+        feedbackHelpText: canReceiveFeedback ? "You must be able to receive chat messages from /u/bot-bouncer to receive this notification" : "We've tried to send feedback for you several times but this hasn't worked. Check to make sure you can receive chats from /u/bot-bouncer. This option will return within 24h.",
         feedbackDisabled: !canReceiveFeedback,
     };
 

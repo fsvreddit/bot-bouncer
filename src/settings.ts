@@ -344,8 +344,10 @@ const schema: JSONSchemaType<ControlSubSettings> = {
 const CONTROL_SUB_SETTINGS_CACHE_KEY = "controlSubSettings";
 
 export async function getControlSubSettings (context: TriggerContext): Promise<ControlSubSettings> {
+    const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
+
     let cachedSettings: string | undefined;
-    if (context.subredditName !== CONTROL_SUBREDDIT) {
+    if (subredditName !== CONTROL_SUBREDDIT) {
         cachedSettings = await context.redis.get(CONTROL_SUB_SETTINGS_CACHE_KEY);
         if (cachedSettings) {
             return JSON.parse(cachedSettings) as ControlSubSettings;
@@ -358,7 +360,7 @@ export async function getControlSubSettings (context: TriggerContext): Promise<C
         throw new Error("Control sub settings not found in global redis");
     }
 
-    if (context.subredditName !== CONTROL_SUBREDDIT) {
+    if (subredditName !== CONTROL_SUBREDDIT) {
         await context.redis.set(CONTROL_SUB_SETTINGS_CACHE_KEY, cachedSettings, { expiration: addMinutes(new Date(), 15) });
         console.log("Control sub settings refreshed for client subreddit");
     }
