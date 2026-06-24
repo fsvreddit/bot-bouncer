@@ -62,6 +62,8 @@ export enum AppSetting {
     DigestIncludeReported = "dailyDigestIncludeReported",
     DigestIncludeBanned = "dailyDigestIncludeBanned",
     DigestIncludeUnbanned = "dailyDigestIncludeUnbanned",
+    DigestSummarizeBansAndUnbansByCount = "dailyDigestSummarizeBansAndUnbansByCount",
+    DigestIncludeCumulativeStats = "dailyDigestIncludeCumulativeStats",
     UpgradeNotifier = "upgradeNotifier",
 
     // App-scoped secrets
@@ -223,6 +225,20 @@ export const appSettings: SettingsFormField[] = [
                 type: "boolean",
                 label: "Include details of accounts unbanned by Bot Bouncer",
                 name: AppSetting.DigestIncludeUnbanned,
+                defaultValue: true,
+            },
+            {
+                type: "boolean",
+                label: "Summarize banned and unbanned users by count instead of listing accounts",
+                name: AppSetting.DigestSummarizeBansAndUnbansByCount,
+                helpText: "If enabled, summaries will show how many users were banned or unbanned during the summary period without listing individual accounts.",
+                defaultValue: false,
+            },
+            {
+                type: "boolean",
+                label: "Include cumulative ban and unban totals",
+                name: AppSetting.DigestIncludeCumulativeStats,
+                helpText: "If enabled, summaries will include cumulative ban and unban totals for this subreddit. Existing installs begin tracking from the update that added this setting.",
                 defaultValue: true,
             },
         ],

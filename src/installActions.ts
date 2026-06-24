@@ -9,6 +9,7 @@ import { storeRecordOfContentCreationGracePeriod } from "./handleClientSubreddit
 import { isModerator } from "devvit-helpers";
 import json2md from "json2md";
 import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
+import { ensureDigestCumulativeStatsStart } from "./modmail/actionSummary.js";
 
 export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, context: TriggerContext) {
     console.log("App Install: Detected an app install or update event");
@@ -58,8 +59,10 @@ export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, contex
 
     await context.redis.del(...obsoleteKeys);
 
+    const existingInstallDate = await getInstallDate(context);
     await setInstallDateIfNotSet(context);
     if (context.subredditName !== CONTROL_SUBREDDIT) {
+        await ensureDigestCumulativeStatsStart(context.redis, existingInstallDate ? "upgrade" : "install");
         await checkForBotSwatter(context);
     }
 

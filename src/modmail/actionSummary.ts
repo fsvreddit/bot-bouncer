@@ -5,6 +5,12 @@ import { AppSetting, DigestFrequency } from "../settings.js";
 import json2md from "json2md";
 import { expireKeyAt } from "devvit-helpers";
 import { getNewVersionInfo } from "../upgradeNotifier.js";
+import pluralize from "pluralize";
+
+const CUMULATIVE_BANS_KEY = "digest:cumulative:bans";
+const CUMULATIVE_UNBANS_KEY = "digest:cumulative:unbans";
+const CUMULATIVE_STATS_START_KEY = "digest:cumulative:start";
+const CUMULATIVE_STATS_START_REASON_KEY = "digest:cumulative:startReason";
 
 function getReportsKey (date: Date) {
     return `digest:reports:${format(date, `yyyy-MM-dd`)}`;
@@ -24,7 +30,105 @@ interface DigestSummaryCounts {
     unbanned: number | undefined;
 }
 
-function buildDigestSummaryComment (subredditName: string, intervalText: string, counts: DigestSummaryCounts) {
+interface DigestSummaryOptions {
+    fullAccountListIncluded: boolean;
+}
+
+type CumulativeDigestStats = {
+    banCount: number;
+    unbanCount: number;
+    startDate?: Date;
+    startReason?: "install" | "upgrade" | "tracking";
+};
+
+async function getCounterValue (redis: RedisClient, key: string): Promise<number> {
+    const value = await redis.get(key);
+    if (!value) {
+        return 0;
+    }
+
+    const parsedValue = parseInt(value, 10);
+    if (isNaN(parsedValue)) {
+        return 0;
+    }
+
+    return parsedValue;
+}
+
+function isCumulativeStatsStartReason (startReason?: string): startReason is "install" | "upgrade" | "tracking" {
+    return startReason === "install" || startReason === "upgrade" || startReason === "tracking";
+}
+
+async function getCumulativeDigestStats (redis: RedisClient): Promise<CumulativeDigestStats> {
+    const [banCount, unbanCount, startDateString, startReason] = await Promise.all([
+        getCounterValue(redis, CUMULATIVE_BANS_KEY),
+        getCounterValue(redis, CUMULATIVE_UNBANS_KEY),
+        redis.get(CUMULATIVE_STATS_START_KEY),
+        redis.get(CUMULATIVE_STATS_START_REASON_KEY),
+    ]);
+
+    const startDateNumber = startDateString ? parseInt(startDateString, 10) : undefined;
+    const startDate = startDateNumber && !isNaN(startDateNumber) ? new Date(startDateNumber) : undefined;
+
+    return {
+        banCount,
+        unbanCount,
+        startDate,
+        startReason: isCumulativeStatsStartReason(startReason) ? startReason : undefined,
+    };
+}
+
+export async function ensureDigestCumulativeStatsStart (redis: RedisClient, startReason: "install" | "upgrade" | "tracking") {
+    if (await redis.exists(CUMULATIVE_STATS_START_KEY)) {
+        return;
+    }
+
+    await redis.set(CUMULATIVE_STATS_START_KEY, Date.now().toString());
+    await redis.set(CUMULATIVE_STATS_START_REASON_KEY, startReason);
+}
+
+function pluralizedUserCount (count: number) {
+    return `${count} ${pluralize("user", count)}`;
+}
+
+function countVerb (count: number) {
+    return count === 1 ? "was" : "were";
+}
+
+export function buildCountOnlyActionSummary (action: "banned" | "unbanned", count: number, subredditName: string, intervalText: string) {
+    const userCount = pluralizedUserCount(count);
+    return `${userCount} ${countVerb(count)} ${action} by Bot Bouncer on /r/${subredditName} ${intervalText}.`;
+}
+
+export function buildCumulativeStatsSummary (stats: CumulativeDigestStats, includeBans: boolean, includeUnbans: boolean) {
+    const parts: string[] = [];
+    if (includeBans) {
+        parts.push(`${stats.banCount} ${pluralize("ban", stats.banCount)}`);
+    }
+    if (includeUnbans) {
+        parts.push(`${stats.unbanCount} ${pluralize("unban", stats.unbanCount)}`);
+    }
+    if (parts.length === 0) {
+        return;
+    }
+
+    const statsStartText = stats.startDate ? format(stats.startDate, "yyyy-MM-dd") : undefined;
+    let scopeText: string;
+    if (!statsStartText) {
+        scopeText = "since Bot Bouncer began tracking cumulative summary stats.";
+    } else if (stats.startReason === "upgrade") {
+        scopeText = `since Bot Bouncer began tracking cumulative summary stats for this subreddit on ${statsStartText} `
+            + "after the app was updated. Earlier actions are not included.";
+    } else if (stats.startReason === "install") {
+        scopeText = `since Bot Bouncer was installed on this subreddit on ${statsStartText}.`;
+    } else {
+        scopeText = `since Bot Bouncer began tracking cumulative summary stats for this subreddit on ${statsStartText}.`;
+    }
+
+    return `Cumulative total: ${parts.join(" and ")} ${scopeText}`;
+}
+
+export function buildDigestSummaryComment (subredditName: string, intervalText: string, counts: DigestSummaryCounts, options?: DigestSummaryOptions) {
     const countTexts: string[] = [];
 
     if (counts.reported !== undefined) {
@@ -39,7 +143,11 @@ function buildDigestSummaryComment (subredditName: string, intervalText: string,
         countTexts.push(`${counts.unbanned} unbanned`);
     }
 
-    return `Digest summary for /r/${subredditName} ${intervalText}: ${countTexts.join("; ")}. See the previous message for the full account list.`;
+    const previousMessageText = options?.fullAccountListIncluded
+        ? " See the previous message for the full account list."
+        : " See the previous message for details.";
+
+    return `Digest summary for /r/${subredditName} ${intervalText}: ${countTexts.join("; ")}.${previousMessageText}`;
 }
 
 async function sendDigestSummaryComment (
@@ -48,11 +156,12 @@ async function sendDigestSummaryComment (
     intervalText: string,
     counts: DigestSummaryCounts,
     context: JobContext,
+    options?: DigestSummaryOptions,
 ) {
     try {
         await context.reddit.modMail.reply({
             conversationId,
-            body: buildDigestSummaryComment(subredditName, intervalText, counts),
+            body: buildDigestSummaryComment(subredditName, intervalText, counts, options),
         });
     } catch (e) {
         console.error(`Failed to send compact digest summary comment for conversation ${conversationId}:`, e);
@@ -107,6 +216,9 @@ export async function sendDailySummary (_: unknown, context: JobContext) {
         return;
     }
 
+    const summarizeBansAndUnbansByCount = (settings[AppSetting.DigestSummarizeBansAndUnbansByCount] as boolean | undefined) ?? false;
+    const includeCumulativeStats = (settings[AppSetting.DigestIncludeCumulativeStats] as boolean | undefined) ?? true;
+
     const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
 
     const message: json2md.DataObject[] = [];
@@ -133,6 +245,8 @@ export async function sendDailySummary (_: unknown, context: JobContext) {
     if (bannedEnabled) {
         if (bans.length === 0) {
             message.push({ p: `No new bans were issued by Bot Bouncer on /r/${subredditName} ${intervalText}.` });
+        } else if (summarizeBansAndUnbansByCount) {
+            message.push({ p: buildCountOnlyActionSummary("banned", bans.length, subredditName, intervalText) });
         } else {
             message.push({ p: `The following users were banned on /r/${subredditName} ${intervalText}:` });
             message.push({ ul: bans.map(ban => `/u/${ban.member}`) });
@@ -142,9 +256,18 @@ export async function sendDailySummary (_: unknown, context: JobContext) {
     if (unbannedEnabled) {
         if (unbans.length === 0) {
             message.push({ p: `No new unbans were processed by Bot Bouncer on /r/${subredditName} ${intervalText}.` });
+        } else if (summarizeBansAndUnbansByCount) {
+            message.push({ p: buildCountOnlyActionSummary("unbanned", unbans.length, subredditName, intervalText) });
         } else {
             message.push({ p: `The following users were unbanned on /r/${subredditName} ${intervalText}:` });
             message.push({ ul: unbans.map(unban => `/u/${unban.member}`) });
+        }
+    }
+
+    if (includeCumulativeStats && (bannedEnabled || unbannedEnabled)) {
+        const cumulativeSummary = buildCumulativeStatsSummary(await getCumulativeDigestStats(context.redis), bannedEnabled, unbannedEnabled);
+        if (cumulativeSummary) {
+            message.push({ p: cumulativeSummary });
         }
     }
 
@@ -165,6 +288,10 @@ export async function sendDailySummary (_: unknown, context: JobContext) {
         unbanned: unbannedEnabled ? unbans.length : undefined,
     };
 
+    const digestSummaryOptions = {
+        fullAccountListIncluded: !summarizeBansAndUnbansByCount,
+    };
+
     const digestConversationIdKey = "digestConvesationId";
     const existingConversationId = await context.redis.get(digestConversationIdKey);
 
@@ -173,7 +300,7 @@ export async function sendDailySummary (_: unknown, context: JobContext) {
             conversationId: existingConversationId,
             body: json2md(message),
         });
-        await sendDigestSummaryComment(existingConversationId, subredditName, intervalText, digestSummaryCounts, context);
+        await sendDigestSummaryComment(existingConversationId, subredditName, intervalText, digestSummaryCounts, context, digestSummaryOptions);
 
         return;
     }
@@ -200,7 +327,7 @@ export async function sendDailySummary (_: unknown, context: JobContext) {
         newConversationId = await context.reddit.modMail.createModInboxConversation(params);
     }
 
-    await sendDigestSummaryComment(newConversationId, subredditName, intervalText, digestSummaryCounts, context);
+    await sendDigestSummaryComment(newConversationId, subredditName, intervalText, digestSummaryCounts, context, digestSummaryOptions);
 
     if (!createNewMessage) {
         await context.redis.set(digestConversationIdKey, newConversationId);
@@ -214,12 +341,18 @@ export async function recordReportForSummary (username: string, redis: RedisClie
 }
 
 export async function recordBanForSummary (username: string, redis: RedisClient) {
+    await ensureDigestCumulativeStatsStart(redis, "tracking");
+    await redis.incrBy(CUMULATIVE_BANS_KEY, 1);
+
     const key = getBansKey(new Date());
     await redis.zAdd(key, { member: username, score: new Date().getTime() });
     await expireKeyAt(redis, key, addDays(new Date(), 8));
 }
 
 export async function recordUnbanForSummary (username: string, redis: RedisClient) {
+    await ensureDigestCumulativeStatsStart(redis, "tracking");
+    await redis.incrBy(CUMULATIVE_UNBANS_KEY, 1);
+
     const key = getUnbansKey(new Date());
     await redis.zAdd(key, { member: username, score: new Date().getTime() });
     await expireKeyAt(redis, key, addDays(new Date(), 8));
