@@ -33,8 +33,10 @@ interface AppealConfig {
     banDateTo?: string;
     evaluatorNameRegex?: string[];
     evaluatorHitReasonRegex?: string[];
+    evaluatorHitReasonMatchRegex?: string[];
     currentEvaluatorNameRegex?: string[];
     currentEvaluatorHitReasonRegex?: string[];
+    currentEvaluatorHitReasonMatchRegex?: string[];
     bioRegex?: string[];
     "~bioRegex"?: string[];
     originalBioRegex?: string[];
@@ -78,8 +80,10 @@ const appealConfigSchema: JSONSchemaType<AppealConfig[]> = {
             banDateTo: { type: "string", pattern: dateRegex.source, nullable: true },
             evaluatorNameRegex: { type: "array", items: { type: "string" }, nullable: true },
             evaluatorHitReasonRegex: { type: "array", items: { type: "string" }, nullable: true },
+            evaluatorHitReasonMatchRegex: { type: "array", items: { type: "string" }, nullable: true },
             currentEvaluatorNameRegex: { type: "array", items: { type: "string" }, nullable: true },
             currentEvaluatorHitReasonRegex: { type: "array", items: { type: "string" }, nullable: true },
+            currentEvaluatorHitReasonMatchRegex: { type: "array", items: { type: "string" }, nullable: true },
             bioRegex: { type: "array", items: { type: "string" }, nullable: true },
             "~bioRegex": { type: "array", items: { type: "string" }, nullable: true },
             originalBioRegex: { type: "array", items: { type: "string" }, nullable: true },
@@ -125,6 +129,7 @@ interface AppealOutcome {
     archive?: boolean;
     mute?: number;
     highlight?: boolean;
+    match?: string;
 }
 
 const defaultAppealOutcome: AppealOutcome = {
@@ -158,6 +163,20 @@ function getSubstitutions (wikiPage: string): Record<string, string | string[]> 
     }
 
     return results;
+}
+
+function validateRegexList (configName: string, fieldName: string, regexes: string[] | undefined, issues: string[]): void {
+    if (!regexes) {
+        return;
+    }
+
+    for (const regex of regexes) {
+        try {
+            new RegExp(regex);
+        } catch (error) {
+            issues.push(`Invalid regex in ${fieldName} for config ${configName}: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    }
 }
 
 export async function validateAndSaveAppealConfig (username: string, context: TriggerContext): Promise<void> {
@@ -219,45 +238,12 @@ export async function validateAndSaveAppealConfig (username: string, context: Tr
     }
 
     for (const config of parsedConfigs) {
-        if (config.currentEvaluatorHitReasonRegex) {
-            for (const regex of config.currentEvaluatorHitReasonRegex) {
-                try {
-                    new RegExp(regex);
-                } catch (error) {
-                    issues.push(`Invalid regex in currentEvaluatorHitReasonRegex for config ${config.name}: ${error instanceof Error ? error.message : String(error)}`);
-                }
-            }
-        }
-
-        if (config.evaluatorHitReasonRegex) {
-            for (const regex of config.evaluatorHitReasonRegex) {
-                try {
-                    new RegExp(regex);
-                } catch (error) {
-                    issues.push(`Invalid regex in evaluatorHitReasonRegex for config ${config.name}: ${error instanceof Error ? error.message : String(error)}`);
-                }
-            }
-        }
-
-        if (config.modNoteTextRegex) {
-            for (const regex of config.modNoteTextRegex) {
-                try {
-                    new RegExp(regex);
-                } catch (error) {
-                    issues.push(`Invalid regex in modNoteTextRegex for config ${config.name}: ${error instanceof Error ? error.message : String(error)}`);
-                }
-            }
-        }
-
-        if (config["~modNoteTextRegex"]) {
-            for (const regex of config["~modNoteTextRegex"]) {
-                try {
-                    new RegExp(regex);
-                } catch (error) {
-                    issues.push(`Invalid regex in ~modNoteTextRegex for config ${config.name}: ${error instanceof Error ? error.message : String(error)}`);
-                }
-            }
-        }
+        validateRegexList(config.name, "currentEvaluatorHitReasonRegex", config.currentEvaluatorHitReasonRegex, issues);
+        validateRegexList(config.name, "currentEvaluatorHitReasonMatchRegex", config.currentEvaluatorHitReasonMatchRegex, issues);
+        validateRegexList(config.name, "evaluatorHitReasonRegex", config.evaluatorHitReasonRegex, issues);
+        validateRegexList(config.name, "evaluatorHitReasonMatchRegex", config.evaluatorHitReasonMatchRegex, issues);
+        validateRegexList(config.name, "modNoteTextRegex", config.modNoteTextRegex, issues);
+        validateRegexList(config.name, "~modNoteTextRegex", config["~modNoteTextRegex"], issues);
     }
 
     if (issues.length === 0) {
@@ -298,7 +284,7 @@ async function getAppealConfig (context: TriggerContext): Promise<AppealConfig[]
     return JSON.parse(configData) as AppealConfig[];
 }
 
-function formatPlaceholders (input: string, userDetails: UserDetails): string {
+function formatPlaceholders (input: string, userDetails: UserDetails, appealOutcome?: AppealOutcome): string {
     let output = input;
     let dateFormat: string;
     const date = new Date(userDetails.reportedAt ?? userDetails.lastUpdate);
@@ -309,7 +295,35 @@ function formatPlaceholders (input: string, userDetails: UserDetails): string {
     }
 
     output = output.replaceAll("{{classificationdate}}", format(new Date(userDetails.reportedAt ?? userDetails.lastUpdate), dateFormat));
+    output = output.replaceAll("{{match}}", appealOutcome?.match ?? "");
     return output;
+}
+
+function getEvaluationHitReasonText (evaluationResult: EvaluationResult): string | undefined {
+    if (!evaluationResult.hitReason) {
+        return undefined;
+    }
+
+    if (typeof evaluationResult.hitReason === "string") {
+        return evaluationResult.hitReason;
+    }
+
+    return evaluationResult.hitReason.reason;
+}
+
+function findFirstRegexMatch (text: string | undefined, regexes: string[] | undefined): string | undefined {
+    if (!text || !regexes) {
+        return undefined;
+    }
+
+    for (const regex of regexes) {
+        const match = new RegExp(regex, "i").exec(text);
+        if (match) {
+            return match.slice(1).find(capture => capture !== undefined) ?? match[0];
+        }
+    }
+
+    return undefined;
 }
 
 export enum AppealOutcomeType {
@@ -355,7 +369,7 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
 
     let currentEvaluationResults: EvaluationResult[] = [];
     // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
-    if (appealConfig.some(config => config.currentEvaluatorHitReasonRegex || config.currentEvaluatorNameRegex)) {
+    if (appealConfig.some(config => config.currentEvaluatorHitReasonRegex || config.currentEvaluatorHitReasonMatchRegex || config.currentEvaluatorNameRegex)) {
         currentEvaluationResults = await evaluateUserAccount({
             username,
             variables: await getEvaluatorVariables(context),
@@ -372,7 +386,11 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
         }).all();
     }
 
+    let appealMatch: string | undefined;
+
     const matchedAppealConfig = appealConfig.find((config) => {
+        let configMatch: string | undefined;
+
         try {
             if (config.usernameRegex && !config.usernameRegex.some(regex => new RegExp(regex, "i").test(username))) {
                 return;
@@ -402,27 +420,26 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
                 return;
             }
 
-            if (config.evaluatorNameRegex || config.evaluatorHitReasonRegex) {
+            if (config.evaluatorNameRegex || config.evaluatorHitReasonRegex || config.evaluatorHitReasonMatchRegex) {
                 let anyMatched = false;
                 for (const evaluationResult of initialAccountEvaluationResults) {
                     if (config.evaluatorNameRegex && !config.evaluatorNameRegex.some(regex => new RegExp(regex, "i").test(evaluationResult.botName))) {
                         continue;
                     }
 
-                    if (config.evaluatorHitReasonRegex && !config.evaluatorHitReasonRegex.some((regex) => {
-                        if (!evaluationResult.hitReason) {
-                            return false;
-                        }
-
-                        if (typeof evaluationResult.hitReason === "string") {
-                            return new RegExp(regex, "i").test(evaluationResult.hitReason);
-                        }
-
-                        return new RegExp(regex, "i").test(evaluationResult.hitReason.reason);
-                    })) {
+                    const hitReasonText = getEvaluationHitReasonText(evaluationResult);
+                    if (config.evaluatorHitReasonRegex && !config.evaluatorHitReasonRegex.some(regex => hitReasonText !== undefined && new RegExp(regex, "i").test(hitReasonText))) {
                         continue;
                     }
+
+                    const hitReasonMatch = findFirstRegexMatch(hitReasonText, config.evaluatorHitReasonMatchRegex);
+                    if (config.evaluatorHitReasonMatchRegex && !hitReasonMatch) {
+                        continue;
+                    }
+
                     anyMatched = true;
+                    configMatch ??= hitReasonMatch;
+                    break;
                 }
 
                 if (!anyMatched) {
@@ -430,27 +447,26 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
                 }
             }
 
-            if (config.currentEvaluatorNameRegex || config.currentEvaluatorHitReasonRegex) {
+            if (config.currentEvaluatorNameRegex || config.currentEvaluatorHitReasonRegex || config.currentEvaluatorHitReasonMatchRegex) {
                 let anyMatched = false;
                 for (const evaluationResult of currentEvaluationResults) {
                     if (config.currentEvaluatorNameRegex?.length && !config.currentEvaluatorNameRegex.some(regex => new RegExp(regex, "i").test(evaluationResult.botName))) {
                         continue;
                     }
 
-                    if (config.currentEvaluatorHitReasonRegex?.length && !config.currentEvaluatorHitReasonRegex.some((regex) => {
-                        if (!evaluationResult.hitReason) {
-                            return false;
-                        }
-
-                        if (typeof evaluationResult.hitReason === "string") {
-                            return new RegExp(regex, "i").test(evaluationResult.hitReason);
-                        }
-
-                        return new RegExp(regex, "i").test(evaluationResult.hitReason.reason);
-                    })) {
+                    const hitReasonText = getEvaluationHitReasonText(evaluationResult);
+                    if (config.currentEvaluatorHitReasonRegex?.length && !config.currentEvaluatorHitReasonRegex.some(regex => hitReasonText !== undefined && new RegExp(regex, "i").test(hitReasonText))) {
                         continue;
                     }
+
+                    const hitReasonMatch = findFirstRegexMatch(hitReasonText, config.currentEvaluatorHitReasonMatchRegex);
+                    if (config.currentEvaluatorHitReasonMatchRegex && !hitReasonMatch) {
+                        continue;
+                    }
+
                     anyMatched = true;
+                    configMatch ??= hitReasonMatch;
+                    break;
                 }
 
                 if (!anyMatched) {
@@ -543,6 +559,7 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
                 }
             }
 
+            appealMatch = configMatch;
             return config;
         } catch (error) {
             console.error(`Error processing appeal config ${config.name}:`, error instanceof Error ? error.message : String(error));
@@ -564,6 +581,7 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
             archive: matchedAppealConfig.archive,
             mute: matchedAppealConfig.mute,
             highlight: matchedAppealConfig.highlight,
+            match: appealMatch,
         };
     } else {
         console.log(`Appeals: No specific appeal config matched for user ${username}, using default reply.`);
@@ -586,13 +604,13 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
     if (appealOutcome.privateReply) {
         await context.reddit.modMail.reply({
             conversationId: modmail.conversationId,
-            body: formatPlaceholders(appealOutcome.privateReply, userDetails),
+            body: formatPlaceholders(appealOutcome.privateReply, userDetails, appealOutcome),
             isInternal: true,
         });
     }
 
     if (appealOutcome.reply) {
-        let replyMessage = `${formatPlaceholders(appealOutcome.reply, userDetails)}\n\n`;
+        let replyMessage = `${formatPlaceholders(appealOutcome.reply, userDetails, appealOutcome)}\n\n`;
 
         if (appealOutcome.replyDelay) {
             let sendAt: Date;
