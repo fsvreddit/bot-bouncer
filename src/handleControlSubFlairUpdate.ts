@@ -10,6 +10,7 @@ import { addToReversalsQueue } from "./modmail/evaluatorReversals.js";
 import { statusToFlair } from "./postCreation.js";
 import { submitAccountForReview } from "./modmail/accountReview.js";
 import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
+import { queueHackedProfileRecoveryReviewForBan } from "./userEvaluation/hackedProfileRecoveryReview.js";
 
 interface FlairMapping {
     postFlair: string;
@@ -153,6 +154,10 @@ export async function handleControlSubFlairUpdate (event: PostFlairUpdate, conte
     }
 
     await setUserStatus(username, newStatus, context);
+
+    if (newStatus.userStatus === UserStatus.Banned) {
+        await queueHackedProfileRecoveryReviewForBan(username, context);
+    }
 
     console.log(`Flair Update: Status for ${username} set to ${newStatus.userStatus} by ${operator}`);
 

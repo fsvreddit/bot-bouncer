@@ -118,6 +118,12 @@ async function addControlSubredditJobs (context: TriggerContext) {
             cron: "* * * * *",
             data: { firstRun: true },
         }),
+
+        context.scheduler.runJob({
+            name: ControlSubredditJob.HackedProfileRecoveryReview,
+            cron: "* * * * *",
+            data: { firstRun: true },
+        }),
     ]);
 
     await Promise.all([

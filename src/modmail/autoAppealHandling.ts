@@ -17,6 +17,7 @@ import { getPossibleSetStatusValues } from "./controlSubModmail.js";
 import { getUserSocialLinks } from "devvit-helpers";
 import { sendMessageOnDelay } from "./delayedSend.js";
 import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
+import { getHackedProfileRecoveryDecision, HackedProfileRecoveryDecision } from "../userEvaluation/hackedProfileRecoveryReview.js";
 
 const APPEAL_CONFIG_WIKI_PAGE = "appeal-config";
 const APPEAL_CONFIG_REDIS_KEY = "AppealConfig";
@@ -46,6 +47,7 @@ interface AppealConfig {
     modNoteTextRegex?: string[];
     "~modNoteTextRegex"?: string[];
     hasMoreThanOneCommentOnPost?: boolean;
+    hackedProfileRecovery?: boolean;
     setStatus?: string;
     privateReply?: string;
     reply?: string;
@@ -91,6 +93,7 @@ const appealConfigSchema: JSONSchemaType<AppealConfig[]> = {
             modNoteTextRegex: { type: "array", items: { type: "string" }, nullable: true },
             "~modNoteTextRegex": { type: "array", items: { type: "string" }, nullable: true },
             hasMoreThanOneCommentOnPost: { type: "boolean", nullable: true },
+            hackedProfileRecovery: { type: "boolean", nullable: true },
             setStatus: { type: "string", enum: getPossibleSetStatusValues(), nullable: true },
             privateReply: { type: "string", nullable: true },
             reply: { type: "string", nullable: true },
@@ -362,6 +365,11 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
         }, context);
     }
 
+    let hackedProfileRecoveryDecision: HackedProfileRecoveryDecision | undefined;
+    if (appealConfig.some(config => config.hackedProfileRecovery)) {
+        hackedProfileRecoveryDecision = await getHackedProfileRecoveryDecision(username, userDetails, context);
+    }
+
     let history: (Post | Comment)[] = [];
 
     if (appealConfig.some(config => config.hasMoreThanOneCommentOnPost)) {
@@ -520,6 +528,10 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
                 if (userDetails.flags && config["~flags"].some(flag => userDetails.flags?.includes(flag))) {
                     return;
                 }
+            }
+
+            if (config.hackedProfileRecovery && !hackedProfileRecoveryDecision?.recovered) {
+                return;
             }
 
             if (config.hasMoreThanOneCommentOnPost !== undefined) {
