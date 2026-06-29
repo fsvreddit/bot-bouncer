@@ -29,15 +29,22 @@ export function getPossibleSetStatusValues (): string[] {
     return _.uniq([...FLAIR_MAPPINGS.map(entry => entry.postFlair), ...Object.values(UserStatus)]);
 }
 
+function usernameIsInList (username: string, list: string[] | undefined): boolean {
+    return list?.some(item => item.toLowerCase() === username.toLowerCase()) ?? false;
+}
+
 export async function handleControlSubredditModmail (modmail: ModmailMessage, context: TriggerContext) {
     const controlSubSettings = await getControlSubSettings(context);
 
     await handleHighlightedModmail(modmail, context);
 
-    if (controlSubSettings.bulkSubmitters?.includes(modmail.messageAuthor) && modmail.bodyMarkdown.startsWith("{")) {
-        const isTrusted = controlSubSettings.trustedSubmitters.includes(modmail.messageAuthor);
-        await handleBulkSubmission(modmail.messageAuthor, isTrusted, modmail.conversationId, modmail.bodyMarkdown, context);
-        return;
+    if (modmail.bodyMarkdown.trim().startsWith("{")) {
+        const isTrusted = usernameIsInList(modmail.messageAuthor, controlSubSettings.trustedSubmitters);
+        const isBulkSubmitter = usernameIsInList(modmail.messageAuthor, controlSubSettings.bulkSubmitters);
+        if (isBulkSubmitter || isTrusted) {
+            await handleBulkSubmission(modmail.messageAuthor, isTrusted, modmail.conversationId, modmail.bodyMarkdown, context);
+            return;
+        }
     }
 
     if (modmail.isFirstMessage && modmail.messageAuthor === modmail.participant) {
