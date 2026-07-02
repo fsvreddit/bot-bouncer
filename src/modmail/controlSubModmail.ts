@@ -378,7 +378,7 @@ async function checkBanOnSub (modmail: ModmailMessage, context: TriggerContext) 
             message.push({ p: `Bot Bouncer is not a moderator of /r/${subredditName}, so it cannot check the ban status of /u/${modmail.participant}.` });
         } else if (isForbiddenError(errorMessage)) {
             message.push({ p: `Bot Bouncer could not check whether /u/${modmail.participant} is banned on /r/${subredditName} because Reddit returned \`403 Forbidden\`, which usually means /u/bot-bouncer is on the mod list but has no permissions or is missing required permissions.` });
-            message.push({ p: `Please check [the app configuration page](https://developers.reddit.com/r/${subredditName}/apps/bot-bouncer), confirm Bot Bouncer is installed with full moderator permissions, and then retry \`!checkban ${subredditName}\`.` });
+            message.push({ p: `Check /r/${subredditName}'s mod list, confirm /u/bot-bouncer has full moderator permissions, and then retry \`!checkban ${subredditName}\`.` });
         } else {
             message.push({ p: `An error occurred while checking the ban status of /u/${modmail.participant} on /r/${subredditName}.` });
             message.push({ blockquote: errorMessage });
