@@ -18,7 +18,7 @@ import { FLAIR_MAPPINGS } from "../handleControlSubFlairUpdate.js";
 import _ from "lodash";
 import { CHECK_DATE_KEY } from "../karmaFarmingSubsCheck.js";
 import { evaluateAccountFromModmail } from "./modmailEvaluaton.js";
-import { isBanned } from "devvit-helpers";
+import { hasPermissions, isBanned } from "devvit-helpers";
 import { handleReversalCommand } from "./evaluatorReversals.js";
 import { handleHighlightedModmail } from "./unhighlighter.js";
 import { getUserExtended } from "@fsvreddit/fsv-devvit-helpers";
@@ -28,6 +28,8 @@ import { handleAskAI } from "../aiAnalysis/askAI.js";
 export function getPossibleSetStatusValues (): string[] {
     return _.uniq([...FLAIR_MAPPINGS.map(entry => entry.postFlair), ...Object.values(UserStatus)]);
 }
+
+const REQUIRED_BOT_PERMISSIONS = ["access", "posts", "mail"];
 
 export async function handleControlSubredditModmail (modmail: ModmailMessage, context: TriggerContext) {
     const controlSubSettings = await getControlSubSettings(context);
@@ -295,7 +297,19 @@ async function handleModmailFromUser (modmail: ModmailMessage, context: TriggerC
         return;
     }
 
-    const appealOutcomeType = await handleAppeal(modmail, currentStatus, context);
+    const appealPermissionsIssueSubredditName = await getAppealPermissionsIssueSubredditName(modmail, username, context);
+    if (appealPermissionsIssueSubredditName) {
+        await context.reddit.modMail.reply({
+            body: getAppealPermissionsIssueReply(appealPermissionsIssueSubredditName),
+            conversationId: modmail.conversationId,
+            isInternal: false,
+            isAuthorHidden: false,
+        });
+    }
+
+    const appealOutcomeType = await handleAppeal(modmail, currentStatus, context, {
+        suppressDefaultReply: appealPermissionsIssueSubredditName !== undefined,
+    });
 
     if (appealOutcomeType !== AppealOutcomeType.AppealGranted) {
         await addSummaryForUser(modmail.conversationId, username, context);
@@ -314,6 +328,50 @@ async function handleModmailFromUser (modmail: ModmailMessage, context: TriggerC
     }
 
     await context.redis.set(recentAppealKey, new Date().getTime().toString(), { expiration: addDays(new Date(), 1) });
+}
+
+function getAppealSubredditName (subject: string, username: string): string | undefined {
+    const appealSubjectRegex = new RegExp(`^Ban dispute for /u/${username} on /r/([A-Za-z0-9_]+)\\s*$`, "i");
+    return appealSubjectRegex.exec(subject)?.[1];
+}
+
+async function getAppealPermissionsIssueSubredditName (modmail: ModmailMessage, username: string, context: TriggerContext): Promise<string | undefined> {
+    const subredditName = getAppealSubredditName(modmail.subject, username);
+    if (!subredditName) {
+        return;
+    }
+
+    let isMod: boolean;
+    try {
+        isMod = await isModeratorWithCache(context.appSlug, context, subredditName);
+    } catch (error) {
+        console.error(`Appeals: Unable to check whether /u/${context.appSlug} is a moderator of /r/${subredditName}:`, error instanceof Error ? error.message : String(error));
+        return;
+    }
+
+    if (!isMod) {
+        return subredditName;
+    }
+
+    try {
+        const hasPerms = await hasPermissions(context.reddit, {
+            subredditName,
+            username: context.appSlug,
+            requiredPerms: REQUIRED_BOT_PERMISSIONS,
+        });
+        return hasPerms ? undefined : subredditName;
+    } catch (error) {
+        console.error(`Appeals: Unable to confirm /u/${context.appSlug} permissions in /r/${subredditName}:`, error instanceof Error ? error.message : String(error));
+        return subredditName;
+    }
+}
+
+function getAppealPermissionsIssueReply (subredditName: string): string {
+    return `Your appeal has been received. Upon initial review, the Bot Bouncer app moderator account, /u/bot-bouncer, may not currently have the moderator permissions needed to manage bans in /r/${subredditName}.
+
+Your classification can still be reviewed by /r/BotBouncer, but any accepted appeal will not take effect in /r/${subredditName} until that subreddit’s mod team restores Bot Bouncer with full moderator permissions.
+
+We will review your appeal as soon as we can.`;
 }
 
 function getKeyForAppeal (conversationId: string): string {

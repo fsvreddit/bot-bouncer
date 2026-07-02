@@ -127,6 +127,10 @@ interface AppealOutcome {
     highlight?: boolean;
 }
 
+interface HandleAppealOptions {
+    suppressDefaultReply?: boolean;
+}
+
 const defaultAppealOutcome: AppealOutcome = {
     name: "Default Appeal Reply",
     reply: `Your classification appeal has been received and will be reviewed by a moderator. If accepted, the result of your appeal will apply to any subreddit using /r/${CONTROL_SUBREDDIT}.
@@ -326,7 +330,7 @@ function isAppealGrantStatus (status: string | undefined): boolean {
         || status === UserFlag.FutureNSFW;
 }
 
-export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDetails, context: TriggerContext): Promise<AppealOutcomeType> {
+export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDetails, context: TriggerContext, options?: HandleAppealOptions): Promise<AppealOutcomeType> {
     const username = modmail.participant;
     if (!username) {
         return AppealOutcomeType.Skipped;
@@ -567,7 +571,7 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
         };
     } else {
         console.log(`Appeals: No specific appeal config matched for user ${username}, using default reply.`);
-        appealOutcome = defaultAppealOutcome;
+        appealOutcome = options?.suppressDefaultReply === true ? { name: defaultAppealOutcome.name } : defaultAppealOutcome;
     }
 
     if (appealOutcome.newStatus && userDetails.trackingPostId) {
