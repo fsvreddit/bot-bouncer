@@ -68,8 +68,8 @@ export async function checkPermissionQueueItems (event: ScheduledJobEvent<JSONOb
 
         if (!isMod) {
             problemFound.push([
-                { p: `/u/bot-bouncer is not a moderator of /r/${subredditName}. This means that most functions of Bot Bouncer will not work correctly.` },
-                { p: `Please check that you have the latest version of Bot Bouncer on your subreddit's [app configuration page](https://developers.reddit.com/r/${subredditName}/apps/bot-bouncer), and then re-invite /u/bot-bouncer to the mod team with full permissions` },
+                { p: `/u/bot-bouncer is not a moderator of /r/${subredditName}. This means Bot Bouncer cannot perform moderation checks or actions for this subreddit.` },
+                { p: `Please check that you have the latest version of Bot Bouncer on your subreddit's [app configuration page](https://developers.reddit.com/r/${subredditName}/apps/bot-bouncer), and then re-invite /u/bot-bouncer to the mod team with full permissions.` },
                 { p: "If you no longer wish to use Bot Bouncer, it can be uninstalled from the same page." },
             ]);
             issueFound = "not a moderator";
@@ -82,8 +82,10 @@ export async function checkPermissionQueueItems (event: ScheduledJobEvent<JSONOb
 
             if (!hasPerms) {
                 problemFound.push([
-                    { p: `/u/bot-bouncer does not have all required moderator permissions in /r/${subredditName} to work correctly.` },
-                    { p: `Dev Platform apps must have full moderator permissions to work properly. Please check the permissions and update them as needed.` },
+                    { p: `/u/bot-bouncer is listed as a moderator of /r/${subredditName}, but it does not have all required moderator permissions.` },
+                    { p: `When /u/bot-bouncer has no permissions, or is missing required permissions, Reddit may reject Bot Bouncer's requests with errors such as \`403 Forbidden\`.` },
+                    { p: "This can prevent Bot Bouncer from checking ban status, reading required moderation information, handling modmail-related workflows, or applying moderation actions." },
+                    { p: `Please check your subreddit's [app configuration page](https://developers.reddit.com/r/${subredditName}/apps/bot-bouncer), confirm that the latest version of Bot Bouncer is installed, and update /u/bot-bouncer to full moderator permissions.` },
                 ]);
                 issueFound = "missing permissions";
             }

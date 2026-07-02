@@ -372,12 +372,16 @@ async function checkBanOnSub (modmail: ModmailMessage, context: TriggerContext) 
         const isBannedOnSub = await isBanned(context.reddit, subredditName, modmail.participant);
         message.push({ p: `User /u/${modmail.participant} is currently ${isBannedOnSub ? "banned" : "not banned"} on /r/${subredditName}.` });
     } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
         const isMod = await isModeratorWithCache(context.appSlug, context, subredditName);
         if (!isMod) {
             message.push({ p: `Bot Bouncer is not a moderator of /r/${subredditName}, so it cannot check the ban status of /u/${modmail.participant}.` });
+        } else if (isForbiddenError(errorMessage)) {
+            message.push({ p: `Bot Bouncer could not check whether /u/${modmail.participant} is banned on /r/${subredditName} because Reddit returned \`403 Forbidden\`, which usually means /u/bot-bouncer is on the mod list but has no permissions or is missing required permissions.` });
+            message.push({ p: `Please check [the app configuration page](https://developers.reddit.com/r/${subredditName}/apps/bot-bouncer), confirm Bot Bouncer is installed with full moderator permissions, and then retry \`!checkban ${subredditName}\`.` });
         } else {
             message.push({ p: `An error occurred while checking the ban status of /u/${modmail.participant} on /r/${subredditName}.` });
-            message.push({ blockquote: error instanceof Error ? error.message : String(error) });
+            message.push({ blockquote: errorMessage });
         }
     }
     await context.reddit.modMail.reply({
@@ -385,6 +389,11 @@ async function checkBanOnSub (modmail: ModmailMessage, context: TriggerContext) 
         conversationId: modmail.conversationId,
         isInternal: true,
     });
+}
+
+function isForbiddenError (errorMessage: string): boolean {
+    const normalizedError = errorMessage.toLowerCase();
+    return normalizedError.includes("403") || normalizedError.includes("forbidden");
 }
 
 async function showUserHistory (modmail: ModmailMessage, context: TriggerContext) {
