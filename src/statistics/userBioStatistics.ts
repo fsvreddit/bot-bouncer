@@ -11,6 +11,7 @@ import { decodedText, encodedText } from "../utility.js";
 import { expireKeyAt, hGetAllChunked, hMGetAsRecord, zRangeAsRecord } from "devvit-helpers";
 import escapeStringRegexp from "escape-string-regexp";
 import { hSetChunked } from "../redisHelper.js";
+import { BIO_TEXT_STATS_SWEEP_CLUSTER_KEY, type BioTextSweepStatsPayload } from "../similarBioTextFinder/bioTextFinder.js";
 
 const BIO_STATS_UPDATE_IN_PROGRESS = "BioTextStatsUpdateInProgressKey";
 
@@ -39,6 +40,57 @@ function appendedArray (existing: string[], newItem: string, limit = 5): string[
         return existing;
     }
     return [...existing, newItem].slice(-limit);
+}
+
+function getSweepCandidateData (payload: BioTextSweepStatsPayload | undefined): json2md.DataObject[] {
+    const content: json2md.DataObject[] = [];
+
+    if (!payload || payload.clusters.length === 0) {
+        content.push({ p: "None" });
+        return content;
+    }
+
+    content.push({ p: `Generated ${format(payload.generatedAt, "MMM dd, HH:mm")} from configured statistics-only sweep subreddits: /r/${payload.subreddits.join(", /r/")}` });
+    content.push({ p: "These candidates are not sent through modmail. They are review-only patterns from recent post authors in configured sweep subreddits." });
+
+    let index = 1;
+    for (const cluster of payload.clusters) {
+        content.push({ p: `**Sweep candidate ${index++}**` });
+        content.push({ blockquote: cluster.representativeBioText });
+
+        const coverageSummary = cluster.coveredUsers.length === 0
+            ? "No users covered by Bio Text evaluator"
+            : `${cluster.coveredUsers.length} covered, ${cluster.uncoveredUsers.length} not covered`;
+
+        content.push({ ul: [
+            `Match type: ${cluster.matchType}`,
+            `Similarity range: ${cluster.lowestSimilarity.toFixed(2)}-${cluster.highestSimilarity.toFixed(2)}`,
+            `Distinct users: ${cluster.users.length}`,
+            `Coverage: ${coverageSummary}`,
+            `Example users: ${cluster.users.slice(0, 5).map(user => `u/${user}`).join(", ")}`,
+            `Source subreddits: /r/${cluster.sourceSubreddits.join(", /r/")}`,
+            `Last seen: ${format(cluster.lastSeen, "MMM dd")}`,
+        ] });
+
+        if (cluster.matchType === "exact" && (cluster.representativeBioText.split(" ").length > 3 || cluster.representativeBioText.length > 15)) {
+            content.push({ p: `Conservative exact-match regex candidate: \`^${escapeStringRegexp(cluster.representativeBioText)}$\`` });
+        } else {
+            content.push({ p: "No automatic regex candidate is shown because this is a normalized or fuzzy-similar cluster." });
+        }
+
+        content.push({ hr: {} });
+    }
+
+    return content;
+}
+
+async function getStatsSweepPayload (context: JobContext): Promise<BioTextSweepStatsPayload | undefined> {
+    const serializedPayload = await context.redis.get(BIO_TEXT_STATS_SWEEP_CLUSTER_KEY);
+    if (!serializedPayload) {
+        return;
+    }
+
+    return JSON.parse(serializedPayload) as BioTextSweepStatsPayload;
 }
 
 async function clearDownTemporaryKeys (statsId: string, context: JobContext) {
@@ -228,16 +280,17 @@ export async function generateBioStatisticsReport (event: ScheduledJobEvent<BioS
     console.log(`Bio Stats: Retrieved ${Object.keys(bioRecords).length} bio records for report generation`);
 
     const configuredBioRegexes = await getEvaluatorVariable<string[]>("biotext:bantext", context) ?? [];
+    const statsSweepPayload = await getStatsSweepPayload(context);
 
     const reusedRecords = Object.entries(bioRecords)
         .map(([bioText, record]) => ({ bioText: decodedText(bioText), record: JSON.parse(record) as BioRecord }));
 
-    if (reusedRecords.length === 0) {
-        console.log("Bio Stats: No reused bio texts found, skipping report generation");
+    if (reusedRecords.length === 0 && (!statsSweepPayload || statsSweepPayload.clusters.length === 0)) {
+        console.log("Bio Stats: No reused bio texts or sweep candidates found, skipping report generation");
         return;
     }
 
-    console.log(`Bio Stats: Found ${reusedRecords.length} reused bio texts`);
+    console.log(`Bio Stats: Found ${reusedRecords.length} reused bio texts and ${statsSweepPayload?.clusters.length ?? 0} sweep candidates`);
 
     reusedRecords.sort((a, b) => b.record.hits - a.record.hits);
 
@@ -294,7 +347,10 @@ export async function generateBioStatisticsReport (event: ScheduledJobEvent<BioS
         content.push(...coveredByEvaluatorData);
     }
 
-    if (configuredBioRegexes.length > 0) {
+    content.push({ h2: "Bio text patterns from configured subreddit sweeps" });
+    content.push(...getSweepCandidateData(statsSweepPayload));
+
+    if (reusedRecords.length > 0 && configuredBioRegexes.length > 0) {
         const bullets: string[] = [];
         for (const regex of configuredBioRegexes) {
             if (!reusedRecords.some(record => new RegExp(regex, "u").exec(decodedText(record.record.bioText)))) {
@@ -326,6 +382,11 @@ export async function generateBioStatisticsReport (event: ScheduledJobEvent<BioS
     await clearDownTemporaryKeys(statsId, context);
     await context.redis.del(BIO_STATS_UPDATE_IN_PROGRESS);
     console.log("Bio Stats: Completed bio statistics report generation and cleanup");
+
+    if (reusedRecords.length === 0) {
+        console.log("Bio Stats: Skipping biotext substitution value update because no reused Bot Bouncer bio texts were found");
+        return;
+    }
 
     const distinctBios = Array.from(distinctBiosSet)
         .filter(bio => bio.split(" ").length > 3 || bio.length > 15)

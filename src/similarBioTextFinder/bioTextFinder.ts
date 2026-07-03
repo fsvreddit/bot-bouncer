@@ -11,30 +11,111 @@ import json2md from "json2md";
 import { AsyncSubmission, PostCreationQueueResult, queuePostCreation } from "../postCreation.js";
 import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
 
+export const BIO_TEXT_STATS_SWEEP_CLUSTER_KEY = "BioTextStatsSweepClusters";
+
 interface UserBioText {
     username: string;
     bioText: string;
+    sourceSubreddits: string[];
 }
 
-async function getBioTextForUser (username: string, context: TriggerContext): Promise<UserBioText | undefined> {
-    const cacheKey = `biotext~${username}`;
+interface UserBioTextForComparison extends UserBioText {
+    coveredByBioTextEvaluator: boolean;
+    substitutedBioText: string;
+}
+
+export interface BioTextSweepClusterMember {
+    username: string;
+    bioText: string;
+    sourceSubreddits: string[];
+    coveredByBioTextEvaluator: boolean;
+}
+
+export interface BioTextSweepCluster {
+    representativeBioText: string;
+    users: string[];
+    sourceSubreddits: string[];
+    lastSeen: number;
+    coveredUsers: string[];
+    uncoveredUsers: string[];
+    entries: BioTextSweepClusterMember[];
+    matchType: "exact" | "normalized" | "similar";
+    highestSimilarity: number;
+    lowestSimilarity: number;
+}
+
+export interface BioTextSweepStatsPayload {
+    generatedAt: number;
+    subreddits: string[];
+    clusters: BioTextSweepCluster[];
+}
+
+interface UserSweepEntry {
+    username: string;
+    sourceSubreddits: string[];
+}
+
+interface Match {
+    user1: string;
+    text1: string;
+    user2: string;
+    text2: string;
+    ratio: number;
+}
+
+interface BioTextMatch {
+    user1: string;
+    user2: string;
+    ratio: number;
+}
+
+class UnionFind {
+    private readonly parents: Record<string, string>;
+
+    public constructor (items: string[]) {
+        this.parents = _.fromPairs(items.map(item => [item, item]));
+    }
+
+    public find (item: string): string {
+        const parent = this.parents[item] ?? item;
+        this.parents[item] = parent;
+        if (parent === item) {
+            return item;
+        }
+
+        const root = this.find(parent);
+        this.parents[item] = root;
+        return root;
+    }
+
+    public union (item1: string, item2: string) {
+        const root1 = this.find(item1);
+        const root2 = this.find(item2);
+        if (root1 !== root2) {
+            this.parents[root2] = root1;
+        }
+    }
+}
+
+async function getBioTextForUser (user: UserSweepEntry, context: TriggerContext): Promise<UserBioText | undefined> {
+    const cacheKey = `biotext~${user.username}`;
     const cachedBioText = await context.redis.get(cacheKey);
     if (cachedBioText) {
         if (cachedBioText === "undefined") {
             return;
         }
 
-        return { username, bioText: cachedBioText };
+        return { username: user.username, bioText: cachedBioText, sourceSubreddits: user.sourceSubreddits };
     }
 
-    const user = await getUserExtended(username, context);
-    if (!user?.userDescription) {
+    const redditUser = await getUserExtended(user.username, context);
+    if (!redditUser?.userDescription) {
         await context.redis.set(cacheKey, "undefined", { expiration: addDays(new Date(), 7) });
         return;
     }
 
-    await context.redis.set(cacheKey, user.userDescription, { expiration: addDays(new Date(), 1) });
-    return { username, bioText: user.userDescription };
+    await context.redis.set(cacheKey, redditUser.userDescription, { expiration: addDays(new Date(), 1) });
+    return { username: user.username, bioText: redditUser.userDescription, sourceSubreddits: user.sourceSubreddits };
 }
 
 async function getDistinctUsersFromSubreddit (subredditName: string, context: TriggerContext): Promise<string[]> {
@@ -49,12 +130,34 @@ async function getDistinctUsersFromSubreddit (subredditName: string, context: Tr
         return [];
     }
 
-    return _.uniq(posts.map(post => post.authorName));
+    return _.uniq(posts
+        .map(post => post.authorName)
+        .filter((username): username is string => Boolean(username) && username !== "[deleted]"));
 }
 
-async function getDistinctUsersFromSubreddits (subredditNames: string[], context: TriggerContext): Promise<string[]> {
-    const userSets = await Promise.all(subredditNames.map(subredditName => getDistinctUsersFromSubreddit(subredditName, context)));
-    return _.uniq(userSets.flat());
+async function getDistinctUsersFromSubreddits (subredditNames: string[], context: TriggerContext): Promise<UserSweepEntry[]> {
+    const entriesByUsername: Record<string, UserSweepEntry> = {};
+
+    const userSets = await Promise.all(subredditNames.map(async subredditName => ({
+        subredditName,
+        users: await getDistinctUsersFromSubreddit(subredditName, context),
+    })));
+
+    for (const userSet of userSets) {
+        for (const username of userSet.users) {
+            const existingEntry = entriesByUsername[username];
+            if (existingEntry) {
+                existingEntry.sourceSubreddits = _.uniq([...existingEntry.sourceSubreddits, userSet.subredditName]);
+            } else {
+                entriesByUsername[username] = {
+                    username,
+                    sourceSubreddits: [userSet.subredditName],
+                };
+            }
+        }
+    }
+
+    return Object.values(entriesByUsername);
 }
 
 function bioTextAlreadyBanned (bioText: string, variables: Record<string, JSONValue>): boolean {
@@ -62,12 +165,160 @@ function bioTextAlreadyBanned (bioText: string, variables: Record<string, JSONVa
     return regexes.some(regex => new RegExp(regex).test(bioText));
 }
 
-interface Match {
-    user1: string;
-    text1: string;
-    user2: string;
-    text2: string;
-    ratio: number;
+function shouldCompareBioTexts (bioText1: UserBioTextForComparison, bioText2: UserBioTextForComparison): boolean {
+    if (bioText1.substitutedBioText === bioText2.substitutedBioText) {
+        return true;
+    }
+
+    const shorterLength = Math.min(bioText1.substitutedBioText.length, bioText2.substitutedBioText.length);
+    const longerLength = Math.max(bioText1.substitutedBioText.length, bioText2.substitutedBioText.length);
+
+    if (shorterLength < 16) {
+        return false;
+    }
+
+    return shorterLength / longerLength >= 0.55;
+}
+
+function getMatchType (cluster: UserBioTextForComparison[]): BioTextSweepCluster["matchType"] {
+    if (_.uniq(cluster.map(item => item.bioText)).length === 1) {
+        return "exact";
+    }
+
+    if (_.uniq(cluster.map(item => item.substitutedBioText)).length === 1) {
+        return "normalized";
+    }
+
+    return "similar";
+}
+
+function getClusterRepresentative (cluster: UserBioTextForComparison[]): UserBioTextForComparison {
+    const representative = cluster.find(item => !item.coveredByBioTextEvaluator) ?? cluster[0];
+    if (!representative) {
+        throw new Error("Cannot get representative bio text from empty cluster");
+    }
+    return representative;
+}
+
+function buildBioTextClusters (bioTextResults: UserBioText[], evaluatorVariables: Record<string, JSONValue>, minimumClusterSize: number): { clusters: BioTextSweepCluster[]; bestMatch?: Match } {
+    const comparisonEntries = bioTextResults.map(item => ({
+        ...item,
+        coveredByBioTextEvaluator: bioTextAlreadyBanned(item.bioText, evaluatorVariables),
+        substitutedBioText: getSubstitutedText(item.bioText),
+    }));
+
+    const unionFind = new UnionFind(comparisonEntries.map(item => item.username));
+    const matches: BioTextMatch[] = [];
+    let bestMatch: Match | undefined = undefined;
+
+    for (let i = 0; i < comparisonEntries.length; i++) {
+        const bioText = comparisonEntries[i];
+        for (let j = i + 1; j < comparisonEntries.length; j++) {
+            const otherBioText = comparisonEntries[j];
+            if (!shouldCompareBioTexts(bioText, otherBioText)) {
+                continue;
+            }
+
+            const ratio = bioText.substitutedBioText === otherBioText.substitutedBioText
+                ? 1
+                : new SequenceMatcher(null, bioText.substitutedBioText, otherBioText.substitutedBioText).ratio();
+
+            if (!bestMatch || ratio > bestMatch.ratio) {
+                bestMatch = { user1: bioText.username, text1: bioText.bioText, user2: otherBioText.username, text2: otherBioText.bioText, ratio };
+            }
+
+            if (ratio > 0.5) {
+                matches.push({ user1: bioText.username, user2: otherBioText.username, ratio });
+                unionFind.union(bioText.username, otherBioText.username);
+            }
+        }
+    }
+
+    const entriesByRoot: Record<string, UserBioTextForComparison[]> = {};
+    for (const bioText of comparisonEntries) {
+        const root = unionFind.find(bioText.username);
+        entriesByRoot[root] ??= [];
+        entriesByRoot[root].push(bioText);
+    }
+
+    const clusters: BioTextSweepCluster[] = [];
+    const matchedRatiosByRoot: Record<string, number[]> = {};
+    for (const match of matches) {
+        const root = unionFind.find(match.user1);
+        matchedRatiosByRoot[root] ??= [];
+        matchedRatiosByRoot[root].push(match.ratio);
+    }
+
+    for (const [root, cluster] of Object.entries(entriesByRoot)) {
+        if (cluster.length < minimumClusterSize) {
+            continue;
+        }
+
+        const uncoveredUsers = cluster
+            .filter(item => !item.coveredByBioTextEvaluator)
+            .map(item => item.username);
+        if (uncoveredUsers.length === 0) {
+            continue;
+        }
+
+        const coveredUsers = cluster
+            .filter(item => item.coveredByBioTextEvaluator)
+            .map(item => item.username);
+        const ratios = matchedRatiosByRoot[root] ?? [1];
+        const representative = getClusterRepresentative(cluster);
+
+        clusters.push({
+            representativeBioText: representative.bioText,
+            users: cluster.map(item => item.username),
+            sourceSubreddits: _.uniq(cluster.flatMap(item => item.sourceSubreddits)).sort(),
+            lastSeen: new Date().getTime(),
+            coveredUsers,
+            uncoveredUsers,
+            entries: cluster.map(item => ({
+                username: item.username,
+                bioText: item.bioText,
+                sourceSubreddits: item.sourceSubreddits,
+                coveredByBioTextEvaluator: item.coveredByBioTextEvaluator,
+            })),
+            matchType: getMatchType(cluster),
+            highestSimilarity: Math.max(...ratios),
+            lowestSimilarity: Math.min(...ratios),
+        });
+    }
+
+    clusters.sort((a, b) => b.uncoveredUsers.length - a.uncoveredUsers.length || b.users.length - a.users.length || b.highestSimilarity - a.highestSimilarity);
+
+    return { clusters, bestMatch };
+}
+
+async function getBioTextClustersForSubreddits (subreddits: string[], evaluatorVariables: Record<string, JSONValue>, minimumClusterSize: number, context: TriggerContext): Promise<{ clusters: BioTextSweepCluster[]; bestMatch?: Match }> {
+    if (subreddits.length === 0) {
+        return { clusters: [] };
+    }
+
+    const users = await getDistinctUsersFromSubreddits(subreddits, context);
+    const maxUsers = evaluatorVariables["biotext:sweepMaxUsers"] as number | undefined ?? 500;
+    const usersToCheck = users.slice(0, maxUsers);
+
+    const bioTextResults = _.compact(await Promise.all(usersToCheck.map(user => getBioTextForUser(user, context))));
+    return buildBioTextClusters(bioTextResults, evaluatorVariables, minimumClusterSize);
+}
+
+async function updateStatsSweepClusters (evaluatorVariables: Record<string, JSONValue>, context: TriggerContext) {
+    const subreddits = evaluatorVariables["biotext:statsSweepSubreddits"] as string[] | undefined ?? [];
+    if (subreddits.length === 0) {
+        await context.redis.del(BIO_TEXT_STATS_SWEEP_CLUSTER_KEY);
+        return;
+    }
+
+    const { clusters } = await getBioTextClustersForSubreddits(subreddits, evaluatorVariables, 3, context);
+    const payload: BioTextSweepStatsPayload = {
+        generatedAt: new Date().getTime(),
+        subreddits,
+        clusters: clusters.slice(0, 25),
+    };
+
+    await context.redis.set(BIO_TEXT_STATS_SWEEP_CLUSTER_KEY, JSON.stringify(payload), { expiration: addDays(new Date(), 14) });
 }
 
 export async function analyseBioText (context: TriggerContext) {
@@ -84,45 +335,18 @@ export async function analyseBioText (context: TriggerContext) {
     const evaluatorVariables = await getEvaluatorVariables(context);
     const subreddits = evaluatorVariables["generic:cqsbiosweepsubs"] as string[] | undefined ?? [];
 
-    const users = await getDistinctUsersFromSubreddits(subreddits, context);
+    await updateStatsSweepClusters(evaluatorVariables, context);
 
-    let bioTextResults = _.compact(await Promise.all(users.map(username => getBioTextForUser(username, context))));
-    const results: Record<string, UserBioText[]> = {};
-
-    let bestMatch: Match | undefined = undefined;
-
-    while (bioTextResults.length > 0) {
-        const bioText = bioTextResults.shift();
-        if (!bioText) {
-            break;
-        }
-
-        if (bioTextAlreadyBanned(bioText.bioText, evaluatorVariables)) {
-            continue;
-        }
-
-        const bioTextMatches = bioTextResults.map(otherBioText => ({ bioText: otherBioText, ratio: new SequenceMatcher(null, getSubstitutedText(bioText.bioText), getSubstitutedText(otherBioText.bioText)).ratio() }));
-        const similarBioTexts = bioTextMatches.filter(match => match.ratio > 0.5).map(match => match.bioText);
-        if (similarBioTexts.length === 0) {
-            const [bestMatchInBatch] = bioTextMatches.sort((a, b) => b.ratio - a.ratio);
-            // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-            if (bestMatchInBatch && (!bestMatch || bestMatchInBatch.ratio > bestMatch.ratio)) {
-                bestMatch = { user1: bioText.username, text1: bioText.bioText, user2: bestMatchInBatch.bioText.username, text2: bestMatchInBatch.bioText.bioText, ratio: bestMatchInBatch.ratio };
-            }
-            continue;
-        }
-
-        // Remove similar bio texts from the working set.
-        bioTextResults = bioTextResults.filter(originalBioText => !similarBioTexts.includes(originalBioText));
-
-        // Add the original bio text to the results.
-        results[bioText.bioText] = [bioText, ...similarBioTexts];
+    if (subreddits.length === 0) {
+        console.log("No CQS bio text sweep subreddits configured; statistics-only sweep complete.");
+        return;
     }
 
+    const { clusters, bestMatch } = await getBioTextClustersForSubreddits(subreddits, evaluatorVariables, 2, context);
     const output: json2md.DataObject[] = [];
     const addableUsers: string[] = [];
 
-    if (Object.keys(results).length === 0) {
+    if (clusters.length === 0) {
         const recentlySent = await context.redis.exists(BIO_TEXT_MODMAIL_SENT);
         if (recentlySent) {
             console.log("No similar bio text patterns found, and a modmail was sent recently.");
@@ -130,30 +354,35 @@ export async function analyseBioText (context: TriggerContext) {
         }
         console.log("No similar bio text patterns found.");
         output.push({ p: "No similar enough bio text patterns found on this run." });
+        if (bestMatch) {
+            output.push({ p: `Closest pair on this run had similarity ${bestMatch.ratio.toFixed(2)}: /u/${bestMatch.user1} and /u/${bestMatch.user2}.` });
+        }
     } else {
         const variables = await getEvaluatorVariables(context);
         let index = 1;
 
-        output.push({ p: "Here are some similar bio text patterns not already covered by the Bio Text evaluator and seen on swept subreddits recently:" });
+        output.push({ p: "Here are some similar bio text patterns with at least one entry not already covered by the Bio Text evaluator and seen on swept subreddits recently:" });
 
-        for (const similarTexts of Object.values(results)) {
+        for (const cluster of clusters) {
             output.push({ p: `**Pattern ${index++}**` });
+            output.push({ p: `Match type: ${cluster.matchType}; similarity range: ${cluster.lowestSimilarity.toFixed(2)}-${cluster.highestSimilarity.toFixed(2)}; sources: /r/${cluster.sourceSubreddits.join(", /r/")}` });
 
             const rows: string[][] = [];
-            for (const bioTextEntry of similarTexts) {
+            for (const bioTextEntry of cluster.entries) {
                 const currentStatus = await getUserStatus(bioTextEntry.username, context);
                 const evaluatorsMatched = await evaluateUserAccount({
                     username: bioTextEntry.username,
                     variables,
                 }, context);
                 const evaluators = evaluatorsMatched.map(evaluator => evaluator.botName).join(", ");
-                rows.push([`/u/${bioTextEntry.username}`, currentStatus?.userStatus ?? "", evaluators, bioTextEntry.bioText]);
-                if (!currentStatus && evaluators === "") {
+                const coverage = bioTextEntry.coveredByBioTextEvaluator ? "Covered" : "Not covered";
+                rows.push([`/u/${bioTextEntry.username}`, currentStatus?.userStatus ?? "", evaluators, coverage, bioTextEntry.bioText]);
+                if (!bioTextEntry.coveredByBioTextEvaluator && !currentStatus && evaluators === "") {
                     addableUsers.push(bioTextEntry.username);
                 }
             }
 
-            output.push({ table: { headers: ["Username", "Status", "Evaluators", "Bio Text"], rows } });
+            output.push({ table: { headers: ["Username", "Status", "Evaluators", "Bio Text Evaluator", "Bio Text"], rows } });
         }
 
         output.push({ hr: {} });
@@ -161,7 +390,7 @@ export async function analyseBioText (context: TriggerContext) {
         output.push({ p: `Subreddits currently being swept for bio text: /r/${subreddits.join(", /r/")}` });
         output.push({ p: `If you want to submit all users with similar bio text to Bot Bouncer, please reply to this modmail with \`!addall\` or \`!addall banned\`` });
 
-        await context.redis.zAdd(BIO_TEXT_STORAGE_KEY, ...Object.values(results).flat().map(item => ({ member: item.bioText, score: new Date().getTime() })));
+        await context.redis.zAdd(BIO_TEXT_STORAGE_KEY, ...clusters.flatMap(cluster => cluster.entries.map(item => ({ member: item.bioText, score: new Date().getTime() }))));
     }
 
     const conversationId = await context.reddit.modMail.createModInboxConversation({
@@ -174,7 +403,7 @@ export async function analyseBioText (context: TriggerContext) {
 
     const bioTextUserKey = `biotextusers~${conversationId}`;
     if (addableUsers.length > 0) {
-        await context.redis.set(bioTextUserKey, JSON.stringify(addableUsers), { expiration: addDays(new Date(), 7) });
+        await context.redis.set(bioTextUserKey, JSON.stringify(_.uniq(addableUsers)), { expiration: addDays(new Date(), 7) });
     }
 }
 
