@@ -300,15 +300,17 @@ function formatPlaceholders (input: string, userDetails: UserDetails, appealOutc
 }
 
 function getEvaluationHitReasonText (evaluationResult: EvaluationResult): string | undefined {
-    if (!evaluationResult.hitReason) {
+    const hitReason = evaluationResult.hitReason;
+    if (!hitReason) {
         return undefined;
     }
 
-    if (typeof evaluationResult.hitReason === "string") {
-        return evaluationResult.hitReason;
+    if (typeof hitReason === "string") {
+        return hitReason;
     }
 
-    return evaluationResult.hitReason.reason;
+    const detailsText = hitReason.details?.map(detail => `${detail.key}: ${detail.value}`).join("\n") ?? "";
+    return detailsText ? `${hitReason.reason}\n${detailsText}` : hitReason.reason;
 }
 
 function findFirstRegexMatch (text: string | undefined, regexes: string[] | undefined): string | undefined {
