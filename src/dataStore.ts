@@ -24,14 +24,6 @@ export const BIO_TEXT_STORE = "BioTextStore";
 export const DISPLAY_NAME_STORE = "DisplayNameStore";
 export const SOCIAL_LINKS_STORE = "SocialLinksStore";
 
-export function getProfileStoreKey (username: string): string {
-    if (username.length === 0) {
-        throw new Error("Empty username provided to getProfileStoreKey");
-    }
-
-    return username.toLowerCase();
-}
-
 export const AGGREGATE_STORE = "AggregateStore";
 
 export enum UserStatus {
@@ -287,10 +279,9 @@ export async function deleteUserStatus (username: string, context: TriggerContex
     await context.redis.global.zRem(RECENT_CHANGES_STORE, [username]);
 
     await deleteAccountInitialEvaluationResults(username, context);
-    const profileKeys = _.uniq([username, getProfileStoreKey(username)]);
-    await context.redis.hDel(BIO_TEXT_STORE, profileKeys);
-    await context.redis.hDel(DISPLAY_NAME_STORE, profileKeys);
-    await context.redis.hDel(SOCIAL_LINKS_STORE, profileKeys);
+    await context.redis.hDel(BIO_TEXT_STORE, [username]);
+    await context.redis.hDel(DISPLAY_NAME_STORE, [username]);
+    await context.redis.hDel(SOCIAL_LINKS_STORE, [username]);
     await context.redis.hDel(USER_DEFINED_HANDLES_POSTS, [username]);
 
     await context.redis.global.zRem(TEMP_DECLINE_STORE, [username]);
@@ -343,30 +334,24 @@ export async function storeInitialAccountProperties (username: string, context: 
         return;
     }
 
-    const profileStoreKey = getProfileStoreKey(username);
-
     const promises: Promise<number>[] = [];
     if (userExtended.userDescription) {
-        promises.push(context.redis.hSet(BIO_TEXT_STORE, { [profileStoreKey]: userExtended.userDescription }));
+        promises.push(context.redis.hSet(BIO_TEXT_STORE, { [username]: userExtended.userDescription }));
         console.log(`Data Store: Stored bio for ${username}`);
     }
 
     if (userExtended.displayName && userExtended.displayName !== username && userExtended.displayName !== `u_${username}`) {
-        promises.push(context.redis.hSet(DISPLAY_NAME_STORE, { [profileStoreKey]: userExtended.displayName }));
+        promises.push(context.redis.hSet(DISPLAY_NAME_STORE, { [username]: userExtended.displayName }));
         console.log(`Data Store: Stored display name for ${username}`);
     }
 
     const socialLinks = await getUserSocialLinks(username, context.metadata);
     if (socialLinks.length > 0) {
-        promises.push(context.redis.hSet(SOCIAL_LINKS_STORE, { [profileStoreKey]: JSON.stringify(socialLinks) }));
+        promises.push(context.redis.hSet(SOCIAL_LINKS_STORE, { [username]: JSON.stringify(socialLinks) }));
         console.log(`Data Store: Stored social links for ${username}`);
     }
 
     await Promise.all(promises);
-}
-
-function getFallbackValue (canonicalValue: string | undefined, fallbackValue: string | undefined): string | undefined {
-    return canonicalValue ?? fallbackValue;
 }
 
 function parseSocialLinks (socialLinks: string | undefined): UserSocialLink[] {
@@ -382,44 +367,32 @@ function parseSocialLinks (socialLinks: string | undefined): UserSocialLink[] {
 }
 
 export async function getInitialAccountProperties (username: string, context: TriggerContext): Promise<InitialAccountProperties> {
-    const profileStoreKey = getProfileStoreKey(username);
-    const legacyKey = profileStoreKey === username ? undefined : username;
-
-    const [bioText, displayName, socialLinks, legacyBioText, legacyDisplayName, legacySocialLinks] = await Promise.all([
-        context.redis.hGet(BIO_TEXT_STORE, profileStoreKey),
-        context.redis.hGet(DISPLAY_NAME_STORE, profileStoreKey),
-        context.redis.hGet(SOCIAL_LINKS_STORE, profileStoreKey),
-        legacyKey ? context.redis.hGet(BIO_TEXT_STORE, legacyKey) : Promise.resolve(undefined),
-        legacyKey ? context.redis.hGet(DISPLAY_NAME_STORE, legacyKey) : Promise.resolve(undefined),
-        legacyKey ? context.redis.hGet(SOCIAL_LINKS_STORE, legacyKey) : Promise.resolve(undefined),
+    const [bioText, displayName, socialLinks] = await Promise.all([
+        context.redis.hGet(BIO_TEXT_STORE, username),
+        context.redis.hGet(DISPLAY_NAME_STORE, username),
+        context.redis.hGet(SOCIAL_LINKS_STORE, username),
     ]);
 
     return {
-        bioText: getFallbackValue(bioText, legacyBioText),
-        displayName: getFallbackValue(displayName, legacyDisplayName),
-        socialLinks: parseSocialLinks(getFallbackValue(socialLinks, legacySocialLinks)),
+        bioText,
+        displayName,
+        socialLinks: parseSocialLinks(socialLinks),
     };
 }
 
 export async function getInitialAccountPropertiesForUsers (usernames: string[], context: TriggerContext): Promise<Record<string, InitialAccountProperties>> {
-    const profileStoreKeys = usernames.map(username => getProfileStoreKey(username));
-    const legacyKeys = usernames.map(username => username);
-
-    const [bioTexts, displayNames, socialLinks, legacyBioTexts, legacyDisplayNames, legacySocialLinks] = await Promise.all([
-        context.redis.hMGet(BIO_TEXT_STORE, profileStoreKeys),
-        context.redis.hMGet(DISPLAY_NAME_STORE, profileStoreKeys),
-        context.redis.hMGet(SOCIAL_LINKS_STORE, profileStoreKeys),
-        context.redis.hMGet(BIO_TEXT_STORE, legacyKeys),
-        context.redis.hMGet(DISPLAY_NAME_STORE, legacyKeys),
-        context.redis.hMGet(SOCIAL_LINKS_STORE, legacyKeys),
+    const [bioTexts, displayNames, socialLinks] = await Promise.all([
+        context.redis.hMGet(BIO_TEXT_STORE, usernames),
+        context.redis.hMGet(DISPLAY_NAME_STORE, usernames),
+        context.redis.hMGet(SOCIAL_LINKS_STORE, usernames),
     ]);
 
     const results: Record<string, InitialAccountProperties> = {};
     for (let i = 0; i < usernames.length; i++) {
         results[usernames[i]] = {
-            bioText: getFallbackValue(bioTexts[i], legacyBioTexts[i]),
-            displayName: getFallbackValue(displayNames[i], legacyDisplayNames[i]),
-            socialLinks: parseSocialLinks(getFallbackValue(socialLinks[i], legacySocialLinks[i])),
+            bioText: bioTexts[i],
+            displayName: displayNames[i],
+            socialLinks: parseSocialLinks(socialLinks[i]),
         };
     }
 

@@ -75,10 +75,14 @@ export function domainFromUrl (url: string): string | undefined {
         return;
     }
 
-    const hostname = new URL(url).hostname;
-    const trimmedHostname = hostname.startsWith("www.") ? hostname.substring(4) : hostname;
+    try {
+        const hostname = new URL(url).hostname.toLowerCase();
+        const trimmedHostname = hostname.startsWith("www.") ? hostname.substring(4) : hostname;
 
-    return trimmedHostname;
+        return trimmedHostname;
+    } catch {
+        return;
+    }
 }
 
 export function median (numbers: number[]): number {

@@ -7,6 +7,7 @@ import crypto from "crypto";
 import { ControlSubredditJob } from "./constants.js";
 import { getInitialAccountProperties, getInitialAccountPropertiesForUsers, UserFlag, UserStatus } from "./dataStore.js";
 import type { InitialAccountProperties, UserDetails } from "./dataStore.js";
+import { domainFromUrl } from "./utility.js";
 import { hSetChunked } from "./redisHelper.js";
 import type { StatsUserEntry } from "./scheduler/sixHourlyJobs.js";
 import { userIsBanned } from "./statistics/statsHelpers.js";
@@ -16,6 +17,10 @@ export const HACKED_PROFILE_FINGERPRINT_FEATURE_BANK_STORE = "HackedProfileFinge
 
 const LOOKBACK_DAYS = 90;
 const MAX_EXAMPLE_USERS = 5;
+const MAX_RECOVERED_BACKFILL_USERS = 100;
+const MAX_SCAMMED_BACKFILL_USERS = 50;
+const MAX_ORGANIC_COMPARISON_USERS = 50;
+const MAX_BANNED_COMPARISON_USERS = 50;
 
 type HackedProfileOutcomeClass = "recovered" | "organic_non_recovered" | "banned_non_recovered" | "scammed" | "other";
 type HackedProfileFeatureType = "bioHash" | "displayNameHash" | "socialDomain" | "socialHandle" | "socialLinkHash";
@@ -85,15 +90,6 @@ function normalizeUrl (input: string): string | undefined {
     }
 }
 
-function getDomainFromUrl (input: string): string | undefined {
-    try {
-        const url = new URL(input);
-        return (url.hostname.startsWith("www.") ? url.hostname.substring(4) : url.hostname).toLowerCase();
-    } catch {
-        return undefined;
-    }
-}
-
 function extractHandleFromUrl (input: string): string | undefined {
     const normalizedUrl = normalizeUrl(input);
     if (!normalizedUrl) {
@@ -131,7 +127,7 @@ export function getHackedProfileFeatures (profile: InitialAccountProperties): Ha
     return {
         bioHash: normalizedBio && normalizedBio.length >= 4 ? sha256(normalizedBio) : undefined,
         displayNameHash: normalizedDisplayName && normalizedDisplayName.length >= 3 ? sha256(normalizedDisplayName) : undefined,
-        socialDomains: _.uniq(_.compact(urls.map(getDomainFromUrl))).sort(),
+        socialDomains: _.uniq(_.compact(urls.map(domainFromUrl))).sort(),
         socialHandles: _.uniq(_.compact(urls.map(extractHandleFromUrl))).sort(),
         socialLinkHashes: _.uniq(_.compact(urls.map(normalizeUrl)).map(sha256)).sort(),
     };
@@ -210,6 +206,30 @@ function buildObservation (username: string, details: UserDetails, profile: Init
         outcomeClass: getOutcomeClass(details),
         features,
     };
+}
+
+function lastProfileObservationTime (entry: StatsUserEntry): number {
+    return entry.data.reportedAt ?? entry.data.lastUpdate;
+}
+
+function newestEntries (entries: StatsUserEntry[], limit: number): StatsUserEntry[] {
+    return [...entries]
+        .sort((a, b) => lastProfileObservationTime(b) - lastProfileObservationTime(a))
+        .slice(0, limit);
+}
+
+function selectHackedProfileFingerprintBackfillEntries (recentEntries: StatsUserEntry[]): StatsUserEntry[] {
+    const recoveredEntries = recentEntries.filter(entry => entry.data.flags?.includes(UserFlag.HackedAndRecovered));
+    const scammedEntries = recentEntries.filter(entry => entry.data.flags?.includes(UserFlag.Scammed));
+    const organicEntries = recentEntries.filter(entry => entry.data.userStatus === UserStatus.Organic && !entry.data.flags?.includes(UserFlag.HackedAndRecovered));
+    const bannedEntries = recentEntries.filter(entry => userIsBanned(entry.data) && !entry.data.flags?.includes(UserFlag.HackedAndRecovered));
+
+    return _.uniqBy([
+        ...newestEntries(recoveredEntries, MAX_RECOVERED_BACKFILL_USERS),
+        ...newestEntries(scammedEntries, MAX_SCAMMED_BACKFILL_USERS),
+        ...newestEntries(organicEntries, MAX_ORGANIC_COMPARISON_USERS),
+        ...newestEntries(bannedEntries, MAX_BANNED_COMPARISON_USERS),
+    ], entry => entry.username);
 }
 
 export function buildHackedProfileFeatureBank (observations: HackedProfileFingerprintObservation[]): Record<string, HackedProfileFeatureBankRecord> {
@@ -370,7 +390,7 @@ function buildReport (observations: HackedProfileFingerprintObservation[], bank:
 
     const content: json2md.DataObject[] = [
         { h1: "Hacked Profile Fingerprints" },
-        { p: `This page is generated from stored public profile data for accounts reported in the last ${LOOKBACK_DAYS} days. It is intended for moderator review and appeal triage only.` },
+        { p: `This page is generated from a capped sample of stored public profile data for accounts reported in the last ${LOOKBACK_DAYS} days. It is intended for moderator review and appeal triage only.` },
         { p: "The page compares features from accounts marked recovered against organic, banned non-recovered, and scammed accounts. Raw bio and display-name text are not duplicated here; those features are represented by hashes." },
         { h2: "Backfill status" },
         {
@@ -429,14 +449,15 @@ async function setModsOnlyWikiPage (page: string, context: JobContext) {
 
 export async function updateHackedProfileFingerprintStatistics (allEntries: StatsUserEntry[], context: JobContext) {
     const since = subDays(new Date(), LOOKBACK_DAYS).getTime();
-    const recentEntries = allEntries
-        .filter(entry => (entry.data.reportedAt ?? entry.data.lastUpdate) >= since)
+    const recentEligibleEntries = allEntries
+        .filter(entry => lastProfileObservationTime(entry) >= since)
         .filter(entry => [UserStatus.Banned, UserStatus.Organic, UserStatus.Purged, UserStatus.Retired, UserStatus.Inactive].includes(entry.data.userStatus));
+    const recentEntries = selectHackedProfileFingerprintBackfillEntries(recentEligibleEntries);
 
-    console.log(`Hacked Profile Fingerprints: Processing ${recentEntries.length} recent users for profile features.`);
+    console.log(`Hacked Profile Fingerprints: Processing ${recentEntries.length} capped users from ${recentEligibleEntries.length} recent eligible users for profile features.`);
 
     const observations: HackedProfileFingerprintObservation[] = [];
-    for (const chunk of _.chunk(recentEntries, 500)) {
+    for (const chunk of _.chunk(recentEntries, 250)) {
         const profiles = await getInitialAccountPropertiesForUsers(chunk.map(entry => entry.username), context);
         for (const entry of chunk) {
             const profile = profiles[entry.username];
