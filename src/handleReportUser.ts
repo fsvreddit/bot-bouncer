@@ -5,7 +5,7 @@ import { getUserStatus, UserStatus } from "./dataStore.js";
 import { addExternalSubmissionFromClientSub } from "./externalSubmissions.js";
 import { queryForm, reportForm } from "./main.js";
 import { addDays, addMinutes, subMonths } from "date-fns";
-import { getControlSubSettings } from "./settings.js";
+import { AppSetting, getControlSubSettings } from "./settings.js";
 import { handleControlSubReportUser } from "./handleControlSubMenu.js";
 import { recordReportForSummary } from "./modmail/actionSummary.js";
 import { canUserReceiveFeedback } from "./submissionFeedback.js";
@@ -228,6 +228,7 @@ export async function reportFormHandler (event: FormOnSubmitEvent<JSONObject>, c
     }
 
     const currentUser = await context.reddit.getCurrentUser();
+    const removeReportedContent = await context.settings.get<boolean>(AppSetting.RemoveReportedContentOnReport);
     const reportContext = event.values[ReportFormField.ReportContext] as string | undefined;
 
     await Promise.all([
@@ -244,9 +245,30 @@ export async function reportFormHandler (event: FormOnSubmitEvent<JSONObject>, c
         recordReportForSummary(target.authorName, context.redis),
     ]);
 
+    let reportedContentRemoved = false;
+    let reportedContentRemoveFailed = false;
+
+    if (removeReportedContent && !target.removed && !target.spam) {
+        try {
+            await target.remove();
+            reportedContentRemoved = true;
+        } catch (error) {
+            reportedContentRemoveFailed = true;
+            console.error(`Failed to remove reported content ${target.id} for ${target.authorName}:`, error);
+        }
+    }
+
     await setAlreadyReported(target.authorName, context);
 
-    context.ui.showToast(`${target.authorName} has been submitted to /r/${CONTROL_SUBREDDIT}. A tracking post will be created shortly.`);
+    let toastMessage = `${target.authorName} has been submitted to /r/${CONTROL_SUBREDDIT}. A tracking post will be created shortly.`;
+
+    if (reportedContentRemoved) {
+        toastMessage += " The reported content was removed.";
+    } else if (reportedContentRemoveFailed) {
+        toastMessage += " The reported content could not be removed.";
+    }
+
+    context.ui.showToast(toastMessage);
 
     if (currentUser?.username) {
         await setUserFeedbackPreference(currentUser.username, event.values[ReportFormField.SendFeedback] as boolean | undefined ?? false, context);

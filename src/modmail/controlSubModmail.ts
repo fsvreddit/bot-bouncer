@@ -280,19 +280,8 @@ async function handleModmailFromUser (modmail: ModmailMessage, context: TriggerC
 
     await storeKeyForAppeal(modmail.conversationId, context);
 
-    const message = await getSummaryForUser(username, "modmail", context);
-
-    const modmailStrings = markdownToText(message);
-
-    for (const string of modmailStrings) {
-        await context.reddit.modMail.reply({
-            body: string,
-            conversationId: modmail.conversationId,
-            isInternal: true,
-        });
-    }
-
     if (currentStatus.userStatus !== UserStatus.Banned && currentStatus.userStatus !== UserStatus.Purged) {
+        await addSummaryForUser(modmail.conversationId, username, context);
         // User is not banned or purged, so we should not send the "Appeal Received" message.
         return;
     }
@@ -300,6 +289,7 @@ async function handleModmailFromUser (modmail: ModmailMessage, context: TriggerC
     const user = await getUserOrUndefined(username, context);
     if (!user) {
         // User is not found, so we should not send the "Appeal Received" message.
+        await addSummaryForUser(modmail.conversationId, username, context);
         await context.reddit.modMail.reply({
             body: CONFIGURATION_DEFAULTS.appealShadowbannedMessage,
             conversationId: modmail.conversationId,
@@ -312,16 +302,20 @@ async function handleModmailFromUser (modmail: ModmailMessage, context: TriggerC
 
     const appealOutcomeType = await handleAppeal(modmail, currentStatus, context);
 
-    if (currentStatus.userStatus === UserStatus.Banned && appealOutcomeType !== AppealOutcomeType.StatusChanged) {
-        await context.scheduler.runJob({
-            name: ControlSubredditJob.OpenAISummaryGather,
-            data: {
-                username,
-                conversationId: modmail.conversationId,
-                userMessage: modmail.bodyMarkdown,
-            },
-            runAt: addSeconds(new Date(), 5),
-        });
+    if (appealOutcomeType !== AppealOutcomeType.AppealGranted) {
+        await addSummaryForUser(modmail.conversationId, username, context);
+
+        if (currentStatus.userStatus === UserStatus.Banned) {
+            await context.scheduler.runJob({
+                name: ControlSubredditJob.OpenAISummaryGather,
+                data: {
+                    username,
+                    conversationId: modmail.conversationId,
+                    userMessage: modmail.bodyMarkdown,
+                },
+                runAt: addSeconds(new Date(), 5),
+            });
+        }
     }
 
     await context.redis.set(recentAppealKey, new Date().getTime().toString(), { expiration: addDays(new Date(), 1) });
@@ -383,12 +377,16 @@ async function checkBanOnSub (modmail: ModmailMessage, context: TriggerContext) 
         const isBannedOnSub = await isBanned(context.reddit, subredditName, modmail.participant);
         message.push({ p: `User /u/${modmail.participant} is currently ${isBannedOnSub ? "banned" : "not banned"} on /r/${subredditName}.` });
     } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
         const isMod = await isModeratorWithCache(context.appSlug, context, subredditName);
         if (!isMod) {
             message.push({ p: `Bot Bouncer is not a moderator of /r/${subredditName}, so it cannot check the ban status of /u/${modmail.participant}.` });
+        } else if (isForbiddenError(errorMessage)) {
+            message.push({ p: `Bot Bouncer could not check whether /u/${modmail.participant} is banned on /r/${subredditName} because Reddit returned \`403 Forbidden\`, which usually means /u/bot-bouncer is on the mod list but has no permissions or is missing required permissions.` });
+            message.push({ p: `Check /r/${subredditName}'s mod list, confirm /u/bot-bouncer has full moderator permissions, and then retry \`!checkban ${subredditName}\`.` });
         } else {
             message.push({ p: `An error occurred while checking the ban status of /u/${modmail.participant} on /r/${subredditName}.` });
-            message.push({ blockquote: error instanceof Error ? error.message : String(error) });
+            message.push({ blockquote: errorMessage });
         }
     }
     await context.reddit.modMail.reply({
@@ -396,6 +394,11 @@ async function checkBanOnSub (modmail: ModmailMessage, context: TriggerContext) 
         conversationId: modmail.conversationId,
         isInternal: true,
     });
+}
+
+function isForbiddenError (errorMessage: string): boolean {
+    const normalizedError = errorMessage.toLowerCase();
+    return normalizedError.includes("403") || normalizedError.includes("forbidden");
 }
 
 async function showUserHistory (modmail: ModmailMessage, context: TriggerContext) {

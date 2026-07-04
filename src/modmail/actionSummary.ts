@@ -18,6 +18,47 @@ function getUnbansKey (date: Date) {
     return `digest:unbans:${format(date, `yyyy-MM-dd`)}`;
 }
 
+interface DigestSummaryCounts {
+    reported: number | undefined;
+    banned: number | undefined;
+    unbanned: number | undefined;
+}
+
+function buildDigestSummaryComment (subredditName: string, intervalText: string, counts: DigestSummaryCounts) {
+    const countTexts: string[] = [];
+
+    if (counts.reported !== undefined) {
+        countTexts.push(`${counts.reported} reported`);
+    }
+
+    if (counts.banned !== undefined) {
+        countTexts.push(`${counts.banned} banned`);
+    }
+
+    if (counts.unbanned !== undefined) {
+        countTexts.push(`${counts.unbanned} unbanned`);
+    }
+
+    return `Digest summary for /r/${subredditName} ${intervalText}: ${countTexts.join("; ")}. See the previous message for the full account list.`;
+}
+
+async function sendDigestSummaryComment (
+    conversationId: string,
+    subredditName: string,
+    intervalText: string,
+    counts: DigestSummaryCounts,
+    context: JobContext,
+) {
+    try {
+        await context.reddit.modMail.reply({
+            conversationId,
+            body: buildDigestSummaryComment(subredditName, intervalText, counts),
+        });
+    } catch (e) {
+        console.error(`Failed to send compact digest summary comment for conversation ${conversationId}:`, e);
+    }
+}
+
 export async function sendDailySummary (_: unknown, context: JobContext) {
     const settings = await context.settings.getAll();
     const featureEnabled = settings[AppSetting.Digest] as boolean;
@@ -118,6 +159,11 @@ export async function sendDailySummary (_: unknown, context: JobContext) {
     message.push({ p: `These notifications can be customised or turned off on the [app configuration page](https://developers.reddit.com/r/${subredditName}/apps/${context.appSlug}).` });
 
     const createNewMessage = settings[AppSetting.DigestNewMessageEachDay] as boolean | undefined ?? true;
+    const digestSummaryCounts = {
+        reported: reportedEnabled ? reports.length : undefined,
+        banned: bannedEnabled ? bans.length : undefined,
+        unbanned: unbannedEnabled ? unbans.length : undefined,
+    };
 
     const digestConversationIdKey = "digestConvesationId";
     const existingConversationId = await context.redis.get(digestConversationIdKey);
@@ -127,6 +173,7 @@ export async function sendDailySummary (_: unknown, context: JobContext) {
             conversationId: existingConversationId,
             body: json2md(message),
         });
+        await sendDigestSummaryComment(existingConversationId, subredditName, intervalText, digestSummaryCounts, context);
 
         return;
     }
@@ -152,6 +199,8 @@ export async function sendDailySummary (_: unknown, context: JobContext) {
     } else {
         newConversationId = await context.reddit.modMail.createModInboxConversation(params);
     }
+
+    await sendDigestSummaryComment(newConversationId, subredditName, intervalText, digestSummaryCounts, context);
 
     if (!createNewMessage) {
         await context.redis.set(digestConversationIdKey, newConversationId);

@@ -316,6 +316,14 @@ export enum AppealOutcomeType {
     Skipped = "skipped",
     Neutral = "neutral",
     StatusChanged = "statusChanged",
+    AppealGranted = "appealGranted",
+}
+
+function isAppealGrantStatus (status: string | undefined): boolean {
+    return status === UserStatus.Organic
+        || status === UserFlag.HackedAndRecovered
+        || status === UserFlag.Scammed
+        || status === UserFlag.FutureNSFW;
 }
 
 export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDetails, context: TriggerContext): Promise<AppealOutcomeType> {
@@ -572,7 +580,7 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
             subredditName: CONTROL_SUBREDDIT,
         });
 
-        appealOutcomeType = AppealOutcomeType.StatusChanged;
+        appealOutcomeType = isAppealGrantStatus(appealOutcome.newStatus) ? AppealOutcomeType.AppealGranted : AppealOutcomeType.StatusChanged;
     }
 
     if (appealOutcome.privateReply) {

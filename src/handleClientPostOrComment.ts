@@ -11,7 +11,7 @@ import { isLinkId } from "@devvit/public-api/types/tid.js";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { recordBanForSummary } from "./modmail/actionSummary.js";
 import { expireKeyAt, isBanned, isContributor } from "devvit-helpers";
-import { filterContent, getPostOrCommentById, getTrueUsername, getUserExtended, hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
+import { filterContent, fixCommentTriggerEvent, fixPostTriggerEvent, getPostOrCommentById, getUserExtended, hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
 import { ConfigRevisionUserHit, getLoadedConfigRevisionReceiptForEvaluator, recordConfigRevisionUserHit } from "./configRevisionReceipts.js";
 
 export async function handleClientPostCreate (event: PostCreate, context: TriggerContext) {
@@ -19,24 +19,24 @@ export async function handleClientPostCreate (event: PostCreate, context: Trigge
         throw new Error("Content Create: handleClientPostCreate should not be called for the control subreddit, check the subreddit name handling logic");
     }
 
+    event = await fixPostTriggerEvent(event, context);
+
     if (!event.post || !event.author?.name) {
         console.error("Content Create: PostCreate event missing post or author information", JSON.stringify(event));
         return;
     }
 
-    const username = await getTrueUsername(context.reddit, event.author.name, event.post.id);
+    console.log(`Content Create: PostCreate ${event.post.id} by ${event.author.name}`);
 
-    console.log(`Content Create: PostCreate ${event.post.id} by ${username}`);
+    await recordUserContentCreation(event.author.name, context);
 
-    await recordUserContentCreation(username, context);
-
-    if (username === "AutoModerator" || username === `${context.subredditName}-ModTeam`) {
+    if (event.author.name === "AutoModerator" || event.author.name === `${context.subredditName}-ModTeam`) {
         return;
     }
 
-    const currentStatus = await getUserStatus(username, context);
+    const currentStatus = await getUserStatus(event.author.name, context);
     if (currentStatus) {
-        await handleContentCreation(username, currentStatus, event.post.id, context);
+        await handleContentCreation(event.author.name, currentStatus, event.post.id, context);
         return;
     }
 
@@ -57,33 +57,8 @@ export async function handleClientPostCreate (event: PostCreate, context: Trigge
     }
 
     if (possibleBot) {
-        await checkAndReportPotentialBot(username, post, variables, context);
+        await checkAndReportPotentialBot(event.author.name, post, variables, context);
     }
-}
-
-/**
- * Fixes CommentCreate or CommentUpdate events where the comment body and author have been redacted due to being removed or filtered
- * @param event A CommentCreate or CommentUpdate event
- * @param context Reddit's TriggerContext
- * @returns A fixed event of the same type with redacted information restored
- */
-async function fixedCommentEvent<T extends CommentCreate | CommentUpdate> (event: T, context: TriggerContext): Promise<T> {
-    const eventToReturn: T = { ...event };
-    if (!eventToReturn.comment?.id || eventToReturn.author?.name !== "[redacted]") {
-        return event;
-    }
-
-    const comment = await context.reddit.getCommentById(eventToReturn.comment.id);
-
-    eventToReturn.author.name = comment.authorName;
-    if (comment.authorId) {
-        eventToReturn.comment.author = comment.authorId;
-    }
-    eventToReturn.comment.body = comment.body;
-
-    console.log(`Bot check: Fixed event for comment ${comment.id} by ${comment.authorName}`);
-
-    return eventToReturn;
 }
 
 export async function handleClientCommentCreate (event: CommentCreate, context: TriggerContext) {
@@ -91,7 +66,7 @@ export async function handleClientCommentCreate (event: CommentCreate, context: 
         throw new Error("Content Create: handleClientCommentCreate should not be called for the control subreddit, check the subreddit name handling logic");
     }
 
-    const fixedEvent = await fixedCommentEvent(event, context);
+    const fixedEvent = await fixCommentTriggerEvent(event, context);
 
     if (!fixedEvent.comment || !fixedEvent.author?.name) {
         return;
@@ -148,7 +123,7 @@ export async function handleClientCommentUpdate (event: CommentUpdate, context: 
         return;
     }
 
-    const fixedEvent = await fixedCommentEvent(event, context);
+    const fixedEvent = await fixCommentTriggerEvent(event, context);
 
     if (!fixedEvent.comment || !fixedEvent.author?.name) {
         return;
@@ -206,20 +181,20 @@ export async function handleClientPostUpdate (event: PostUpdate, context: Trigge
         return;
     }
 
+    event = await fixPostTriggerEvent(event, context);
+
     if (!event.post || !event.author?.name) {
         console.error("Content Update: PostUpdate event missing post or author information", JSON.stringify(event));
         return;
     }
 
-    const username = await getTrueUsername(context.reddit, event.author.name, event.post.id);
+    console.log(`Content Create: PostUpdate ${event.post.id} by ${event.author.name}`);
 
-    console.log(`Content Create: PostUpdate ${event.post.id} by ${username}`);
-
-    if (username === "AutoModerator" || username === `${context.subredditName}-ModTeam`) {
+    if (event.author.name === "AutoModerator" || event.author.name === `${context.subredditName}-ModTeam`) {
         return;
     }
 
-    const currentStatus = await getUserStatus(username, context);
+    const currentStatus = await getUserStatus(event.author.name, context);
     if (currentStatus) {
         return;
     }
@@ -241,7 +216,7 @@ export async function handleClientPostUpdate (event: PostUpdate, context: Trigge
     }
 
     if (possibleBot) {
-        await checkAndReportPotentialBot(username, post, variables, context);
+        await checkAndReportPotentialBot(event.author.name, post, variables, context);
     }
 }
 

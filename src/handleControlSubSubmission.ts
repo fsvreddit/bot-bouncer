@@ -6,7 +6,7 @@ import { getUserStatus, UserDetails, UserStatus } from "./dataStore.js";
 import { subMonths } from "date-fns";
 import { getControlSubSettings } from "./settings.js";
 import { AsyncSubmission, PostCreationQueueResult, queuePostCreation } from "./postCreation.js";
-import { getTrueUsername, getUserExtendedFromUser } from "@fsvreddit/fsv-devvit-helpers";
+import { fixPostTriggerEvent, getUserExtendedFromUser } from "@fsvreddit/fsv-devvit-helpers";
 import json2md from "json2md";
 import { userIsTrustedSubmitter } from "./trustedSubmitterHelpers.js";
 import markdownEscape from "markdown-escape";
@@ -36,12 +36,13 @@ export async function handleControlSubPostCreate (event: PostCreate, context: Tr
         throw new Error("Content Create: handleControlSubPostCreate should only be called for the control subreddit, check the subreddit name handling logic");
     }
 
+    event = await fixPostTriggerEvent(event, context);
+
     if (!event.post || !event.author) {
         throw new Error("Content Create: handleControlSubPostCreate should not be called with missing post or author information");
     }
 
-    const submitterName = await getTrueUsername(context.reddit, event.author.name, event.post.id);
-    if (submitterName === context.appSlug) {
+    if (event.author.name === context.appSlug) {
         if (event.post.spam) {
             await context.reddit.approve(event.post.id);
         }
@@ -51,7 +52,7 @@ export async function handleControlSubPostCreate (event: PostCreate, context: Tr
     const username = getUsernameFromUrl(event.post.url);
 
     if (!username) {
-        if (await isModeratorWithCache(submitterName, context)) {
+        if (await isModeratorWithCache(event.author.name, context)) {
             // Allow mods to make meta submissions
             return;
         }
@@ -71,28 +72,28 @@ export async function handleControlSubPostCreate (event: PostCreate, context: Tr
             postId: event.post.id,
             context,
         });
-        console.log(`New Submissions: ${event.post.id} by ${submitterName} was removed as new submissions are not currently allowed.`);
+        console.log(`New Submissions: ${event.post.id} by ${event.author.name} was removed as new submissions are not currently allowed.`);
         return;
     }
 
-    if (controlSubSettings.reporterBlacklist.includes(submitterName)) {
+    if (controlSubSettings.reporterBlacklist.includes(event.author.name)) {
         await postSubmissionResponse({
             submissionResponse: [{ p: `You are not currently permitted to submit bots to r/${CONTROL_SUBREDDIT}. Please [message the mods](https://www.reddit.com/message/compose/?to=/r/${CONTROL_SUBREDDIT}) if you believe this is a mistake` }],
             postId: event.post.id,
             context,
         });
-        console.log(`New Submissions: ${event.post.id} by ${submitterName} was removed as the user is blacklisted.`);
+        console.log(`New Submissions: ${event.post.id} by ${event.author.name} was removed as the user is blacklisted.`);
         return;
     }
 
-    const submitterStatus = await getUserStatus(submitterName, context);
+    const submitterStatus = await getUserStatus(event.author.name, context);
     if (submitterStatus?.userStatus === UserStatus.Banned) {
         await postSubmissionResponse({
             submissionResponse: [{ p: `You are currently listed as a bot on r/${CONTROL_SUBREDDIT}, so we cannot accept submissions from you. Please [message the mods](https://www.reddit.com/message/compose/?to=/r/${CONTROL_SUBREDDIT}) if you believe this is a mistake` }],
             postId: event.post.id,
             context,
         });
-        console.log(`New Submissions: ${event.post.id} by ${submitterName} was removed as the user is banned.`);
+        console.log(`New Submissions: ${event.post.id} by ${event.author.name} was removed as the user is banned.`);
         return;
     }
 
@@ -107,17 +108,17 @@ export async function handleControlSubPostCreate (event: PostCreate, context: Tr
             postId: event.post.id,
             context,
         });
-        console.log(`New Submissions: ${event.post.id} by ${submitterName} was removed as the user does not exist.`);
+        console.log(`New Submissions: ${event.post.id} by ${event.author.name} was removed as the user does not exist.`);
         return;
     }
 
-    if (user.username === submitterName) {
+    if (user.username === event.author.name) {
         await postSubmissionResponse({
             submissionResponse: [{ p: "You cannot make a submission for yourself." }],
             postId: event.post.id,
             context,
         });
-        console.log(`New Submissions: ${event.post.id} by ${submitterName} was removed as the user attempted to submit themselves.`);
+        console.log(`New Submissions: ${event.post.id} by ${event.author.name} was removed as the user attempted to submit themselves.`);
         return;
     }
 
@@ -134,11 +135,11 @@ export async function handleControlSubPostCreate (event: PostCreate, context: Tr
                 postId: event.post.id,
                 context,
             });
-            console.log(`New Submissions: ${event.post.id} by ${submitterName} was removed as ${user.username} has no recent content.`);
+            console.log(`New Submissions: ${event.post.id} by ${event.author.name} was removed as ${user.username} has no recent content.`);
             return;
         }
     } catch (error) {
-        console.error(`Error retrieving content for user ${username}:`, error);
+        console.error(`Error retrieving content for user ${event.author.name}:`, error);
     }
 
     const currentStatus = await getUserStatus(user.username, context);
@@ -162,12 +163,12 @@ export async function handleControlSubPostCreate (event: PostCreate, context: Tr
 
     const submissionPost = await context.reddit.getPostById(event.post.id);
 
-    const newStatus = await userIsTrustedSubmitter(submitterName, context) ? UserStatus.Banned : UserStatus.Pending;
+    const newStatus = await userIsTrustedSubmitter(event.author.name, context) ? UserStatus.Banned : UserStatus.Pending;
 
     const newDetails: UserDetails = {
         userStatus: newStatus,
         lastUpdate: new Date().getTime(),
-        submitter: submitterName,
+        submitter: event.author.name,
         operator: context.appSlug,
         trackingPostId: "",
     };
@@ -193,7 +194,7 @@ export async function handleControlSubPostCreate (event: PostCreate, context: Tr
     try {
         const submission: AsyncSubmission = {
             user: await getUserExtendedFromUser(user, context),
-            submitter: submitterName,
+            submitter: event.author.name,
             reportContext,
             details: newDetails,
             commentToAdd: contextComment,
@@ -220,18 +221,18 @@ export async function handleControlSubPostCreate (event: PostCreate, context: Tr
 
     switch (submissionResult) {
         case PostCreationQueueResult.Queued:
-            console.log(`Queued post creation for ${username} via post by ${submitterName}`);
+            console.log(`Queued post creation for ${username} via post by ${event.author.name}`);
             break;
         case PostCreationQueueResult.AlreadyInDatabase:
-            console.log(`Post creation for ${username} via post by ${submitterName} is already in the database.`);
+            console.log(`Post creation for ${username} via post by ${event.author.name} is already in the database.`);
             submissionResponse.push({ p: "This user is already in our database." });
             break;
         case PostCreationQueueResult.AlreadyInQueue:
-            console.log(`Failed to queue post creation for ${username} via post by ${submitterName} as it is already in the queue`);
+            console.log(`Failed to queue post creation for ${username} via post by ${event.author.name} as it is already in the queue`);
             submissionResponse.push({ p: "This user is already in the queue to be processed having been submitted by someone else, a tracking post will appear shortly." });
             break;
         case PostCreationQueueResult.Error:
-            console.error(`Failed to queue post creation for ${username} via post by ${submitterName}. Reason: ${submissionResult}`);
+            console.error(`Failed to queue post creation for ${username} via post by ${event.author.name}. Reason: ${submissionResult}`);
             submissionResponse.push({ p: "An error occurred while processing your submission, please try again later." });
             break;
     }

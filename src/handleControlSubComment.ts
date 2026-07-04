@@ -3,24 +3,24 @@ import { CommentCreate } from "@devvit/protos";
 import { CONTROL_SUBREDDIT } from "./constants.js";
 import { getUserStatus, UserStatus } from "./dataStore.js";
 import json2md from "json2md";
-import { getTrueUsername } from "@fsvreddit/fsv-devvit-helpers";
+import { fixCommentTriggerEvent } from "@fsvreddit/fsv-devvit-helpers";
 
 export async function handleControlSubCommentCreate (event: CommentCreate, context: TriggerContext) {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
         throw new Error("Content Create: handleControlSubCommentCreate should only be called for the control subreddit, check the subreddit name handling logic");
     }
 
+    event = await fixCommentTriggerEvent(event, context);
+
     if (!event.comment?.id || !event.author?.name) {
         throw new Error("Content Create: handleControlSubCommentCreate should not be called with missing comment or author information");
     }
 
-    const username = await getTrueUsername(context.reddit, event.author.name, event.comment.id);
-
-    if (username === context.appSlug) {
+    if (event.author.name === context.appSlug) {
         return;
     }
 
-    const userStatus = await getUserStatus(username, context);
+    const userStatus = await getUserStatus(event.author.name, context);
 
     if (userStatus?.userStatus !== UserStatus.Banned) {
         return;
@@ -42,5 +42,5 @@ export async function handleControlSubCommentCreate (event: CommentCreate, conte
     await newComment.distinguish();
     await newComment.lock();
 
-    console.log(`CommentCreate: Removed comment by banned user ${username} in ${CONTROL_SUBREDDIT}`);
+    console.log(`CommentCreate: Removed comment by banned user ${event.author.name} in ${CONTROL_SUBREDDIT}`);
 }

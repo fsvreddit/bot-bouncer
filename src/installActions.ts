@@ -1,6 +1,6 @@
 import { AppInstall, AppUpgrade } from "@devvit/protos";
 import { TriggerContext } from "@devvit/public-api";
-import { ClientSubredditJob, CONTROL_SUBREDDIT, ControlSubredditJob, UniversalJob } from "./constants.js";
+import { ClientSubredditJob, CONTROL_SUBREDDIT, ControlSubredditJob, ObserverSubredditJob, UniversalJob } from "./constants.js";
 import { handleExternalSubmissionsPageUpdate } from "./externalSubmissions.js";
 import { getControlSubSettings } from "./settings.js";
 import { addDays, addMinutes, addSeconds, isSameDay } from "date-fns";
@@ -114,11 +114,6 @@ async function addControlSubredditJobs (context: TriggerContext) {
         }),
 
         context.scheduler.runJob({
-            name: ControlSubredditJob.BotSleuthBotExtract,
-            cron: "0 3 * * *",
-        }),
-
-        context.scheduler.runJob({
             name: UniversalJob.Cleanup,
             cron: "* * * * *",
             data: { firstRun: true },
@@ -136,7 +131,11 @@ async function addClientSubredditJobs (context: TriggerContext) {
     const controlSubSettings = await getControlSubSettings(context);
     const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
     if (controlSubSettings.observerSubreddits?.includes(subredditName)) {
-        console.log(`App Install: ${subredditName} is an observer subreddit, skipping job creation.`);
+        await context.scheduler.runJob({
+            name: ObserverSubredditJob.HandleObserverSubMinutelyJob,
+            cron: "* * * * *",
+        });
+
         return;
     }
 
@@ -194,6 +193,7 @@ async function checkJobsAreApplicable (context: TriggerContext) {
         allowableJobs.push(...Object.values(ControlSubredditJob) as string[]);
     } else {
         allowableJobs.push(...Object.values(ClientSubredditJob) as string[]);
+        allowableJobs.push(...Object.values(ObserverSubredditJob) as string[]);
     }
 
     const badJobs = allJobs.filter(job => !allowableJobs.includes(job.name));

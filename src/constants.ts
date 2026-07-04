@@ -58,12 +58,12 @@ export enum ControlSubredditJob {
     CheckPermissionQueueItems = "checkPermissionQueueItems",
     AccountReview = "accountReview",
     PendingUserFinder = "pendingUserFinder",
-    BotSleuthBotExtract = "botSleuthBotExtract",
     OpenAISummaryGather = "openAISummary",
     OpenAISummaryLookup = "openAISummaryLookup",
     OpenAIUpdateTokenStatsMessage = "openAIUpdateTokenStatsMessage",
     FlaggedUsersRechecks = "flaggedUsersRechecks",
     ProcessDelayedMessages = "processDelayedMessages",
+    UpdateEvaluatorConfigEditSummaryPage = "updateEvaluatorConfigEditSummaryPage",
 }
 
 /**
@@ -78,6 +78,14 @@ export enum ClientSubredditJob {
     SendDailyDigest = "sendDailyDigest",
     NotifyModTeamOnDemod = "notifyModTeamOnDemod",
     PermissionCheckEnqueue = "permissionCheckEnqueue",
+}
+
+/**
+ * Job names: Observer Subreddit
+ */
+
+export enum ObserverSubredditJob {
+    HandleObserverSubMinutelyJob = "handleObserverSubMinutelyJob",
 }
 
 /**

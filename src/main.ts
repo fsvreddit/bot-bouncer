@@ -1,5 +1,5 @@
 import { Devvit, FormField } from "@devvit/public-api";
-import { ClientSubredditJob, CONTROL_SUBREDDIT, ControlSubredditJob, UniversalJob } from "./constants.js";
+import { ClientSubredditJob, CONTROL_SUBREDDIT, ControlSubredditJob, ObserverSubredditJob, UniversalJob } from "./constants.js";
 import { handleInstallOrUpgrade } from "./installActions.js";
 import { handleControlSubFlairUpdate } from "./handleControlSubFlairUpdate.js";
 import { appSettings } from "./settings.js";
@@ -32,13 +32,14 @@ import { checkPermissionQueueItems, handlePermissionCheckEnqueueJob } from "./pe
 import { handleFiveMinutelyJob } from "./scheduler/fiveMinutelyJobs.js";
 import { checkAccountsForReview } from "./modmail/accountReview.js";
 import { pendingUserFinder } from "./statistics/pendingUserFinder.js";
-import { doBotSleuthBotExtract } from "./botSleuthBotExtract.js";
 import { handleMinutelyJob } from "./scheduler/handleMinutelyJob.js";
 import { generateOpenAISummary, openAISummaryLookupAndRespond } from "./aiAnalysis/createAISummary.js";
 import { updateTokenStatsMessage } from "./aiAnalysis/statistics.js";
 import { updateMainStatisticsPage } from "./statistics/mainStatistics.js";
 import { checkUserFlaggedRechecksQueue } from "./userEvaluation/flaggedUsersRechecks.js";
 import { processDelayedMessages } from "./modmail/delayedSend.js";
+import { updateEvaluatorConfigEditSummaryPage } from "./userEvaluation/configEditSummaries.js";
+import { handleObserverSubMinutelyJob } from "./scheduler/handleObserverSubMinutelyJob.js";
 
 Devvit.addSettings(appSettings);
 
@@ -275,11 +276,6 @@ Devvit.addSchedulerJob({
 });
 
 Devvit.addSchedulerJob({
-    name: ControlSubredditJob.BotSleuthBotExtract,
-    onRun: doBotSleuthBotExtract,
-});
-
-Devvit.addSchedulerJob({
     name: ControlSubredditJob.OpenAISummaryGather,
     onRun: generateOpenAISummary,
 });
@@ -302,6 +298,11 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: ControlSubredditJob.ProcessDelayedMessages,
     onRun: processDelayedMessages,
+});
+
+Devvit.addSchedulerJob({
+    name: ControlSubredditJob.UpdateEvaluatorConfigEditSummaryPage,
+    onRun: updateEvaluatorConfigEditSummaryPage,
 });
 
 /**
@@ -341,6 +342,15 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: ClientSubredditJob.PermissionCheckEnqueue,
     onRun: handlePermissionCheckEnqueueJob,
+});
+
+/**
+ * Jobs that run on observer subreddits only
+ */
+
+Devvit.addSchedulerJob({
+    name: ObserverSubredditJob.HandleObserverSubMinutelyJob,
+    onRun: handleObserverSubMinutelyJob,
 });
 
 Devvit.configure({
