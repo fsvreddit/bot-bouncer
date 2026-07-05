@@ -74,6 +74,7 @@ export async function handleClientSubAnnouncements (_: unknown, context: JobCont
             });
 
             await context.redis.hSet(ANNOUNCEMENT_SENT_HASH_KEY, { [announcement.announcementId]: Date.now().toString() });
+            sentAnnouncements.add(announcement.announcementId);
         } catch (error) {
             console.error("Failed to send client sub announcement:", error);
         }
