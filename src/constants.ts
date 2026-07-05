@@ -77,6 +77,7 @@ export enum ClientSubredditJob {
     SendDailyDigest = "sendDailyDigest",
     NotifyModTeamOnDemod = "notifyModTeamOnDemod",
     PermissionCheckEnqueue = "permissionCheckEnqueue",
+    ClientSubAnnouncements = "clientSubAnnouncements",
 }
 
 /**

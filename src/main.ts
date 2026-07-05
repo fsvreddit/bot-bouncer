@@ -40,6 +40,7 @@ import { checkUserFlaggedRechecksQueue } from "./userEvaluation/flaggedUsersRech
 import { processDelayedMessages } from "./modmail/delayedSend.js";
 import { updateEvaluatorConfigEditSummaryPage } from "./userEvaluation/configEditSummaries.js";
 import { handleObserverSubMinutelyJob } from "./scheduler/handleObserverSubMinutelyJob.js";
+import { handleClientSubAnnouncements } from "./handleClientSubAnnouncements.js";
 
 Devvit.addSettings(appSettings);
 
@@ -337,6 +338,11 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: ClientSubredditJob.PermissionCheckEnqueue,
     onRun: handlePermissionCheckEnqueueJob,
+});
+
+Devvit.addSchedulerJob({
+    name: ClientSubredditJob.ClientSubAnnouncements,
+    onRun: handleClientSubAnnouncements,
 });
 
 /**
