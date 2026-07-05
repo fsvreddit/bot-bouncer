@@ -4,6 +4,7 @@ import Ajv, { JSONSchemaType } from "ajv";
 import { parseAllDocuments } from "yaml";
 
 const ANNOUNCEMENT_WIKI_PAGE = "client-sub-announcements";
+const ANNOUNCEMENT_SENT_HASH_KEY = "client-sub-announcements-sent";
 
 interface ClientSubAnnouncement {
     announcementId: string;
@@ -21,10 +22,6 @@ const clientSubAnnouncementSchema: JSONSchemaType<ClientSubAnnouncement> = {
     required: ["announcementId", "subject", "body"],
     additionalProperties: false,
 };
-
-function announcementHandledKey (announcementId: string): string {
-    return `announcementHandled:${announcementId}`;
-}
 
 export async function handleClientSubAnnouncements (_: unknown, context: JobContext) {
     if (context.subredditName === CONTROL_SUBREDDIT) {
@@ -46,10 +43,10 @@ export async function handleClientSubAnnouncements (_: unknown, context: JobCont
     const documents = parseAllDocuments(wikiPage.content);
 
     const ajv = new Ajv.default();
+    const validate = ajv.compile(clientSubAnnouncementSchema);
 
     for (const doc of documents) {
         const data = doc.toJSON() as ClientSubAnnouncement;
-        const validate = ajv.compile(clientSubAnnouncementSchema);
         if (validate(data)) {
             announcements.push(data);
         } else {
@@ -57,12 +54,18 @@ export async function handleClientSubAnnouncements (_: unknown, context: JobCont
         }
     }
 
+    if (announcements.length === 0) {
+        return;
+    }
+
+    const sentAnnouncements = new Set(await context.redis.hKeys(ANNOUNCEMENT_SENT_HASH_KEY));
+
     for (const announcement of announcements) {
-        if (await context.redis.get(announcementHandledKey(announcement.announcementId))) {
+        if (sentAnnouncements.has(announcement.announcementId)) {
             continue;
         }
 
-        // Send the announcemnt
+        // Send the announcement
         try {
             await context.reddit.modMail.createModInboxConversation({
                 subject: announcement.subject,
@@ -70,7 +73,7 @@ export async function handleClientSubAnnouncements (_: unknown, context: JobCont
                 subredditId: context.subredditId,
             });
 
-            await context.redis.set(announcementHandledKey(announcement.announcementId), "true");
+            await context.redis.hSet(ANNOUNCEMENT_SENT_HASH_KEY, { [announcement.announcementId]: Date.now().toString() });
         } catch (error) {
             console.error("Failed to send client sub announcement:", error);
         }
