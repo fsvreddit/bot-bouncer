@@ -38,6 +38,18 @@ interface WikiRevisionSummary {
     reason?: string;
 }
 
+const EARLIEST_VALID_REDDIT_TIMESTAMP_MS = Date.UTC(2005, 0, 1);
+
+export function normalizeWikiTimestamp (input: Date | number): number {
+    const timestamp = input instanceof Date ? input.getTime() : input;
+
+    if (timestamp > 0 && timestamp < EARLIEST_VALID_REDDIT_TIMESTAMP_MS) {
+        return timestamp * 1000;
+    }
+
+    return timestamp;
+}
+
 function parseStoredVariables (variables: Record<string, string>): Record<string, unknown> {
     return _.fromPairs(Object.entries(variables).map(([key, value]) => {
         try {
@@ -167,7 +179,7 @@ async function loadEvaluatorConfigWikiRevisions (context: JobContext): Promise<W
 
         return revisions
             .map(revision => ({
-                timestamp: revision.date.getTime(),
+                timestamp: normalizeWikiTimestamp(revision.date),
                 updatedBy: revision.author.username,
                 reason: normalizeRevisionReason(revision.reason),
             }))
