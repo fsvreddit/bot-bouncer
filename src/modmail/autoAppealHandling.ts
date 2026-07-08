@@ -17,6 +17,7 @@ import { getPossibleSetStatusValues } from "./controlSubModmail.js";
 import { getUserSocialLinks } from "devvit-helpers";
 import { sendMessageOnDelay } from "./delayedSend.js";
 import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
+import { AppealTrackedOutcome, markTrackedAppealOutcome } from "../statistics/appealOutcomeStatistics.js";
 
 const APPEAL_CONFIG_WIKI_PAGE = "appeal-config";
 const APPEAL_CONFIG_REDIS_KEY = "AppealConfig";
@@ -56,9 +57,11 @@ interface AppealConfig {
     archive?: boolean;
     mute?: number;
     highlight?: boolean;
+    trackOutcome?: AppealTrackedOutcome;
 }
 
 const acceptableMuteDurations = [3, 7, 28];
+const acceptableTrackedOutcomes = Object.values(AppealTrackedOutcome);
 
 const dateRegex = /^\d{4}-\d{2}-\d{2}(?: \d{2}:\d{2})?$/;
 
@@ -107,6 +110,7 @@ const appealConfigSchema: JSONSchemaType<AppealConfig[]> = {
             archive: { type: "boolean", nullable: true },
             mute: { type: "number", enum: acceptableMuteDurations, nullable: true },
             highlight: { type: "boolean", nullable: true },
+            trackOutcome: { type: "string", enum: acceptableTrackedOutcomes, nullable: true },
         },
         additionalProperties: false,
         required: ["name"],
@@ -125,6 +129,7 @@ interface AppealOutcome {
     archive?: boolean;
     mute?: number;
     highlight?: boolean;
+    trackOutcome?: AppealTrackedOutcome;
 }
 
 const defaultAppealOutcome: AppealOutcome = {
@@ -564,6 +569,7 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
             archive: matchedAppealConfig.archive,
             mute: matchedAppealConfig.mute,
             highlight: matchedAppealConfig.highlight,
+            trackOutcome: matchedAppealConfig.trackOutcome,
         };
     } else {
         console.log(`Appeals: No specific appeal config matched for user ${username}, using default reply.`);
@@ -581,6 +587,14 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
         });
 
         appealOutcomeType = isAppealGrantStatus(appealOutcome.newStatus) ? AppealOutcomeType.AppealGranted : AppealOutcomeType.StatusChanged;
+
+        if (appealOutcome.trackOutcome === AppealTrackedOutcome.AutomaticGrant && appealOutcomeType === AppealOutcomeType.AppealGranted) {
+            try {
+                await markTrackedAppealOutcome(AppealTrackedOutcome.AutomaticGrant, appealOutcome.name, context);
+            } catch (error) {
+                console.error(`Failed to record tracked appeal outcome for ${appealOutcome.name}:`, error instanceof Error ? error.message : String(error));
+            }
+        }
     }
 
     if (appealOutcome.privateReply) {
@@ -608,6 +622,8 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
                 message: replyMessage,
                 archive: appealOutcome.archive,
                 sendAt,
+                trackOutcome: appealOutcome.trackOutcome === AppealTrackedOutcome.AutomaticDenial ? appealOutcome.trackOutcome : undefined,
+                trackedOutcomeName: appealOutcome.name,
             });
         } else {
             if (appealOutcome.mute) {
@@ -623,6 +639,8 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
                 message: replyMessage,
                 archive: appealOutcome.archive,
                 sendAt: addSeconds(new Date(), 20),
+                trackOutcome: appealOutcome.trackOutcome === AppealTrackedOutcome.AutomaticDenial ? appealOutcome.trackOutcome : undefined,
+                trackedOutcomeName: appealOutcome.name,
             });
         }
     }

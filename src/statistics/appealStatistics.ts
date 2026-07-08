@@ -3,6 +3,7 @@ import { addHours, eachDayOfInterval, format, startOfDay, subDays } from "date-f
 import { deleteKeyForAppeal, isActiveAppeal } from "../modmail/controlSubModmail.js";
 import json2md from "json2md";
 import { ModmailMessage } from "../modmail/modmail.js";
+import { pushTrackedAppealOutcomeStatistics } from "./appealOutcomeStatistics.js";
 
 function getKeyForDate (date = new Date()): string {
     return `appealStatistics~${format(date, "yyyy-MM-dd")}`;
@@ -50,7 +51,6 @@ export async function updateAppealStatistics (context: JobContext) {
 
     if (Object.keys(appealData).length === 0) {
         console.log("No appeal data found for the last week.");
-        return;
     }
 
     const wikiContent: json2md.DataObject[] = [
@@ -61,7 +61,11 @@ export async function updateAppealStatistics (context: JobContext) {
     const headers = ["Username", "Appeals"];
     const rows = Object.entries(appealData).map(([username, count]) => [`/u/${username}`, count.toLocaleString()]);
 
-    wikiContent.push({ table: { headers, rows } });
+    if (rows.length === 0) {
+        wikiContent.push({ p: "No appeals were manually handled within the last week." });
+    } else {
+        wikiContent.push({ table: { headers, rows } });
+    }
 
     wikiContent.push({ h2: "Yesterday's activity (UTC)" });
 
@@ -84,6 +88,8 @@ export async function updateAppealStatistics (context: JobContext) {
         const todayRows = todayData.map(({ member, score }) => [`/u/${member}`, score.toLocaleString()]);
         wikiContent.push({ table: { headers: todayHeaders, rows: todayRows } });
     }
+
+    await pushTrackedAppealOutcomeStatistics(wikiContent, context);
 
     wikiContent.push({ p: "This page updates every hour, and may update more frequently." });
 

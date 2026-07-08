@@ -2,12 +2,15 @@ import { JobContext, JSONObject, ScheduledJobEvent, TriggerContext } from "@devv
 import { addMinutes, addSeconds } from "date-fns";
 import json2md from "json2md";
 import { ControlSubredditJob } from "../constants.js";
+import { AppealTrackedOutcome, markTrackedAppealOutcome } from "../statistics/appealOutcomeStatistics.js";
 
 interface DelayedMessageOptions {
     conversationId: string;
     message: string;
     sendAt: Date;
     archive?: boolean;
+    trackOutcome?: AppealTrackedOutcome;
+    trackedOutcomeName?: string;
 }
 
 const DELAYED_MESSAGE_QUEUE = "delayedMessageQueue";
@@ -19,6 +22,8 @@ export async function sendMessageOnDelay (context: TriggerContext, params: Delay
             isAuthorHidden: true,
             body: params.message,
         });
+
+        await markTrackedOutcome(params, context);
 
         if (params.archive) {
             await context.reddit.modMail.archiveConversation(params.conversationId);
@@ -67,6 +72,8 @@ export async function processDelayedMessages (event: ScheduledJobEvent<JSONObjec
         body: firstMessage.message,
     });
 
+    await markTrackedOutcome(firstMessage, context);
+
     if (firstMessage.archive) {
         await context.reddit.modMail.archiveConversation(firstMessage.conversationId);
     }
@@ -82,6 +89,18 @@ export async function processDelayedMessages (event: ScheduledJobEvent<JSONObjec
     }
 
     console.log(`Delayed Messages: Processed message for conversation ${firstMessage.conversationId}`);
+}
+
+async function markTrackedOutcome (params: DelayedMessageOptions, context: TriggerContext | JobContext) {
+    if (params.trackOutcome !== AppealTrackedOutcome.AutomaticDenial || !params.trackedOutcomeName) {
+        return;
+    }
+
+    try {
+        await markTrackedAppealOutcome(AppealTrackedOutcome.AutomaticDenial, params.trackedOutcomeName, context);
+    } catch (error) {
+        console.error(`Failed to record tracked appeal outcome for ${params.trackedOutcomeName}:`, error instanceof Error ? error.message : String(error));
+    }
 }
 
 export async function areAnyDelayedMessagesQueued (context: JobContext) {
