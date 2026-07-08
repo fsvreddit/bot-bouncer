@@ -17,7 +17,7 @@ import { getPossibleSetStatusValues } from "./controlSubModmail.js";
 import { getUserSocialLinks } from "devvit-helpers";
 import { sendMessageOnDelay } from "./delayedSend.js";
 import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
-import { AppealConfigWithCompiledRegexes, AppealRegexConfig, compileAppealConfigs, getAppealConfigRegexIssues } from "./appealConfigRegex.js";
+import { AppealConfigWithCompiledRegexes, AppealRegexConfig, type CompiledAppealRegexes, compileAppealConfigs, getAppealConfigRegexIssues } from "./appealConfigRegex.js";
 
 const APPEAL_CONFIG_WIKI_PAGE = "appeal-config";
 const APPEAL_CONFIG_REDIS_KEY = "AppealConfig";
@@ -64,18 +64,25 @@ const appealConfigSchema: JSONSchemaType<AppealConfig[]> = {
             usernameRegex: { type: "array", items: { type: "string" }, nullable: true },
             "~usernameRegex": { type: "array", items: { type: "string" }, nullable: true },
             messageBodyRegex: { type: "array", items: { type: "string" }, nullable: true },
+            "~messageBodyRegex": { type: "array", items: { type: "string" }, nullable: true },
             banDateFrom: { type: "string", pattern: dateRegex.source, nullable: true },
             banDateTo: { type: "string", pattern: dateRegex.source, nullable: true },
             evaluatorNameRegex: { type: "array", items: { type: "string" }, nullable: true },
+            "~evaluatorNameRegex": { type: "array", items: { type: "string" }, nullable: true },
             evaluatorHitReasonRegex: { type: "array", items: { type: "string" }, nullable: true },
+            "~evaluatorHitReasonRegex": { type: "array", items: { type: "string" }, nullable: true },
             currentEvaluatorNameRegex: { type: "array", items: { type: "string" }, nullable: true },
+            "~currentEvaluatorNameRegex": { type: "array", items: { type: "string" }, nullable: true },
             currentEvaluatorHitReasonRegex: { type: "array", items: { type: "string" }, nullable: true },
+            "~currentEvaluatorHitReasonRegex": { type: "array", items: { type: "string" }, nullable: true },
             bioRegex: { type: "array", items: { type: "string" }, nullable: true },
             "~bioRegex": { type: "array", items: { type: "string" }, nullable: true },
             originalBioRegex: { type: "array", items: { type: "string" }, nullable: true },
+            "~originalBioRegex": { type: "array", items: { type: "string" }, nullable: true },
             socialLinkRegex: { type: "array", items: { type: "string" }, nullable: true },
             "~socialLinkRegex": { type: "array", items: { type: "string" }, nullable: true },
             originalSocialLinkRegex: { type: "array", items: { type: "string" }, nullable: true },
+            "~originalSocialLinkRegex": { type: "array", items: { type: "string" }, nullable: true },
             flags: { type: "array", items: { type: "string", enum: Object.values(UserFlag) }, nullable: true },
             "~flags": { type: "array", items: { type: "string", enum: Object.values(UserFlag) }, nullable: true },
             modNoteTextRegex: { type: "array", items: { type: "string" }, nullable: true },
@@ -123,6 +130,116 @@ const defaultAppealOutcome: AppealOutcome = {
 
 If Bot Bouncer has banned you from more than one subreddit, you don't need to appeal separately.`,
 };
+
+function regexesMatchText (regexes: RegExp[] | undefined, text: string | undefined): boolean {
+    if (!regexes?.length || text === undefined) {
+        return false;
+    }
+
+    return regexes.some(regex => regex.test(text));
+}
+
+function evaluationHitReasonMatches (evaluationResult: EvaluationResult, regexes: RegExp[] | undefined): boolean {
+    if (!regexes?.length || !evaluationResult.hitReason) {
+        return false;
+    }
+
+    if (typeof evaluationResult.hitReason === "string") {
+        return regexesMatchText(regexes, evaluationResult.hitReason);
+    }
+
+    return regexesMatchText(regexes, evaluationResult.hitReason.reason);
+}
+
+export function evaluationResultMatchesRegexes (
+    evaluationResult: EvaluationResult,
+    evaluatorNameRegex?: RegExp[],
+    evaluatorHitReasonRegex?: RegExp[],
+): boolean {
+    if (evaluatorNameRegex !== undefined && !regexesMatchText(evaluatorNameRegex, evaluationResult.botName)) {
+        return false;
+    }
+
+    if (evaluatorHitReasonRegex !== undefined && !evaluationHitReasonMatches(evaluationResult, evaluatorHitReasonRegex)) {
+        return false;
+    }
+
+    return true;
+}
+
+function evaluationResultsContainMatch (
+    evaluationResults: EvaluationResult[],
+    evaluatorNameRegex?: RegExp[],
+    evaluatorHitReasonRegex?: RegExp[],
+): boolean {
+    return evaluationResults.some(evaluationResult => evaluationResultMatchesRegexes(
+        evaluationResult,
+        evaluatorNameRegex,
+        evaluatorHitReasonRegex,
+    ));
+}
+
+export interface NegatedAppealRegexContext {
+    messageBody: string;
+    initialEvaluationResults: EvaluationResult[];
+    currentEvaluationResults: EvaluationResult[];
+    originalBio: string | undefined;
+    originalSocialLinks: { outboundUrl: string }[];
+}
+
+export function negatedAppealRegexesExcludeConfig (
+    regexes: CompiledAppealRegexes,
+    context: NegatedAppealRegexContext,
+): boolean {
+    if (regexes["~messageBodyRegex"]?.some(regex => regex.test(context.messageBody))) {
+        return true;
+    }
+
+    const hasInitialEvaluatorNegation =
+        regexes["~evaluatorNameRegex"] !== undefined ||
+        regexes["~evaluatorHitReasonRegex"] !== undefined;
+
+    if (
+        hasInitialEvaluatorNegation &&
+        evaluationResultsContainMatch(
+            context.initialEvaluationResults,
+            regexes["~evaluatorNameRegex"],
+            regexes["~evaluatorHitReasonRegex"],
+        )
+    ) {
+        return true;
+    }
+
+    const hasCurrentEvaluatorNegation =
+        regexes["~currentEvaluatorNameRegex"] !== undefined ||
+        regexes["~currentEvaluatorHitReasonRegex"] !== undefined;
+
+    if (
+        hasCurrentEvaluatorNegation &&
+        evaluationResultsContainMatch(
+            context.currentEvaluationResults,
+            regexes["~currentEvaluatorNameRegex"],
+            regexes["~currentEvaluatorHitReasonRegex"],
+        )
+    ) {
+        return true;
+    }
+
+    if (
+        context.originalBio &&
+        regexes["~originalBioRegex"]?.some(regex => regex.test(context.originalBio ?? ""))
+    ) {
+        return true;
+    }
+
+    if (
+        regexes["~originalSocialLinkRegex"]?.some(regex => context.originalSocialLinks.some(link => regex.test(link.outboundUrl)))
+    ) {
+        return true;
+    }
+
+    return false;
+}
 
 function getSubstitutions (wikiPage: string): Record<string, string | string[]> {
     const documents = parseAllDocuments(wikiPage);
@@ -334,8 +451,13 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
     }
 
     let currentEvaluationResults: EvaluationResult[] = [];
-    if (appealConfig.some(config => (config.compiledRegexes.currentEvaluatorHitReasonRegex?.length ?? 0) > 0
-        || (config.compiledRegexes.currentEvaluatorNameRegex?.length ?? 0) > 0)) {
+
+    if (appealConfig.some(config => [
+        config.compiledRegexes.currentEvaluatorHitReasonRegex,
+        config.compiledRegexes.currentEvaluatorNameRegex,
+        config.compiledRegexes["~currentEvaluatorHitReasonRegex"],
+        config.compiledRegexes["~currentEvaluatorNameRegex"],
+    ].some(regexes => (regexes?.length ?? 0) > 0))) {
         currentEvaluationResults = await evaluateUserAccount({
             username,
             variables: await getEvaluatorVariables(context),
@@ -355,6 +477,16 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
     const matchedAppealConfig = appealConfig.find((config) => {
         try {
             const regexes = config.compiledRegexes;
+
+            if (negatedAppealRegexesExcludeConfig(regexes, {
+                messageBody: modmail.bodyMarkdown,
+                initialEvaluationResults: initialAccountEvaluationResults,
+                currentEvaluationResults,
+                originalBio,
+                originalSocialLinks,
+            })) {
+                return;
+            }
 
             if (regexes.usernameRegex && !regexes.usernameRegex.some(regex => regex.test(username))) {
                 return;
@@ -384,58 +516,22 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
                 return;
             }
 
-            if (regexes.evaluatorNameRegex || regexes.evaluatorHitReasonRegex) {
-                let anyMatched = false;
-                for (const evaluationResult of initialAccountEvaluationResults) {
-                    if (regexes.evaluatorNameRegex && !regexes.evaluatorNameRegex.some(regex => regex.test(evaluationResult.botName))) {
-                        continue;
-                    }
-
-                    if (regexes.evaluatorHitReasonRegex && !regexes.evaluatorHitReasonRegex.some((regex) => {
-                        if (!evaluationResult.hitReason) {
-                            return false;
-                        }
-
-                        if (typeof evaluationResult.hitReason === "string") {
-                            return regex.test(evaluationResult.hitReason);
-                        }
-
-                        return regex.test(evaluationResult.hitReason.reason);
-                    })) {
-                        continue;
-                    }
-                    anyMatched = true;
-                }
-
-                if (!anyMatched) {
+            if (regexes.evaluatorNameRegex !== undefined || regexes.evaluatorHitReasonRegex !== undefined) {
+                if (!evaluationResultsContainMatch(
+                    initialAccountEvaluationResults,
+                    regexes.evaluatorNameRegex,
+                    regexes.evaluatorHitReasonRegex,
+                )) {
                     return;
                 }
             }
 
-            if (regexes.currentEvaluatorNameRegex || regexes.currentEvaluatorHitReasonRegex) {
-                let anyMatched = false;
-                for (const evaluationResult of currentEvaluationResults) {
-                    if (regexes.currentEvaluatorNameRegex && !regexes.currentEvaluatorNameRegex.some(regex => regex.test(evaluationResult.botName))) {
-                        continue;
-                    }
-
-                    if (regexes.currentEvaluatorHitReasonRegex && !regexes.currentEvaluatorHitReasonRegex.some((regex) => {
-                        if (!evaluationResult.hitReason) {
-                            return false;
-                        }
-
-                        if (typeof evaluationResult.hitReason === "string") {
-                            return regex.test(evaluationResult.hitReason);
-                        }
-
-                        return regex.test(evaluationResult.hitReason.reason);
-                    })) {
-                        continue;
-                    }
-                    anyMatched = true;
-                }
-
-                if (!anyMatched) {
+            if (regexes.currentEvaluatorNameRegex !== undefined || regexes.currentEvaluatorHitReasonRegex !== undefined) {
+                if (!evaluationResultsContainMatch(
+                    currentEvaluationResults,
+                    regexes.currentEvaluatorNameRegex,
+                    regexes.currentEvaluatorHitReasonRegex,
+                )) {
                     return;
                 }
             }
