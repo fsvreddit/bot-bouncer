@@ -17,6 +17,7 @@ import { getPossibleSetStatusValues } from "./controlSubModmail.js";
 import { getUserSocialLinks } from "devvit-helpers";
 import { sendMessageOnDelay } from "./delayedSend.js";
 import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
+import { AppealTrackedOutcome } from "./appealOutcomes.js";
 
 const APPEAL_CONFIG_WIKI_PAGE = "appeal-config";
 const APPEAL_CONFIG_REDIS_KEY = "AppealConfig";
@@ -56,9 +57,11 @@ interface AppealConfig {
     archive?: boolean;
     mute?: number;
     highlight?: boolean;
+    trackOutcome?: AppealTrackedOutcome;
 }
 
 const acceptableMuteDurations = [3, 7, 28];
+const acceptableTrackedOutcomes = Object.values(AppealTrackedOutcome);
 
 const dateRegex = /^\d{4}-\d{2}-\d{2}(?: \d{2}:\d{2})?$/;
 
@@ -107,6 +110,7 @@ const appealConfigSchema: JSONSchemaType<AppealConfig[]> = {
             archive: { type: "boolean", nullable: true },
             mute: { type: "number", enum: acceptableMuteDurations, nullable: true },
             highlight: { type: "boolean", nullable: true },
+            trackOutcome: { type: "string", enum: acceptableTrackedOutcomes, nullable: true },
         },
         additionalProperties: false,
         required: ["name"],
@@ -125,6 +129,7 @@ interface AppealOutcome {
     archive?: boolean;
     mute?: number;
     highlight?: boolean;
+    trackOutcome?: AppealTrackedOutcome;
 }
 
 const defaultAppealOutcome: AppealOutcome = {
@@ -219,6 +224,14 @@ export async function validateAndSaveAppealConfig (username: string, context: Tr
     }
 
     for (const config of parsedConfigs) {
+        if (config.trackOutcome === AppealTrackedOutcome.AutomaticDenial && !config.reply) {
+            issues.push(`Config ${config.name} tracks automatic denials but does not send a public reply.`);
+        }
+
+        if (config.trackOutcome === AppealTrackedOutcome.AutomaticDenial && config.setStatus) {
+            issues.push(`Config ${config.name} tracks automatic denials but also changes the user status.`);
+        }
+
         if (config.currentEvaluatorHitReasonRegex) {
             for (const regex of config.currentEvaluatorHitReasonRegex) {
                 try {
@@ -317,6 +330,7 @@ export enum AppealOutcomeType {
     Neutral = "neutral",
     StatusChanged = "statusChanged",
     AppealGranted = "appealGranted",
+    AutomaticDenial = "automaticDenial",
 }
 
 function isAppealGrantStatus (status: string | undefined): boolean {
@@ -564,7 +578,12 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
             archive: matchedAppealConfig.archive,
             mute: matchedAppealConfig.mute,
             highlight: matchedAppealConfig.highlight,
+            trackOutcome: matchedAppealConfig.trackOutcome,
         };
+
+        if (matchedAppealConfig.trackOutcome === AppealTrackedOutcome.AutomaticDenial) {
+            appealOutcomeType = AppealOutcomeType.AutomaticDenial;
+        }
     } else {
         console.log(`Appeals: No specific appeal config matched for user ${username}, using default reply.`);
         appealOutcome = defaultAppealOutcome;
@@ -608,6 +627,8 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
                 message: replyMessage,
                 archive: appealOutcome.archive,
                 sendAt,
+                trackOutcome: appealOutcome.trackOutcome,
+                trackedOutcomeName: appealOutcome.name,
             });
         } else {
             if (appealOutcome.mute) {
@@ -623,6 +644,8 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
                 message: replyMessage,
                 archive: appealOutcome.archive,
                 sendAt: addSeconds(new Date(), 20),
+                trackOutcome: appealOutcome.trackOutcome,
+                trackedOutcomeName: appealOutcome.name,
             });
         }
     }

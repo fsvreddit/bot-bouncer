@@ -2,12 +2,16 @@ import { JobContext, JSONObject, ScheduledJobEvent, TriggerContext } from "@devv
 import { addMinutes, addSeconds } from "date-fns";
 import json2md from "json2md";
 import { ControlSubredditJob } from "../constants.js";
+import { markAutomaticAppealDenial } from "../statistics/appealOutcomeStatistics.js";
+import { AppealTrackedOutcome } from "./appealOutcomes.js";
 
 interface DelayedMessageOptions {
     conversationId: string;
     message: string;
     sendAt: Date;
     archive?: boolean;
+    trackOutcome?: AppealTrackedOutcome;
+    trackedOutcomeName?: string;
 }
 
 const DELAYED_MESSAGE_QUEUE = "delayedMessageQueue";
@@ -19,6 +23,8 @@ export async function sendMessageOnDelay (context: TriggerContext, params: Delay
             isAuthorHidden: true,
             body: params.message,
         });
+
+        await markTrackedOutcome(params, context);
 
         if (params.archive) {
             await context.reddit.modMail.archiveConversation(params.conversationId);
@@ -67,6 +73,8 @@ export async function processDelayedMessages (event: ScheduledJobEvent<JSONObjec
         body: firstMessage.message,
     });
 
+    await markTrackedOutcome(firstMessage, context);
+
     if (firstMessage.archive) {
         await context.reddit.modMail.archiveConversation(firstMessage.conversationId);
     }
@@ -82,6 +90,12 @@ export async function processDelayedMessages (event: ScheduledJobEvent<JSONObjec
     }
 
     console.log(`Delayed Messages: Processed message for conversation ${firstMessage.conversationId}`);
+}
+
+async function markTrackedOutcome (params: DelayedMessageOptions, context: TriggerContext | JobContext) {
+    if (params.trackOutcome === AppealTrackedOutcome.AutomaticDenial && params.trackedOutcomeName) {
+        await markAutomaticAppealDenial(params.trackedOutcomeName, context);
+    }
 }
 
 export async function areAnyDelayedMessagesQueued (context: JobContext) {
