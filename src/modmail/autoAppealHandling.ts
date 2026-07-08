@@ -29,18 +29,25 @@ interface AppealConfig {
     usernameRegex?: string[];
     "~usernameRegex"?: string[];
     messageBodyRegex?: string[];
+    "~messageBodyRegex"?: string[];
     banDateFrom?: string;
     banDateTo?: string;
     evaluatorNameRegex?: string[];
+    "~evaluatorNameRegex"?: string[];
     evaluatorHitReasonRegex?: string[];
+    "~evaluatorHitReasonRegex"?: string[];
     currentEvaluatorNameRegex?: string[];
+    "~currentEvaluatorNameRegex"?: string[];
     currentEvaluatorHitReasonRegex?: string[];
+    "~currentEvaluatorHitReasonRegex"?: string[];
     bioRegex?: string[];
     "~bioRegex"?: string[];
     originalBioRegex?: string[];
+    "~originalBioRegex"?: string[];
     socialLinkRegex?: string[];
     "~socialLinkRegex"?: string[];
     originalSocialLinkRegex?: string[];
+    "~originalSocialLinkRegex"?: string[];
     flags?: UserFlag[];
     "~flags"?: UserFlag[];
     modNoteTextRegex?: string[];
@@ -74,18 +81,25 @@ const appealConfigSchema: JSONSchemaType<AppealConfig[]> = {
             usernameRegex: { type: "array", items: { type: "string" }, nullable: true },
             "~usernameRegex": { type: "array", items: { type: "string" }, nullable: true },
             messageBodyRegex: { type: "array", items: { type: "string" }, nullable: true },
+            "~messageBodyRegex": { type: "array", items: { type: "string" }, nullable: true },
             banDateFrom: { type: "string", pattern: dateRegex.source, nullable: true },
             banDateTo: { type: "string", pattern: dateRegex.source, nullable: true },
             evaluatorNameRegex: { type: "array", items: { type: "string" }, nullable: true },
+            "~evaluatorNameRegex": { type: "array", items: { type: "string" }, nullable: true },
             evaluatorHitReasonRegex: { type: "array", items: { type: "string" }, nullable: true },
+            "~evaluatorHitReasonRegex": { type: "array", items: { type: "string" }, nullable: true },
             currentEvaluatorNameRegex: { type: "array", items: { type: "string" }, nullable: true },
+            "~currentEvaluatorNameRegex": { type: "array", items: { type: "string" }, nullable: true },
             currentEvaluatorHitReasonRegex: { type: "array", items: { type: "string" }, nullable: true },
+            "~currentEvaluatorHitReasonRegex": { type: "array", items: { type: "string" }, nullable: true },
             bioRegex: { type: "array", items: { type: "string" }, nullable: true },
             "~bioRegex": { type: "array", items: { type: "string" }, nullable: true },
             originalBioRegex: { type: "array", items: { type: "string" }, nullable: true },
+            "~originalBioRegex": { type: "array", items: { type: "string" }, nullable: true },
             socialLinkRegex: { type: "array", items: { type: "string" }, nullable: true },
             "~socialLinkRegex": { type: "array", items: { type: "string" }, nullable: true },
             originalSocialLinkRegex: { type: "array", items: { type: "string" }, nullable: true },
+            "~originalSocialLinkRegex": { type: "array", items: { type: "string" }, nullable: true },
             flags: { type: "array", items: { type: "string", enum: Object.values(UserFlag) }, nullable: true },
             "~flags": { type: "array", items: { type: "string", enum: Object.values(UserFlag) }, nullable: true },
             modNoteTextRegex: { type: "array", items: { type: "string" }, nullable: true },
@@ -133,6 +147,42 @@ const defaultAppealOutcome: AppealOutcome = {
 
 If Bot Bouncer has banned you from more than one subreddit, you don't need to appeal separately.`,
 };
+
+function regexesMatchText (regexes: string[] | undefined, text: string | undefined, flags = "i"): boolean {
+    if (!regexes?.length || text === undefined) {
+        return false;
+    }
+
+    return regexes.some(regex => new RegExp(regex, flags).test(text));
+}
+
+function evaluationHitReasonMatches (evaluationResult: EvaluationResult, regexes: string[] | undefined): boolean {
+    if (!regexes?.length || !evaluationResult.hitReason) {
+        return false;
+    }
+
+    if (typeof evaluationResult.hitReason === "string") {
+        return regexesMatchText(regexes, evaluationResult.hitReason);
+    }
+
+    return regexesMatchText(regexes, evaluationResult.hitReason.reason);
+}
+
+export function evaluationResultMatchesRegexes (evaluationResult: EvaluationResult, evaluatorNameRegex?: string[], evaluatorHitReasonRegex?: string[]): boolean {
+    if (evaluatorNameRegex?.length && !regexesMatchText(evaluatorNameRegex, evaluationResult.botName)) {
+        return false;
+    }
+
+    if (evaluatorHitReasonRegex?.length && !evaluationHitReasonMatches(evaluationResult, evaluatorHitReasonRegex)) {
+        return false;
+    }
+
+    return true;
+}
+
+function evaluationResultsContainMatch (evaluationResults: EvaluationResult[], evaluatorNameRegex?: string[], evaluatorHitReasonRegex?: string[]): boolean {
+    return evaluationResults.some(evaluationResult => evaluationResultMatchesRegexes(evaluationResult, evaluatorNameRegex, evaluatorHitReasonRegex));
+}
 
 function getSubstitutions (wikiPage: string): Record<string, string | string[]> {
     const documents = parseAllDocuments(wikiPage);
@@ -218,46 +268,33 @@ export async function validateAndSaveAppealConfig (username: string, context: Tr
         issues.push(ajv.errorsText(validate.errors));
     }
 
+    function validateRegexes (config: AppealConfig, propertyName: keyof AppealConfig): void {
+        const regexes = config[propertyName];
+        if (!Array.isArray(regexes)) {
+            return;
+        }
+
+        for (const regex of regexes) {
+            try {
+                new RegExp(regex);
+            } catch (error) {
+                issues.push(`Invalid regex in ${propertyName} for config ${config.name}: ${error instanceof Error ? error.message : String(error)}`);
+            }
+        }
+    }
+
     for (const config of parsedConfigs) {
-        if (config.currentEvaluatorHitReasonRegex) {
-            for (const regex of config.currentEvaluatorHitReasonRegex) {
-                try {
-                    new RegExp(regex);
-                } catch (error) {
-                    issues.push(`Invalid regex in currentEvaluatorHitReasonRegex for config ${config.name}: ${error instanceof Error ? error.message : String(error)}`);
-                }
-            }
-        }
-
-        if (config.evaluatorHitReasonRegex) {
-            for (const regex of config.evaluatorHitReasonRegex) {
-                try {
-                    new RegExp(regex);
-                } catch (error) {
-                    issues.push(`Invalid regex in evaluatorHitReasonRegex for config ${config.name}: ${error instanceof Error ? error.message : String(error)}`);
-                }
-            }
-        }
-
-        if (config.modNoteTextRegex) {
-            for (const regex of config.modNoteTextRegex) {
-                try {
-                    new RegExp(regex);
-                } catch (error) {
-                    issues.push(`Invalid regex in modNoteTextRegex for config ${config.name}: ${error instanceof Error ? error.message : String(error)}`);
-                }
-            }
-        }
-
-        if (config["~modNoteTextRegex"]) {
-            for (const regex of config["~modNoteTextRegex"]) {
-                try {
-                    new RegExp(regex);
-                } catch (error) {
-                    issues.push(`Invalid regex in ~modNoteTextRegex for config ${config.name}: ${error instanceof Error ? error.message : String(error)}`);
-                }
-            }
-        }
+        validateRegexes(config, "currentEvaluatorHitReasonRegex");
+        validateRegexes(config, "~currentEvaluatorNameRegex");
+        validateRegexes(config, "~currentEvaluatorHitReasonRegex");
+        validateRegexes(config, "evaluatorHitReasonRegex");
+        validateRegexes(config, "~evaluatorNameRegex");
+        validateRegexes(config, "~evaluatorHitReasonRegex");
+        validateRegexes(config, "~messageBodyRegex");
+        validateRegexes(config, "~originalBioRegex");
+        validateRegexes(config, "~originalSocialLinkRegex");
+        validateRegexes(config, "modNoteTextRegex");
+        validateRegexes(config, "~modNoteTextRegex");
     }
 
     if (issues.length === 0) {
@@ -355,7 +392,8 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
 
     let currentEvaluationResults: EvaluationResult[] = [];
     // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
-    if (appealConfig.some(config => config.currentEvaluatorHitReasonRegex || config.currentEvaluatorNameRegex)) {
+    if (appealConfig.some(config => config.currentEvaluatorHitReasonRegex || config.currentEvaluatorNameRegex
+        || config["~currentEvaluatorHitReasonRegex"] || config["~currentEvaluatorNameRegex"])) {
         currentEvaluationResults = await evaluateUserAccount({
             username,
             variables: await getEvaluatorVariables(context),
@@ -382,7 +420,11 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
                 return;
             }
 
-            if (config.messageBodyRegex && !config.messageBodyRegex.some(regex => new RegExp(regex, "i").test(modmail.bodyMarkdown))) {
+            if (config.messageBodyRegex && !regexesMatchText(config.messageBodyRegex, modmail.bodyMarkdown)) {
+                return;
+            }
+
+            if (regexesMatchText(config["~messageBodyRegex"], modmail.bodyMarkdown)) {
                 return;
             }
 
@@ -403,57 +445,25 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
             }
 
             if (config.evaluatorNameRegex || config.evaluatorHitReasonRegex) {
-                let anyMatched = false;
-                for (const evaluationResult of initialAccountEvaluationResults) {
-                    if (config.evaluatorNameRegex && !config.evaluatorNameRegex.some(regex => new RegExp(regex, "i").test(evaluationResult.botName))) {
-                        continue;
-                    }
-
-                    if (config.evaluatorHitReasonRegex && !config.evaluatorHitReasonRegex.some((regex) => {
-                        if (!evaluationResult.hitReason) {
-                            return false;
-                        }
-
-                        if (typeof evaluationResult.hitReason === "string") {
-                            return new RegExp(regex, "i").test(evaluationResult.hitReason);
-                        }
-
-                        return new RegExp(regex, "i").test(evaluationResult.hitReason.reason);
-                    })) {
-                        continue;
-                    }
-                    anyMatched = true;
+                if (!evaluationResultsContainMatch(initialAccountEvaluationResults, config.evaluatorNameRegex, config.evaluatorHitReasonRegex)) {
+                    return;
                 }
+            }
 
-                if (!anyMatched) {
+            if (config["~evaluatorNameRegex"] || config["~evaluatorHitReasonRegex"]) {
+                if (evaluationResultsContainMatch(initialAccountEvaluationResults, config["~evaluatorNameRegex"], config["~evaluatorHitReasonRegex"])) {
                     return;
                 }
             }
 
             if (config.currentEvaluatorNameRegex || config.currentEvaluatorHitReasonRegex) {
-                let anyMatched = false;
-                for (const evaluationResult of currentEvaluationResults) {
-                    if (config.currentEvaluatorNameRegex?.length && !config.currentEvaluatorNameRegex.some(regex => new RegExp(regex, "i").test(evaluationResult.botName))) {
-                        continue;
-                    }
-
-                    if (config.currentEvaluatorHitReasonRegex?.length && !config.currentEvaluatorHitReasonRegex.some((regex) => {
-                        if (!evaluationResult.hitReason) {
-                            return false;
-                        }
-
-                        if (typeof evaluationResult.hitReason === "string") {
-                            return new RegExp(regex, "i").test(evaluationResult.hitReason);
-                        }
-
-                        return new RegExp(regex, "i").test(evaluationResult.hitReason.reason);
-                    })) {
-                        continue;
-                    }
-                    anyMatched = true;
+                if (!evaluationResultsContainMatch(currentEvaluationResults, config.currentEvaluatorNameRegex, config.currentEvaluatorHitReasonRegex)) {
+                    return;
                 }
+            }
 
-                if (!anyMatched) {
+            if (config["~currentEvaluatorNameRegex"] || config["~currentEvaluatorHitReasonRegex"]) {
+                if (evaluationResultsContainMatch(currentEvaluationResults, config["~currentEvaluatorNameRegex"], config["~currentEvaluatorHitReasonRegex"])) {
                     return;
                 }
             }
@@ -479,9 +489,13 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
                     return;
                 }
 
-                if (!config.originalBioRegex.some(regex => new RegExp(regex, "iu").test(originalBio))) {
+                if (!regexesMatchText(config.originalBioRegex, originalBio, "iu")) {
                     return;
                 }
+            }
+
+            if (originalBio && regexesMatchText(config["~originalBioRegex"], originalBio, "iu")) {
+                return;
             }
 
             if (config.socialLinkRegex) {
@@ -506,6 +520,12 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
                 }
 
                 if (!config.originalSocialLinkRegex.some(regex => originalSocialLinks.some(link => new RegExp(regex, "i").test(link.outboundUrl)))) {
+                    return;
+                }
+            }
+
+            if (config["~originalSocialLinkRegex"] && originalSocialLinks.length > 0) {
+                if (config["~originalSocialLinkRegex"].some(regex => originalSocialLinks.some(link => new RegExp(regex, "i").test(link.outboundUrl)))) {
                     return;
                 }
             }
