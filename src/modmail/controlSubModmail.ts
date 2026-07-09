@@ -1,4 +1,4 @@
-﻿import { Comment, TriggerContext } from "@devvit/public-api";
+import { Comment, TriggerContext } from "@devvit/public-api";
 import { isLinkId } from "@devvit/public-api/types/tid.js";
 import { getUserStatus, UserStatus } from "../dataStore.js";
 import { getSummaryForUser } from "../UserSummary/userSummary.js";
@@ -469,5 +469,3 @@ async function getOverrideForSetStatusCommand (conversationId: string, context: 
     const overrideKey = getOverrideKeyForSetStatusCommand(conversationId);
     return context.redis.get(overrideKey);
 }
-
-
