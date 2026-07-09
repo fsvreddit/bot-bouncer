@@ -6,7 +6,6 @@ import { getControlSubSettings } from "../settings.js";
 import { CONTROL_SUBREDDIT } from "../constants.js";
 import { parseAllDocuments } from "yaml";
 import _ from "lodash";
-import json2md from "json2md";
 import { sendMessageToWebhook } from "../utility.js";
 import { ModmailMessage } from "./modmail.js";
 import { evaluateUserAccount, EvaluationResult, getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
