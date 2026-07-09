@@ -24,6 +24,7 @@ import { handleHighlightedModmail } from "./unhighlighter.js";
 import { getUserExtended } from "@fsvreddit/fsv-devvit-helpers";
 import { generateOpenAISummary } from "../aiAnalysis/createAISummary.js";
 import { handleAskAI } from "../aiAnalysis/askAI.js";
+import pluralize from "pluralize";
 
 export function getPossibleSetStatusValues (): string[] {
     return _.uniq([...FLAIR_MAPPINGS.map(entry => entry.postFlair), ...Object.values(UserStatus)]);
@@ -374,8 +375,20 @@ async function checkBanOnSub (modmail: ModmailMessage, context: TriggerContext) 
     const subredditName = checkBanMatch[1];
     const message: json2md.DataObject[] = [];
     try {
-        const isBannedOnSub = await isBanned(context.reddit, subredditName, modmail.participant);
-        message.push({ p: `User /u/${modmail.participant} is currently ${isBannedOnSub ? "banned" : "not banned"} on /r/${subredditName}.` });
+        const bannedUser = await context.reddit.getBannedUsers({
+            subredditName,
+            username: modmail.participant,
+        }).all();
+
+        const isBannedOnSub = bannedUser.length > 0;
+        let banMessage = `User /u/${modmail.participant} is currently ${isBannedOnSub ? "banned" : "not banned"} on /r/${subredditName}.`;
+        if (!bannedUser[0].note?.startsWith(`Banned by /u/${context.appSlug}`)) {
+            banMessage += " Note: The user's ban was **not** issued by Bot Bouncer.";
+        }
+        if (bannedUser[0].daysLeft !== undefined) {
+            banMessage += ` The user's ban is temporary with ${bannedUser[0].daysLeft} ${pluralize("day", bannedUser[0].daysLeft)} left.`;
+        }
+        message.push({ p: banMessage });
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         const isMod = await isModeratorWithCache(context.appSlug, context, subredditName);

@@ -69,6 +69,7 @@ export enum AppSetting {
     OpenAIKey = "openAIKey",
     OpenAIAdminKey = "openAIAdminKey",
     OpenAIProjectId = "openAIProjectId",
+    DisableClientChecks = "disableClientChecks",
 }
 
 export enum ActionType {
@@ -270,6 +271,13 @@ export const appSettings: SettingsFormField[] = [
         scope: "app",
         isSecret: true,
     },
+    {
+        type: "boolean",
+        label: "Disable client post and comment checks",
+        name: AppSetting.DisableClientChecks,
+        helpText: "If enabled, Bot Bouncer will not check posts and comments in client subreddits.",
+        defaultValue: false,
+    },
 ];
 
 export interface ControlSubSettings {
@@ -297,6 +305,8 @@ export interface ControlSubSettings {
     postCreationQueueProcessingEnabled?: boolean;
     postCreationQueueAlertLevel?: number;
     createAISummaryOnNewPosts?: boolean;
+    allowAccountReminders?: boolean;
+    allowRechecks?: boolean;
     allowClassificationQueries?: boolean;
     allowBans?: boolean;
     allowUnbans?: boolean;
@@ -339,6 +349,8 @@ const schema: JSONSchemaType<ControlSubSettings> = {
         postCreationQueueProcessingEnabled: { type: "boolean", nullable: true },
         postCreationQueueAlertLevel: { type: "number", nullable: true },
         createAISummaryOnNewPosts: { type: "boolean", nullable: true },
+        allowAccountReminders: { type: "boolean", nullable: true },
+        allowRechecks: { type: "boolean", nullable: true },
         allowClassificationQueries: { type: "boolean", nullable: true },
         allowBans: { type: "boolean", nullable: true },
         allowUnbans: { type: "boolean", nullable: true },

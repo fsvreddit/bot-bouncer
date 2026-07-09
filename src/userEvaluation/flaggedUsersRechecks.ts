@@ -9,6 +9,7 @@ import { addMinutes, addSeconds } from "date-fns";
 import { ControlSubredditJob } from "../constants.js";
 import pluralize from "pluralize";
 import { getUserExtended } from "@fsvreddit/fsv-devvit-helpers";
+import { getControlSubSettings } from "../settings.js";
 
 const FLAGGED_RECHECKS_QUEUE_KEY = "flaggedRechecksQueue";
 
@@ -26,6 +27,13 @@ export async function checkUserFlaggedRechecksQueue (event: ScheduledJobEvent<JS
     const queue = await context.redis.zRange(FLAGGED_RECHECKS_QUEUE_KEY, 0, Date.now(), { by: "score" });
     if (queue.length === 0) {
         console.log("FlaggedRechecks: No users in flagged rechecks queue");
+        return;
+    }
+
+    const controlSubSettings = await getControlSubSettings(context);
+    if (!controlSubSettings.allowRechecks) {
+        console.log("FlaggedRechecks: Rechecks are disabled in the control subreddit settings, clearing queue");
+        await context.redis.del(FLAGGED_RECHECKS_QUEUE_KEY);
         return;
     }
 

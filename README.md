@@ -48,19 +48,13 @@ If an account was banned by Bot Bouncer on a sub but successfully appeals via r/
 
 # Latest Changes
 
-## v1.32.0 (coming soon)
+## v1.32.0
 
 * Fixed an issue detecting bots where the post or comment had been removed or filtered
 * Add option to remove content when manually reporting accounts to r/BotBoucer
 * When reporting bots, the "Receive Feedback" option defaults to the last value chosen
 * Better handling of bot accounts that edit content into posts and comments
 * Action summary modmail now sends a very short summary after so that modmail isn't dominated with one large message
-
-## v1.31.0
-
-* Add option (enabled by default when action type is "Ban and remove") to remove queued posts/comments from users after they are banned
-* Introduce new evaluator type
-* Improve reliability of content from users flagged as bots
-* Stability changes to r/BotBouncer operations (credit: [MailGuardianReddit on GitHub](https://github.com/MailGuardianReddit))
+* Performance improvements
 
 For older versions, please see the [full changelog](https://github.com/fsvreddit/bot-bouncer/blob/main/changelog.md).

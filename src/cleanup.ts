@@ -217,7 +217,7 @@ export async function cleanupDeletedAccounts (event: ScheduledJobEvent<JSONObjec
                 }
             }
 
-            if (currentStatus.flags?.some(flag => [UserFlag.HackedAndRecovered, UserFlag.Scammed, UserFlag.FutureNSFW].includes(flag))) {
+            if (controlSubSettings.allowRechecks && currentStatus.flags?.some(flag => [UserFlag.HackedAndRecovered, UserFlag.Scammed, UserFlag.FutureNSFW].includes(flag))) {
                 await context.redis.zAdd("flaggedRechecksQueue", { member: username, score: new Date().getTime() });
             }
         } else {

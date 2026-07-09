@@ -181,6 +181,13 @@ async function addClientSubredditJobs (context: TriggerContext) {
         runAt: addMinutes(new Date(), 5),
     });
 
+    randomMinute = Math.floor(Math.random() * 60);
+    randomHour = Math.floor(Math.random() * 24);
+    await context.scheduler.runJob({
+        name: ClientSubredditJob.ClientSubAnnouncements,
+        cron: `${randomMinute} ${randomHour} * * *`,
+    });
+
     console.log("App Install: Client subreddit jobs added");
 
     await forceEvaluatorVariablesRefresh(context);

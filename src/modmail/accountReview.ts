@@ -4,6 +4,7 @@ import { getUsernameFromUrl, getUserOrUndefined } from "../utility.js";
 import pluralize from "pluralize";
 import { addDays, addSeconds } from "date-fns";
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "../constants.js";
+import { getControlSubSettings } from "../settings.js";
 
 const ACCOUNT_REVIEW_QUEUE = "accountReviewQueue";
 
@@ -43,6 +44,13 @@ export async function checkAccountsForReview (event: ScheduledJobEvent<JSONObjec
     const accountsToReview = await context.redis.zRange(ACCOUNT_REVIEW_QUEUE, 0, Date.now(), { by: "score" });
     if (accountsToReview.length === 0) {
         console.log("No accounts to review.");
+        return;
+    }
+
+    const controlSubSettings = await getControlSubSettings(context);
+    if (!controlSubSettings.allowAccountReminders) {
+        await context.redis.zRem(ACCOUNT_REVIEW_QUEUE, accountsToReview.map(item => item.member));
+        console.log("Account review reminders are disabled in the control subreddit settings.");
         return;
     }
 

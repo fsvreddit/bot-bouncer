@@ -1,7 +1,7 @@
 import { TriggerContext, User } from "@devvit/public-api";
 import { addDays, addHours, formatDuration, intervalToDuration } from "date-fns";
 import { isBanned, isModerator } from "devvit-helpers";
-import Pako from "pako";
+import { deflate, inflate } from "pako";
 
 export function getUsernameFromUrl (url: string) {
     const urlRegex = /reddit\.com\/u(?:ser)?\/([\w_-]+)\/?(?:[?/].+)?$/i;
@@ -176,11 +176,11 @@ export function postIdToShortLink (postId: string): string {
 }
 
 export function compressData (value: unknown): string {
-    return Buffer.from(Pako.deflate(JSON.stringify(value), { level: 9 })).toString("base64");
+    return Buffer.from(deflate(JSON.stringify(value), { level: 9 })).toString("base64");
 }
 
 export function conditionallyCompressString (input: string): string {
-    const compressed = `c:${Buffer.from(Pako.deflate(input, { level: 9 })).toString("base64")}`;
+    const compressed = `c:${Buffer.from(deflate(input, { level: 9 })).toString("base64")}`;
 
     // In the unlikely event that the input starts with c: (this is intended for JSON so not likely),
     // return the compressed value to avoid errors in decompression.
@@ -193,7 +193,7 @@ export function conditionallyCompressString (input: string): string {
 
 export function conditionallyDecompressString (input: string): string {
     if (input.startsWith("c:")) {
-        return Buffer.from(Pako.inflate(Buffer.from(input.substring(2), "base64"))).toString();
+        return Buffer.from(inflate(Buffer.from(input.substring(2), "base64"))).toString();
     } else {
         return input;
     }

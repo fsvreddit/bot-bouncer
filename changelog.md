@@ -1,5 +1,12 @@
 # Changelog for Bot Bouncer
 
+## v1.31.0
+
+* Add option (enabled by default when action type is "Ban and remove") to remove queued posts/comments from users after they are banned
+* Introduce new evaluator type
+* Improve reliability of content from users flagged as bots
+* Stability changes to r/BotBouncer operations (credit: [MailGuardianReddit on GitHub](https://github.com/MailGuardianReddit))
+
 ## v1.30.0
 
 * Fixed an issue with detecting some bots if their content is filtered or removed
