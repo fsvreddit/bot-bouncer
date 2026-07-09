@@ -26,7 +26,6 @@ export const SOCIAL_LINKS_STORE = "SocialLinksStore";
 
 export const AGGREGATE_STORE = "AggregateStore";
 
-const USER_DEFINED_HANDLES_POSTS = "userDefinedHandlesPosts";
 
 export enum UserStatus {
     Pending = "pending",
