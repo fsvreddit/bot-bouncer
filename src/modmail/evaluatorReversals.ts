@@ -139,7 +139,6 @@ export async function classificationReversalsJob (event: ScheduledJobEvent<JSONO
     });
 }
 
-
 interface EmergencyCleanupData {
     code: string;
     confirm?: boolean;
@@ -338,7 +337,7 @@ export async function emergencyConfigCleanupJob (event: ScheduledJobEvent<JSONOb
         if (dryRun && matchedTotal > 0) {
             body.push("");
             body.push("To run the cleanup, use:");
-            body.push(`\`!emergency-cleanup {\"code\":\"${code}\",\"confirm\":true}\``);
+            body.push(`\`!emergency-cleanup {"code":"${code}","confirm":true}\``);
         }
 
         await context.reddit.modMail.reply({
@@ -434,7 +433,7 @@ async function writeEmergencyCleanupExtract (
     }
 
     const headers = ["User", "Queued At", "Submitter", "Status", "Matched Evaluator", "Target Subreddit", "Target ID"];
-    const rows = entries.map(entry => {
+    const rows = entries.map((entry) => {
         const queueTime = entry.submission.queueTime ?? entry.submission.details.reportedAt;
         const targetId = entry.submission.configRevisionHit?.targetId ?? "";
         return [

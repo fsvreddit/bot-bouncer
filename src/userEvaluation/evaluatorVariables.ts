@@ -9,7 +9,7 @@ import { EvaluateBotGroupAdvanced } from "@fsvreddit/bot-bouncer-evaluation/dist
 import { getUserExtended } from "@fsvreddit/fsv-devvit-helpers";
 import { addSeconds } from "date-fns";
 import { checkNonexistentSubs } from "./subExistenceChecks.js";
-import { cacheCurrentConfigRevisionCodeLocally, getChangedVariableKeys, recordEvaluatorConfigRevisionReceipt } from "../configRevisionReceipts.js";
+import { getChangedVariableKeys, recordEvaluatorConfigRevisionReceipt } from "../configRevisionReceipts.js";
 import { recordEvaluatorConfigEditSummary } from "./configEditSummaries.js";
 
 const EVALUATOR_VARIABLES_KEY = "evaluatorVariablesHash";
@@ -257,9 +257,12 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
     if (revisionReceipt) {
         console.log(`Evaluator Variables: Config revision receipt ${revisionReceipt.code} recorded for ${changedVariableKeys.length} changed ${changedVariableKeys.length === 1 ? "variable" : "variables"}.`);
         if (controlSubSettings.monitoringWebhook) {
-            const changedEvaluators = revisionReceipt.appliesToAllEvaluators
-                ? "shared evaluator variables"
-                : revisionReceipt.changedEvaluatorNames.length > 0 ? revisionReceipt.changedEvaluatorNames.join(", ") : "unknown evaluator variables";
+            let changedEvaluators = "unknown evaluator variables";
+            if (revisionReceipt.appliesToAllEvaluators) {
+                changedEvaluators = "shared evaluator variables";
+            } else if (revisionReceipt.changedEvaluatorNames.length > 0) {
+                changedEvaluators = revisionReceipt.changedEvaluatorNames.join(", ");
+            }
             await sendMessageToWebhook(controlSubSettings.monitoringWebhook, `Config revision saved: ${revisionReceipt.code}\nUpdated by: u/${revisionReceipt.updatedBy ?? "unknown"}\nChanged: ${changedEvaluators}\nChanged variable count: ${changedVariableKeys.length}`);
         }
     }

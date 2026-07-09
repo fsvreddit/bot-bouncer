@@ -1,6 +1,6 @@
 import { Context, MenuItemOnPressEvent, JSONObject, FormOnSubmitEvent, FormFunction, TriggerContext } from "@devvit/public-api";
 import { CONTROL_SUBREDDIT } from "./constants.js";
-import { formatTimeSince, getUserOrUndefined, isBannedWithCache, isModeratorWithCache } from "./utility.js";
+import { getUserOrUndefined, isBannedWithCache, isModeratorWithCache } from "./utility.js";
 import { getUserStatus, UserStatus } from "./dataStore.js";
 import { addExternalSubmissionFromClientSub } from "./externalSubmissions.js";
 import { queryForm, reportForm } from "./main.js";
@@ -12,7 +12,6 @@ import { canUserReceiveFeedback } from "./submissionFeedback.js";
 import { isLinkId } from "@devvit/public-api/types/tid.js";
 import { addClassificationQueryToQueue } from "./modmail/classificationQuery.js";
 import { getPostOrCommentById } from "@fsvreddit/fsv-devvit-helpers";
-import { getRecentConfigRevisionUserHit } from "./configRevisionReceipts.js";
 
 enum ReportFormField {
     ReportContext = "reportContext",
@@ -154,34 +153,6 @@ export async function handleReportUser (event: MenuItemOnPressEvent, context: Co
     }
 
     const canReceiveFeedback = await canUserReceiveFeedback(currentUser.username, context);
-
-    let configRevisionNotice: string | undefined;
-    try {
-        const currentUserIsControlSubMod = await isModeratorWithCache(currentUser.username, context, CONTROL_SUBREDDIT);
-        if (currentUserIsControlSubMod) {
-            const recentConfigRevisionHit = await getRecentConfigRevisionUserHit(target.authorName, context);
-            if (recentConfigRevisionHit) {
-                const revisionDate = new Date(recentConfigRevisionHit.receipt.createdAt);
-                const changedEvaluatorText = recentConfigRevisionHit.receipt.appliesToAllEvaluators
-                    ? "Shared evaluator variables"
-                    : recentConfigRevisionHit.receipt.changedEvaluatorNames.length > 0
-                        ? recentConfigRevisionHit.receipt.changedEvaluatorNames.join(", ")
-                        : "Unknown evaluator variables";
-                configRevisionNotice = [
-                    "Recent Bot Bouncer config revision context detected.",
-                    `Revision code: ${recentConfigRevisionHit.receipt.code}`,
-                    `Revision saved: ${revisionDate.toISOString()} (${formatTimeSince(revisionDate)} ago)`,
-                    `Changed evaluator context: ${changedEvaluatorText}`,
-                    `Matched evaluator: ${recentConfigRevisionHit.hit.evaluatorName}`,
-                    "Emergency cleanup command:",
-                    `!emergency-cleanup {"code":"${recentConfigRevisionHit.receipt.code}","confirm":true}`,
-                    "This internal receipt code is shown only to Bot Bouncer moderators and should not be copied into public report context.",
-                ].join("\n");
-            }
-        }
-    } catch (error) {
-        console.error(`Report User: Failed to load recent config revision context for ${target.authorName}.`, error);
-    }
 
     const data = {
         username: target.authorName,

@@ -26,7 +26,6 @@ export const SOCIAL_LINKS_STORE = "SocialLinksStore";
 
 export const AGGREGATE_STORE = "AggregateStore";
 
-
 export enum UserStatus {
     Pending = "pending",
     Banned = "banned",
