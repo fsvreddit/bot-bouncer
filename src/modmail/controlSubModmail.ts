@@ -24,6 +24,7 @@ import { getUserExtended } from "@fsvreddit/fsv-devvit-helpers";
 import { generateOpenAISummary } from "../aiAnalysis/createAISummary.js";
 import { handleAskAI } from "../aiAnalysis/askAI.js";
 import pluralize from "pluralize";
+import { abandonConversationProcessing, beginConversationProcessing, completeConversationProcessing } from "./conversationProcessing.js";
 
 export function getPossibleSetStatusValues (): string[] {
     return _.uniq([...FLAIR_MAPPINGS.map(entry => entry.postFlair), ...Object.values(UserStatus)]);
@@ -199,14 +200,22 @@ export function markdownToText (markdown: json2md.DataObject[], limit = 5000): s
 }
 
 async function handleModmailFromUser (modmail: ModmailMessage, context: TriggerContext) {
-    const username = modmail.messageAuthor;
-
-    const conversationHandledKey = `conversationHandled~${modmail.conversationId}`;
-    if (await context.redis.exists(conversationHandledKey)) {
+    const processingToken = await beginConversationProcessing(modmail.conversationId, context);
+    if (!processingToken) {
         return;
     }
 
-    await context.redis.set(conversationHandledKey, "true", { expiration: addDays(new Date(), 28) });
+    try {
+        await processModmailFromUser(modmail, context);
+        await completeConversationProcessing(modmail.conversationId, processingToken, context);
+    } catch (error) {
+        await abandonConversationProcessing(modmail.conversationId, processingToken, context);
+        throw error;
+    }
+}
+
+async function processModmailFromUser (modmail: ModmailMessage, context: TriggerContext) {
+    const username = modmail.messageAuthor;
 
     if (username === INTERNAL_BOT || username.startsWith(context.appSlug)) {
         return;
