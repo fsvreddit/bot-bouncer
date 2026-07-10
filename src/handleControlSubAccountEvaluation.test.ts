@@ -105,3 +105,19 @@ test("continuous NSFW history rejects a month containing only SFW activity", asy
 
     await expect(userHasContinuousNSFWHistory("testuser", createContext(posts))).resolves.toBe(false);
 });
+
+test("continuous NSFW history uses calendar months on the first day of a month", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-01T00:05:00Z"));
+
+    const posts = monthlyPosts([
+        "2026-02-28T23:59:00Z",
+        "2026-03-31T23:59:00Z",
+        "2026-04-30T23:59:00Z",
+        "2026-05-31T23:59:00Z",
+        "2026-06-30T23:59:00Z",
+        "2026-07-01T00:01:00Z",
+    ]);
+
+    await expect(userHasContinuousNSFWHistory("testuser", createContext(posts))).resolves.toBe(true);
+});
