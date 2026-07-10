@@ -298,6 +298,10 @@ async function getAppealConfig (context: TriggerContext): Promise<AppealConfig[]
     return JSON.parse(configData) as AppealConfig[];
 }
 
+export function appealConfigNeedsUserHistory (appealConfig: { hasMoreThanOneCommentOnPost?: boolean }[]): boolean {
+    return appealConfig.some(config => config.hasMoreThanOneCommentOnPost !== undefined);
+}
+
 function formatPlaceholders (input: string, userDetails: UserDetails): string {
     let output = input;
     let dateFormat: string;
@@ -364,7 +368,7 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
 
     let history: (Post | Comment)[] = [];
 
-    if (appealConfig.some(config => config.hasMoreThanOneCommentOnPost)) {
+    if (appealConfigNeedsUserHistory(appealConfig)) {
         history = await context.reddit.getCommentsAndPostsByUser({
             username,
             limit: 100,

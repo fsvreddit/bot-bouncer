@@ -4,7 +4,7 @@ import { getUserStatus, UserStatus } from "./dataStore.js";
 import { ALL_RELEVANT_EVALUTORS, CONTROL_SUBREDDIT, ControlSubredditJob, PostFlairTemplate } from "./constants.js";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { createUserSummary } from "./UserSummary/userSummary.js";
-import { addSeconds, addWeeks, subMonths } from "date-fns";
+import { addSeconds, addWeeks, isSameMonth, startOfMonth, subMonths } from "date-fns";
 import _ from "lodash";
 import { getSubmitterSuccessRate } from "./statistics/submitterStatistics.js";
 import { conditionallyCompressString, conditionallyDecompressString } from "./utility.js";
@@ -301,11 +301,15 @@ export async function userHasContinuousNSFWHistory (username: string, context: T
         return false;
     }
 
+    const currentMonth = startOfMonth(new Date());
+    const firstRequiredMonth = subMonths(currentMonth, 5);
     const subNSFW: Record<string, boolean> = {};
-    // Filter to just the last 6 months.
-    posts = posts.filter(post => post.createdAt > subMonths(new Date(), 6));
-    for (let month = new Date().getMonth() - 5; month <= new Date().getMonth(); month++) {
-        const postsInMonth = posts.filter(post => post.createdAt.getMonth() === month);
+
+    // Check the current calendar month and the previous five calendar months.
+    posts = posts.filter(post => post.createdAt >= firstRequiredMonth);
+    for (let monthOffset = 5; monthOffset >= 0; monthOffset--) {
+        const requiredMonth = subMonths(currentMonth, monthOffset);
+        const postsInMonth = posts.filter(post => isSameMonth(post.createdAt, requiredMonth));
         if (postsInMonth.length === 0) {
             return false;
         }
@@ -314,15 +318,19 @@ export async function userHasContinuousNSFWHistory (username: string, context: T
             continue;
         }
 
+        let hasNSFWSubreddit = false;
         for (const subreddit of _.uniq(postsInMonth.map(post => post.subredditName))) {
             subNSFW[subreddit] ??= await subIsNSFW(subreddit, context);
             if (subNSFW[subreddit]) {
-                continue;
+                hasNSFWSubreddit = true;
+                break;
             }
         }
 
         // If we have a month with no NSFW posts and no NSFW subreddits, return false.
-        return false;
+        if (!hasNSFWSubreddit) {
+            return false;
+        }
     }
 
     return true;
