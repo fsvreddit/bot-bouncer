@@ -25,6 +25,7 @@ import { generateOpenAISummary } from "../aiAnalysis/createAISummary.js";
 import { handleAskAI } from "../aiAnalysis/askAI.js";
 import pluralize from "pluralize";
 import { abandonConversationProcessing, beginConversationProcessing, completeConversationProcessing } from "./conversationProcessing.js";
+import { addPriorAppealHistoryNotice, recordPriorAppealSubmission } from "./priorAppealHistory.js";
 
 export function getPossibleSetStatusValues (): string[] {
     return _.uniq([...FLAIR_MAPPINGS.map(entry => entry.postFlair), ...Object.values(UserStatus)]);
@@ -215,6 +216,7 @@ async function handleModmailFromUser (modmail: ModmailMessage, context: TriggerC
 }
 
 async function processModmailFromUser (modmail: ModmailMessage, context: TriggerContext) {
+    const controlSubSettings = await getControlSubSettings(context);
     const username = modmail.messageAuthor;
 
     if (username === INTERNAL_BOT || username.startsWith(context.appSlug)) {
@@ -289,6 +291,11 @@ async function processModmailFromUser (modmail: ModmailMessage, context: Trigger
         // User is not banned or purged, so we should not send the "Appeal Received" message.
         return;
     }
+
+    // Duplicate appeals receive the recent-appeal automated reply and return above.
+    // Only show and record prior appeal history for appeals that proceed past that check.
+    await addPriorAppealHistoryNotice(modmail, controlSubSettings, context);
+    await recordPriorAppealSubmission(modmail, currentStatus, controlSubSettings, context);
 
     const user = await getUserOrUndefined(username, context);
     if (!user) {
