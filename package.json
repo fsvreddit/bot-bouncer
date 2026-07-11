@@ -8,7 +8,8 @@
     "deploy": "devvit publish && devvit install botbouncer",
     "logs": "devvit logs botbouncer --verbose --since 5m",
     "test": "npm run test:unit",
-    "test:unit": "vitest --run"
+    "test:unit": "vitest --run",
+    "lint": "eslint ."
   },
   "dependencies": {
     "@devvit/protos": "0.13.7",
