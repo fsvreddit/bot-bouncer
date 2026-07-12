@@ -2,7 +2,7 @@ export interface EvaluationResultLike {
     botName: string;
     hitReason?: string | {
         reason: string;
-        details: Array<{ key: string; value: string }>;
+        details: { key: string; value: string }[];
     };
     canAutoBan: boolean;
     metThreshold: boolean;
@@ -68,48 +68,48 @@ export interface ProfileChanges {
 }
 
 export interface PromotionDigest {
-    domains?: Array<{
+    domains?: {
         domain: string;
         occurrences: number;
         locations: string[];
-    }>;
-    contactHandles?: Array<{
+    }[];
+    contactHandles?: {
         value: string;
         occurrences: number;
         locations: string[];
-    }>;
-    referralIndicators?: Array<{
+    }[];
+    referralIndicators?: {
         parameter: string;
         occurrences: number;
-    }>;
+    }[];
 }
 
 export interface ReuseDigest {
-    exactTitleClusters?: Array<{
+    exactTitleClusters?: {
         representativeText: string;
         occurrences: number;
         subredditCount: number;
         firstSeenAt: Date;
         lastSeenAt: Date;
-    }>;
-    exactCommentClusters?: Array<{
+    }[];
+    exactCommentClusters?: {
         representativeText: string;
         occurrences: number;
         subredditCount: number;
         firstSeenAt: Date;
         lastSeenAt: Date;
-    }>;
-    repeatedMediaUrls?: Array<{
+    }[];
+    repeatedMediaUrls?: {
         url: string;
         occurrences: number;
-    }>;
+    }[];
 }
 
 export interface CompactEvaluationResult {
     botName: string;
     description?: string;
     reason?: string;
-    details?: Array<{ key: string; value: string }>;
+    details?: { key: string; value: string }[];
     canAutoBan: boolean;
     metThreshold: boolean;
 }
@@ -130,7 +130,11 @@ const REFERRAL_PARAMETERS = new Set(["aff", "affiliate", "code", "coupon", "invi
 
 function nonEmptyString (value: string | undefined): string | undefined {
     const trimmed = value?.trim();
-    return trimmed ? trimmed : undefined;
+    if (!trimmed) {
+        return;
+    }
+
+    return trimmed;
 }
 
 function truncate (value: string, maxLength: number): string {
@@ -153,7 +157,7 @@ function sortedUnique (values: string[]): string[] {
 export function buildHistoryCoverage (
     history: AIHistoryItem[],
     contentLimit: number,
-    failedParentPostLookups: number
+    failedParentPostLookups: number,
 ): HistoryCoverage {
     const sortedDates = history.map(item => item.createdAt).sort((a, b) => a.getTime() - b.getTime());
 
@@ -201,7 +205,7 @@ interface LocatedText {
 }
 
 function extractUrls (value: string): URL[] {
-    const matches = value.match(/https?:\/\/[^\s<>()\[\]{}"']+/giu) ?? [];
+    const matches = value.match(/https?:\/\/[^\s<>()[\]{}"']+/giu) ?? [];
     return matches.flatMap((match) => {
         try {
             return [new URL(match.replace(/[.,;:!?]+$/u, ""))];
@@ -229,7 +233,7 @@ function extractHandles (value: string): string[] {
 
 export function buildPromotionDigest (
     currentProfile: ProfileSnapshot,
-    history: AIHistoryItem[]
+    history: AIHistoryItem[],
 ): PromotionDigest | undefined {
     const locatedText: LocatedText[] = [];
     if (currentProfile.bio) {
@@ -406,7 +410,7 @@ function compactHitReason (result: EvaluationResultLike): Pick<CompactEvaluation
 
 export function compactEvaluationResults (
     results: EvaluationResultLike[],
-    evaluatorDescriptions: Record<string, string | undefined>
+    evaluatorDescriptions: Record<string, string | undefined>,
 ): CompactEvaluationResult[] {
     const seen = new Set<string>();
     const compactResults: CompactEvaluationResult[] = [];
@@ -436,7 +440,7 @@ export function compactEvaluationResults (
 export function buildEvaluatorChangeDigest (
     initial: EvaluationResultLike[],
     current: EvaluationResultLike[],
-    evaluatorDescriptions: Record<string, string | undefined>
+    evaluatorDescriptions: Record<string, string | undefined>,
 ): EvaluatorChangeDigest {
     const initialNames = sortedUnique(initial.map(result => result.botName));
     const currentNames = sortedUnique(current.map(result => result.botName));

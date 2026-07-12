@@ -35,11 +35,11 @@ function evaluatorDescriptions (evaluatorVariables: Record<string, unknown>): Re
     return descriptions;
 }
 
-function moderatorNotesForAI (modNotes: ModNote[]): Array<{
+function moderatorNotesForAI (modNotes: ModNote[]): {
     createdAt: Date;
     label: string;
     text: string;
-}> {
+}[] {
     return modNotes
         .flatMap((note) => {
             const text = note.userNote?.note?.trim();
@@ -160,8 +160,8 @@ export async function generateOpenAISummary (event: ScheduledJobEvent<JSONObject
     const minimumAccountAgeInDays = controlSubSettings.openAIMinimumAccountAgeInDays ?? 30;
     const minimumContentItems = controlSubSettings.openAIMinimumContentCount ?? 25;
 
-    const accountAgeInDays = userInfo.payload.userInfo.createdAt ? differenceInDays(new Date(), userInfo.payload.userInfo.createdAt) : undefined;
-    if (!accountAgeInDays || accountAgeInDays < minimumAccountAgeInDays) {
+    const accountAgeInDays = differenceInDays(new Date(), userInfo.payload.userInfo.createdAt);
+    if (accountAgeInDays < minimumAccountAgeInDays) {
         reasonsToSkipCreation.push(`The account is ${accountAgeInDays} ${pluralize("day", accountAgeInDays)} old, which is less than the minimum required ${minimumAccountAgeInDays} days`);
     }
 
@@ -184,7 +184,7 @@ export async function generateOpenAISummary (event: ScheduledJobEvent<JSONObject
 
     const currentEvaluationResults = await evaluateUserAccount({
         username,
-        variables: evaluatorVariables as Record<string, JSONValue>,
+        variables: evaluatorVariables,
         user: userInfo.source.user,
         userItems: userInfo.source.history,
         targetId: userStatus?.submissionContext?.targetId,
@@ -193,16 +193,16 @@ export async function generateOpenAISummary (event: ScheduledJobEvent<JSONObject
     const evaluatorChange = buildEvaluatorChangeDigest(
         initialEvaluationResults,
         currentEvaluationResults,
-        evaluatorDescriptions(evaluatorVariables)
+        evaluatorDescriptions(evaluatorVariables),
     );
 
     const appealContext = conversationId
         ? {
-            currentMessage: userMessage?.trim().slice(0, MAX_APPEAL_MESSAGE_LENGTH),
-            ...priorAppealContext,
-            profileChangedSinceInitialReport: userInfo.payload.profileChanges !== undefined,
-            resolvedEvaluatorNames: evaluatorChange.resolvedEvaluatorNames,
-        }
+                currentMessage: userMessage?.trim().slice(0, MAX_APPEAL_MESSAGE_LENGTH),
+                ...priorAppealContext,
+                profileChangedSinceInitialReport: userInfo.payload.profileChanges !== undefined,
+                resolvedEvaluatorNames: evaluatorChange.resolvedEvaluatorNames,
+            }
         : undefined;
 
     const structuredEvidence = {
@@ -210,20 +210,20 @@ export async function generateOpenAISummary (event: ScheduledJobEvent<JSONObject
         evaluatorChange,
         botBouncerContext: userStatus
             ? {
-                currentStatus: userStatus.userStatus,
-                flags: userStatus.flags,
-                reportedAt: userStatus.reportedAt ? new Date(userStatus.reportedAt) : undefined,
-                lastUpdatedAt: new Date(userStatus.lastUpdate),
-                submitter: userStatus.submitter,
-                operator: userStatus.operator,
-            }
+                    currentStatus: userStatus.userStatus,
+                    flags: userStatus.flags,
+                    reportedAt: userStatus.reportedAt ? new Date(userStatus.reportedAt) : undefined,
+                    lastUpdatedAt: new Date(userStatus.lastUpdate),
+                    submitter: userStatus.submitter,
+                    operator: userStatus.operator,
+                }
             : undefined,
         submissionContext: userStatus?.submissionContext ?? (postId
             ? {
-                source: "control-tracking-post",
-                submittedAt: userStatus?.reportedAt ?? Date.now(),
-                trackingPostId: postId,
-            }
+                    source: "control-tracking-post",
+                    submittedAt: userStatus?.reportedAt ?? Date.now(),
+                    trackingPostId: postId,
+                }
             : undefined),
         appealContext,
         moderatorNotes: moderatorNotesForAI(modNotes),

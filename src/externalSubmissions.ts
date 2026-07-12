@@ -153,6 +153,17 @@ export async function addExternalSubmissionToPostCreationQueue (item: ExternalSu
         commentToAdd = json2md(body);
     }
 
+    let submissionSource = item.source;
+    if (!submissionSource) {
+        if (item.proactive) {
+            submissionSource = "external-proactive";
+        } else if (item.submitter) {
+            submissionSource = "external-manual";
+        } else {
+            submissionSource = "external-automatic";
+        }
+    }
+
     const submission: AsyncSubmission = {
         user: await getUserExtendedFromUser(user, context),
         submitter: item.submitter,
@@ -169,7 +180,7 @@ export async function addExternalSubmissionToPostCreationQueue (item: ExternalSu
         removeComment: item.publicContext === false,
         reportContext: item.reportContext,
         evaluatorsChecked: item.evaluationResults !== undefined && item.evaluationResults.length > 0,
-        submissionSource: item.source ?? (item.proactive ? "external-proactive" : item.submitter ? "external-manual" : "external-automatic"),
+        submissionSource,
         sourceSubreddit: item.subreddit,
         targetId: item.targetId,
         proactive: item.proactive,

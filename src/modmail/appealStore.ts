@@ -83,7 +83,7 @@ export interface AIAppealHistoryContext {
 export async function getAppealContextForAI (
     username: string,
     triggerConversationId: string,
-    context: TriggerContext
+    context: TriggerContext,
 ): Promise<AIAppealHistoryContext | undefined> {
     const appealRecordsForUser = await context.redis.hGetAll(getAppealHashKeyForUser(username));
     const triggerId = normalisedConversationId(triggerConversationId);

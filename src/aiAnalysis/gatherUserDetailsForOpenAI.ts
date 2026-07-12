@@ -24,7 +24,7 @@ interface PostInfo {
 export interface AIUserInfoResult {
     payload: {
         userInfo: UserExtended & {
-            socialLinks: Array<{ title: string; url: string }>;
+            socialLinks: { title: string; url: string }[];
         };
         coverage: ReturnType<typeof buildHistoryCoverage>;
         profileChanges?: ReturnType<typeof buildProfileChanges>;
@@ -34,14 +34,14 @@ export interface AIUserInfoResult {
     };
     source: {
         user: UserExtended;
-        history: Array<Post | Comment>;
+        history: (Post | Comment)[];
     };
 }
 
 function profileSnapshot (
     bio: string | undefined,
     displayName: string | undefined,
-    socialLinkUrls: string[]
+    socialLinkUrls: string[],
 ): ProfileSnapshot {
     return {
         bio,
@@ -62,7 +62,7 @@ export async function getUserInfoForOpenAI (username: string, context: TriggerCo
             return;
         }
 
-        const typedSocialLinks = socialLinks as Array<{ title: string; outboundUrl: string }>;
+        const typedSocialLinks = socialLinks as { title: string; outboundUrl: string }[];
 
         const history = await context.reddit.getCommentsAndPostsByUser({
             username,
@@ -127,12 +127,12 @@ export async function getUserInfoForOpenAI (username: string, context: TriggerCo
         const currentProfile = profileSnapshot(
             user.userDescription,
             user.displayName,
-            typedSocialLinks.map(link => link.outboundUrl)
+            typedSocialLinks.map(link => link.outboundUrl),
         );
         const originalProfile = profileSnapshot(
             initialAccountProperties.bioText,
             initialAccountProperties.displayName,
-            initialAccountProperties.socialLinks.map(link => link.outboundUrl)
+            initialAccountProperties.socialLinks.map(link => link.outboundUrl),
         );
 
         return {

@@ -79,7 +79,7 @@ function buildStoredSubmissionContext (submission: AsyncSubmission): StoredSubmi
         reportContext: reportContext
             ? reportContext.slice(0, 500)
             : undefined,
-        proactive: submission.proactive || undefined,
+        proactive: submission.proactive ? true : undefined,
     };
 }
 
