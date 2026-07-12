@@ -140,6 +140,8 @@ async function evaluateAndHandleUser (username: string, variables: Record<string
         ]),
         immediate: false,
         evaluatorsChecked: evaluationResults.length > 0,
+        submissionSource: "main-karma-farming",
+        proactive: true,
     };
 
     const [result] = await queuePostCreation([submission], context);

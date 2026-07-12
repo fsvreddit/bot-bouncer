@@ -210,6 +210,9 @@ export async function handleControlSubPostCreate (event: PostCreate, context: Tr
             },
             immediate: true,
             evaluatorsChecked: false,
+            submissionSource: "control-submission-post",
+            targetId: event.post.id,
+            sourceSubreddit: context.subredditName,
         };
 
         [submissionResult] = await queuePostCreation([submission], context);

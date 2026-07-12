@@ -221,6 +221,8 @@ export async function addAllUsersFromModmail (conversationId: string, submitter:
             },
             immediate: false,
             evaluatorsChecked: false,
+            submissionSource: "similar-bio-detection",
+            proactive: true,
         });
     }
 

@@ -69,3 +69,40 @@ export async function getAppealTextForUser (username: string, triggerConversatio
 
     return results;
 }
+
+export interface AIAppealHistoryEntry {
+    createdAt: Date;
+    subject: string;
+}
+
+export interface AIAppealHistoryContext {
+    priorAppealCount: number;
+    priorAppeals: AIAppealHistoryEntry[];
+}
+
+export async function getAppealContextForAI (
+    username: string,
+    triggerConversationId: string,
+    context: TriggerContext
+): Promise<AIAppealHistoryContext | undefined> {
+    const appealRecordsForUser = await context.redis.hGetAll(getAppealHashKeyForUser(username));
+    const triggerId = normalisedConversationId(triggerConversationId);
+
+    const priorAppeals = Object.values(appealRecordsForUser)
+        .map(value => JSON.parse(value) as AppealEntry)
+        .filter(record => record.conversationId !== triggerId)
+        .sort((a, b) => b.createdAt - a.createdAt)
+        .map(record => ({
+            createdAt: new Date(record.createdAt),
+            subject: record.subject.slice(0, 200),
+        }));
+
+    if (priorAppeals.length === 0) {
+        return;
+    }
+
+    return {
+        priorAppealCount: priorAppeals.length,
+        priorAppeals: priorAppeals.slice(0, 5),
+    };
+}

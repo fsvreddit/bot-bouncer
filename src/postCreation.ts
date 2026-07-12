@@ -1,5 +1,5 @@
 import { JobContext, TriggerContext, ZMember } from "@devvit/public-api";
-import { getUserStatus, setUserStatus, storeInitialAccountProperties, UserDetails, UserStatus } from "./dataStore.js";
+import { getUserStatus, setUserStatus, StoredSubmissionContext, storeInitialAccountProperties, UserDetails, UserStatus } from "./dataStore.js";
 import { CONTROL_SUBREDDIT, ControlSubredditJob, INTERNAL_BOT, PostFlairTemplate } from "./constants.js";
 import { UserExtended } from "@fsvreddit/fsv-devvit-helpers";
 import { addDays, addHours, addMinutes, addSeconds, subWeeks } from "date-fns";
@@ -37,6 +37,10 @@ export interface AsyncSubmission {
     reportContext?: string;
     evaluatorsChecked: boolean;
     queueTime?: number;
+    submissionSource?: string;
+    sourceSubreddit?: string;
+    targetId?: string;
+    proactive?: boolean;
 }
 
 export async function isUserAlreadyQueued (username: string, context: JobContext): Promise<boolean> {
@@ -49,6 +53,34 @@ export async function promotePositionInQueue (username: string, context: JobCont
         await context.redis.zAdd(SUBMISSION_QUEUE, { member: username, score: Date.now() / 1000 });
         console.log(`Post Creation: Promoted ${username}'s position in the queue.`);
     }
+}
+
+function buildStoredSubmissionContext (submission: AsyncSubmission): StoredSubmissionContext {
+    let source = submission.submissionSource;
+    if (!source) {
+        if (submission.proactive) {
+            source = "proactive";
+        } else if (submission.submitter) {
+            source = "manual";
+        } else if (submission.evaluatorsChecked) {
+            source = "automatic-evaluator";
+        } else {
+            source = "unknown";
+        }
+    }
+
+    const reportContext = submission.reportContext?.trim();
+    return {
+        source,
+        submittedAt: Date.now(),
+        submitter: submission.submitter,
+        sourceSubreddit: submission.sourceSubreddit,
+        targetId: submission.targetId,
+        reportContext: reportContext
+            ? reportContext.slice(0, 500)
+            : undefined,
+        proactive: submission.proactive || undefined,
+    };
 }
 
 async function createNewSubmission (submission: AsyncSubmission, context: TriggerContext) {
@@ -116,6 +148,7 @@ async function createNewSubmission (submission: AsyncSubmission, context: Trigge
     submission.details.trackingPostId = newPost.id;
     submission.details.reportedAt = Date.now();
     submission.details.lastUpdate = Date.now();
+    submission.details.submissionContext ??= buildStoredSubmissionContext(submission);
 
     await setUserStatus(submission.user.username, submission.details, context);
 

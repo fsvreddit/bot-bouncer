@@ -9,7 +9,7 @@ import _ from "lodash";
 import { getSubmitterSuccessRate } from "./statistics/submitterStatistics.js";
 import { conditionallyCompressString, conditionallyDecompressString } from "./utility.js";
 import { getControlSubSettings } from "./settings.js";
-import { getPostOrCommentById, getUserExtended } from "@fsvreddit/fsv-devvit-helpers";
+import { getPostOrCommentById, getUserExtended, UserExtended } from "@fsvreddit/fsv-devvit-helpers";
 
 export interface EvaluatorStats {
     hitCount: number;
@@ -28,10 +28,12 @@ interface EvaluateUserAccountOptions {
     variables: Record<string, JSONValue>;
     throwOnError?: boolean;
     targetId?: string;
+    user?: UserExtended;
+    userItems?: (Post | Comment)[];
 }
 
 export async function evaluateUserAccount (options: EvaluateUserAccountOptions, context: JobContext): Promise<EvaluationResult[]> {
-    const user = await getUserExtended(options.username, context);
+    const user = options.user ?? await getUserExtended(options.username, context);
     if (!user) {
         return [];
     }
@@ -54,21 +56,27 @@ export async function evaluateUserAccount (options: EvaluateUserAccountOptions, 
         return [];
     }
 
-    let userItems: (Post | Comment)[] | undefined;
-    try {
-        userItems = await context.reddit.getCommentsAndPostsByUser({
-            username: options.username,
-            sort: "new",
-            limit: 100,
-        }).all();
-    } catch {
-        // Error retrieving user history, likely shadowbanned.
-        return [];
+    let userItems: (Post | Comment)[] | undefined = options.userItems;
+    if (!userItems) {
+        try {
+            userItems = await context.reddit.getCommentsAndPostsByUser({
+                username: options.username,
+                sort: "new",
+                limit: 100,
+            }).all();
+        } catch {
+            // Error retrieving user history, likely shadowbanned.
+            return [];
+        }
     }
 
     if (options.targetId && !userItems.some(item => item.id === options.targetId)) {
-        console.log(`Evaluator: Adding target item ${options.targetId} to evaluation for ${options.username}`);
-        userItems.unshift(await getPostOrCommentById(context.reddit, options.targetId));
+        try {
+            console.log(`Evaluator: Adding target item ${options.targetId} to evaluation for ${options.username}`);
+            userItems.unshift(await getPostOrCommentById(context.reddit, options.targetId));
+        } catch (error) {
+            console.warn(`Evaluator: Could not retrieve target item ${options.targetId} for ${options.username}:`, error);
+        }
     }
 
     const socialLinks = await getSocialLinksWithCache(user.username, context);

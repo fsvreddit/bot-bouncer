@@ -450,6 +450,7 @@ async function checkAndReportPotentialBot (username: string, target: Post | Comm
         reportContext,
         immediate: true,
         targetId: targetItem.id,
+        source: "client-automatic-evaluator",
     }, context);
 
     console.log(`Created external submission via automated evaluation for ${user.username} for bot style ${botName}`);

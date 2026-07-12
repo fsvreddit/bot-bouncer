@@ -102,6 +102,7 @@ async function handleBulkItems (items: BulkItem[], context: TriggerContext): Pro
             commentToAdd,
             immediate: false,
             evaluatorsChecked: false,
+            submissionSource: "modmail-bulk-submission",
         });
     }));
 

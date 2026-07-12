@@ -24,6 +24,7 @@ const RECENT_CHANGES_STORE = "RecentChangesStore";
 export const BIO_TEXT_STORE = "BioTextStore";
 export const DISPLAY_NAME_STORE = "DisplayNameStore";
 export const SOCIAL_LINKS_STORE = "SocialLinksStore";
+export const INITIAL_ACCOUNT_PROPERTIES_CAPTURED_STORE = "InitialAccountPropertiesCapturedStore";
 
 export const AGGREGATE_STORE = "AggregateStore";
 
@@ -51,6 +52,16 @@ const eligibleFlagsForStatus: Record<UserFlag, UserStatus[]> = {
     [UserFlag.FutureNSFW]: [UserStatus.Organic],
 };
 
+export interface StoredSubmissionContext {
+    source: string;
+    submittedAt: number;
+    submitter?: string;
+    sourceSubreddit?: string;
+    targetId?: string;
+    reportContext?: string;
+    proactive?: boolean;
+}
+
 export interface UserDetails {
     trackingPostId: string;
     userStatus: UserStatus;
@@ -64,6 +75,7 @@ export interface UserDetails {
      */
     mostRecentActivity?: number;
     flags?: UserFlag[];
+    submissionContext?: StoredSubmissionContext;
 }
 
 export const ALL_POTENTIAL_USER_PREFIXES = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_".split("");
@@ -283,6 +295,7 @@ export async function deleteUserStatus (username: string, context: TriggerContex
     await context.redis.hDel(BIO_TEXT_STORE, [username]);
     await context.redis.hDel(DISPLAY_NAME_STORE, [username]);
     await context.redis.hDel(SOCIAL_LINKS_STORE, [username]);
+    await context.redis.hDel(INITIAL_ACCOUNT_PROPERTIES_CAPTURED_STORE, [username]);
     await context.redis.hDel(USER_DEFINED_HANDLES_POSTS, [username]);
 
     await deleteAppealRecordsForUser(username, context);
@@ -331,7 +344,9 @@ export async function storeInitialAccountProperties (username: string, context: 
         return;
     }
 
-    const promises: Promise<number>[] = [];
+    const promises: Promise<number>[] = [
+        context.redis.hSet(INITIAL_ACCOUNT_PROPERTIES_CAPTURED_STORE, { [username]: "true" }),
+    ];
     if (userExtended.userDescription) {
         promises.push(context.redis.hSet(BIO_TEXT_STORE, { [username]: userExtended.userDescription }));
         console.log(`Data Store: Stored bio for ${username}`);
@@ -352,16 +367,18 @@ export async function storeInitialAccountProperties (username: string, context: 
 }
 
 export async function getInitialAccountProperties (username: string, context: TriggerContext) {
-    const [bioText, displayName, socialLinks] = await Promise.all([
+    const [bioText, displayName, socialLinks, captured] = await Promise.all([
         context.redis.hGet(BIO_TEXT_STORE, username),
         context.redis.hGet(DISPLAY_NAME_STORE, username),
         context.redis.hGet(SOCIAL_LINKS_STORE, username),
+        context.redis.hGet(INITIAL_ACCOUNT_PROPERTIES_CAPTURED_STORE, username),
     ]);
 
     return {
         bioText,
         displayName,
         socialLinks: socialLinks ? JSON.parse(socialLinks) as UserSocialLink[] : [],
+        captured: captured === "true" || !!bioText || !!displayName || !!socialLinks,
     };
 }
 

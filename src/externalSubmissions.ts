@@ -35,6 +35,7 @@ export interface ExternalSubmission {
     sendFeedback?: boolean;
     proactive?: boolean;
     immediate?: boolean;
+    source?: string;
 };
 
 export async function addExternalSubmissionFromClientSub (data: ExternalSubmission, context: TriggerContext) {
@@ -168,6 +169,10 @@ export async function addExternalSubmissionToPostCreationQueue (item: ExternalSu
         removeComment: item.publicContext === false,
         reportContext: item.reportContext,
         evaluatorsChecked: item.evaluationResults !== undefined && item.evaluationResults.length > 0,
+        submissionSource: item.source ?? (item.proactive ? "external-proactive" : item.submitter ? "external-manual" : "external-automatic"),
+        sourceSubreddit: item.subreddit,
+        targetId: item.targetId,
+        proactive: item.proactive,
     };
 
     const [result] = await queuePostCreation([submission], context);
