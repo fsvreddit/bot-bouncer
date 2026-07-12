@@ -1,4 +1,4 @@
-﻿import { compareEvaluatorAccuracyEntries } from "./evaluatorAccuracyStatistics.js";
+import { compareEvaluatorAccuracyEntries } from "./evaluatorAccuracyStatistics.js";
 
 type AccuracyEntry = Parameters<typeof compareEvaluatorAccuracyEntries>[0];
 
@@ -41,4 +41,3 @@ test("sorts zero-hit and displayed zero-percent evaluators first, alphabetically
         "Bot Group Advanced~Zulu",
     ]);
 });
-
