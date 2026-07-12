@@ -46,6 +46,28 @@ interface EvaluationAccuracyResult {
     lastSeen?: number;
 }
 
+function getEvaluatorAccuracyPercentage (data: EvaluationAccuracyResult): number | undefined {
+    if (data.totalCount === 0) {
+        return undefined;
+    }
+
+    return Math.floor((data.bannedCount / data.totalCount) * 100);
+}
+
+export function compareEvaluatorAccuracyEntries (
+    [keyA, dataA]: [string, EvaluationAccuracyResult],
+    [keyB, dataB]: [string, EvaluationAccuracyResult],
+): number {
+    const prioritizeA = dataA.totalCount === 0 || getEvaluatorAccuracyPercentage(dataA) === 0;
+    const prioritizeB = dataB.totalCount === 0 || getEvaluatorAccuracyPercentage(dataB) === 0;
+
+    if (prioritizeA !== prioritizeB) {
+        return prioritizeA ? -1 : 1;
+    }
+
+    return keyA.localeCompare(keyB);
+}
+
 function getEvaluationResultsKey (evaluationResult: EvaluationResult): string {
     if (evaluationResult.hitReason && evaluationResult.botName.includes("Bot Group")) {
         if (typeof evaluationResult.hitReason === "string") {
@@ -187,15 +209,16 @@ export async function buildEvaluatorAccuracyStatistics (event: ScheduledJobEvent
     const tableRows: string[][] = [];
     const headers: string[] = ["Bot Name", "Hit Reason", "Last Seen", "Total Count", "Banned Count", "Accuracy (%)", "Example Banned Accounts", "Unbanned Accounts"];
 
-    for (const [key, data] of _.toPairs(evaluatorAccuracyStats).sort((a, b) => a > b ? 1 : -1)) {
+    for (const [key, data] of _.toPairs(evaluatorAccuracyStats).sort(compareEvaluatorAccuracyEntries)) {
         const [botName, hitReason] = key.split("~");
+        const accuracyPercentage = getEvaluatorAccuracyPercentage(data);
         tableRows.push([
             botName,
             hitReason || "",
             data.lastSeen ? format(new Date(data.lastSeen), "yyyy-MM-dd") : "",
             data.totalCount.toLocaleString(),
             data.bannedCount.toLocaleString(),
-            data.totalCount ? `${Math.floor((data.bannedCount / data.totalCount) * 100)}%` : "",
+            accuracyPercentage !== undefined ? `${accuracyPercentage}%` : "",
             data.bannedAccounts.slice(-5).map(account => `/u/${account}`).join(", "),
             data.unbannedAccounts.map(account => `/u/${account}`).join(", "),
         ]);
