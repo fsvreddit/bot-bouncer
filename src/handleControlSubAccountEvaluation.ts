@@ -4,12 +4,13 @@ import { getUserStatus, UserStatus } from "./dataStore.js";
 import { ALL_RELEVANT_EVALUTORS, CONTROL_SUBREDDIT, ControlSubredditJob, PostFlairTemplate } from "./constants.js";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { createUserSummary } from "./UserSummary/userSummary.js";
-import { addSeconds, addWeeks, subMonths } from "date-fns";
+import { addMinutes, addSeconds, addWeeks, subMonths } from "date-fns";
 import _ from "lodash";
 import { getSubmitterSuccessRate } from "./statistics/submitterStatistics.js";
 import { conditionallyCompressString, conditionallyDecompressString } from "./utility.js";
 import { getControlSubSettings } from "./settings.js";
 import { getPostOrCommentById, getUserExtended } from "@fsvreddit/fsv-devvit-helpers";
+import { acquireIdempotencyLock, releaseIdempotencyLock } from "./idempotency.js";
 
 export interface EvaluatorStats {
     hitCount: number;
@@ -132,6 +133,50 @@ function getEvaluationResultText (result: EvaluationResult): string {
     return text;
 }
 
+export async function createSubmissionSummaries (username: string, postId: string, context: JobContext): Promise<void> {
+    const workflowLockKey = await acquireIdempotencyLock(context.redis, `accountSummaryWorkflow:${postId}`, {
+        expiration: addMinutes(new Date(), 10),
+        verboseLogs: true,
+    });
+    if (!workflowLockKey) {
+        console.log(`User Summary: Summary workflow already completed or in progress for post ${postId}; skipping duplicate`);
+        return;
+    }
+
+    try {
+        await createUserSummary(username, postId, context, {
+            idempotencyKey: `accountSummary:${postId}`,
+        });
+        const controlSubSettings = await getControlSubSettings(context);
+        if (controlSubSettings.createAISummaryOnNewPosts) {
+            const scheduleLockKey = await acquireIdempotencyLock(context.redis, `openAISummarySchedule:${postId}`, {
+                expiration: addMinutes(new Date(), 10),
+                verboseLogs: true,
+            });
+            if (scheduleLockKey) {
+                try {
+                    await context.scheduler.runJob({
+                        name: ControlSubredditJob.OpenAISummaryGather,
+                        data: {
+                            username,
+                            postId,
+                        },
+                        runAt: addSeconds(new Date(), 50),
+                    });
+                } catch (error) {
+                    await releaseIdempotencyLock(context.redis, scheduleLockKey);
+                    throw error;
+                }
+            } else {
+                console.log(`AI Summary: Summary job already scheduled for post ${postId}; skipping duplicate`);
+            }
+        }
+    } catch (error) {
+        await releaseIdempotencyLock(context.redis, workflowLockKey);
+        throw error;
+    }
+}
+
 export async function handleControlSubAccountEvaluation (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
         return;
@@ -189,18 +234,7 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
         const post = await context.reddit.getPostById(postId);
         await context.reddit.report(post, { reason: reportReason.trim().substring(0, 99) }); // Reddit's API limits report reasons to 100 characters.
         if (!event.data?.skipSummary) {
-            await createUserSummary(username, postId, context);
-            const controlSubSettings = await getControlSubSettings(context);
-            if (controlSubSettings.createAISummaryOnNewPosts) {
-                await context.scheduler.runJob({
-                    name: ControlSubredditJob.OpenAISummaryGather,
-                    data: {
-                        username,
-                        postId,
-                    },
-                    runAt: addSeconds(new Date(), 50),
-                });
-            }
+            await createSubmissionSummaries(username, postId, context);
         }
         return;
     }

@@ -1,6 +1,6 @@
 import { Comment, JSONValue, Post, TriggerContext } from "@devvit/public-api";
 import { median } from "../utility.js";
-import { addMilliseconds, differenceInDays, differenceInHours, differenceInMilliseconds, differenceInMinutes, differenceInSeconds, Duration, format, formatDuration, getYear, intervalToDuration, startOfDecade } from "date-fns";
+import { addDays, addMilliseconds, differenceInDays, differenceInHours, differenceInMilliseconds, differenceInMinutes, differenceInSeconds, Duration, format, formatDuration, getYear, intervalToDuration, startOfDecade } from "date-fns";
 import _ from "lodash";
 import { count } from "@wordpress/wordcount";
 import { isUserPotentiallyBlockingBot } from "./blockChecker.js";
@@ -17,6 +17,7 @@ import { getSubmitterSuccessRate } from "../statistics/submitterStatistics.js";
 import { getSummaryExtras } from "./summaryExtras.js";
 import { ALL_RELEVANT_EVALUTORS, CONTROL_SUBREDDIT } from "../constants.js";
 import { getAppealTextForUser } from "../modmail/appealStore.js";
+import { acquireIdempotencyLock, releaseIdempotencyLock } from "../idempotency.js";
 
 function formatDifferenceInDates (start: Date, end: Date) {
     const units: (keyof Duration)[] = ["years", "months", "days"];
@@ -496,16 +497,42 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
     return summary;
 }
 
-export async function createUserSummary (username: string, postId: string, context: TriggerContext) {
-    const summary = await getSummaryForUser(username, "submission", context);
+interface CreateUserSummaryOptions {
+    idempotencyKey?: string;
+}
 
-    const newComment = await context.reddit.submitComment({
-        id: postId,
-        text: json2md(summary),
-    });
-    await newComment.remove();
+export async function createUserSummary (username: string, postId: string, context: TriggerContext, options?: CreateUserSummaryOptions): Promise<boolean> {
+    let lockKey: string | undefined;
+    if (options?.idempotencyKey) {
+        lockKey = await acquireIdempotencyLock(context.redis, options.idempotencyKey, {
+            expiration: addDays(new Date(), 7),
+            verboseLogs: true,
+        });
+        if (!lockKey) {
+            console.log(`User Summary: Summary already created for post ${postId}; skipping duplicate for ${username}`);
+            return false;
+        }
+    }
 
-    console.log(`User Summary: Summary created for ${username}`);
+    let commentCreated = false;
+    try {
+        const summary = await getSummaryForUser(username, "submission", context);
+
+        const newComment = await context.reddit.submitComment({
+            id: postId,
+            text: json2md(summary),
+        });
+        commentCreated = true;
+        await newComment.remove();
+
+        console.log(`User Summary: Summary created for ${username}`);
+        return true;
+    } catch (error) {
+        if (lockKey && !commentCreated) {
+            await releaseIdempotencyLock(context.redis, lockKey);
+        }
+        throw error;
+    }
 }
 
 async function evaluatorsMatched (user: UserExtended, userHistory: (Post | Comment)[], evaluatorVariables: Record<string, JSONValue>, context: TriggerContext): Promise<InstanceType<typeof ALL_RELEVANT_EVALUTORS[number]>[]> {

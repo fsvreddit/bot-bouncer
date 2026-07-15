@@ -8,6 +8,7 @@ import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
 import { addDays, differenceInDays } from "date-fns";
 import { getPromptData, PromptData } from "./common.js";
 import { getControlSubSettings } from "../settings.js";
+import { acquireIdempotencyLock, releaseIdempotencyLock } from "../idempotency.js";
 import pluralize from "pluralize";
 
 function evaluationResultsToBulletPoints (input: EvaluationResult[], evaluatorVariables: Record<string, unknown>): string[] {
@@ -40,22 +41,56 @@ function evaluationResultsToBulletPoints (input: EvaluationResult[], evaluatorVa
     return bullets;
 }
 
-export async function createResponse (opts: { conversationId?: string; postId?: string; output: string }, context: JobContext) {
+interface CreateResponseOptions {
+    conversationId?: string;
+    postId?: string;
+    output: string;
+    idempotencyKey?: string;
+}
+
+export async function createResponse (opts: CreateResponseOptions, context: JobContext): Promise<boolean> {
     const { conversationId, postId, output } = opts;
-    if (conversationId) {
-        await context.reddit.modMail.reply({
-            conversationId,
-            body: output,
-            isInternal: true,
+    let lockKey: string | undefined;
+    if (opts.idempotencyKey) {
+        lockKey = await acquireIdempotencyLock(context.redis, opts.idempotencyKey, {
+            expiration: addDays(new Date(), 7),
+            verboseLogs: true,
         });
+        if (!lockKey) {
+            console.log(`AI Summary: Response already created for post ${postId}; skipping duplicate`);
+            return false;
+        }
     }
-    if (postId) {
-        const newComment = await context.reddit.submitComment({
-            id: postId,
-            text: output,
-        });
-        await newComment.remove();
+
+    let responseCreated = false;
+    try {
+        if (conversationId) {
+            await context.reddit.modMail.reply({
+                conversationId,
+                body: output,
+                isInternal: true,
+            });
+            responseCreated = true;
+        }
+        if (postId) {
+            const newComment = await context.reddit.submitComment({
+                id: postId,
+                text: output,
+            });
+            responseCreated = true;
+            await newComment.remove();
+        }
+        return true;
+    } catch (error) {
+        if (lockKey && !responseCreated) {
+            await releaseIdempotencyLock(context.redis, lockKey);
+        }
+        throw error;
     }
+}
+
+function getPostResponseIdempotencyKey (postId?: string): string | undefined {
+    return postId ? `openAISummaryResponse:${postId}` : undefined;
 }
 
 function getCacheKeyForUserSummary (username: string) {
@@ -85,6 +120,7 @@ export async function generateOpenAISummary (event: ScheduledJobEvent<JSONObject
             conversationId,
             postId,
             output: `**OpenAI Summary**. Use these results as a guide as they may be inaccurate. **Note**: This is a cached summary, not live.\n\n${cachedSummary}`,
+            idempotencyKey: getPostResponseIdempotencyKey(postId),
         }, context);
         return;
     }
@@ -105,6 +141,7 @@ export async function generateOpenAISummary (event: ScheduledJobEvent<JSONObject
                 { p: "Error generating OpenAI summary: unable to load prompt data. Please contact the developers to resolve this issue." },
                 { blockquote: errorMessage },
             ]),
+            idempotencyKey: getPostResponseIdempotencyKey(postId),
         }, context);
         return;
     }
@@ -128,6 +165,7 @@ export async function generateOpenAISummary (event: ScheduledJobEvent<JSONObject
                 { p: "**OpenAI Summary**. Use these results as a guide as they may be inaccurate." },
                 { p: `Error generating OpenAI summary: could not retrieve user information for ${username}. This may be because the user does not exist or is suspended.` },
             ]),
+            idempotencyKey: getPostResponseIdempotencyKey(postId),
         }, context);
         return;
     }
@@ -154,6 +192,7 @@ export async function generateOpenAISummary (event: ScheduledJobEvent<JSONObject
                 { p: "This user does not meet the requirements for generating an OpenAI summary because of the following reasons:" },
                 { ul: reasonsToSkipCreation },
             ]),
+            idempotencyKey: getPostResponseIdempotencyKey(postId),
         }, context);
         return;
     }
@@ -254,25 +293,63 @@ export async function openAISummaryLookupAndRespond (event: ScheduledJobEvent<JS
         return;
     }
 
-    const result = await callOpenAI({
-        model,
-        temperature,
-        prompt,
-    }, context);
+    const lookupIdentifier = postId ? `openAISummaryLookup:${postId}` : undefined;
+    let lookupLockKey: string | undefined;
+    if (lookupIdentifier) {
+        lookupLockKey = await acquireIdempotencyLock(context.redis, lookupIdentifier, {
+            expiration: addDays(new Date(), 7),
+            verboseLogs: true,
+        });
+        if (!lookupLockKey) {
+            console.log(`AI Summary: Lookup already completed or in progress for post ${postId}; skipping duplicate`);
+            return;
+        }
+    }
 
-    const cacheKey = getCacheKeyForUserSummary(username);
-    await context.redis.set(cacheKey, result, { expiration: addDays(new Date(), 1) });
+    let openAICallCompleted = false;
+    let resultAvailableInCache = false;
+    try {
+        const cacheKey = getCacheKeyForUserSummary(username);
+        const cachedSummary = await context.redis.get(cacheKey);
+        if (cachedSummary) {
+            resultAvailableInCache = true;
+            console.log(`AI Summary: Using cached summary for user ${username} during lookup`);
+            await createResponse({
+                conversationId,
+                postId,
+                output: `**OpenAI Summary**. Use these results as a guide as they may be inaccurate. **Note**: This is a cached summary, not live.\n\n${cachedSummary}`,
+                idempotencyKey: getPostResponseIdempotencyKey(postId),
+            }, context);
+            return;
+        }
 
-    await createResponse({
-        conversationId,
-        postId,
-        output: `**OpenAI Summary**. Use these results as a guide as they may be inaccurate.\n\n${result}`,
-    }, context);
+        const result = await callOpenAI({
+            model,
+            temperature,
+            prompt,
+        }, context);
+        openAICallCompleted = true;
 
-    console.log(`AI Summary: Finished generating OpenAI summary about user ${username}`);
+        await context.redis.set(cacheKey, result, { expiration: addDays(new Date(), 1) });
+        resultAvailableInCache = true;
 
-    await context.scheduler.runJob({
-        name: ControlSubredditJob.OpenAIUpdateTokenStatsMessage,
-        runAt: new Date(),
-    });
+        await createResponse({
+            conversationId,
+            postId,
+            output: `**OpenAI Summary**. Use these results as a guide as they may be inaccurate.\n\n${result}`,
+            idempotencyKey: getPostResponseIdempotencyKey(postId),
+        }, context);
+
+        console.log(`AI Summary: Finished generating OpenAI summary about user ${username}`);
+
+        await context.scheduler.runJob({
+            name: ControlSubredditJob.OpenAIUpdateTokenStatsMessage,
+            runAt: new Date(),
+        });
+    } catch (error) {
+        if (lookupLockKey && (!openAICallCompleted || resultAvailableInCache)) {
+            await releaseIdempotencyLock(context.redis, lookupLockKey);
+        }
+        throw error;
+    }
 }
