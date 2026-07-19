@@ -75,7 +75,14 @@ export async function evaluateUserAccount (options: EvaluateUserAccountOptions, 
     const openAIEvaluationKey = await context.settings.get<string>(AppSetting.OpenAIEvaluationKey);
 
     await Promise.all(_.compact(matchedEvaluators).map(async (evaluator) => {
-        if (evaluator.needsOpenAiKey && openAIEvaluationKey) {
+        if (
+            "needsOpenAiKey" in evaluator &&
+            evaluator.needsOpenAiKey &&
+            openAIEvaluationKey &&
+            "setOpenAiKey" in evaluator &&
+            typeof evaluator.setOpenAiKey === "function"
+        ) {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-call -- Runtime-checked above.
             evaluator.setOpenAiKey(openAIEvaluationKey);
         }
 

@@ -132,7 +132,14 @@ export async function recheckFlaggedUser (username: string, context: JobContext)
             continue;
         }
 
-        if (evaluator.needsOpenAiKey && openAIEvaluationKey) {
+        if (
+            "needsOpenAiKey" in evaluator &&
+            evaluator.needsOpenAiKey &&
+            openAIEvaluationKey &&
+            "setOpenAiKey" in evaluator &&
+            typeof evaluator.setOpenAiKey === "function"
+        ) {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-call -- Runtime-checked above.
             evaluator.setOpenAiKey(openAIEvaluationKey);
         }
 
