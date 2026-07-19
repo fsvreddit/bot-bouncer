@@ -1,16 +1,16 @@
-import { TriggerContext } from "@devvit/public-api";
+import type { TriggerContext } from "@devvit/public-api";
+import { addMinutes, addMonths } from "date-fns";
 import { getUserStatus, UserStatus } from "../dataStore.js";
 import { wasUserBannedByApp } from "../handleClientSubredditClassificationChanges.js";
 import { AppSetting, CONFIGURATION_DEFAULTS } from "../settings.js";
-import { ModmailMessage } from "./modmail.js";
+import type { ModmailMessage } from "./modmail.js";
 import { isBanned } from "devvit-helpers";
 import json2md from "json2md";
 
-export async function handleClientSubredditModmail (modmail: ModmailMessage, context: TriggerContext) {
-    if (!modmail.isFirstMessage) {
-        return;
-    }
+const CLIENT_MODMAIL_NOTE_LOCK_PREFIX = "clientModmailNoteLock";
+const CLIENT_MODMAIL_NOTE_SENT_PREFIX = "clientModmailNoteSent";
 
+export async function handleClientSubredditModmail (modmail: ModmailMessage, context: TriggerContext) {
     const username = modmail.participant;
     if (!username) {
         return;
@@ -36,11 +36,7 @@ export async function handleClientSubredditModmail (modmail: ModmailMessage, con
                 { p: `*I am a bot, and this action was performed automatically. To turn off this notification in the future, please adjust your settings.*` },
             ];
 
-            await context.reddit.modMail.reply({
-                conversationId: modmail.conversationId,
-                body: json2md(message),
-                isInternal: true,
-            });
+            await addInternalNoteOnce(modmail.conversationId, json2md(message), context);
         }
         return;
     }
@@ -57,9 +53,38 @@ export async function handleClientSubredditModmail (modmail: ModmailMessage, con
         .replaceAll("{subreddit}", subredditName)
         .replaceAll("{account}", username);
 
-    await context.reddit.modMail.reply({
-        body: message,
-        conversationId: modmail.conversationId,
-        isInternal: true,
+    await addInternalNoteOnce(modmail.conversationId, message, context);
+}
+
+async function addInternalNoteOnce (conversationId: string, body: string, context: TriggerContext) {
+    const noteSentKey = `${CLIENT_MODMAIL_NOTE_SENT_PREFIX}:${conversationId}`;
+    if (await context.redis.exists(noteSentKey)) {
+        return;
+    }
+
+    const noteLockKey = `${CLIENT_MODMAIL_NOTE_LOCK_PREFIX}:${conversationId}`;
+    const lockAcquired = await context.redis.set(noteLockKey, "true", {
+        nx: true,
+        expiration: addMinutes(new Date(), 5),
     });
+    if (!lockAcquired) {
+        return;
+    }
+
+    try {
+        // Another invocation may have completed between the initial check and this lock being acquired.
+        if (await context.redis.exists(noteSentKey)) {
+            return;
+        }
+
+        await context.reddit.modMail.reply({
+            body,
+            conversationId,
+            isInternal: true,
+        });
+
+        await context.redis.set(noteSentKey, "true", { expiration: addMonths(new Date(), 6) });
+    } finally {
+        await context.redis.del(noteLockKey);
+    }
 }
