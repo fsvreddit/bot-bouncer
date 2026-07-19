@@ -21,6 +21,42 @@ export async function recordBan (username: string, redis: RedisClient) {
     console.log(`Ban recorded for ${username}`);
 }
 
+export async function completeSuccessfulClientSubredditBan (
+    banResult: PromiseSettledResult<unknown>,
+    username: string,
+    subredditName: string,
+    settings: SettingsValues,
+    context: TriggerContext,
+): Promise<boolean> {
+    if (banResult.status === "rejected") {
+        return false;
+    }
+
+    await recordBan(username, context.redis);
+    await recordBanForSummary(username, context.redis);
+
+    if (settings[AppSetting.AddModNoteOnClassificationChange]) {
+        let modNoteText = "User banned by Bot Bouncer";
+        const currentStatus = await getUserStatus(username, context);
+        if (currentStatus?.trackingPostId) {
+            modNoteText += `. Tracking post: ${postIdToShortLink(currentStatus.trackingPostId)}`;
+        }
+
+        await context.reddit.addModNote({
+            note: modNoteText,
+            subreddit: subredditName,
+            user: username,
+            label: "BOT_BAN",
+        });
+    }
+
+    if (settings[AppSetting.RemoveFromModqueueWhenBanning]) {
+        await addUserToModqueueRemovalStore(username, context);
+    }
+
+    return true;
+}
+
 export async function removeRecordOfBan (username: string, redis: RedisClient) {
     await redis.zRem(BAN_STORE, [username]);
     await removeRecordOfBanForSummary(username, redis);
@@ -223,9 +259,15 @@ async function handleSetBanned (username: string, subredditName: string, setting
         }
 
         const results = await Promise.allSettled(promises);
+        const banResult = results[0];
 
-        await recordBan(username, context.redis);
-        await recordBanForSummary(username, context.redis);
+        const banSucceeded = await completeSuccessfulClientSubredditBan(
+            banResult,
+            username,
+            subredditName,
+            settings,
+            context,
+        );
 
         const reinstatableContent = removableContent.filter(item => item.userReportReasons.length === 0);
         if (reinstatableContent.length > 0) {
@@ -239,31 +281,17 @@ async function handleSetBanned (username: string, subredditName: string, setting
             }
         }
 
-        const failedPromises = results.filter(result => result.status === "rejected");
-        if (failedPromises.length > 0) {
-            console.error(`Classification Update: Some errors occurred banning ${username} on ${subredditName}.`);
-            console.log(failedPromises);
-        } else {
+        if (banResult.status === "rejected") {
+            console.error(`Classification Update: Failed to ban ${username} on ${subredditName}.`);
+            console.log(banResult.reason);
+        }
+
+        const failedContentActions = results.slice(1).filter(result => result.status === "rejected");
+        if (failedContentActions.length > 0) {
+            console.error(`Classification Update: Some content removal or locking actions failed for ${username} on ${subredditName}.`);
+            console.log(failedContentActions);
+        } else if (banSucceeded) {
             console.log(`Classification Update: 💥 ${username} has been banned following classification update. ${removableContent.length} ${pluralize("item", removableContent.length)} removed.`);
-        }
-
-        if (settings[AppSetting.AddModNoteOnClassificationChange]) {
-            let modNoteText = "User banned by Bot Bouncer";
-            const currentStatus = await getUserStatus(username, context);
-            if (currentStatus?.trackingPostId) {
-                modNoteText += `. Tracking post: ${postIdToShortLink(currentStatus.trackingPostId)}`;
-            }
-
-            await context.reddit.addModNote({
-                note: modNoteText,
-                subreddit: subredditName,
-                user: username,
-                label: "BOT_BAN",
-            });
-        }
-
-        if (settings[AppSetting.RemoveFromModqueueWhenBanning]) {
-            await addUserToModqueueRemovalStore(username, context);
         }
     } else if (actionToTake === ActionType.Filter) {
         await Promise.all(removableContent.map(async (item) => {
