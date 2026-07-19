@@ -1,0 +1,84 @@
+name: Label old pull requests
+
+on:
+  schedule:
+    # Daily at 6:17 a.m. UTC
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+
+jobs:
+  label-old-prs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Add "14+ days old" label
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const labelName = '14+ days old';
+            const cutoff = new Date();
+            cutoff.setUTCDate(cutoff.getUTCDate() - 14);
+
+            // Create the label if it does not already exist.
+            try {
+              await github.rest.issues.getLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: labelName
+              });
+            } catch (error) {
+              if (error.status !== 404) throw error;
+
+              await github.rest.issues.createLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: labelName,
+                color: 'D4C5F9',
+                description: 'Open pull request created at least 14 days ago'
+              });
+            }
+
+            const pullRequests = await github.paginate(
+              github.rest.pulls.list,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: 'open',
+                per_page: 100
+              }
+            );
+
+            for (const pullRequest of pullRequests) {
+              const createdAt = new Date(pullRequest.created_at);
+
+              if (createdAt > cutoff) {
+                continue;
+              }
+
+              const alreadyLabeled = pullRequest.labels.some(
+                label =>
+                  typeof label === 'string'
+                    ? label === labelName
+                    : label.name === labelName
+              );
+
+              if (alreadyLabeled) {
+                continue;
+              }
+
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pullRequest.number,
+                labels: [labelName]
+              });
+
+              core.info(
+                `Added "${labelName}" to PR #${pullRequest.number}.`
+              );
+            }
