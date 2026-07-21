@@ -3,16 +3,23 @@ export interface AppealRegexConfig {
     "usernameRegex"?: string[];
     "~usernameRegex"?: string[];
     "messageBodyRegex"?: string[];
+    "~messageBodyRegex"?: string[];
     "evaluatorNameRegex"?: string[];
+    "~evaluatorNameRegex"?: string[];
     "evaluatorHitReasonRegex"?: string[];
+    "~evaluatorHitReasonRegex"?: string[];
     "currentEvaluatorNameRegex"?: string[];
+    "~currentEvaluatorNameRegex"?: string[];
     "currentEvaluatorHitReasonRegex"?: string[];
+    "~currentEvaluatorHitReasonRegex"?: string[];
     "bioRegex"?: string[];
     "~bioRegex"?: string[];
     "originalBioRegex"?: string[];
+    "~originalBioRegex"?: string[];
     "socialLinkRegex"?: string[];
     "~socialLinkRegex"?: string[];
     "originalSocialLinkRegex"?: string[];
+    "~originalSocialLinkRegex"?: string[];
     "modNoteTextRegex"?: string[];
     "~modNoteTextRegex"?: string[];
 }
@@ -23,6 +30,7 @@ const appealRegexFlags: Partial<Record<AppealRegexProperty, string>> = {
     "bioRegex": "iu",
     "~bioRegex": "iu",
     "originalBioRegex": "iu",
+    "~originalBioRegex": "iu",
     "modNoteTextRegex": "u",
     "~modNoteTextRegex": "u",
 };

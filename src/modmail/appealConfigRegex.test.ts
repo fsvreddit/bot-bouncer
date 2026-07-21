@@ -9,16 +9,23 @@ const supportedRegexProperties = [
     "usernameRegex",
     "~usernameRegex",
     "messageBodyRegex",
+    "~messageBodyRegex",
     "evaluatorNameRegex",
+    "~evaluatorNameRegex",
     "evaluatorHitReasonRegex",
+    "~evaluatorHitReasonRegex",
     "currentEvaluatorNameRegex",
+    "~currentEvaluatorNameRegex",
     "currentEvaluatorHitReasonRegex",
+    "~currentEvaluatorHitReasonRegex",
     "bioRegex",
     "~bioRegex",
     "originalBioRegex",
+    "~originalBioRegex",
     "socialLinkRegex",
     "~socialLinkRegex",
     "originalSocialLinkRegex",
+    "~originalSocialLinkRegex",
     "modNoteTextRegex",
     "~modNoteTextRegex",
 ];
@@ -93,14 +100,16 @@ test("reports the invalid array position without including valid expressions", (
 
 test("uses the same flags during validation and matching", () => {
     const config = compileAppealConfigRegexes({
-        name: "Flags test",
-        usernameRegex: ["^example$"],
-        bioRegex: ["^café$"],
-        modNoteTextRegex: ["^CaseSensitive$"],
+        "name": "Flags test",
+        "usernameRegex": ["^example$"],
+        "bioRegex": ["^café$"],
+        "~originalBioRegex": ["^café$"],
+        "modNoteTextRegex": ["^CaseSensitive$"],
     });
 
     expect(config.compiledRegexes.usernameRegex?.[0].test("EXAMPLE")).toBe(true);
     expect(config.compiledRegexes.bioRegex?.[0].test("CAFÉ")).toBe(true);
+    expect(config.compiledRegexes["~originalBioRegex"]?.[0].test("CAFÉ")).toBe(true);
     expect(config.compiledRegexes.modNoteTextRegex?.[0].test("casesensitive")).toBe(false);
 });
 
