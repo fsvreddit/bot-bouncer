@@ -143,7 +143,7 @@ export async function handleControlSubredditModmail (modmail: ModmailMessage, co
 
             const username = await getOverrideForSetStatusCommand(modmail.conversationId, context) ?? modmail.participant;
 
-            const currentStatus = await getUserStatus(modmail.participant, context);
+            const currentStatus = await getUserStatus(username, context);
             if (currentStatus && isLinkId(currentStatus.trackingPostId) && currentStatus.userStatus !== newStatus) {
                 await context.redis.set(`userStatusOverrideValue~${username}`, modmail.messageAuthor, { expiration: addHours(new Date(), 2) });
 
