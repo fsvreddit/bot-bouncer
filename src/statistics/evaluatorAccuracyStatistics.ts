@@ -130,11 +130,13 @@ export async function buildEvaluatorAccuracyStatistics (event: ScheduledJobEvent
     if (data.length > 0) {
         console.log(`Evaluator Accuracy Statistics: Processed ${processed} records, ${data.length} remaining.`);
         await context.redis.hSet(ACCURACY_STORE, existingResults);
-        await context.redis.hDel(ACCURACY_QUEUE, processedItems);
+        if (processedItems.length > 0) {
+            await context.redis.hDel(ACCURACY_QUEUE, processedItems);
+        }
         await context.scheduler.runJob({
             name: ControlSubredditJob.EvaluatorAccuracyStatistics,
             runAt: addSeconds(new Date(), 2),
-            data: { firstRun: false },
+            data: { firstRun: false, jobGuid: crypto.randomUUID() },
         });
         return;
     }
