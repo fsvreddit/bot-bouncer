@@ -309,6 +309,7 @@ async function reevaluateUserAccount (username: string, context: Context) {
             name: "noMatch",
         });
     } else {
+        let index = 0;
         for (const hit of evaluationResults) {
             if (hit.hitReason) {
                 let hitReason: string;
@@ -321,7 +322,7 @@ async function reevaluateUserAccount (username: string, context: Context) {
                 fields.push({
                     type: "paragraph",
                     label: `User hit ${hit.botName}`,
-                    name: hit.botName,
+                    name: `hit.botName_${index}`,
                     lineHeight: Math.min(Math.ceil(hitReason.length / 60), 8),
                     defaultValue: hitReason,
                 });
@@ -329,10 +330,11 @@ async function reevaluateUserAccount (username: string, context: Context) {
                 fields.push({
                     type: "string",
                     label: `User hit ${hit.botName}`,
-                    name: hit.botName,
+                    name: `hit.botName_${index}`,
                     placeholder: "No detail available",
                 });
             }
+            index++;
         }
     }
 
