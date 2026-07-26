@@ -633,6 +633,12 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
 
     if (matchedAppealConfig) {
         console.log(`Appeals: Found an appeal for user ${username}: ${matchedAppealConfig.name}`);
+        await context.reddit.modMail.reply({
+            conversationId: modmail.conversationId,
+            body: `Appeal matched config: ${matchedAppealConfig.name}`,
+            isInternal: true,
+        });
+
         appealOutcome = {
             name: matchedAppealConfig.name,
             newStatus: matchedAppealConfig.setStatus,
