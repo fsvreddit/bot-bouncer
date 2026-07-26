@@ -1,5 +1,5 @@
 import { Comment, JobContext, JSONObject, JSONValue, Post, ScheduledJobEvent, SubredditInfo, TriggerContext } from "@devvit/public-api";
-import { getSocialLinksWithCache, HitReason, UserEvaluatorBase } from "@fsvreddit/bot-bouncer-evaluation";
+import { EvaluateBotGroupAdvancedSubmitters, getSocialLinksWithCache, HitReason, UserEvaluatorBase } from "@fsvreddit/bot-bouncer-evaluation";
 import { getUserStatus, UserStatus } from "./dataStore.js";
 import { ALL_RELEVANT_EVALUTORS, CONTROL_SUBREDDIT, ControlSubredditJob, PostFlairTemplate } from "./constants.js";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
@@ -170,6 +170,31 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
     if (currentStatus && currentStatus.userStatus !== UserStatus.Pending) {
         console.log(`Evaluation: ${username} has already been classified`);
         return;
+    }
+
+    if (evaluationResults.length === 0 && currentStatus?.submitter && !currentStatus.submitter.startsWith(context.appSlug)) {
+        const history = await context.reddit.getCommentsAndPostsByUser({
+            username,
+            sort: "new",
+            limit: 100,
+        }).all();
+
+        const evaluator = new EvaluateBotGroupAdvancedSubmitters(context, history, undefined, variables);
+        if (!evaluator.evaluatorDisabled()) {
+            evaluator.setSubmitterName(currentStatus.submitter);
+            const user = await getUserExtended(username, context);
+            if (user) {
+                const isABot = await evaluator.evaluate(user);
+                if (isABot) {
+                    await context.reddit.setPostFlair({
+                        subredditName: CONTROL_SUBREDDIT,
+                        postId,
+                        flairTemplateId: PostFlairTemplate.Banned,
+                    });
+                    return;
+                }
+            }
+        }
     }
 
     let reportReason: string | undefined;
