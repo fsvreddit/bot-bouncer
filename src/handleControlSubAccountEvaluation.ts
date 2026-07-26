@@ -186,6 +186,7 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
             if (user) {
                 const isABot = await evaluator.evaluate(user);
                 if (isABot) {
+                    console.log(`Evaluator: ${username} was submitted by ${currentStatus.submitter} and matches a group`);
                     await context.reddit.setPostFlair({
                         subredditName: CONTROL_SUBREDDIT,
                         postId,
