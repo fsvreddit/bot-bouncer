@@ -25,6 +25,7 @@ import { generateOpenAISummary } from "../aiAnalysis/createAISummary.js";
 import { handleAskAI } from "../aiAnalysis/askAI.js";
 import pluralize from "pluralize";
 import { storeAppealRecordsForUser } from "./appealStore.js";
+import { count } from "@wordpress/wordcount";
 
 export function getPossibleSetStatusValues (): string[] {
     return _.uniq([...FLAIR_MAPPINGS.map(entry => entry.postFlair), ...Object.values(UserStatus)]);
@@ -44,6 +45,17 @@ export async function handleControlSubredditModmail (modmail: ModmailMessage, co
     if (modmail.isFirstMessage && modmail.messageAuthor === modmail.participant) {
         await handleModmailFromUser(modmail, context);
         return;
+    }
+
+    if (!modmail.isFirstMessage && modmail.messageAuthor === modmail.participant) {
+        if (modmail.bodyMarkdown.toLowerCase().includes("thank") && count(modmail.bodyMarkdown, "words") <= 4) {
+            const currentStatus = await getUserStatus(modmail.messageAuthor, context);
+            if (currentStatus?.userStatus === UserStatus.Organic) {
+                console.log(`Modmail: ℹ️ ${modmail.messageAuthor} sent a 'thank you' message. Archiving.`);
+                await context.reddit.modMail.archiveConversation(modmail.conversationId);
+                return;
+            }
+        }
     }
 
     // Everything from here on is for modmail sent by moderators.
