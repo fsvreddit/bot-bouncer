@@ -20,7 +20,6 @@ export interface EvaluatorConfigEditSummary {
     timestamp: number;
     updatedBy: string;
     changes: Record<string, ModuleChangeSummary>;
-    revisionReason?: string;
 }
 
 interface RecordEvaluatorConfigEditSummaryOptions {
@@ -28,7 +27,6 @@ interface RecordEvaluatorConfigEditSummaryOptions {
     newVariables: Record<string, string>;
     updatedBy: string;
     updatedAt?: number;
-    revisionReason?: string;
 }
 
 function parseStoredVariables (variables: Record<string, string>): Record<string, unknown> {
@@ -182,10 +180,6 @@ function formatModuleChange (module: string, change: ModuleChangeSummary): strin
     return `${module} ${parts.join(", ")}`;
 }
 
-function ensureSentenceEnd (input: string): string {
-    return /[.!?]$/.test(input) ? input : `${input}.`;
-}
-
 function formatSummaryLine (summary: EvaluatorConfigEditSummary): string {
     const changes = Object.entries(summary.changes)
         .sort(([a], [b]) => a.localeCompare(b))
@@ -193,10 +187,9 @@ function formatSummaryLine (summary: EvaluatorConfigEditSummary): string {
         .filter((value): value is string => Boolean(value))
         .join("; ");
 
-    const revisionReason = sanitizeInlineText(summary.revisionReason ?? "No revision reason provided.");
     const changeText = changes.length > 0 ? changes : "no countable variable changes";
 
-    return `* **${formatUtcTimestamp(summary.timestamp)}**; applied by **${sanitizeInlineText(summary.updatedBy)}**; ${changeText}. Revision reason: ${ensureSentenceEnd(revisionReason)}`;
+    return `* **${formatUtcTimestamp(summary.timestamp)}**; applied by **${sanitizeInlineText(summary.updatedBy)}**; ${changeText}.)}`;
 }
 
 function groupSummaries (summaries: EvaluatorConfigEditSummary[]): EvaluatorConfigEditSummary[][] {
@@ -320,7 +313,6 @@ export async function recordEvaluatorConfigEditSummary (options: RecordEvaluator
         timestamp: options.updatedAt ?? now.getTime(),
         updatedBy: options.updatedBy,
         changes,
-        revisionReason: options.revisionReason,
     });
 
     await saveSummaries(summaries, context, now);

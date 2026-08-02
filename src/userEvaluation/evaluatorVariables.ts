@@ -237,13 +237,11 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
     if (!event.data?.updateExtraVariables) {
         const username = event.data?.username as string | undefined ?? "unknown";
         const actionedAt = typeof event.data?.actionedAt === "number" ? event.data.actionedAt : undefined;
-        const revisionReason = typeof event.data?.revisionReason === "string" ? event.data.revisionReason : undefined;
         await recordEvaluatorConfigEditSummary({
             previousVariables: existingVariables,
             newVariables: converted,
             updatedBy: username,
             updatedAt: actionedAt,
-            revisionReason,
         }, context);
     }
 
