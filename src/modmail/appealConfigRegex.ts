@@ -8,10 +8,14 @@ export interface AppealRegexConfig {
     "~evaluatorNameRegex"?: string[];
     "evaluatorHitReasonRegex"?: string[];
     "~evaluatorHitReasonRegex"?: string[];
+    "evaluatorDetailRegex"?: string[];
+    "~evaluatorDetailRegex"?: string[];
     "currentEvaluatorNameRegex"?: string[];
     "~currentEvaluatorNameRegex"?: string[];
     "currentEvaluatorHitReasonRegex"?: string[];
     "~currentEvaluatorHitReasonRegex"?: string[];
+    "currentEvaluatorDetailRegex"?: string[];
+    "~currentEvaluatorDetailRegex"?: string[];
     "bioRegex"?: string[];
     "~bioRegex"?: string[];
     "originalBioRegex"?: string[];

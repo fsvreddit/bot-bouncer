@@ -71,10 +71,14 @@ const appealConfigSchema: JSONSchemaType<AppealConfig[]> = {
             "~evaluatorNameRegex": { type: "array", items: { type: "string" }, nullable: true },
             evaluatorHitReasonRegex: { type: "array", items: { type: "string" }, nullable: true },
             "~evaluatorHitReasonRegex": { type: "array", items: { type: "string" }, nullable: true },
+            evaluatorDetailRegex: { type: "array", items: { type: "string" }, nullable: true },
+            "~evaluatorDetailRegex": { type: "array", items: { type: "string" }, nullable: true },
             currentEvaluatorNameRegex: { type: "array", items: { type: "string" }, nullable: true },
             "~currentEvaluatorNameRegex": { type: "array", items: { type: "string" }, nullable: true },
             currentEvaluatorHitReasonRegex: { type: "array", items: { type: "string" }, nullable: true },
             "~currentEvaluatorHitReasonRegex": { type: "array", items: { type: "string" }, nullable: true },
+            currentEvaluatorDetailRegex: { type: "array", items: { type: "string" }, nullable: true },
+            "~currentEvaluatorDetailRegex": { type: "array", items: { type: "string" }, nullable: true },
             bioRegex: { type: "array", items: { type: "string" }, nullable: true },
             "~bioRegex": { type: "array", items: { type: "string" }, nullable: true },
             originalBioRegex: { type: "array", items: { type: "string" }, nullable: true },
@@ -151,16 +155,29 @@ function evaluationHitReasonMatches (evaluationResult: EvaluationResult, regexes
     return regexesMatchText(regexes, evaluationResult.hitReason.reason);
 }
 
+function evaluationDetailMatches (evaluationResult: EvaluationResult, regexes: RegExp[] | undefined): boolean {
+    if (!regexes?.length || !evaluationResult.hitReason || typeof evaluationResult.hitReason === "string") {
+        return false;
+    }
+
+    return evaluationResult.hitReason.details.some(detail => regexesMatchText(regexes, detail.value));
+}
+
 export function evaluationResultMatchesRegexes (
     evaluationResult: EvaluationResult,
     evaluatorNameRegex?: RegExp[],
     evaluatorHitReasonRegex?: RegExp[],
+    evaluatorDetailRegex?: RegExp[],
 ): boolean {
     if (evaluatorNameRegex !== undefined && !regexesMatchText(evaluatorNameRegex, evaluationResult.botName)) {
         return false;
     }
 
     if (evaluatorHitReasonRegex !== undefined && !evaluationHitReasonMatches(evaluationResult, evaluatorHitReasonRegex)) {
+        return false;
+    }
+
+    if (evaluatorDetailRegex !== undefined && !evaluationDetailMatches(evaluationResult, evaluatorDetailRegex)) {
         return false;
     }
 
@@ -171,11 +188,13 @@ function evaluationResultsContainMatch (
     evaluationResults: EvaluationResult[],
     evaluatorNameRegex?: RegExp[],
     evaluatorHitReasonRegex?: RegExp[],
+    evaluatorDetailRegex?: RegExp[],
 ): boolean {
     return evaluationResults.some(evaluationResult => evaluationResultMatchesRegexes(
         evaluationResult,
         evaluatorNameRegex,
         evaluatorHitReasonRegex,
+        evaluatorDetailRegex,
     ));
 }
 
@@ -205,6 +224,7 @@ export function negatedAppealRegexesExcludeConfig (
             context.initialEvaluationResults,
             regexes["~evaluatorNameRegex"],
             regexes["~evaluatorHitReasonRegex"],
+            regexes["~evaluatorDetailRegex"],
         )
     ) {
         return true;
@@ -220,6 +240,7 @@ export function negatedAppealRegexesExcludeConfig (
             context.currentEvaluationResults,
             regexes["~currentEvaluatorNameRegex"],
             regexes["~currentEvaluatorHitReasonRegex"],
+            regexes["~currentEvaluatorDetailRegex"],
         )
     ) {
         return true;
@@ -311,7 +332,7 @@ export async function validateAndSaveAppealConfig (username: string, context: Tr
 
     let pageToParse = wikiPage.content;
     for (const [key, value] of Object.entries(substitutions)) {
-        const valueToSubstitute = typeof value === "string" ? value : JSON.stringify(value);
+        const valueToSubstitute = JSON.stringify(value);
         pageToParse = pageToParse.replaceAll(`{{${key}}}`, valueToSubstitute);
     }
 
@@ -521,6 +542,7 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
                     initialAccountEvaluationResults,
                     regexes.evaluatorNameRegex,
                     regexes.evaluatorHitReasonRegex,
+                    regexes.evaluatorDetailRegex,
                 )) {
                     return;
                 }
@@ -531,6 +553,7 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
                     currentEvaluationResults,
                     regexes.currentEvaluatorNameRegex,
                     regexes.currentEvaluatorHitReasonRegex,
+                    regexes.currentEvaluatorDetailRegex,
                 )) {
                     return;
                 }
