@@ -1,11 +1,19 @@
-import { JobContext, WikiPage, WikiPagePermissionLevel } from "@devvit/public-api";
+import { JobContext, JSONObject, ScheduledJobEvent, WikiPage, WikiPagePermissionLevel } from "@devvit/public-api";
 import { AGGREGATE_STORE, UserDetails, UserStatus } from "../dataStore.js";
 import _ from "lodash";
 import json2md from "json2md";
+import { addMinutes } from "date-fns";
+import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
 
-export async function updateMainStatisticsPage (_event: unknown, context: JobContext) {
+export async function updateMainStatisticsPage (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
     // TODO: Safe, performant implementation of correctAggregateStore
     // await correctAggregateData(entries, context);
+
+    const jobGuid = event.data?.jobGuid as string | undefined;
+    if (jobGuid && await hasTriggerBeenHandled(context.redis, `job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+        console.warn(`Update Main Statistics Page: Job with guid ${jobGuid} has already been handled, skipping.`);
+        return;
+    }
 
     let results = await context.redis.zRange(AGGREGATE_STORE, 0, -1);
     results = results.filter(item => item.member !== "pending");

@@ -1,12 +1,13 @@
 import { JobContext, JSONObject, ScheduledJobEvent } from "@devvit/public-api";
 import { getFullDataStore, UserStatus } from "../dataStore.js";
 import _ from "lodash";
-import { addSeconds, format, subDays } from "date-fns";
+import { addMinutes, addSeconds, format, subDays } from "date-fns";
 import { ALL_RELEVANT_EVALUTORS, CONTROL_SUBREDDIT, ControlSubredditJob } from "../constants.js";
 import { EvaluationResult, getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
 import json2md from "json2md";
 import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
 import { FLAGS_TO_EXCLUDE_FROM_STATS } from "../scheduler/sixHourlyJobs.js";
+import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
 
 const ACCURACY_QUEUE = "evaluatorAccuracyQueue";
 const ACCURACY_STORE = "evaluatorAccuracyStore";
@@ -59,6 +60,12 @@ function getEvaluationResultsKey (evaluationResult: EvaluationResult): string {
 }
 
 export async function buildEvaluatorAccuracyStatistics (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
+    const jobGuid = event.data?.jobGuid as string | undefined;
+    if (jobGuid && await hasTriggerBeenHandled(context.redis, `job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+        console.warn(`Evaluator Accuracy Statistics: Job with guid ${jobGuid} has already been handled, skipping.`);
+        return;
+    }
+
     if (event.data?.firstRun) {
         console.log("Evaluator Accuracy Statistics: First run, gathering usernames.");
         await context.redis.del(ACCURACY_QUEUE, ACCURACY_STORE);
@@ -66,7 +73,7 @@ export async function buildEvaluatorAccuracyStatistics (event: ScheduledJobEvent
         await context.scheduler.runJob({
             name: ControlSubredditJob.EvaluatorAccuracyStatistics,
             runAt: addSeconds(new Date(), 2),
-            data: { firstRun: false },
+            data: { firstRun: false, jobGuid: crypto.randomUUID() },
         });
         return;
     }
@@ -123,11 +130,13 @@ export async function buildEvaluatorAccuracyStatistics (event: ScheduledJobEvent
     if (data.length > 0) {
         console.log(`Evaluator Accuracy Statistics: Processed ${processed} records, ${data.length} remaining.`);
         await context.redis.hSet(ACCURACY_STORE, existingResults);
-        await context.redis.hDel(ACCURACY_QUEUE, processedItems);
+        if (processedItems.length > 0) {
+            await context.redis.hDel(ACCURACY_QUEUE, processedItems);
+        }
         await context.scheduler.runJob({
             name: ControlSubredditJob.EvaluatorAccuracyStatistics,
             runAt: addSeconds(new Date(), 2),
-            data: { firstRun: false },
+            data: { firstRun: false, jobGuid: crypto.randomUUID() },
         });
         return;
     }

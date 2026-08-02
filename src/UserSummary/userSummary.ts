@@ -17,6 +17,7 @@ import { getSubmitterSuccessRate } from "../statistics/submitterStatistics.js";
 import { getSummaryExtras } from "./summaryExtras.js";
 import { ALL_RELEVANT_EVALUTORS, CONTROL_SUBREDDIT } from "../constants.js";
 import { getAppealTextForUser } from "../modmail/appealStore.js";
+import { AppSetting } from "../settings.js";
 
 function formatDifferenceInDates (start: Date, end: Date) {
     const units: (keyof Duration)[] = ["years", "months", "days"];
@@ -510,11 +511,16 @@ export async function createUserSummary (username: string, postId: string, conte
 
 async function evaluatorsMatched (user: UserExtended, userHistory: (Post | Comment)[], evaluatorVariables: Record<string, JSONValue>, context: TriggerContext): Promise<InstanceType<typeof ALL_RELEVANT_EVALUTORS[number]>[]> {
     const evaluatorsMatched: InstanceType<typeof ALL_RELEVANT_EVALUTORS[number]>[] = [];
+    const openAIEvaluationKey = await context.settings.get<string>(AppSetting.OpenAIEvaluationKey);
 
     for (const Evaluator of ALL_RELEVANT_EVALUTORS) {
         const evaluator = new Evaluator(context, userHistory, undefined, evaluatorVariables);
         if (evaluator.evaluatorDisabled()) {
             continue;
+        }
+
+        if (evaluator.needsOpenAiKey && openAIEvaluationKey) {
+            evaluator.setOpenAiKey(openAIEvaluationKey);
         }
 
         const userEvaluate = await Promise.resolve(evaluator.preEvaluateUser(user));

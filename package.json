@@ -12,11 +12,11 @@
     "lint": "eslint ."
   },
   "dependencies": {
-    "@devvit/protos": "0.13.7",
-    "@devvit/public-api": "0.13.7",
+    "@devvit/protos": "0.13.10",
+    "@devvit/public-api": "0.13.10",
     "@fsvreddit/bot-bouncer-evaluation": "github:fsvreddit/bot-bouncer-evaluation",
     "@fsvreddit/fsv-devvit-helpers": "github:fsvreddit/fsv-devvit-helpers",
-    "@wordpress/wordcount": "^4.44.0",
+    "@wordpress/wordcount": "^4.51.0",
     "ajv": "^8.17.1",
     "date-fns": "^4.1.0",
     "devvit-helpers": "^0.10.0",

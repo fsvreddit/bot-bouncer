@@ -36,6 +36,12 @@ export async function checkPermissionQueueItems (event: ScheduledJobEvent<JSONOb
         throw new Error("checkPermissionQueueItems should only be called from control subreddit");
     }
 
+    const jobGuid = event.data?.jobGuid as string | undefined;
+    if (jobGuid && await context.redis.exists(`jobHandled:${jobGuid}`)) {
+        console.warn(`Permission Checks: Job with guid ${jobGuid} has already been handled, skipping.`);
+        return;
+    }
+
     const recentlyRunKey = "permissionChecksLastRunValue";
     if (event.data?.firstRun && await context.redis.exists(recentlyRunKey)) {
         console.log("Permission Checks: Recently run, skipping this execution.");
@@ -106,7 +112,7 @@ export async function checkPermissionQueueItems (event: ScheduledJobEvent<JSONOb
             await context.scheduler.runJob({
                 name: ControlSubredditJob.CheckPermissionQueueItems,
                 runAt: addSeconds(new Date(), 2),
-                data: { firstRun: false },
+                data: { firstRun: false, jobGuid: crypto.randomUUID() },
             });
         }
 
@@ -121,7 +127,7 @@ export async function checkPermissionQueueItems (event: ScheduledJobEvent<JSONOb
             await context.scheduler.runJob({
                 name: ControlSubredditJob.CheckPermissionQueueItems,
                 runAt: addSeconds(new Date(), 2),
-                data: { firstRun: false },
+                data: { firstRun: false, jobGuid: crypto.randomUUID() },
             });
         }
         return;
@@ -148,7 +154,7 @@ export async function checkPermissionQueueItems (event: ScheduledJobEvent<JSONOb
         await context.scheduler.runJob({
             name: ControlSubredditJob.CheckPermissionQueueItems,
             runAt: addSeconds(new Date(), 30),
-            data: { firstRun: false },
+            data: { firstRun: false, jobGuid: crypto.randomUUID() },
         });
     }
 

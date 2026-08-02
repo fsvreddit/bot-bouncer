@@ -13,18 +13,18 @@ export async function handleFiveMinutelyJob (_: unknown, context: JobContext) {
     await context.scheduler.runJob({
         name: ControlSubredditJob.CheckPermissionQueueItems,
         runAt: new Date(),
-        data: { firstRun: true },
+        data: { firstRun: true, jobGuid: crypto.randomUUID() },
     });
 
     await context.scheduler.runJob({
         name: ControlSubredditJob.AccountReview,
         runAt: new Date(),
-        data: { firstRun: true },
+        data: { firstRun: true, jobGuid: crypto.randomUUID() },
     });
 
     await context.scheduler.runJob({
         name: ControlSubredditJob.FlaggedUsersRechecks,
-        data: { firstRun: true },
+        data: { firstRun: true, jobGuid: crypto.randomUUID() },
         runAt: new Date(),
     });
 

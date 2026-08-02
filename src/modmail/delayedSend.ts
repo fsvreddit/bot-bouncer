@@ -3,6 +3,7 @@ import { addMinutes, addSeconds } from "date-fns";
 import json2md from "json2md";
 import { ControlSubredditJob } from "../constants.js";
 import { DelayedMessageCompletionAction, isDelayedMessageCompletionRelevant, runDelayedMessageCompletion } from "./delayedMessageCompletion.js";
+import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
 
 interface DelayedMessageOptions {
     conversationId: string;
@@ -62,6 +63,12 @@ export async function sendMessageOnDelay (context: TriggerContext, params: Delay
 }
 
 export async function processDelayedMessages (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
+    const jobGuid = event.data?.jobGuid as string | undefined;
+    if (jobGuid && await hasTriggerBeenHandled(context.redis, `job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+        console.warn(`Process Delayed Messages: Job with guid ${jobGuid} has already been handled, skipping.`);
+        return;
+    }
+
     const recentlyRunKey = "processDelayedMessagesRecentlyRun";
     if (event.data?.firstRun && await context.redis.exists(recentlyRunKey)) {
         return;
@@ -83,7 +90,7 @@ export async function processDelayedMessages (event: ScheduledJobEvent<JSONObjec
     if (queuedMessages.length > 1) {
         await context.scheduler.runJob({
             name: ControlSubredditJob.ProcessDelayedMessages,
-            data: { firstRun: false },
+            data: { firstRun: false, jobGuid: crypto.randomUUID() },
             runAt: addSeconds(new Date(), 5),
         });
     } else {

@@ -35,6 +35,7 @@ const DEFINED_HANDLES_LOOKBACK_MONTHS = 6;
 
 // eslint-disable-next-line @typescript-eslint/consistent-type-definitions
 export type DefinedHandlesStatsInitializerJobData = {
+    jobGuid: string;
     firstRun: boolean;
     prefixes: string[];
 };
@@ -82,13 +83,14 @@ export async function definedHandlesStatsInitializer (event: ScheduledJobEvent<D
             data: {
                 firstRun: false,
                 prefixes,
+                jobGuid: crypto.randomUUID(),
             } satisfies DefinedHandlesStatsInitializerJobData,
         });
     } else {
         await context.scheduler.runJob({
             name: ControlSubredditJob.DefinedHandlesStatistics,
             runAt: addSeconds(new Date(), 5),
-            data: { firstRun: true },
+            data: { firstRun: true, jobGuid: crypto.randomUUID() },
         });
     }
 }
@@ -207,6 +209,7 @@ export async function gatherDefinedHandlesStats (event: ScheduledJobEvent<JSONOb
     await context.scheduler.runJob({
         name: ControlSubredditJob.DefinedHandlesStatistics,
         runAt: addSeconds(new Date(), 1),
+        data: { firstRun: false, jobGuid: crypto.randomUUID() },
     });
 }
 
@@ -355,6 +358,12 @@ export async function storeDefinedHandlesDataJob (event: ScheduledJobEvent<JSONO
     const username = event.data?.username as string | undefined;
     if (!username) {
         console.error("No username provided in event data for storing defined handles data.");
+        return;
+    }
+
+    const jobGuid = event.data?.jobGuid as string | undefined;
+    if (jobGuid && await hasTriggerBeenHandled(context.redis, `job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+        console.warn(`Store Defined Handles Data: Job with guid ${jobGuid} has already been handled, skipping.`);
         return;
     }
 

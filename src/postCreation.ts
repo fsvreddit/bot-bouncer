@@ -140,6 +140,7 @@ async function createNewSubmission (submission: AsyncSubmission, context: Trigge
                     postId: newPost.id,
                     forceManualReview,
                     forceManualReviewReasons,
+                    jobGuid: crypto.randomUUID(),
                 },
             });
         }
@@ -169,7 +170,7 @@ async function createNewSubmission (submission: AsyncSubmission, context: Trigge
         await context.scheduler.runJob({
             name: ControlSubredditJob.DefinedHandlesPostStore,
             runAt: addSeconds(new Date(), 1),
-            data: { username: submission.user.username },
+            data: { username: submission.user.username, jobGuid: crypto.randomUUID() },
         });
     }
 

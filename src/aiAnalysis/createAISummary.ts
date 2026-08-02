@@ -5,10 +5,11 @@ import { EvaluationResult, getAccountInitialEvaluationResults } from "../handleC
 import json2md from "json2md";
 import { callOpenAI } from "./openAI.js";
 import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
-import { addDays, differenceInDays } from "date-fns";
+import { addDays, addMinutes, differenceInDays } from "date-fns";
 import { getPromptData, PromptData } from "./common.js";
 import { getControlSubSettings } from "../settings.js";
 import pluralize from "pluralize";
+import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
 
 function evaluationResultsToBulletPoints (input: EvaluationResult[], evaluatorVariables: Record<string, unknown>): string[] {
     const bullets: string[] = [];
@@ -65,6 +66,12 @@ function getCacheKeyForUserSummary (username: string) {
 export async function generateOpenAISummary (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
         console.error(`generateOpenAISummary should only run on subreddit ${CONTROL_SUBREDDIT}, but is running on ${context.subredditName}`);
+        return;
+    }
+
+    const jobGuid = event.data?.jobGuid as string | undefined;
+    if (jobGuid && await hasTriggerBeenHandled(context.redis, `job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+        console.warn(`AI Summary: Job with guid ${jobGuid} has already been handled, skipping.`);
         return;
     }
 
@@ -215,6 +222,7 @@ export async function generateOpenAISummary (event: ScheduledJobEvent<JSONObject
         username,
         model: promptData.model,
         prompt: completedPrompt.join("\n\n"),
+        jobGuid: crypto.randomUUID(),
     };
 
     if (postId) {
@@ -239,6 +247,12 @@ export async function generateOpenAISummary (event: ScheduledJobEvent<JSONObject
 export async function openAISummaryLookupAndRespond (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
         console.error(`openAISummaryLookupAndRespond should only run on subreddit ${CONTROL_SUBREDDIT}, but is running on ${context.subredditName}`);
+        return;
+    }
+
+    const jobGuid = event.data?.jobGuid as string | undefined;
+    if (jobGuid && await hasTriggerBeenHandled(context.redis, `job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+        console.warn(`OpenAI Summary Lookup: Job with guid ${jobGuid} has already been handled, skipping.`);
         return;
     }
 
@@ -274,5 +288,6 @@ export async function openAISummaryLookupAndRespond (event: ScheduledJobEvent<JS
     await context.scheduler.runJob({
         name: ControlSubredditJob.OpenAIUpdateTokenStatsMessage,
         runAt: new Date(),
+        data: { jobGuid: crypto.randomUUID() },
     });
 }

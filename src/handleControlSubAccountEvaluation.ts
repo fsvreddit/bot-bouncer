@@ -1,15 +1,15 @@
 import { Comment, JobContext, JSONObject, JSONValue, Post, ScheduledJobEvent, SubredditInfo, TriggerContext } from "@devvit/public-api";
-import { getSocialLinksWithCache, HitReason, UserEvaluatorBase } from "@fsvreddit/bot-bouncer-evaluation";
+import { EvaluateBotGroupAdvancedSubmitters, getSocialLinksWithCache, HitReason, UserEvaluatorBase } from "@fsvreddit/bot-bouncer-evaluation";
 import { getUserStatus, UserStatus } from "./dataStore.js";
 import { ALL_RELEVANT_EVALUTORS, CONTROL_SUBREDDIT, ControlSubredditJob, PostFlairTemplate } from "./constants.js";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { createUserSummary } from "./UserSummary/userSummary.js";
-import { addSeconds, addWeeks, subMonths } from "date-fns";
+import { addMinutes, addSeconds, addWeeks, subMonths } from "date-fns";
 import _ from "lodash";
 import { getSubmitterSuccessRate } from "./statistics/submitterStatistics.js";
 import { conditionallyCompressString, conditionallyDecompressString } from "./utility.js";
-import { getControlSubSettings } from "./settings.js";
-import { getPostOrCommentById, getUserExtended } from "@fsvreddit/fsv-devvit-helpers";
+import { AppSetting, getControlSubSettings } from "./settings.js";
+import { getPostOrCommentById, getUserExtended, hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
 
 export interface EvaluatorStats {
     hitCount: number;
@@ -72,8 +72,13 @@ export async function evaluateUserAccount (options: EvaluateUserAccountOptions, 
     }
 
     const socialLinks = await getSocialLinksWithCache(user.username, context);
+    const openAIEvaluationKey = await context.settings.get<string>(AppSetting.OpenAIEvaluationKey);
 
     await Promise.all(_.compact(matchedEvaluators).map(async (evaluator) => {
+        if (evaluator.needsOpenAiKey && openAIEvaluationKey) {
+            evaluator.setOpenAiKey(openAIEvaluationKey);
+        }
+
         evaluator.setHistory(userItems);
         evaluator.setSocialLinks(socialLinks);
         let isABot: boolean;
@@ -137,6 +142,12 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
         return;
     }
 
+    const jobGuid = event.data?.jobGuid as string | undefined;
+    if (jobGuid && await hasTriggerBeenHandled(context.redis, `job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+        console.warn(`Control Sub Account Evaluation: Job with guid ${jobGuid} has already been handled, skipping.`);
+        return;
+    }
+
     const username = event.data?.username as string | undefined;
     const postId = event.data?.postId as string | undefined;
     const forceManualReview = event.data?.forceManualReview as boolean | undefined;
@@ -159,6 +170,32 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
     if (currentStatus && currentStatus.userStatus !== UserStatus.Pending) {
         console.log(`Evaluation: ${username} has already been classified`);
         return;
+    }
+
+    if (evaluationResults.length === 0 && currentStatus?.submitter && !currentStatus.submitter.startsWith(context.appSlug)) {
+        const history = await context.reddit.getCommentsAndPostsByUser({
+            username,
+            sort: "new",
+            limit: 100,
+        }).all();
+
+        const evaluator = new EvaluateBotGroupAdvancedSubmitters(context, history, undefined, variables);
+        if (!evaluator.evaluatorDisabled()) {
+            evaluator.setSubmitterName(currentStatus.submitter);
+            const user = await getUserExtended(username, context);
+            if (user) {
+                const isABot = await evaluator.evaluate(user);
+                if (isABot) {
+                    console.log(`Evaluator: ${username} was submitted by ${currentStatus.submitter} and matches a group`);
+                    await context.reddit.setPostFlair({
+                        subredditName: CONTROL_SUBREDDIT,
+                        postId,
+                        flairTemplateId: PostFlairTemplate.Banned,
+                    });
+                    return;
+                }
+            }
+        }
     }
 
     let reportReason: string | undefined;
@@ -197,6 +234,7 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
                     data: {
                         username,
                         postId,
+                        jobGuid: crypto.randomUUID(),
                     },
                     runAt: addSeconds(new Date(), 50),
                 });

@@ -8,6 +8,7 @@ import { decodedText, encodedText } from "../utility.js";
 import json2md from "json2md";
 import { getControlSubSettings } from "../settings.js";
 import { expireKeyAt } from "devvit-helpers";
+import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
 
 const REDOS_QUEUE_KEY = "evaluatorRedosQueue";
 const REDOS_HITS_KEY = "evaluatorRedosHits";
@@ -29,6 +30,12 @@ async function queueRedosCheckEntries (context: JobContext) {
 }
 
 export async function redosChecker (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
+    const jobGuid = event.data?.jobGuid as string | undefined;
+    if (jobGuid && await hasTriggerBeenHandled(context.redis, `job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+        console.warn(`ReDoS Checker: Job with guid ${jobGuid} has already been handled, skipping.`);
+        return;
+    }
+
     const inProgressKey = "redosCheckerInProgress";
 
     if (event.data?.firstRun) {
@@ -49,7 +56,11 @@ export async function redosChecker (event: ScheduledJobEvent<JSONObject | undefi
         await context.scheduler.runJob({
             name: ControlSubredditJob.EvaluatorReDoSChecker,
             runAt: addSeconds(new Date(), 2),
-            data: { firstRun: false, modName: event.data.modName },
+            data: {
+                firstRun: false,
+                modName: event.data.modName,
+                jobGuid: crypto.randomUUID(),
+            },
         });
 
         return;
@@ -119,6 +130,7 @@ export async function redosChecker (event: ScheduledJobEvent<JSONObject | undefi
                 firstRun: false,
                 modName: event.data?.modName ?? "unknown",
                 batchNumber: batchNumber + 1,
+                jobGuid: crypto.randomUUID(),
             },
         });
     } else {
@@ -128,6 +140,7 @@ export async function redosChecker (event: ScheduledJobEvent<JSONObject | undefi
             runAt: addSeconds(new Date(), 5),
             data: {
                 finalise: true,
+                jobGuid: crypto.randomUUID(),
             },
         });
     }

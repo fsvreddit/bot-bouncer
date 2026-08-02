@@ -1,5 +1,5 @@
 import { Comment, JobContext, JSONObject, Post, RedisClient, ScheduledJobEvent, SettingsValues, TriggerContext } from "@devvit/public-api";
-import { addDays, addSeconds, formatDate, subDays, subMinutes, subWeeks } from "date-fns";
+import { addDays, addMinutes, addSeconds, formatDate, subDays, subMinutes, subWeeks } from "date-fns";
 import pluralize from "pluralize";
 import { getRecentlyChangedUsers, getUserStatus, isUserInTempDeclineStore, UserDetails, UserStatus } from "./dataStore.js";
 import { setCleanupForUser } from "./cleanup.js";
@@ -9,7 +9,7 @@ import { ClientSubredditJob } from "./constants.js";
 import _ from "lodash";
 import { recordBanForSummary, recordUnbanForSummary, removeRecordOfBanForSummary } from "./modmail/actionSummary.js";
 import { expireKeyAt, hasPermissions, isBanned, isContributor } from "devvit-helpers";
-import { filterContent, getPostOrCommentById } from "@fsvreddit/fsv-devvit-helpers";
+import { filterContent, getPostOrCommentById, hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
 
 const UNBAN_WHITELIST = "UnbanWhitelist";
 const BAN_STORE = "BanStore";
@@ -19,6 +19,42 @@ export async function recordBan (username: string, redis: RedisClient) {
     await redis.zAdd(BAN_STORE, { member: username, score: new Date().getTime() });
     await setCleanupForUser(username, redis);
     console.log(`Ban recorded for ${username}`);
+}
+
+export async function completeSuccessfulClientSubredditBan (
+    banResult: PromiseSettledResult<unknown>,
+    username: string,
+    subredditName: string,
+    settings: SettingsValues,
+    context: TriggerContext,
+): Promise<boolean> {
+    if (banResult.status === "rejected") {
+        return false;
+    }
+
+    await recordBan(username, context.redis);
+    await recordBanForSummary(username, context.redis);
+
+    if (settings[AppSetting.AddModNoteOnClassificationChange]) {
+        let modNoteText = "User banned by Bot Bouncer";
+        const currentStatus = await getUserStatus(username, context);
+        if (currentStatus?.trackingPostId) {
+            modNoteText += `. Tracking post: ${postIdToShortLink(currentStatus.trackingPostId)}`;
+        }
+
+        await context.reddit.addModNote({
+            note: modNoteText,
+            subreddit: subredditName,
+            user: username,
+            label: "BOT_BAN",
+        });
+    }
+
+    if (settings[AppSetting.RemoveFromModqueueWhenBanning]) {
+        await addUserToModqueueRemovalStore(username, context);
+    }
+
+    return true;
 }
 
 export async function removeRecordOfBan (username: string, redis: RedisClient) {
@@ -223,9 +259,15 @@ async function handleSetBanned (username: string, subredditName: string, setting
         }
 
         const results = await Promise.allSettled(promises);
+        const banResult = results[0];
 
-        await recordBan(username, context.redis);
-        await recordBanForSummary(username, context.redis);
+        const banSucceeded = await completeSuccessfulClientSubredditBan(
+            banResult,
+            username,
+            subredditName,
+            settings,
+            context,
+        );
 
         const reinstatableContent = removableContent.filter(item => item.userReportReasons.length === 0);
         if (reinstatableContent.length > 0) {
@@ -239,31 +281,17 @@ async function handleSetBanned (username: string, subredditName: string, setting
             }
         }
 
-        const failedPromises = results.filter(result => result.status === "rejected");
-        if (failedPromises.length > 0) {
-            console.error(`Classification Update: Some errors occurred banning ${username} on ${subredditName}.`);
-            console.log(failedPromises);
-        } else {
+        if (banResult.status === "rejected") {
+            console.error(`Classification Update: Failed to ban ${username} on ${subredditName}.`);
+            console.log(banResult.reason);
+        }
+
+        const failedContentActions = results.slice(1).filter(result => result.status === "rejected");
+        if (failedContentActions.length > 0) {
+            console.error(`Classification Update: Some content removal or locking actions failed for ${username} on ${subredditName}.`);
+            console.log(failedContentActions);
+        } else if (banSucceeded) {
             console.log(`Classification Update: 💥 ${username} has been banned following classification update. ${removableContent.length} ${pluralize("item", removableContent.length)} removed.`);
-        }
-
-        if (settings[AppSetting.AddModNoteOnClassificationChange]) {
-            let modNoteText = "User banned by Bot Bouncer";
-            const currentStatus = await getUserStatus(username, context);
-            if (currentStatus?.trackingPostId) {
-                modNoteText += `. Tracking post: ${postIdToShortLink(currentStatus.trackingPostId)}`;
-            }
-
-            await context.reddit.addModNote({
-                note: modNoteText,
-                subreddit: subredditName,
-                user: username,
-                label: "BOT_BAN",
-            });
-        }
-
-        if (settings[AppSetting.RemoveFromModqueueWhenBanning]) {
-            await addUserToModqueueRemovalStore(username, context);
         }
     } else if (actionToTake === ActionType.Filter) {
         await Promise.all(removableContent.map(async (item) => {
@@ -342,6 +370,12 @@ export async function handleClassificationChanges (event: ScheduledJobEvent<JSON
         return;
     }
 
+    const jobGuid = event.data?.jobGuid as string | undefined;
+    if (jobGuid && await hasTriggerBeenHandled(context.redis, `job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+        console.warn(`Classification Update: Job with guid ${jobGuid} has already been handled, skipping.`);
+        return;
+    }
+
     await context.redis.set(recentlyRunKey, "true", { expiration: addSeconds(new Date(), 30) });
 
     const runLimit = addSeconds(new Date(), 15);
@@ -405,6 +439,7 @@ export async function handleClassificationChanges (event: ScheduledJobEvent<JSON
         await context.scheduler.runJob({
             name: ClientSubredditJob.HandleClassificationChanges,
             runAt: addSeconds(new Date(), 5),
+            data: { jobGuid: crypto.randomUUID() },
         });
     } else {
         console.log(`Classification Update: All ${processed} ${pluralize("user", processed)} in reclassification queue processed.`);

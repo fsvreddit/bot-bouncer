@@ -8,8 +8,8 @@ import { markdownToText } from "../modmail/controlSubModmail.js";
 import { addMinutes, addSeconds } from "date-fns";
 import { ControlSubredditJob } from "../constants.js";
 import pluralize from "pluralize";
-import { getUserExtended } from "@fsvreddit/fsv-devvit-helpers";
-import { getControlSubSettings } from "../settings.js";
+import { getUserExtended, hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
+import { AppSetting, getControlSubSettings } from "../settings.js";
 
 const FLAGGED_RECHECKS_QUEUE_KEY = "flaggedRechecksQueue";
 
@@ -18,6 +18,12 @@ export async function addUserToFlaggedRechecksQueue (username: string, context: 
 }
 
 export async function checkUserFlaggedRechecksQueue (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext): Promise<void> {
+    const jobGuid = event.data?.jobGuid as string | undefined;
+    if (jobGuid && await hasTriggerBeenHandled(context.redis, `job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+        console.warn(`FlaggedRechecks: Job with guid ${jobGuid} has already been handled, skipping.`);
+        return;
+    }
+
     const inProgressKey = "flaggedRechecksInProgress";
     if (event.data?.firstRun && await context.redis.exists(inProgressKey)) {
         console.log("FlaggedRechecks: Job already in progress on first run, skipping execution to avoid duplicate jobs");
@@ -61,7 +67,7 @@ export async function checkUserFlaggedRechecksQueue (event: ScheduledJobEvent<JS
     if (queue.length > 0) {
         await context.scheduler.runJob({
             name: ControlSubredditJob.FlaggedUsersRechecks,
-            data: { firstRun: false },
+            data: { firstRun: false, jobGuid: crypto.randomUUID() },
             runAt: addSeconds(new Date(), 5),
         });
     } else {
@@ -123,11 +129,17 @@ export async function recheckFlaggedUser (username: string, context: JobContext)
     let matchesEvaluator = false;
     let userSocialLinks: UserSocialLink[] | undefined;
 
+    const openAIEvaluationKey = await context.settings.get<string>(AppSetting.OpenAIEvaluationKey);
+
     for (const Evaluator of FLAGGED_USER_RECHECKS_EVALUATORS) {
         const evaluator = new Evaluator(context, userHistory, userSocialLinks, variables);
 
         if (evaluator.evaluatorDisabled()) {
             continue;
+        }
+
+        if (evaluator.needsOpenAiKey && openAIEvaluationKey) {
+            evaluator.setOpenAiKey(openAIEvaluationKey);
         }
 
         if (!await Promise.resolve(evaluator.preEvaluateUser(user))) {

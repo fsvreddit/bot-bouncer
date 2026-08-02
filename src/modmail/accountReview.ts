@@ -2,9 +2,10 @@ import { JobContext, JSONObject, ScheduledJobEvent, TriggerContext } from "@devv
 import json2md from "json2md";
 import { getUsernameFromUrl, getUserOrUndefined } from "../utility.js";
 import pluralize from "pluralize";
-import { addDays, addSeconds } from "date-fns";
+import { addDays, addMinutes, addSeconds } from "date-fns";
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "../constants.js";
 import { getControlSubSettings } from "../settings.js";
+import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
 
 const ACCOUNT_REVIEW_QUEUE = "accountReviewQueue";
 
@@ -37,6 +38,12 @@ export async function submitAccountForReview (postId: string, requestedBy: strin
 export async function checkAccountsForReview (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
         throw new Error("Account reviews can only be submitted from the control subreddit.");
+    }
+
+    const jobGuid = event.data?.jobGuid as string | undefined;
+    if (jobGuid && await hasTriggerBeenHandled(context.redis, `job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+        console.warn(`Account Review: Job with guid ${jobGuid} has already been handled, skipping.`);
+        return;
     }
 
     const runLimit = addSeconds(new Date(), 10);
@@ -121,6 +128,7 @@ export async function checkAccountsForReview (event: ScheduledJobEvent<JSONObjec
         await context.scheduler.runJob({
             name: ControlSubredditJob.AccountReview,
             runAt: addSeconds(new Date(), 5),
+            data: { jobGuid: crypto.randomUUID() },
         });
     } else {
         await context.redis.del(runRecentlyKey);

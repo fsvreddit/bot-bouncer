@@ -1,8 +1,9 @@
-import { JobContext } from "@devvit/public-api";
+import { JobContext, JSONObject, ScheduledJobEvent } from "@devvit/public-api";
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "../constants.js";
 import _ from "lodash";
-import { addHours, subDays } from "date-fns";
+import { addHours, addMinutes, subDays } from "date-fns";
 import pluralize from "pluralize";
+import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
 
 const CONFIG_EDIT_SUMMARIES_KEY = "evaluatorConfigEditSummaries";
 const CONFIG_EDIT_SUMMARY_JOB_QUEUED_KEY = "evaluatorConfigEditSummaryJobQueued";
@@ -19,7 +20,6 @@ export interface EvaluatorConfigEditSummary {
     timestamp: number;
     updatedBy: string;
     changes: Record<string, ModuleChangeSummary>;
-    revisionReason?: string;
 }
 
 interface RecordEvaluatorConfigEditSummaryOptions {
@@ -27,7 +27,6 @@ interface RecordEvaluatorConfigEditSummaryOptions {
     newVariables: Record<string, string>;
     updatedBy: string;
     updatedAt?: number;
-    revisionReason?: string;
 }
 
 function parseStoredVariables (variables: Record<string, string>): Record<string, unknown> {
@@ -181,10 +180,6 @@ function formatModuleChange (module: string, change: ModuleChangeSummary): strin
     return `${module} ${parts.join(", ")}`;
 }
 
-function ensureSentenceEnd (input: string): string {
-    return /[.!?]$/.test(input) ? input : `${input}.`;
-}
-
 function formatSummaryLine (summary: EvaluatorConfigEditSummary): string {
     const changes = Object.entries(summary.changes)
         .sort(([a], [b]) => a.localeCompare(b))
@@ -192,10 +187,9 @@ function formatSummaryLine (summary: EvaluatorConfigEditSummary): string {
         .filter((value): value is string => Boolean(value))
         .join("; ");
 
-    const revisionReason = sanitizeInlineText(summary.revisionReason ?? "No revision reason provided.");
     const changeText = changes.length > 0 ? changes : "no countable variable changes";
 
-    return `* **${formatUtcTimestamp(summary.timestamp)}**; applied by **${sanitizeInlineText(summary.updatedBy)}**; ${changeText}. Revision reason: ${ensureSentenceEnd(revisionReason)}`;
+    return `* **${formatUtcTimestamp(summary.timestamp)}**; applied by **${sanitizeInlineText(summary.updatedBy)}**; ${changeText}.)}`;
 }
 
 function groupSummaries (summaries: EvaluatorConfigEditSummary[]): EvaluatorConfigEditSummary[][] {
@@ -302,6 +296,7 @@ async function queueSummaryPageUpdate (context: JobContext, now = new Date()) {
     await context.scheduler.runJob({
         name: ControlSubredditJob.UpdateEvaluatorConfigEditSummaryPage,
         runAt,
+        data: { jobGuid: crypto.randomUUID() },
     });
 }
 
@@ -318,16 +313,21 @@ export async function recordEvaluatorConfigEditSummary (options: RecordEvaluator
         timestamp: options.updatedAt ?? now.getTime(),
         updatedBy: options.updatedBy,
         changes,
-        revisionReason: options.revisionReason,
     });
 
     await saveSummaries(summaries, context, now);
     await queueSummaryPageUpdate(context, now);
 }
 
-export async function updateEvaluatorConfigEditSummaryPage (_: unknown, context: JobContext) {
+export async function updateEvaluatorConfigEditSummaryPage (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
         throw new Error("Evaluator Config Edit Summaries: This job should only be run in the control subreddit.");
+    }
+
+    const jobGuid = event.data?.jobGuid as string | undefined;
+    if (jobGuid && await hasTriggerBeenHandled(context.redis, `job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+        console.warn(`Evaluator Config Edit Summaries: Job with guid ${jobGuid} has already been handled, skipping.`);
+        return;
     }
 
     const now = new Date();

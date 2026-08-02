@@ -67,6 +67,7 @@ export enum AppSetting {
 
     // App-scoped secrets
     OpenAIKey = "openAIKey",
+    OpenAIEvaluationKey = "openAIEvaluationKey",
     OpenAIAdminKey = "openAIAdminKey",
     OpenAIProjectId = "openAIProjectId",
     DisableClientChecks = "disableClientChecks",
@@ -254,6 +255,13 @@ export const appSettings: SettingsFormField[] = [
         type: "string",
         label: "OpenAI API Key",
         name: AppSetting.OpenAIKey,
+        scope: "app",
+        isSecret: true,
+    },
+    {
+        type: "string",
+        label: "OpenAI API Evaluation Key",
+        name: AppSetting.OpenAIEvaluationKey,
         scope: "app",
         isSecret: true,
     },

@@ -13,7 +13,7 @@ export async function handleMinutelyJob (_: unknown, context: JobContext) {
     if (await areAnyDelayedMessagesQueued(context)) {
         await context.scheduler.runJob({
             name: ControlSubredditJob.ProcessDelayedMessages,
-            data: { firstRun: true },
+            data: { firstRun: true, jobGuid: crypto.randomUUID() },
             runAt: new Date(),
         });
     }

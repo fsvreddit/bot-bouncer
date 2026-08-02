@@ -1,10 +1,11 @@
-import { JobContext } from "@devvit/public-api";
+import { JobContext, JSONObject, ScheduledJobEvent } from "@devvit/public-api";
 import { AppSetting, getControlSubSettings } from "../settings.js";
-import { addDays, endOfDay, format, startOfDay, subDays } from "date-fns";
+import { addDays, addMinutes, endOfDay, format, startOfDay, subDays } from "date-fns";
 import { sendMessageToWebhook, updateWebhookMessage } from "../utility.js";
 import OpenAI from "openai";
 import { expireKeyAt } from "devvit-helpers";
 import pluralize from "pluralize";
+import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
 
 interface OpenAIUsageResponse {
     object: string;
@@ -149,7 +150,13 @@ export async function storeTokenStatsForResponse (response: OpenAI.Responses.Res
     }
 }
 
-export async function updateTokenStatsMessage (_: unknown, context: JobContext) {
+export async function updateTokenStatsMessage (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
+    const jobGuid = event.data?.jobGuid as string | undefined;
+    if (jobGuid && await hasTriggerBeenHandled(context.redis, `job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+        console.warn(`Update Token Stats Message: Job with guid ${jobGuid} has already been handled, skipping.`);
+        return;
+    }
+
     const messageId = await context.redis.get(CURRENT_MESSAGE_ID_KEY);
     const baseMessage = await context.redis.get(BASE_MESSAGE_KEY);
 

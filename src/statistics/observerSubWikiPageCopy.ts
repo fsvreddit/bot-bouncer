@@ -5,6 +5,7 @@ import { CONTROL_SUBREDDIT } from "../constants.js";
 
 enum ObserverSubWikiPage {
     BANNED_SUBS = "banned-subreddits",
+    BANNED_SUBS_LIST = "banned-subreddits-list",
     COMMENT_KF_CHECKS = "comment-kf-checks-last-hit",
 }
 

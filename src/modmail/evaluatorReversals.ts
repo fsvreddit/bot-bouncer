@@ -9,6 +9,7 @@ import Ajv, { JSONSchemaType } from "ajv";
 import { AsyncSubmission } from "../postCreation.js";
 import pluralize from "pluralize";
 import json2md from "json2md";
+import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
 
 const REVERSED_USERS = "ReversedUsers";
 
@@ -72,6 +73,7 @@ async function reverseExtract (message: ModmailMessage, context: TriggerContext)
             usersToReverse: users,
             reversedTotal: 0,
             conversationId: message.conversationId,
+            jobGuid: crypto.randomUUID(),
         },
     });
 
@@ -83,6 +85,12 @@ async function reverseExtract (message: ModmailMessage, context: TriggerContext)
 }
 
 export async function classificationReversalsJob (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
+    const jobGuid = event.data?.jobGuid as string | undefined;
+    if (jobGuid && await hasTriggerBeenHandled(context.redis, `job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+        console.warn(`Classification Reversals: Job with guid ${jobGuid} has already been handled, skipping.`);
+        return;
+    }
+
     const usersToReverse = event.data?.usersToReverse as string[] | undefined ?? [];
     const conversationId = event.data?.conversationId as string | undefined;
     let reversedTotal = event.data?.reversedTotal as number | undefined ?? 0;
@@ -134,6 +142,7 @@ export async function classificationReversalsJob (event: ScheduledJobEvent<JSONO
             usersToReverse,
             conversationId,
             reversedTotal,
+            jobGuid: crypto.randomUUID(),
         },
     });
 }
@@ -201,6 +210,7 @@ async function reverseQueue (message: ModmailMessage, context: TriggerContext) {
             hitReason: data.hitReason ?? "",
             hitReasonRegex: data.hitReasonRegex ?? "",
             reversedTotal: 0,
+            jobGuid: crypto.randomUUID(),
         },
     });
 }
@@ -209,6 +219,12 @@ const SUBMISSION_QUEUE = "submissionQueue";
 const SUBMISSION_DETAILS = "submissionDetails";
 
 export async function reversePostCreationQueue (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
+    const jobGuid = event.data?.jobGuid as string | undefined;
+    if (jobGuid && await hasTriggerBeenHandled(context.redis, `job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+        console.warn(`Post Creation Queue Reversals: Job with guid ${jobGuid} has already been handled, skipping.`);
+        return;
+    }
+
     const conversationId = event.data?.conversationId as string | undefined;
     const submitterFilter = event.data?.submitter as string | undefined ?? "";
     const hitReasonFilter = event.data?.hitReason as string | undefined ?? "";
@@ -233,6 +249,7 @@ export async function reversePostCreationQueue (event: ScheduledJobEvent<JSONObj
                 submitter: submitterFilter,
                 hitReason: hitReasonFilter,
                 reversedTotal,
+                jobGuid: crypto.randomUUID(),
             },
         });
         return;
@@ -310,11 +327,18 @@ export async function reversePostCreationQueue (event: ScheduledJobEvent<JSONObj
             submitter: submitterFilter,
             hitReason: hitReasonFilter,
             reversedTotal,
+            jobGuid: crypto.randomUUID(),
         },
     });
 }
 
-export async function deleteRecordsForRemovedUsers (_: unknown, context: JobContext) {
+export async function deleteRecordsForRemovedUsers (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
+    const jobGuid = event.data?.jobGuid as string | undefined;
+    if (jobGuid && await hasTriggerBeenHandled(context.redis, `job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+        console.warn(`Delete Records: Job with guid ${jobGuid} has already been handled, skipping.`);
+        return;
+    }
+
     const runLimit = addSeconds(new Date(), 15);
     const removedUsers = await context.redis.zRange(REVERSED_USERS, 0, Date.now(), { by: "score" });
     if (removedUsers.length === 0) {
@@ -357,6 +381,7 @@ export async function deleteRecordsForRemovedUsers (_: unknown, context: JobCont
         await context.scheduler.runJob({
             name: ControlSubredditJob.DeleteRecordsForRemovedUsers,
             runAt: addSeconds(new Date(), 5),
+            data: { jobGuid: crypto.randomUUID() },
         });
     }
 }

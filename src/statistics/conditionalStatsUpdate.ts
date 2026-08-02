@@ -1,15 +1,16 @@
-import { JobContext, JSONValue } from "@devvit/public-api";
+import { JobContext, JSONObject, JSONValue, ScheduledJobEvent } from "@devvit/public-api";
 import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
 import { updateSocialLinksStatistics } from "./socialLinksStatistics.js";
 import { updateBioStatistics } from "./userBioStatistics.js";
 import { FLAGS_TO_EXCLUDE_FROM_STATS, StatsUserEntry } from "../scheduler/sixHourlyJobs.js";
-import { addDays, addSeconds, subMonths } from "date-fns";
+import { addDays, addMinutes, addSeconds, subMonths } from "date-fns";
 import { updateUsernameStatistics } from "./usernameStatistics.js";
 import { updateDisplayNameStatistics } from "./displayNameStats.js";
 import { ALL_POTENTIAL_USER_PREFIXES, getFullDataStore } from "../dataStore.js";
 import _ from "lodash";
 import { ControlSubredditJob } from "../constants.js";
 import { DefinedHandlesStatsInitializerJobData } from "./definedHandlesStatistics.js";
+import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
 
 interface ConditionalStatsUpdateConfig {
     statName: string;
@@ -51,7 +52,13 @@ const STATUS_UPDATE_CONFIGS: ConditionalStatsUpdateConfig[] = [
     },
 ];
 
-export async function conditionalStatsUpdate (_event: unknown, context: JobContext) {
+export async function conditionalStatsUpdate (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
+    const jobGuid = event.data?.jobGuid as string | undefined;
+    if (jobGuid && await hasTriggerBeenHandled(context.redis, `job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+        console.warn(`Conditional Stats Update: Job with guid ${jobGuid} has already been handled, skipping.`);
+        return;
+    }
+
     const evaluatorVariables = await getEvaluatorVariables(context);
 
     const configsToUpdate = _.compact(await Promise.all(STATUS_UPDATE_CONFIGS.map(async (config) => {
@@ -110,6 +117,7 @@ async function definedHandlesStatsJobRunner (_: StatsUserEntry[], context: JobCo
         data: {
             firstRun: true,
             prefixes: ALL_POTENTIAL_USER_PREFIXES,
+            jobGuid: crypto.randomUUID(),
         } satisfies DefinedHandlesStatsInitializerJobData,
     });
 };

@@ -1,5 +1,5 @@
 import { JobContext, ScheduledJobEvent, UpdateWikiPageOptions } from "@devvit/public-api";
-import { addHours, addSeconds, format, subWeeks } from "date-fns";
+import { addHours, addMinutes, addSeconds, format, subWeeks } from "date-fns";
 import json2md from "json2md";
 import { BIO_TEXT_STORE } from "../dataStore.js";
 import { getEvaluatorVariable, getRedisSubstitionValue, setRedisSubstititionValue } from "../userEvaluation/evaluatorVariables.js";
@@ -11,6 +11,7 @@ import { decodedText, encodedText } from "../utility.js";
 import { expireKeyAt, hGetAllChunked, hMGetAsRecord, zRangeAsRecord } from "devvit-helpers";
 import escapeStringRegexp from "escape-string-regexp";
 import { hSetChunked } from "../redisHelper.js";
+import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
 
 const BIO_STATS_UPDATE_IN_PROGRESS = "BioTextStatsUpdateInProgressKey";
 
@@ -68,7 +69,7 @@ export async function updateBioStatistics (allEntries: StatsUserEntry[], context
     await context.scheduler.runJob({
         name: ControlSubredditJob.BioStatsUpdate,
         runAt: addSeconds(new Date(), 5),
-        data: { statsId },
+        data: { statsId, jobGuid: crypto.randomUUID() } satisfies BioStatsJobData,
     });
 }
 
@@ -89,9 +90,16 @@ function sha1hash (input: string): string {
 type BioStatsJobData = {
     statsId: string;
     batch?: number;
+    jobGuid: string;
 };
 
 export async function updateBioStatisticsJob (event: ScheduledJobEvent<BioStatsJobData>, context: JobContext) {
+    const jobGuid = event.data.jobGuid as string | undefined;
+    if (jobGuid && await hasTriggerBeenHandled(context.redis, `job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+        console.warn(`Update Bio Statistics Job: Job with guid ${jobGuid} has already been handled, skipping.`);
+        return;
+    }
+
     await context.redis.set(BIO_STATS_UPDATE_IN_PROGRESS, "true", { expiration: addSeconds(new Date(), 30) });
 
     const batchSize = 2000;
@@ -104,6 +112,7 @@ export async function updateBioStatisticsJob (event: ScheduledJobEvent<BioStatsJ
 
         const jobData: BioStatsJobData = {
             statsId,
+            jobGuid: crypto.randomUUID(),
         };
 
         await context.scheduler.runJob({
@@ -199,6 +208,7 @@ export async function updateBioStatisticsJob (event: ScheduledJobEvent<BioStatsJ
     const jobData: BioStatsJobData = {
         statsId,
         batch: batch + 1,
+        jobGuid: crypto.randomUUID(),
     };
 
     await context.scheduler.runJob({

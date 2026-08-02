@@ -1,4 +1,4 @@
-import { JobContext, TriggerContext } from "@devvit/public-api";
+import { JobContext, JSONObject, ScheduledJobEvent, TriggerContext } from "@devvit/public-api";
 import { updateSubmitterStatistics } from "../statistics/submitterStatistics.js";
 import { createTimeOfSubmissionStatistics } from "../statistics/timeOfSubmissionStatistics.js";
 import { ALL_POTENTIAL_USER_PREFIXES, checkDataStoreIntegrity, getFullDataStore, removeStaleRecentChangesEntries, UserDetails, UserFlag } from "../dataStore.js";
@@ -11,6 +11,7 @@ import { updateBioStatistics } from "../statistics/userBioStatistics.js";
 import { updateFailedFeedbackStorage } from "../submissionFeedback.js";
 import { analyseBioText } from "../similarBioTextFinder/bioTextFinder.js";
 import { DefinedHandlesStatsInitializerJobData } from "../statistics/definedHandlesStatistics.js";
+import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
 
 export const FLAGS_TO_EXCLUDE_FROM_STATS: UserFlag[] = [
     UserFlag.HackedAndRecovered,
@@ -21,9 +22,15 @@ export interface StatsUserEntry {
     data: UserDetails;
 }
 
-export async function perform6HourlyJobs (_: unknown, context: JobContext) {
+export async function perform6HourlyJobs (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
         throw new Error("6 hourly jobs are only run in the control subreddit.");
+    }
+
+    const jobGuid = event.data?.jobGuid as string | undefined;
+    if (jobGuid && await hasTriggerBeenHandled(context.redis, `job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+        console.warn(`6 Hourly Jobs: Job with guid ${jobGuid} has already been handled, skipping.`);
+        return;
     }
 
     console.log("6 Hourly Jobs: Starting execution of 6 hourly jobs.");
@@ -35,17 +42,19 @@ export async function perform6HourlyJobs (_: unknown, context: JobContext) {
         context.scheduler.runJob({
             name: ControlSubredditJob.EvaluatorAccuracyStatistics,
             runAt: new Date(),
-            data: { firstRun: true },
+            data: { firstRun: true, jobGuid: crypto.randomUUID() },
         }),
 
         context.scheduler.runJob({
             name: ControlSubredditJob.DeleteRecordsForRemovedUsers,
             runAt: addMinutes(new Date(), 2),
+            data: { jobGuid: crypto.randomUUID() },
         }),
 
         context.scheduler.runJob({
             name: ControlSubredditJob.Perform6HourlyJobsPart2,
             runAt: addMinutes(new Date(), 1),
+            data: { jobGuid: crypto.randomUUID() },
         }),
 
         context.scheduler.runJob({
@@ -53,6 +62,7 @@ export async function perform6HourlyJobs (_: unknown, context: JobContext) {
             runAt: addMinutes(new Date(), 2),
             data: {
                 firstRun: true,
+                jobGuid: crypto.randomUUID(),
                 prefixes: ALL_POTENTIAL_USER_PREFIXES,
             } satisfies DefinedHandlesStatsInitializerJobData,
         }),
@@ -60,11 +70,13 @@ export async function perform6HourlyJobs (_: unknown, context: JobContext) {
         context.scheduler.runJob({
             name: ControlSubredditJob.PendingUserFinder,
             runAt: addMinutes(new Date(), 3),
+            data: { jobGuid: crypto.randomUUID() },
         }),
 
         context.scheduler.runJob({
             name: ControlSubredditJob.MainStatisticsUpdate,
             runAt: addMinutes(new Date(), 4),
+            data: { jobGuid: crypto.randomUUID() },
         }),
     ]);
     console.log("6 Hourly Jobs: Scheduled subsequent jobs.");
@@ -88,7 +100,13 @@ export async function perform6HourlyJobs (_: unknown, context: JobContext) {
     console.log("Statistics updated successfully.");
 }
 
-export async function perform6HourlyJobsPart2 (_: unknown, context: JobContext) {
+export async function perform6HourlyJobsPart2 (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
+    const jobGuid = event.data?.jobGuid as string | undefined;
+    if (jobGuid && await hasTriggerBeenHandled(context.redis, `job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+        console.warn(`6 Hourly Jobs Part 2: Job with guid ${jobGuid} has already been handled, skipping.`);
+        return;
+    }
+
     const allData = await getFullDataStore(context, {
         since: subMonths(new Date(), 3),
         omitFlags: FLAGS_TO_EXCLUDE_FROM_STATS,
@@ -124,6 +142,7 @@ export async function checkIfStatsNeedUpdating (context: TriggerContext) {
     await context.scheduler.runJob({
         name: ControlSubredditJob.Perform6HourlyJobs,
         runAt: new Date(),
+        data: { jobGuid: crypto.randomUUID() },
     });
 
     const newEntry = await context.reddit.updateWikiPage({

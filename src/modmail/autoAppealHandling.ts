@@ -19,34 +19,19 @@ import { sendMessageOnDelay } from "./delayedSend.js";
 import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
 import { AppealTrackedOutcome, getAppealOutcomeTrackingIssues, isAppealGrantStatus } from "./appealOutcomeTracking.js";
 import { DelayedMessageCompletionAction } from "./delayedMessageCompletion.js";
+import { AppealConfigWithCompiledRegexes, AppealRegexConfig, type CompiledAppealRegexes, compileAppealConfigs, getAppealConfigRegexIssues } from "./appealConfigRegex.js";
 
 const APPEAL_CONFIG_WIKI_PAGE = "appeal-config";
 const APPEAL_CONFIG_REDIS_KEY = "AppealConfig";
 
-interface AppealConfig {
-    name: string;
+interface AppealConfig extends AppealRegexConfig {
     priority?: number;
     submitter?: string;
     operator?: string;
-    usernameRegex?: string[];
-    "~usernameRegex"?: string[];
-    messageBodyRegex?: string[];
     banDateFrom?: string;
     banDateTo?: string;
-    evaluatorNameRegex?: string[];
-    evaluatorHitReasonRegex?: string[];
-    currentEvaluatorNameRegex?: string[];
-    currentEvaluatorHitReasonRegex?: string[];
-    bioRegex?: string[];
-    "~bioRegex"?: string[];
-    originalBioRegex?: string[];
-    socialLinkRegex?: string[];
-    "~socialLinkRegex"?: string[];
-    originalSocialLinkRegex?: string[];
     flags?: UserFlag[];
     "~flags"?: UserFlag[];
-    modNoteTextRegex?: string[];
-    "~modNoteTextRegex"?: string[];
     hasMoreThanOneCommentOnPost?: boolean;
     setStatus?: string;
     privateReply?: string;
@@ -60,6 +45,11 @@ interface AppealConfig {
     highlight?: boolean;
     trackOutcome?: AppealTrackedOutcome;
 }
+
+type CompiledAppealConfig = AppealConfigWithCompiledRegexes<AppealConfig>;
+
+let cachedAppealConfigData: string | undefined;
+let cachedAppealConfigs: CompiledAppealConfig[] = [];
 
 const acceptableMuteDurations = [3, 7, 28];
 const acceptableTrackedOutcomes = Object.values(AppealTrackedOutcome);
@@ -78,18 +68,29 @@ const appealConfigSchema: JSONSchemaType<AppealConfig[]> = {
             usernameRegex: { type: "array", items: { type: "string" }, nullable: true },
             "~usernameRegex": { type: "array", items: { type: "string" }, nullable: true },
             messageBodyRegex: { type: "array", items: { type: "string" }, nullable: true },
+            "~messageBodyRegex": { type: "array", items: { type: "string" }, nullable: true },
             banDateFrom: { type: "string", pattern: dateRegex.source, nullable: true },
             banDateTo: { type: "string", pattern: dateRegex.source, nullable: true },
             evaluatorNameRegex: { type: "array", items: { type: "string" }, nullable: true },
+            "~evaluatorNameRegex": { type: "array", items: { type: "string" }, nullable: true },
             evaluatorHitReasonRegex: { type: "array", items: { type: "string" }, nullable: true },
+            "~evaluatorHitReasonRegex": { type: "array", items: { type: "string" }, nullable: true },
+            evaluatorDetailRegex: { type: "array", items: { type: "string" }, nullable: true },
+            "~evaluatorDetailRegex": { type: "array", items: { type: "string" }, nullable: true },
             currentEvaluatorNameRegex: { type: "array", items: { type: "string" }, nullable: true },
+            "~currentEvaluatorNameRegex": { type: "array", items: { type: "string" }, nullable: true },
             currentEvaluatorHitReasonRegex: { type: "array", items: { type: "string" }, nullable: true },
+            "~currentEvaluatorHitReasonRegex": { type: "array", items: { type: "string" }, nullable: true },
+            currentEvaluatorDetailRegex: { type: "array", items: { type: "string" }, nullable: true },
+            "~currentEvaluatorDetailRegex": { type: "array", items: { type: "string" }, nullable: true },
             bioRegex: { type: "array", items: { type: "string" }, nullable: true },
             "~bioRegex": { type: "array", items: { type: "string" }, nullable: true },
             originalBioRegex: { type: "array", items: { type: "string" }, nullable: true },
+            "~originalBioRegex": { type: "array", items: { type: "string" }, nullable: true },
             socialLinkRegex: { type: "array", items: { type: "string" }, nullable: true },
             "~socialLinkRegex": { type: "array", items: { type: "string" }, nullable: true },
             originalSocialLinkRegex: { type: "array", items: { type: "string" }, nullable: true },
+            "~originalSocialLinkRegex": { type: "array", items: { type: "string" }, nullable: true },
             flags: { type: "array", items: { type: "string", enum: Object.values(UserFlag) }, nullable: true },
             "~flags": { type: "array", items: { type: "string", enum: Object.values(UserFlag) }, nullable: true },
             modNoteTextRegex: { type: "array", items: { type: "string" }, nullable: true },
@@ -140,6 +141,133 @@ const defaultAppealOutcome: AppealOutcome = {
 If Bot Bouncer has banned you from more than one subreddit, you don't need to appeal separately.`,
 };
 
+function regexesMatchText (regexes: RegExp[] | undefined, text: string | undefined): boolean {
+    if (!regexes?.length || text === undefined) {
+        return false;
+    }
+
+    return regexes.some(regex => regex.test(text));
+}
+
+function evaluationHitReasonMatches (evaluationResult: EvaluationResult, regexes: RegExp[] | undefined): boolean {
+    if (!regexes?.length || !evaluationResult.hitReason) {
+        return false;
+    }
+
+    if (typeof evaluationResult.hitReason === "string") {
+        return regexesMatchText(regexes, evaluationResult.hitReason);
+    }
+
+    return regexesMatchText(regexes, evaluationResult.hitReason.reason);
+}
+
+function evaluationDetailMatches (evaluationResult: EvaluationResult, regexes: RegExp[] | undefined): boolean {
+    if (!regexes?.length || !evaluationResult.hitReason || typeof evaluationResult.hitReason === "string") {
+        return false;
+    }
+
+    return evaluationResult.hitReason.details.some(detail => regexesMatchText(regexes, detail.value));
+}
+
+export function evaluationResultMatchesRegexes (
+    evaluationResult: EvaluationResult,
+    evaluatorNameRegex?: RegExp[],
+    evaluatorHitReasonRegex?: RegExp[],
+    evaluatorDetailRegex?: RegExp[],
+): boolean {
+    if (evaluatorNameRegex !== undefined && !regexesMatchText(evaluatorNameRegex, evaluationResult.botName)) {
+        return false;
+    }
+
+    if (evaluatorHitReasonRegex !== undefined && !evaluationHitReasonMatches(evaluationResult, evaluatorHitReasonRegex)) {
+        return false;
+    }
+
+    if (evaluatorDetailRegex !== undefined && !evaluationDetailMatches(evaluationResult, evaluatorDetailRegex)) {
+        return false;
+    }
+
+    return true;
+}
+
+function evaluationResultsContainMatch (
+    evaluationResults: EvaluationResult[],
+    evaluatorNameRegex?: RegExp[],
+    evaluatorHitReasonRegex?: RegExp[],
+    evaluatorDetailRegex?: RegExp[],
+): boolean {
+    return evaluationResults.some(evaluationResult => evaluationResultMatchesRegexes(
+        evaluationResult,
+        evaluatorNameRegex,
+        evaluatorHitReasonRegex,
+        evaluatorDetailRegex,
+    ));
+}
+
+export interface NegatedAppealRegexContext {
+    messageBody: string;
+    initialEvaluationResults: EvaluationResult[];
+    currentEvaluationResults: EvaluationResult[];
+    originalBio: string | undefined;
+    originalSocialLinks: { outboundUrl: string }[];
+}
+
+export function negatedAppealRegexesExcludeConfig (
+    regexes: CompiledAppealRegexes,
+    context: NegatedAppealRegexContext,
+): boolean {
+    if (regexes["~messageBodyRegex"]?.some(regex => regex.test(context.messageBody))) {
+        return true;
+    }
+
+    const hasInitialEvaluatorNegation =
+        regexes["~evaluatorNameRegex"] !== undefined ||
+        regexes["~evaluatorHitReasonRegex"] !== undefined;
+
+    if (
+        hasInitialEvaluatorNegation &&
+        evaluationResultsContainMatch(
+            context.initialEvaluationResults,
+            regexes["~evaluatorNameRegex"],
+            regexes["~evaluatorHitReasonRegex"],
+            regexes["~evaluatorDetailRegex"],
+        )
+    ) {
+        return true;
+    }
+
+    const hasCurrentEvaluatorNegation =
+        regexes["~currentEvaluatorNameRegex"] !== undefined ||
+        regexes["~currentEvaluatorHitReasonRegex"] !== undefined;
+
+    if (
+        hasCurrentEvaluatorNegation &&
+        evaluationResultsContainMatch(
+            context.currentEvaluationResults,
+            regexes["~currentEvaluatorNameRegex"],
+            regexes["~currentEvaluatorHitReasonRegex"],
+            regexes["~currentEvaluatorDetailRegex"],
+        )
+    ) {
+        return true;
+    }
+
+    if (
+        context.originalBio &&
+        regexes["~originalBioRegex"]?.some(regex => regex.test(context.originalBio ?? ""))
+    ) {
+        return true;
+    }
+
+    if (
+        regexes["~originalSocialLinkRegex"]?.some(regex => context.originalSocialLinks.some(link => regex.test(link.outboundUrl)))
+    ) {
+        return true;
+    }
+
+    return false;
+}
+
 function getSubstitutions (wikiPage: string): Record<string, string | string[]> {
     const documents = parseAllDocuments(wikiPage);
 
@@ -164,6 +292,12 @@ function getSubstitutions (wikiPage: string): Record<string, string | string[]> 
     }
 
     return results;
+}
+
+function setAppealConfigCache (configData: string, compiledConfigs: CompiledAppealConfig[]): CompiledAppealConfig[] {
+    cachedAppealConfigData = configData;
+    cachedAppealConfigs = compiledConfigs;
+    return cachedAppealConfigs;
 }
 
 export async function validateAndSaveAppealConfig (username: string, context: TriggerContext): Promise<void> {
@@ -204,7 +338,7 @@ export async function validateAndSaveAppealConfig (username: string, context: Tr
 
     let pageToParse = wikiPage.content;
     for (const [key, value] of Object.entries(substitutions)) {
-        const valueToSubstitute = typeof value === "string" ? value : JSON.stringify(value);
+        const valueToSubstitute = JSON.stringify(value);
         pageToParse = pageToParse.replaceAll(`{{${key}}}`, valueToSubstitute);
     }
 
@@ -224,54 +358,23 @@ export async function validateAndSaveAppealConfig (username: string, context: Tr
         issues.push(ajv.errorsText(validate.errors));
     }
 
-    for (const config of parsedConfigs) {
-        issues.push(...getAppealOutcomeTrackingIssues(config));
+    issues.push(...getAppealConfigRegexIssues(parsedConfigs));
 
-        if (config.currentEvaluatorHitReasonRegex) {
-            for (const regex of config.currentEvaluatorHitReasonRegex) {
-                try {
-                    new RegExp(regex);
-                } catch (error) {
-                    issues.push(`Invalid regex in currentEvaluatorHitReasonRegex for config ${config.name}: ${error instanceof Error ? error.message : String(error)}`);
-                }
-            }
-        }
-
-        if (config.evaluatorHitReasonRegex) {
-            for (const regex of config.evaluatorHitReasonRegex) {
-                try {
-                    new RegExp(regex);
-                } catch (error) {
-                    issues.push(`Invalid regex in evaluatorHitReasonRegex for config ${config.name}: ${error instanceof Error ? error.message : String(error)}`);
-                }
-            }
-        }
-
-        if (config.modNoteTextRegex) {
-            for (const regex of config.modNoteTextRegex) {
-                try {
-                    new RegExp(regex);
-                } catch (error) {
-                    issues.push(`Invalid regex in modNoteTextRegex for config ${config.name}: ${error instanceof Error ? error.message : String(error)}`);
-                }
-            }
-        }
-
-        if (config["~modNoteTextRegex"]) {
-            for (const regex of config["~modNoteTextRegex"]) {
-                try {
-                    new RegExp(regex);
-                } catch (error) {
-                    issues.push(`Invalid regex in ~modNoteTextRegex for config ${config.name}: ${error instanceof Error ? error.message : String(error)}`);
-                }
-            }
+    let compiledConfigs: CompiledAppealConfig[] | undefined;
+    if (issues.length === 0) {
+        try {
+            compiledConfigs = compileAppealConfigs(parsedConfigs);
+        } catch (error) {
+            issues.push(`Unable to compile appeal config: ${error instanceof Error ? error.message : String(error)}`);
         }
     }
 
-    if (issues.length === 0) {
-        // Save the valid config to Redis
-        await context.redis.set(APPEAL_CONFIG_REDIS_KEY, JSON.stringify(parsedConfigs));
+    if (issues.length === 0 && compiledConfigs) {
+        // Save the valid config to Redis and update the in-memory compiled cache.
+        const configData = JSON.stringify(parsedConfigs);
+        await context.redis.set(APPEAL_CONFIG_REDIS_KEY, configData);
         await context.redis.set(appealConfigRevisionKey, wikiPage.revisionId);
+        setAppealConfigCache(configData, compiledConfigs);
         console.log(`Appeal config updated to revision ${wikiPage.revisionId}`);
         return;
     }
@@ -297,13 +400,26 @@ export async function validateAndSaveAppealConfig (username: string, context: Tr
     }
 }
 
-async function getAppealConfig (context: TriggerContext): Promise<AppealConfig[]> {
+async function getAppealConfig (context: TriggerContext): Promise<CompiledAppealConfig[]> {
     const configData = await context.redis.get(APPEAL_CONFIG_REDIS_KEY);
     if (!configData) {
+        cachedAppealConfigData = undefined;
+        cachedAppealConfigs = [];
         return [];
     }
 
-    return JSON.parse(configData) as AppealConfig[];
+    if (configData === cachedAppealConfigData) {
+        return cachedAppealConfigs;
+    }
+
+    try {
+        const configs = JSON.parse(configData) as AppealConfig[];
+        const compiledConfigs = compileAppealConfigs(configs);
+        return setAppealConfigCache(configData, compiledConfigs);
+    } catch (error) {
+        console.error("Unable to compile stored appeal config; continuing with the last known good in-memory config:", error instanceof Error ? error.message : String(error));
+        return cachedAppealConfigs;
+    }
 }
 
 function formatPlaceholders (input: string, userDetails: UserDetails): string {
@@ -372,8 +488,13 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
     }
 
     let currentEvaluationResults: EvaluationResult[] = [];
-    // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
-    if (appealConfig.some(config => config.currentEvaluatorHitReasonRegex || config.currentEvaluatorNameRegex)) {
+
+    if (appealConfig.some(config => [
+        config.compiledRegexes.currentEvaluatorHitReasonRegex,
+        config.compiledRegexes.currentEvaluatorNameRegex,
+        config.compiledRegexes["~currentEvaluatorHitReasonRegex"],
+        config.compiledRegexes["~currentEvaluatorNameRegex"],
+    ].some(regexes => (regexes?.length ?? 0) > 0))) {
         currentEvaluationResults = await evaluateUserAccount({
             username,
             variables: await getEvaluatorVariables(context),
@@ -392,15 +513,27 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
 
     const matchedAppealConfig = appealConfig.find((config) => {
         try {
-            if (config.usernameRegex && !config.usernameRegex.some(regex => new RegExp(regex, "i").test(username))) {
+            const regexes = config.compiledRegexes;
+
+            if (negatedAppealRegexesExcludeConfig(regexes, {
+                messageBody: modmail.bodyMarkdown,
+                initialEvaluationResults: initialAccountEvaluationResults,
+                currentEvaluationResults,
+                originalBio,
+                originalSocialLinks,
+            })) {
                 return;
             }
 
-            if (config["~usernameRegex"]?.some(regex => new RegExp(regex, "i").test(username))) {
+            if (regexes.usernameRegex && !regexes.usernameRegex.some(regex => regex.test(username))) {
                 return;
             }
 
-            if (config.messageBodyRegex && !config.messageBodyRegex.some(regex => new RegExp(regex, "i").test(modmail.bodyMarkdown))) {
+            if (regexes["~usernameRegex"]?.some(regex => regex.test(username))) {
+                return;
+            }
+
+            if (regexes.messageBodyRegex && !regexes.messageBodyRegex.some(regex => regex.test(modmail.bodyMarkdown))) {
                 return;
             }
 
@@ -420,58 +553,24 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
                 return;
             }
 
-            if (config.evaluatorNameRegex || config.evaluatorHitReasonRegex) {
-                let anyMatched = false;
-                for (const evaluationResult of initialAccountEvaluationResults) {
-                    if (config.evaluatorNameRegex && !config.evaluatorNameRegex.some(regex => new RegExp(regex, "i").test(evaluationResult.botName))) {
-                        continue;
-                    }
-
-                    if (config.evaluatorHitReasonRegex && !config.evaluatorHitReasonRegex.some((regex) => {
-                        if (!evaluationResult.hitReason) {
-                            return false;
-                        }
-
-                        if (typeof evaluationResult.hitReason === "string") {
-                            return new RegExp(regex, "i").test(evaluationResult.hitReason);
-                        }
-
-                        return new RegExp(regex, "i").test(evaluationResult.hitReason.reason);
-                    })) {
-                        continue;
-                    }
-                    anyMatched = true;
-                }
-
-                if (!anyMatched) {
+            if (regexes.evaluatorNameRegex !== undefined || regexes.evaluatorHitReasonRegex !== undefined) {
+                if (!evaluationResultsContainMatch(
+                    initialAccountEvaluationResults,
+                    regexes.evaluatorNameRegex,
+                    regexes.evaluatorHitReasonRegex,
+                    regexes.evaluatorDetailRegex,
+                )) {
                     return;
                 }
             }
 
-            if (config.currentEvaluatorNameRegex || config.currentEvaluatorHitReasonRegex) {
-                let anyMatched = false;
-                for (const evaluationResult of currentEvaluationResults) {
-                    if (config.currentEvaluatorNameRegex?.length && !config.currentEvaluatorNameRegex.some(regex => new RegExp(regex, "i").test(evaluationResult.botName))) {
-                        continue;
-                    }
-
-                    if (config.currentEvaluatorHitReasonRegex?.length && !config.currentEvaluatorHitReasonRegex.some((regex) => {
-                        if (!evaluationResult.hitReason) {
-                            return false;
-                        }
-
-                        if (typeof evaluationResult.hitReason === "string") {
-                            return new RegExp(regex, "i").test(evaluationResult.hitReason);
-                        }
-
-                        return new RegExp(regex, "i").test(evaluationResult.hitReason.reason);
-                    })) {
-                        continue;
-                    }
-                    anyMatched = true;
-                }
-
-                if (!anyMatched) {
+            if (regexes.currentEvaluatorNameRegex !== undefined || regexes.currentEvaluatorHitReasonRegex !== undefined) {
+                if (!evaluationResultsContainMatch(
+                    currentEvaluationResults,
+                    regexes.currentEvaluatorNameRegex,
+                    regexes.currentEvaluatorHitReasonRegex,
+                    regexes.currentEvaluatorDetailRegex,
+                )) {
                     return;
                 }
             }
@@ -481,13 +580,13 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
                     return;
                 }
 
-                if (!config.bioRegex.some(regex => new RegExp(regex, "iu").test(user.userDescription ?? ""))) {
+                if (!regexes.bioRegex?.some(regex => regex.test(user.userDescription ?? ""))) {
                     return;
                 }
             }
 
             if (config["~bioRegex"] && user?.userDescription) {
-                if (config["~bioRegex"].some(regex => new RegExp(regex, "iu").test(user.userDescription ?? ""))) {
+                if (regexes["~bioRegex"]?.some(regex => regex.test(user.userDescription ?? ""))) {
                     return;
                 }
             }
@@ -497,7 +596,7 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
                     return;
                 }
 
-                if (!config.originalBioRegex.some(regex => new RegExp(regex, "iu").test(originalBio))) {
+                if (!regexes.originalBioRegex?.some(regex => regex.test(originalBio))) {
                     return;
                 }
             }
@@ -507,13 +606,13 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
                     return;
                 }
 
-                if (!config.socialLinkRegex.some(regex => socialLinks.some(link => new RegExp(regex, "i").test(link.outboundUrl)))) {
+                if (!regexes.socialLinkRegex?.some(regex => socialLinks.some(link => regex.test(link.outboundUrl)))) {
                     return;
                 }
             }
 
             if (config["~socialLinkRegex"] && socialLinks.length > 0) {
-                if (config["~socialLinkRegex"].some(regex => socialLinks.some(link => new RegExp(regex, "i").test(link.outboundUrl)))) {
+                if (regexes["~socialLinkRegex"]?.some(regex => socialLinks.some(link => regex.test(link.outboundUrl)))) {
                     return;
                 }
             }
@@ -523,7 +622,7 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
                     return;
                 }
 
-                if (!config.originalSocialLinkRegex.some(regex => originalSocialLinks.some(link => new RegExp(regex, "i").test(link.outboundUrl)))) {
+                if (!regexes.originalSocialLinkRegex?.some(regex => originalSocialLinks.some(link => regex.test(link.outboundUrl)))) {
                     return;
                 }
             }
@@ -550,13 +649,13 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
             }
 
             if (config.modNoteTextRegex) {
-                if (!modNotes.some(modNote => config.modNoteTextRegex?.some(regex => new RegExp(regex, "u").test(modNote.userNote?.note ?? "")))) {
+                if (!modNotes.some(modNote => regexes.modNoteTextRegex?.some(regex => regex.test(modNote.userNote?.note ?? "")))) {
                     return;
                 }
             }
 
             if (config["~modNoteTextRegex"]) {
-                if (modNotes.some(modNote => config["~modNoteTextRegex"]?.some(regex => new RegExp(regex, "u").test(modNote.userNote?.note ?? "")))) {
+                if (modNotes.some(modNote => regexes["~modNoteTextRegex"]?.some(regex => regex.test(modNote.userNote?.note ?? "")))) {
                     return;
                 }
             }
@@ -573,6 +672,12 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
 
     if (matchedAppealConfig) {
         console.log(`Appeals: Found an appeal for user ${username}: ${matchedAppealConfig.name}`);
+        await context.reddit.modMail.reply({
+            conversationId: modmail.conversationId,
+            body: `Appeal matched config: ${matchedAppealConfig.name}`,
+            isInternal: true,
+        });
+
         appealOutcome = {
             name: matchedAppealConfig.name,
             newStatus: matchedAppealConfig.setStatus,

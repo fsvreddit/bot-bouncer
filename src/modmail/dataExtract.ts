@@ -4,13 +4,14 @@ import { BIO_TEXT_STORE, DISPLAY_NAME_STORE, getFullDataStore, SOCIAL_LINKS_STOR
 import Ajv, { JSONSchemaType } from "ajv";
 import pluralize from "pluralize";
 import json2md from "json2md";
-import { addHours, addSeconds, format, subDays } from "date-fns";
+import { addHours, addMinutes, addSeconds, format, subDays } from "date-fns";
 import { setCleanupForUser } from "../cleanup.js";
 import { getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
 import { ModmailMessage } from "./modmail.js";
 import _ from "lodash";
 import { ControlSubredditJob } from "../constants.js";
 import { expireKeyAt, hMGetAsRecord } from "devvit-helpers";
+import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
 
 interface ModmailDataExtract {
     status?: UserStatus[];
@@ -255,6 +256,7 @@ export async function dataExtract (message: ModmailMessage, conversationId: stri
             conversationId,
             request: JSON.stringify(request),
             firstRun: true,
+            jobGuid: crypto.randomUUID(),
         },
     });
 
@@ -277,6 +279,12 @@ export async function continueDataExtract (event: ScheduledJobEvent<JSONObject |
     const extractId = event.data?.extractId as string | undefined;
     const conversationId = event.data?.conversationId as string | undefined;
     const request = event.data?.request ? JSON.parse(event.data.request as string) as ModmailDataExtract : undefined;
+
+    const jobGuid = event.data?.jobGuid as string | undefined;
+    if (jobGuid && await hasTriggerBeenHandled(context.redis, `job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+        console.warn(`Data Extract: Job with guid ${jobGuid} has already been handled, skipping.`);
+        return;
+    }
 
     if (!extractId || !conversationId || !request) {
         console.error("Data Extract: Missing extractId, conversationId, or request data extract job");
@@ -440,6 +448,7 @@ export async function continueDataExtract (event: ScheduledJobEvent<JSONObject |
             extractId,
             conversationId,
             request: JSON.stringify(request),
+            jobGuid: crypto.randomUUID(),
         },
     });
 }

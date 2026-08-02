@@ -64,7 +64,10 @@ async function handleModActionClientSub (event: ModAction, context: TriggerConte
         await context.scheduler.runJob({
             name: ClientSubredditJob.NotifyModTeamOnDemod,
             runAt: addMinutes(new Date(), 1),
-            data: { modName: event.moderator?.name ? `u/${event.moderator.name}` : "A moderator" },
+            data: {
+                modName: event.moderator?.name ? `u/${event.moderator.name}` : "A moderator",
+                jobGuid: crypto.randomUUID(),
+            },
         });
 
         console.warn(`handleModActionClientSub: Bot Bouncer has been removed as a moderator from r/${context.subredditName} by u/${event.moderator?.name}`);
@@ -142,6 +145,7 @@ async function handleModActionControlSub (event: ModAction, context: TriggerCont
         if (event.moderator.name !== context.appSlug && event.moderator.name !== INTERNAL_BOT) {
             const jobData: Record<string, JSONValue> = {
                 username: event.moderator.name,
+                jobGuid: crypto.randomUUID(),
             };
 
             if (event.actionedAt) {
@@ -227,6 +231,7 @@ async function queueConfigWikiCheck (configWikiPage: ConfigWikiPage, updatedBy: 
         data: {
             page: configWikiPage,
             updatedBy,
+            jobGuid: crypto.randomUUID(),
         },
     });
 }
@@ -235,6 +240,12 @@ export async function handleConfigWikiChange (event: ScheduledJobEvent<JSONObjec
     const configWikiPage = event.data.page as ConfigWikiPage;
     const updatedBy = event.data.updatedBy as string;
     const redisKey = `configWikiQueued:${configWikiPage}`;
+
+    const jobGuid = event.data.jobGuid as string | undefined;
+    if (jobGuid && await hasTriggerBeenHandled(context.redis, `job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+        console.warn(`handleConfigWikiChange: Job with guid ${jobGuid} has already been handled, skipping.`);
+        return;
+    }
 
     switch (configWikiPage) {
         case ConfigWikiPage.AutoAppealHandling:
@@ -255,6 +266,12 @@ export async function notifyModTeamOnDemod (event: ScheduledJobEvent<JSONObject 
     const alreadyNotified = await context.redis.exists(notificationDoneKey);
     if (alreadyNotified) {
         console.log("notifyModTeamOnDemod: Notification already sent, skipping.");
+        return;
+    }
+
+    const jobGuid = event.data?.jobGuid as string | undefined;
+    if (jobGuid && await hasTriggerBeenHandled(context.redis, `job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+        console.warn(`notifyModTeamOnDemod: Job with guid ${jobGuid} has already been handled, skipping.`);
         return;
     }
 

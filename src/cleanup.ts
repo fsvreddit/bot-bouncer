@@ -2,7 +2,7 @@ import { Comment, JobContext, JSONObject, Post, RedisClient, ScheduledJobEvent, 
 import { addDays, addHours, addMinutes, addSeconds, addWeeks, subDays, subMinutes, subSeconds } from "date-fns";
 import { CONTROL_SUBREDDIT, PostFlairTemplate, UniversalJob } from "./constants.js";
 import { deleteUserStatus, getUserStatus, removeRecordOfSubmitterOrMod, updateAggregate, UserFlag, UserStatus, writeUserStatus } from "./dataStore.js";
-import { getUserExtended } from "@fsvreddit/fsv-devvit-helpers";
+import { getUserExtended, hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
 import { removeRecordOfBan, removeWhitelistUnban } from "./handleClientSubredditClassificationChanges.js";
 import _ from "lodash";
 import { getControlSubSettings } from "./settings.js";
@@ -87,6 +87,12 @@ export async function cleanupDeletedAccounts (event: ScheduledJobEvent<JSONObjec
     const controlSubSettings = await getControlSubSettings(context);
     if (controlSubSettings.cleanupDisabled && context.subredditName === CONTROL_SUBREDDIT) {
         console.log("Cleanup: Cleanup is disabled, skipping.");
+        return;
+    }
+
+    const jobGuid = event.data?.jobGuid as string | undefined;
+    if (jobGuid && await hasTriggerBeenHandled(context.redis, `job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+        console.warn(`Cleanup: Job with guid ${jobGuid} has already been handled, skipping.`);
         return;
     }
 
@@ -271,6 +277,7 @@ export async function cleanupDeletedAccounts (event: ScheduledJobEvent<JSONObjec
         await context.scheduler.runJob({
             name: UniversalJob.Cleanup,
             runAt: addSeconds(new Date(), 2),
+            data: { jobGuid: crypto.randomUUID() },
         });
     } else {
         await context.redis.del(recentlyRunKey);

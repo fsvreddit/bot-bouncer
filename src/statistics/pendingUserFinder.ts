@@ -1,12 +1,23 @@
 import { JobContext, JSONObject, ScheduledJobEvent } from "@devvit/public-api";
 import { getFullDataStore, UserStatus } from "../dataStore.js";
-import { addDays, addHours, format, subDays } from "date-fns";
+import { addDays, addHours, addMinutes, format, subDays } from "date-fns";
 import json2md from "json2md";
 import { StatsUserEntry } from "../scheduler/sixHourlyJobs.js";
+import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
+import { getUsernameFromUrl } from "../utility.js";
+import _ from "lodash";
+import pluralize from "pluralize";
 
-export async function pendingUserFinder (_event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
+export async function pendingUserFinder (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
+    const jobGuid = event.data?.jobGuid as string | undefined;
+    if (jobGuid && await hasTriggerBeenHandled(context.redis, `job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+        console.warn(`Pending User Finder: Job with guid ${jobGuid} has already been handled, skipping.`);
+        return;
+    }
+
     const runRecentlyKey = "pendingUserFinderLastRunValue";
     if (await context.redis.exists(runRecentlyKey)) {
+        console.log("Pending User Finder: Job has run recently, skipping this run.");
         return;
     }
 
@@ -16,40 +27,42 @@ export async function pendingUserFinder (_event: ScheduledJobEvent<JSONObject | 
         statuses: [UserStatus.Pending],
     });
 
-    const allEntries = Object.entries(allData)
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
-        .map(([key, value]) => ({ username: key, data: value } as StatsUserEntry));
+    const pendingUsers = Object.entries(allData)
+        .filter(([, value]) => value.userStatus === UserStatus.Pending)
+        .map(([key, value]) => ({ username: key, data: value } satisfies StatsUserEntry));
 
-    const cutoff = subDays(new Date(), 2).getTime();
-    const pendingUsersOverOneDay = allEntries.filter((item) => {
-        if (item.data.userStatus !== UserStatus.Pending) {
-            return false;
-        }
+    if (pendingUsers.length === 0) {
+        console.log("Pending User Finder: No pending users found.");
+        return;
+    }
 
-        if (item.data.reportedAt && item.data.reportedAt >= cutoff) {
-            return false; // Reported within the last 2 days
-        }
+    const usersInModQueue = await context.reddit.getModQueue({
+        subreddit: context.subredditName ?? await context.reddit.getCurrentSubredditName(),
+        limit: 1000,
+        type: "post",
+    }).all().then(posts => new Set(_.compact(posts.map(post => getUsernameFromUrl(post.url)))));
 
-        return item.data.lastUpdate < cutoff; // Last updated over 2 days ago
-    });
+    const pendingUsersNotInQueue = pendingUsers.filter(user => !usersInModQueue.has(user.username));
 
-    if (pendingUsersOverOneDay.length === 0) {
+    if (pendingUsersNotInQueue.length === 0) {
+        console.log(`Pending User Finder: All ${pendingUsers.length} pending users are in the mod queue.`);
         return;
     }
 
     const lastReportSentKey = "pendingUsersReportSentRecentlyValue";
     const lastReportVal = await context.redis.get(lastReportSentKey);
     if (lastReportVal && parseInt(lastReportVal, 10) > subDays(new Date(), 1).getTime()) {
+        console.log("Pending User Finder: Report has been sent in the last 24 hours, skipping sending another report.");
         return; // Report already sent in the last 24 hours
     }
 
     const output: json2md.DataObject[] = [
-        { p: "Some users have been in 'Pending' for two days without being in the mod queue. Please take a look and classify as needed" },
+        { p: `${pendingUsersNotInQueue.length} ${pluralize("user", pendingUsersNotInQueue.length)} ${pluralize("is", pendingUsersNotInQueue.length)} with a status of 'pending' without being in the mod queue. Please take a look and classify as needed.` },
         { p: "This can happen due to a crash in the app or a user's shadowban or suspension being lifted." },
     ];
 
     const tableRows: string[][] = [];
-    for (const item of pendingUsersOverOneDay) {
+    for (const item of pendingUsersNotInQueue) {
         tableRows.push([
             `/u/${item.username}`,
             `[link](https://redd.it/${item.data.trackingPostId.substring(3)})`,
@@ -64,6 +77,8 @@ export async function pendingUserFinder (_event: ScheduledJobEvent<JSONObject | 
         bodyMarkdown: json2md(output),
         subredditId: context.subredditId,
     });
+
+    console.log(`Pending User Finder: Report sent for ${pendingUsersNotInQueue.length} pending users not in mod queue.`);
 
     await context.redis.set(lastReportSentKey, Date.now().toString(), { expiration: addDays(new Date(), 7) });
 }
