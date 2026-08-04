@@ -12,8 +12,8 @@
     "lint": "eslint ."
   },
   "dependencies": {
-    "@devvit/protos": "0.13.10",
-    "@devvit/public-api": "0.13.10",
+    "@devvit/protos": "0.13.11",
+    "@devvit/public-api": "0.13.11",
     "@fsvreddit/bot-bouncer-evaluation": "github:fsvreddit/bot-bouncer-evaluation",
     "@fsvreddit/fsv-devvit-helpers": "github:fsvreddit/fsv-devvit-helpers",
     "@wordpress/wordcount": "^4.51.0",
