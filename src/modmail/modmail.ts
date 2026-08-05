@@ -1,4 +1,4 @@
-import { GetConversationResponse, TriggerContext } from "@devvit/public-api";
+import { ConversationData, GetConversationResponse, MessageData, TriggerContext } from "@devvit/public-api";
 import { ModMail } from "@devvit/protos";
 import { CONTROL_SUBREDDIT } from "../constants.js";
 import { handleClientSubredditModmail } from "./clientSubModmail.js";
@@ -16,6 +16,14 @@ export interface ModmailMessage {
     isFirstMessage: boolean;
     isInternal: boolean;
     isHighlighted?: boolean;
+}
+
+function getSortedMessages (conversation: ConversationData): MessageData[] {
+    return Object.values(conversation.messages).sort((a, b) => {
+        const dateA = new Date(a.date ?? Date.now());
+        const dateB = new Date(b.date ?? Date.now());
+        return dateA.getTime() - dateB.getTime();
+    });
 }
 
 export async function handleModmail (event: ModMail, context: TriggerContext) {
@@ -38,11 +46,11 @@ export async function handleModmail (event: ModMail, context: TriggerContext) {
         return;
     }
 
-    const messagesInConversation = Object.values(conversationResponse.conversation.messages);
+    const messagesInConversation = getSortedMessages(conversationResponse.conversation);
     const firstMessage = messagesInConversation[0];
-    const isFirstMessage = firstMessage.id !== undefined && event.messageId.includes(firstMessage.id);
+    const isFirstMessage = firstMessage.id !== undefined && event.messageId === `ModmailMessage_${firstMessage.id}`;
 
-    const currentMessage = messagesInConversation.find(message => message.id && event.messageId.includes(message.id));
+    const currentMessage = messagesInConversation.find(message => message.id && event.messageId === `ModmailMessage_${message.id}`);
 
     if (!currentMessage?.author?.name || !conversationResponse.conversation.subject || !currentMessage.bodyMarkdown) {
         return;
