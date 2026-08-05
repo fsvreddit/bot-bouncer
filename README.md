@@ -48,6 +48,10 @@ If an account was banned by Bot Bouncer on a sub but successfully appeals via r/
 
 # Latest Changes
 
+## v1.33.2
+
+* Fix update notifier (not working for over a year)
+
 ## v1.33.0
 
 * Improved detection of some NSFW bot styles that use text in images to share social handles

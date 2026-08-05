@@ -39,6 +39,8 @@ export async function getNewVersionInfo (context: JobContext): Promise<AppUpdate
         console.log("Update Checker: No updates found");
         return;
     }
+
+    return update;
 }
 
 export async function checkForUpdates (_: unknown, context: JobContext) {
