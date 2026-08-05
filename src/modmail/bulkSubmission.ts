@@ -9,6 +9,7 @@ import pluralize from "pluralize";
 import { ModmailMessage } from "./modmail.js";
 import { getControlSubSettings } from "../settings.js";
 import markdownEscape from "markdown-escape";
+import { AccountReviewScheduleResult, submitAccountForReviewByUsername } from "./accountReview.js";
 
 interface UserWithDetails {
     username: string;
@@ -16,10 +17,18 @@ interface UserWithDetails {
     reason?: string;
 }
 
+interface ScheduleReviewSubmission {
+    usernames: string[];
+    days: number;
+    reason?: string;
+}
+
 interface BulkSubmission {
     usernames?: string[];
     userDetails?: UserWithDetails[];
     reason?: string;
+
+    schedule_review?: ScheduleReviewSubmission;
 }
 
 const schema: JSONSchemaType<BulkSubmission> = {
@@ -50,6 +59,31 @@ const schema: JSONSchemaType<BulkSubmission> = {
             type: "string",
             nullable: true,
         },
+        // eslint-disable-next-line camelcase
+        schedule_review: {
+            type: "object",
+            properties: {
+                usernames: {
+                    type: "array",
+                    items: {
+                        type: "string",
+                        minLength: 1,
+                    },
+                    minItems: 1,
+                },
+                days: {
+                    type: "integer",
+                    minimum: 1,
+                },
+                reason: {
+                    type: "string",
+                    nullable: true,
+                },
+            },
+            required: ["usernames", "days"],
+            additionalProperties: false,
+            nullable: true,
+        },
     },
     additionalProperties: false,
 };
@@ -59,6 +93,102 @@ interface BulkItem {
     initialStatus: UserStatus;
     submitter: string;
     reason?: string;
+}
+
+export interface ScheduleReviewResult {
+    username: string;
+    result: AccountReviewScheduleResult;
+}
+
+function describeScheduleReviewResult (result: AccountReviewScheduleResult): string {
+    switch (result) {
+        case AccountReviewScheduleResult.UserNotFound:
+            return "no existing Bot Bouncer status was found";
+        case AccountReviewScheduleResult.MissingTrackingPost:
+            return "no tracking post was available";
+        case AccountReviewScheduleResult.Scheduled:
+            return "scheduled";
+        default:
+            throw new Error(`Unknown account-review scheduling result: ${result as string}`);
+    }
+}
+
+export function buildScheduleReviewReply (
+    results: ScheduleReviewResult[],
+    days: number,
+): json2md.DataObject[] {
+    const scheduled = results.filter(item => item.result === AccountReviewScheduleResult.Scheduled);
+    const skipped = results.filter(item => item.result !== AccountReviewScheduleResult.Scheduled);
+
+    const reply: json2md.DataObject[] = [{
+        p: `Scheduled ${scheduled.length} ${pluralize("account review", scheduled.length)} in ${days} ${pluralize("day", days)}.`,
+    }];
+
+    if (skipped.length > 0) {
+        reply.push({
+            p: `Skipped ${skipped.length} ${pluralize("account", skipped.length)}:`,
+        });
+        reply.push({
+            ul: skipped.map(item => `/u/${markdownEscape(item.username)}: ${describeScheduleReviewResult(item.result)}`),
+        });
+    }
+
+    return reply;
+}
+
+async function handleScheduleReviewSubmission (
+    submitter: string,
+    trusted: boolean,
+    conversationId: string,
+    scheduleReview: ScheduleReviewSubmission,
+    context: TriggerContext,
+): Promise<boolean> {
+    if (!trusted) {
+        console.log(`Schedule review: Rejected request from ${submitter} because they are not a trusted submitter.`);
+
+        await context.reddit.modMail.reply({
+            conversationId,
+            body: json2md([{
+                p: "Only trusted submitters can schedule account reviews.",
+            }]),
+            isAuthorHidden: false,
+        });
+
+        await context.reddit.modMail.archiveConversation(conversationId);
+        return false;
+    }
+
+    const usernames = [...new Map(scheduleReview.usernames.map(username => [
+        username.toLowerCase(),
+        username,
+    ])).values()];
+
+    const results: ScheduleReviewResult[] = await Promise.all(usernames.map(async username => ({
+        username,
+        result: await submitAccountForReviewByUsername(
+            username,
+            submitter,
+            scheduleReview.days,
+            scheduleReview.reason,
+            context,
+        ),
+    })));
+
+    await context.reddit.modMail.reply({
+        conversationId,
+        body: json2md(buildScheduleReviewReply(results, scheduleReview.days)),
+        isAuthorHidden: false,
+    });
+
+    await context.reddit.modMail.archiveConversation(conversationId);
+
+    const scheduledCount = results.filter(item => item.result === AccountReviewScheduleResult.Scheduled).length;
+
+    if (scheduledCount > 0) {
+        console.log(`Schedule review: Scheduled ${scheduledCount} ${pluralize("account review", scheduledCount)} from ${submitter}.`);
+    }
+
+    return scheduledCount > 0;
 }
 
 async function handleBulkItems (items: BulkItem[], context: TriggerContext): Promise<number> {
@@ -111,18 +241,6 @@ async function handleBulkItems (items: BulkItem[], context: TriggerContext): Pro
 }
 
 export async function handleBulkSubmission (submitter: string, trusted: boolean, conversationId: string, message: string, context: TriggerContext): Promise<boolean> {
-    const controlSubSettings = await getControlSubSettings(context);
-    if (!controlSubSettings.allowNewSubmissions) {
-        console.log(`Bulk submission: New submission from ${submitter} was rejected as new submissions are not currently allowed.`);
-        await context.reddit.modMail.reply({
-            conversationId,
-            body: json2md([{ p: "Bot Bouncer is not currently accepting new submissions." }]),
-            isAuthorHidden: false,
-        });
-        await context.reddit.modMail.archiveConversation(conversationId);
-        return false;
-    }
-
     console.log(`Bulk submission: New submission from ${submitter}`);
     let data: BulkSubmission;
     try {
@@ -156,6 +274,33 @@ export async function handleBulkSubmission (submitter: string, trusted: boolean,
             ]),
             isAuthorHidden: false,
         });
+        await context.reddit.modMail.archiveConversation(conversationId);
+        return false;
+    }
+
+    const scheduleReview = data.schedule_review;
+    if (scheduleReview) {
+        return await handleScheduleReviewSubmission(
+            submitter,
+            trusted,
+            conversationId,
+            scheduleReview,
+            context,
+        );
+    }
+
+    const controlSubSettings = await getControlSubSettings(context);
+    if (!controlSubSettings.allowNewSubmissions) {
+        console.log(`Bulk submission: New submission from ${submitter} was rejected as new submissions are not currently allowed.`);
+
+        await context.reddit.modMail.reply({
+            conversationId,
+            body: json2md([{
+                p: "Bot Bouncer is not currently accepting new submissions.",
+            }]),
+            isAuthorHidden: false,
+        });
+
         await context.reddit.modMail.archiveConversation(conversationId);
         return false;
     }

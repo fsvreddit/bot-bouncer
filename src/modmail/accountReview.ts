@@ -1,6 +1,8 @@
 import { JobContext, JSONObject, ScheduledJobEvent, TriggerContext } from "@devvit/public-api";
 import json2md from "json2md";
 import { getUsernameFromUrl, getUserOrUndefined } from "../utility.js";
+import { getUserStatus } from "../dataStore.js";
+import { isLinkId } from "@devvit/public-api/types/tid.js";
 import pluralize from "pluralize";
 import { addDays, addMinutes, addSeconds } from "date-fns";
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "../constants.js";
@@ -19,6 +21,12 @@ interface AccountReviewData {
     reviewReason?: string;
 }
 
+export enum AccountReviewScheduleResult {
+    Scheduled = "scheduled",
+    UserNotFound = "userNotFound",
+    MissingTrackingPost = "missingTrackingPost",
+}
+
 export async function submitAccountForReview (postId: string, requestedBy: string, duration: number, reason: string | undefined, context: TriggerContext) {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
         throw new Error("Account reviews can only be submitted from the control subreddit.");
@@ -33,6 +41,38 @@ export async function submitAccountForReview (postId: string, requestedBy: strin
     await context.redis.set(accountReviewKey(postId), JSON.stringify(reviewData), { expiration: addDays(new Date(), duration + 1) });
     await context.redis.zAdd(ACCOUNT_REVIEW_QUEUE, { member: postId, score: addDays(new Date(), duration).getTime() });
     console.log(`Account Review: Submitted post ${postId} for review by ${requestedBy} in ${duration} ${pluralize("day", duration)}.`);
+}
+
+export async function submitAccountForReviewByUsername (
+    username: string,
+    requestedBy: string,
+    duration: number,
+    reason: string | undefined,
+    context: TriggerContext,
+): Promise<AccountReviewScheduleResult> {
+    if (context.subredditName !== CONTROL_SUBREDDIT) {
+        throw new Error("Account reviews can only be submitted from the control subreddit.");
+    }
+
+    const currentStatus = await getUserStatus(username, context);
+    if (!currentStatus) {
+        return AccountReviewScheduleResult.UserNotFound;
+    }
+
+    const trackingPostId = currentStatus.trackingPostId;
+    if (typeof trackingPostId !== "string" || !isLinkId(trackingPostId)) {
+        return AccountReviewScheduleResult.MissingTrackingPost;
+    }
+
+    await submitAccountForReview(
+        trackingPostId,
+        requestedBy,
+        duration,
+        reason,
+        context,
+    );
+
+    return AccountReviewScheduleResult.Scheduled;
 }
 
 export async function checkAccountsForReview (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
