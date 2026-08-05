@@ -9,6 +9,7 @@ import { addHours, addSeconds } from "date-fns";
 import { addToReversalsQueue } from "./modmail/evaluatorReversals.js";
 import { statusToFlair } from "./postCreation.js";
 import { submitAccountForReview } from "./modmail/accountReview.js";
+import { queueHackedProfileRecoveryReviewForBan } from "./userEvaluation/hackedProfileRecoveryReview.js";
 import { fixPostTriggerEvent, hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
 
 interface FlairMapping {
@@ -155,6 +156,13 @@ export async function handleControlSubFlairUpdate (event: PostFlairUpdate, conte
     }
 
     await setUserStatus(username, newStatus, context);
+
+    try {
+        await queueHackedProfileRecoveryReviewForBan(username, context);
+    } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.error(`HackedProfileRecoveryReview: Could not update the recovery-review queue for ${username}: ${errorMessage}`);
+    }
 
     console.log(`Flair Update: Status for ${username} set to ${newStatus.userStatus} by ${operator}`);
 

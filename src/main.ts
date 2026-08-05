@@ -37,6 +37,7 @@ import { generateOpenAISummary, openAISummaryLookupAndRespond } from "./aiAnalys
 import { updateTokenStatsMessage } from "./aiAnalysis/statistics.js";
 import { updateMainStatisticsPage } from "./statistics/mainStatistics.js";
 import { checkUserFlaggedRechecksQueue } from "./userEvaluation/flaggedUsersRechecks.js";
+import { checkHackedProfileRecoveryReviewQueue } from "./userEvaluation/hackedProfileRecoveryReview.js";
 import { processDelayedMessages } from "./modmail/delayedSend.js";
 import { updateEvaluatorConfigEditSummaryPage } from "./userEvaluation/configEditSummaries.js";
 import { handleObserverSubMinutelyJob } from "./scheduler/handleObserverSubMinutelyJob.js";
@@ -289,6 +290,11 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: ControlSubredditJob.FlaggedUsersRechecks,
     onRun: checkUserFlaggedRechecksQueue,
+});
+
+Devvit.addSchedulerJob({
+    name: ControlSubredditJob.HackedProfileRecoveryReview,
+    onRun: checkHackedProfileRecoveryReviewQueue,
 });
 
 Devvit.addSchedulerJob({
