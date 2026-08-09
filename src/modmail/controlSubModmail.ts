@@ -123,6 +123,11 @@ export async function handleControlSubredditModmail (modmail: ModmailMessage, co
         return;
     }
 
+    if (modmail.bodyMarkdown.startsWith("!unban") && modmail.participant) {
+        await handleUnbanCommand(modmail, context);
+        return;
+    }
+
     if (modmail.bodyMarkdown.startsWith("!askai")) {
         await handleAskAI(modmail, context);
         return;
@@ -406,6 +411,82 @@ async function checkBanOnSub (modmail: ModmailMessage, context: TriggerContext) 
     }
     await context.reddit.modMail.reply({
         body: json2md(message),
+        conversationId: modmail.conversationId,
+        isInternal: true,
+    });
+}
+
+/**
+ * A note to Admin reviewing this new function.
+ *
+ * This function unbans a user on a different subreddit to r/BotBouncer. It is *only* used in cases where
+ * the user has had an appeal granted and a technical issue has prevented the ban from being lifted.
+ *
+ * It specifically checks to see if the user was banned by Bot Bouncer, and will not impact bans issued
+ * by other Moderators.
+ *
+ * If this is an unacceptable use of Bot Bouncer, please let me know and I will remove this feature.
+ * It will only be used sparingly.
+ */
+async function handleUnbanCommand (modmail: ModmailMessage, context: TriggerContext) {
+    const handleUnbanRegex = /^!unban ([A-Za-z0-9_]+)/;
+    const unbanMatch = handleUnbanRegex.exec(modmail.bodyMarkdown);
+    if (!modmail.participant || unbanMatch?.length !== 2) {
+        await context.reddit.modMail.reply({
+            body: "Invalid command format. Use `!unban <subreddit>`.",
+            conversationId: modmail.conversationId,
+            isInternal: true,
+        });
+        return;
+    }
+
+    const currentStatus = await getUserStatus(modmail.participant, context);
+    if (currentStatus?.userStatus !== UserStatus.Organic) {
+        await context.reddit.modMail.reply({
+            body: `User /u/${modmail.participant} is not currently marked as human in the Bot Bouncer database, so no unban action will be taken.`,
+            conversationId: modmail.conversationId,
+            isInternal: true,
+        });
+        return;
+    }
+
+    const banInfo = await context.reddit.getBannedUsers({
+        subredditName: unbanMatch[1],
+        username: modmail.participant,
+    }).all().then(bannedUsers => bannedUsers.length === 0 ? undefined : bannedUsers[0]);
+
+    if (!banInfo) {
+        await context.reddit.modMail.reply({
+            body: `User /u/${modmail.participant} is not currently banned on /r/${unbanMatch[1]}. No action will be taken.`,
+            conversationId: modmail.conversationId,
+            isInternal: true,
+        });
+        return;
+    }
+
+    if (!banInfo.note?.startsWith(`Banned by /u/${context.appSlug}`)) {
+        await context.reddit.modMail.reply({
+            body: `User /u/${modmail.participant} is currently banned on /r/${unbanMatch[1]}, but the ban was not issued by Bot Bouncer. No action will be taken.`,
+            conversationId: modmail.conversationId,
+            isInternal: true,
+        });
+        return;
+    }
+
+    try {
+        await context.reddit.unbanUser(modmail.participant, unbanMatch[1]);
+    } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        await context.reddit.modMail.reply({
+            body: `An error occurred while trying to unban /u/${modmail.participant} on /r/${unbanMatch[1]}.\n\nError: ${errorMessage}`,
+            conversationId: modmail.conversationId,
+            isInternal: true,
+        });
+        return;
+    }
+
+    await context.reddit.modMail.reply({
+        body: `User /u/${modmail.participant} has been unbanned on /r/${unbanMatch[1]}.`,
         conversationId: modmail.conversationId,
         isInternal: true,
     });
