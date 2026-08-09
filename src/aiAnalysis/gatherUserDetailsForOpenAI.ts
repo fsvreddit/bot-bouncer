@@ -1,4 +1,4 @@
-import { Comment, Post, TriggerContext } from "@devvit/public-api";
+import { Post, TriggerContext } from "@devvit/public-api";
 import { isLinkId } from "@devvit/public-api/types/tid.js";
 import { getUserExtended } from "@fsvreddit/fsv-devvit-helpers";
 import _ from "lodash";
@@ -22,7 +22,7 @@ export async function getUserInfoForOpenAI (username: string, context: TriggerCo
         }).all();
 
         const postInfoMap: Record<string, PostInfo> = {};
-        const uniqueCommentPosts = _.uniq(history.filter(item => item instanceof Comment).map(comment => comment.postId));
+        const uniqueCommentPosts = _.uniq(history.filter(item => "postId" in item).map(comment => comment.postId));
 
         await Promise.all(uniqueCommentPosts.map(async (postId) => {
             let post: Post;
@@ -47,7 +47,7 @@ export async function getUserInfoForOpenAI (username: string, context: TriggerCo
                 socialLinks: socialLinks.map(link => ({ title: link.title, url: link.outboundUrl })),
             },
             history: history.map((item) => {
-                if (item instanceof Comment) {
+                if ("postId" in item) {
                     return {
                         type: "comment",
                         content: item.body,

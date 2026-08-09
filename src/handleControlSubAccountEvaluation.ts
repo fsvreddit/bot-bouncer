@@ -10,6 +10,7 @@ import { getSubmitterSuccessRate } from "./statistics/submitterStatistics.js";
 import { conditionallyCompressString, conditionallyDecompressString } from "./utility.js";
 import { AppSetting, getControlSubSettings } from "./settings.js";
 import { getPostOrCommentById, getUserExtended, hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
+import { T3ID } from "@devvit/public-api/types/tid.js";
 
 export interface EvaluatorStats {
     hitCount: number;
@@ -149,7 +150,7 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
     }
 
     const username = event.data?.username as string | undefined;
-    const postId = event.data?.postId as string | undefined;
+    const postId = event.data?.postId as T3ID | undefined;
     const forceManualReview = event.data?.forceManualReview as boolean | undefined;
     const forceManualReviewReasons = event.data?.forceManualReviewReasons as string[] | undefined;
 

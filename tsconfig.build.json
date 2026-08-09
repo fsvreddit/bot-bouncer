@@ -1,0 +1,14 @@
+{
+    "extends": "./tsconfig.json",
+    "exclude": [
+        "vitest.config.ts",
+        "node_modules",
+        "**/*.test.ts",
+        "dist",
+        "eslint.config.mjs"
+    ],
+    "compilerOptions": {
+        "rootDir": "src",
+        "outDir": "dist",
+    }
+}

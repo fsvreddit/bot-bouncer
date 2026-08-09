@@ -624,7 +624,7 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
             }
 
             if (config.hasMoreThanOneCommentOnPost !== undefined) {
-                const commentsPerPost = _.countBy(history.filter(item => item instanceof Comment).map(comment => comment.postId));
+                const commentsPerPost = _.countBy(history.filter(item => "postId" in item).map(comment => comment.postId));
                 const hasMoreThanOneCommentOnPost = Object.values(commentsPerPost).some(count => count > 1);
 
                 if (config.hasMoreThanOneCommentOnPost !== hasMoreThanOneCommentOnPost) {

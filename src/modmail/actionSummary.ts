@@ -188,7 +188,7 @@ export async function sendDailySummary (_: unknown, context: JobContext) {
     }
 
     const params = {
-        subredditId: context.subredditId,
+        subredditId: context.subredditId as `t5_${string}`,
         subject,
         bodyMarkdown: json2md(message),
     };

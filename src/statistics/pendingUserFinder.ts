@@ -75,7 +75,8 @@ export async function pendingUserFinder (event: ScheduledJobEvent<JSONObject | u
     await context.reddit.modMail.createModInboxConversation({
         subject: "Pending Users Report",
         bodyMarkdown: json2md(output),
-        subredditId: context.subredditId,
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+        subredditId: context.subredditId as `t5_${string}`,
     });
 
     console.log(`Pending User Finder: Report sent for ${pendingUsersNotInQueue.length} pending users not in mod queue.`);

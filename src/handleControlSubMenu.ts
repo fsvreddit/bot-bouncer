@@ -12,6 +12,7 @@ import { FieldConfig_Selection_Item } from "@devvit/protos";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { isUserPotentiallyBlockingBot } from "./UserSummary/blockChecker.js";
 import { markdownToText } from "./modmail/controlSubModmail.js";
+import { isCommentId } from "@devvit/public-api/types/tid.js";
 
 enum ControlSubAction {
     RegenerateSummary = "generateSummary",
@@ -22,7 +23,7 @@ enum ControlSubAction {
 
 export async function handleControlSubReportUser (target: Post | Comment, context: Context) {
     let username: string | undefined;
-    if (target instanceof Comment) {
+    if (isCommentId(target.id)) {
         username = target.authorName;
     } else {
         username = getUsernameFromUrl(target.url);

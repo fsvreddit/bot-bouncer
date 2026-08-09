@@ -10,6 +10,7 @@ import { addToReversalsQueue } from "./modmail/evaluatorReversals.js";
 import { statusToFlair } from "./postCreation.js";
 import { submitAccountForReview } from "./modmail/accountReview.js";
 import { fixPostTriggerEvent, hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
+import { T3ID } from "@devvit/public-api/types/tid.js";
 
 interface FlairMapping {
     postFlair: string;
@@ -93,7 +94,8 @@ export async function handleControlSubFlairUpdate (event: PostFlairUpdate, conte
         }
 
         await context.reddit.setPostFlair({
-            postId: event.post.id,
+            // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+            postId: event.post.id as T3ID,
             subredditName: CONTROL_SUBREDDIT,
             flairTemplateId: mapping.destinationFlair,
         });
@@ -116,7 +118,8 @@ export async function handleControlSubFlairUpdate (event: PostFlairUpdate, conte
         await context.redis.set(`userStatusOverrideValue~${username}`, event.author.name, { expiration: addHours(new Date(), 1) });
 
         await context.reddit.setPostFlair({
-            postId: event.post.id,
+            // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+            postId: event.post.id as T3ID,
             subredditName: CONTROL_SUBREDDIT,
             flairTemplateId: statusToFlair[status],
         });
@@ -141,13 +144,13 @@ export async function handleControlSubFlairUpdate (event: PostFlairUpdate, conte
     let newStatus: UserDetails;
     if (currentStatus) {
         newStatus = { ...currentStatus };
-        newStatus.trackingPostId = event.post.id;
+        newStatus.trackingPostId = event.post.id as T3ID;
         newStatus.userStatus = postFlair;
         newStatus.operator = operator;
         newStatus.lastUpdate = new Date().getTime();
     } else {
         newStatus = {
-            trackingPostId: event.post.id,
+            trackingPostId: event.post.id as T3ID,
             userStatus: postFlair,
             lastUpdate: new Date().getTime(),
             operator,

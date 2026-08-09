@@ -1,4 +1,4 @@
-import { JobContext, TriggerContext, WikiPage, WikiPagePermissionLevel } from "@devvit/public-api";
+import { JobContext, TriggerContext, WikiPage } from "@devvit/public-api";
 import { UserStatus } from "../dataStore.js";
 import _ from "lodash";
 import { subMonths } from "date-fns";
@@ -7,6 +7,7 @@ import { ZMember } from "@devvit/protos";
 import { getControlSubSettings } from "../settings.js";
 import type { ControlSubSettings } from "../settings.js";
 import { StatsUserEntry } from "../scheduler/sixHourlyJobs.js";
+import { WikiPagePermissionLevel } from "../types.js";
 
 export interface SubmitterStatistic {
     submitter: string;

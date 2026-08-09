@@ -1,7 +1,10 @@
 {
     "extends": "@devvit/public-api/devvit.tsconfig.json",
     "compilerOptions": {
-        "lib": ["ES2021", "WebWorker"]
+        "lib": ["ES2021", "WebWorker"],
+        "types": [
+            "node"
+        ]
     },
     "exclude": [
         "**/node_modules",

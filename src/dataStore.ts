@@ -52,7 +52,7 @@ const eligibleFlagsForStatus: Record<UserFlag, UserStatus[]> = {
 };
 
 export interface UserDetails {
-    trackingPostId: string;
+    trackingPostId: `t3_${string}` | "";
     userStatus: UserStatus;
     lastStatus?: UserStatus;
     lastUpdate: number;

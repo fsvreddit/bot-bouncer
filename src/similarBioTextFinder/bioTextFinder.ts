@@ -165,7 +165,8 @@ export async function analyseBioText (context: TriggerContext) {
     }
 
     const conversationId = await context.reddit.modMail.createModInboxConversation({
-        subredditId: context.subredditId,
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+        subredditId: context.subredditId as `t5_${string}`,
         subject: "Similar Bio Text Patterns spotted in swept subreddits",
         bodyMarkdown: json2md(output),
     });

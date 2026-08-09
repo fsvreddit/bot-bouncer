@@ -1,5 +1,5 @@
-import { Comment, TriggerContext } from "@devvit/public-api";
-import { isLinkId } from "@devvit/public-api/types/tid.js";
+import { TriggerContext } from "@devvit/public-api";
+import { isCommentId, isLinkId } from "@devvit/public-api/types/tid.js";
 import { getUserStatus, UserStatus } from "../dataStore.js";
 import { getSummaryForUser } from "../UserSummary/userSummary.js";
 import { getUserOrUndefined, isModeratorWithCache } from "../utility.js";
@@ -525,7 +525,7 @@ async function showUserHistory (modmail: ModmailMessage, context: TriggerContext
         message.push({ p: `Showing the ${numberOfItems} most recent posts and comments by /u/${modmail.participant}:` });
 
         for (const item of userHistory) {
-            message.push({ p: `[${item instanceof Comment ? "Comment" : "Post"}](${item.permalink}) in /r/${item.subredditName} on ${format(item.createdAt, "yyyy-MM-dd hh:mm")}` });
+            message.push({ p: `[${isCommentId(item.id) ? "Comment" : "Post"}](${item.permalink}) in /r/${item.subredditName} on ${format(item.createdAt, "yyyy-MM-dd hh:mm")}` });
             if (item.body) {
                 message.push({ blockquote: item.body });
             }

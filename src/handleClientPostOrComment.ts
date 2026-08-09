@@ -348,7 +348,7 @@ async function checkAndReportPotentialBot (username: string, target: Post | Comm
         return;
     }
 
-    const targetId = target instanceof Post ? target.id : target.comment?.id;
+    const targetId = "id" in target ? target.id : target.comment?.id;
     if (!targetId) {
         return;
     }
@@ -372,7 +372,7 @@ async function checkAndReportPotentialBot (username: string, target: Post | Comm
             evaluator.setOpenAiKey(openAIEvaluationKey);
         }
 
-        if (target instanceof Post) {
+        if ("id" in target) {
             if (!await Promise.resolve(evaluator.preEvaluatePost(target))) {
                 continue;
             }

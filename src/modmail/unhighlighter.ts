@@ -1,4 +1,4 @@
-import { JobContext, ModMailConversationState, TriggerContext } from "@devvit/public-api";
+import { JobContext, TriggerContext } from "@devvit/public-api";
 import { ModmailMessage } from "./modmail.js";
 import { CONTROL_SUBREDDIT } from "../constants.js";
 import { addMinutes, addSeconds } from "date-fns";
@@ -54,7 +54,7 @@ export async function processHighlightedModmailQueue (context: JobContext) {
                 continue;
             }
 
-            if (conversationResponse.conversation.state === ModMailConversationState.Archived && (currentStatus.userStatus === UserStatus.Organic)) {
+            if (conversationResponse.conversation.state?.toLowerCase() === "archived" && (currentStatus.userStatus === UserStatus.Organic)) {
                 await context.reddit.modMail.unhighlightConversation(firstEntry.member);
                 console.log(`Unhighighter: Unhighlighted conversation ${firstEntry.member} because it is archived and the appeal was granted.`);
                 continue;

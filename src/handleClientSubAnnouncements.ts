@@ -70,7 +70,8 @@ export async function handleClientSubAnnouncements (_: unknown, context: JobCont
             await context.reddit.modMail.createModInboxConversation({
                 subject: announcement.subject,
                 bodyMarkdown: announcement.body,
-                subredditId: context.subredditId,
+                // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+                subredditId: context.subredditId as `t5_${string}`,
             });
 
             await context.redis.hSet(ANNOUNCEMENT_SENT_HASH_KEY, { [announcement.announcementId]: Date.now().toString() });

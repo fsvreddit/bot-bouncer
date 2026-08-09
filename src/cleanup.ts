@@ -257,7 +257,7 @@ export async function cleanupDeletedAccounts (event: ScheduledJobEvent<JSONObjec
 
         await setCleanupForUser(username, context.redis, overrideCleanupDate);
 
-        if (newFlair) {
+        if (newFlair && currentStatus.trackingPostId !== "") {
             await context.reddit.setPostFlair({
                 postId: currentStatus.trackingPostId,
                 subredditName: CONTROL_SUBREDDIT,

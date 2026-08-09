@@ -1,7 +1,8 @@
-import { JobContext, WikiPage, WikiPagePermissionLevel } from "@devvit/public-api";
+import { JobContext, WikiPage } from "@devvit/public-api";
 import { UserDetails } from "../dataStore.js";
 import { eachDayOfInterval, endOfDay, format, isSameDay, startOfDay, subDays } from "date-fns";
 import json2md from "json2md";
+import { WikiPagePermissionLevel } from "../types.js";
 
 export async function createTimeOfSubmissionStatistics (allEntries: UserDetails[], context: JobContext) {
     const endRange = startOfDay(new Date());

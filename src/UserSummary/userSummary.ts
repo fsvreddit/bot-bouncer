@@ -158,7 +158,7 @@ function cleanedBio (bio: string, bannedDomains: string[]): string {
 }
 
 function getCommonEntriesForContent (items: Post[] | Comment[]): string[] {
-    const kind = items[0] instanceof Post ? "post" : "comment";
+    const kind = isLinkId(items[0].id) ? "post" : "comment";
 
     const bullets: string[] = [];
     if (items.length > 2) {

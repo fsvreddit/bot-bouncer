@@ -1,5 +1,5 @@
 /* eslint-disable @stylistic/quote-props */
-import { JobContext, JSONObject, ScheduledJobEvent, TriggerContext, UserSocialLink, WikiPage, WikiPagePermissionLevel } from "@devvit/public-api";
+import { JobContext, JSONObject, ScheduledJobEvent, TriggerContext, UserSocialLink, WikiPage } from "@devvit/public-api";
 import { BIO_TEXT_STORE, DISPLAY_NAME_STORE, getFullDataStore, SOCIAL_LINKS_STORE, UserDetails, UserFlag, UserStatus } from "../dataStore.js";
 import Ajv, { JSONSchemaType } from "ajv";
 import pluralize from "pluralize";
@@ -12,6 +12,7 @@ import _ from "lodash";
 import { ControlSubredditJob } from "../constants.js";
 import { expireKeyAt, hMGetAsRecord } from "devvit-helpers";
 import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
+import { WikiPagePermissionLevel } from "../types.js";
 
 interface ModmailDataExtract {
     status?: UserStatus[];

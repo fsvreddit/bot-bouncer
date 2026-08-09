@@ -176,7 +176,8 @@ export async function recheckFlaggedUser (username: string, context: JobContext)
     }
 
     const newConversationId = await context.reddit.modMail.createModInboxConversation({
-        subredditId: context.subredditId,
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+        subredditId: context.subredditId as `t5_${string}`,
         subject: `Flagged User Recheck: ${user.username}`,
         bodyMarkdown: firstString,
     });

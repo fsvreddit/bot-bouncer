@@ -74,7 +74,8 @@ export async function checkForUpdates (_: unknown, context: JobContext) {
     message.push({ p: `To install this update, or to disable these notifications, visit the [**Bot Bouncer Configuration Page**](https://developers.reddit.com/r/${subredditName}/apps/${context.appSlug}) for /r/${subredditName}.` });
 
     await context.reddit.modMail.createModNotification({
-        subredditId: context.subredditId,
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+        subredditId: context.subredditId as `t5_${string}`,
         subject: `New Bot Bouncer Update Available: v${update.version}`,
         bodyMarkdown: json2md(message),
     });
