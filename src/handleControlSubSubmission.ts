@@ -2,7 +2,7 @@ import { TriggerContext, User } from "@devvit/public-api";
 import { PostCreate } from "@devvit/protos";
 import { CONTROL_SUBREDDIT } from "./constants.js";
 import { getUsernameFromUrl, getUserOrUndefined, isModeratorWithCache } from "./utility.js";
-import { getUserStatus, UserDetails, UserStatus } from "./dataStore.js";
+import { getUserStatus, UserDetails } from "./dataStore.js";
 import { subMonths } from "date-fns";
 import { getControlSubSettings } from "./settings.js";
 import { AsyncSubmission, PostCreationQueueResult, queuePostCreation } from "./postCreation.js";
@@ -10,6 +10,7 @@ import { fixPostTriggerEvent, getUserExtendedFromUser } from "@fsvreddit/fsv-dev
 import json2md from "json2md";
 import { userIsTrustedSubmitter } from "./trustedSubmitterHelpers.js";
 import markdownEscape from "markdown-escape";
+import { UserStatus } from "./types.js";
 
 async function postSubmissionResponse (opts: {
     submissionResponse: json2md.DataObject[];

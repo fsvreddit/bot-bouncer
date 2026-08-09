@@ -1,3 +1,4 @@
+import { expect, test } from "vitest";
 import type { ControlSubSettings } from "../settings.js";
 import { getSubmitterStatusCells, submitterNeedsGuidance } from "./submitterStatistics.js";
 

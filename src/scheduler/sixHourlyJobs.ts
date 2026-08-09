@@ -1,7 +1,7 @@
 import { JobContext, JSONObject, ScheduledJobEvent, TriggerContext } from "@devvit/public-api";
 import { updateSubmitterStatistics } from "../statistics/submitterStatistics.js";
 import { createTimeOfSubmissionStatistics } from "../statistics/timeOfSubmissionStatistics.js";
-import { ALL_POTENTIAL_USER_PREFIXES, checkDataStoreIntegrity, getFullDataStore, removeStaleRecentChangesEntries, UserDetails, UserFlag } from "../dataStore.js";
+import { ALL_POTENTIAL_USER_PREFIXES, checkDataStoreIntegrity, getFullDataStore, removeStaleRecentChangesEntries, UserDetails } from "../dataStore.js";
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "../constants.js";
 import { addMinutes, subMonths } from "date-fns";
 import { updateUsernameStatistics } from "../statistics/usernameStatistics.js";
@@ -12,6 +12,7 @@ import { updateFailedFeedbackStorage } from "../submissionFeedback.js";
 import { analyseBioText } from "../similarBioTextFinder/bioTextFinder.js";
 import { DefinedHandlesStatsInitializerJobData } from "../statistics/definedHandlesStatistics.js";
 import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
+import { UserFlag } from "../types.js";
 
 export const FLAGS_TO_EXCLUDE_FROM_STATS: UserFlag[] = [
     UserFlag.HackedAndRecovered,

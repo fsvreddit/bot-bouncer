@@ -5,11 +5,12 @@ import _ from "lodash";
 import { SequenceMatcher } from "./difflib.js";
 import { getSubstitutedText } from "./substitutions.js";
 import pluralize from "pluralize";
-import { getUserStatus, UserStatus } from "../dataStore.js";
+import { getUserStatus } from "../dataStore.js";
 import { evaluateUserAccount } from "../handleControlSubAccountEvaluation.js";
 import json2md from "json2md";
 import { AsyncSubmission, PostCreationQueueResult, queuePostCreation } from "../postCreation.js";
 import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
+import { UserStatus } from "../types.js";
 
 interface UserBioText {
     username: string;
@@ -165,7 +166,6 @@ export async function analyseBioText (context: TriggerContext) {
     }
 
     const conversationId = await context.reddit.modMail.createModInboxConversation({
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
         subredditId: context.subredditId as `t5_${string}`,
         subject: "Similar Bio Text Patterns spotted in swept subreddits",
         bodyMarkdown: json2md(output),

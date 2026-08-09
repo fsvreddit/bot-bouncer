@@ -1,7 +1,7 @@
 /* eslint-disable @stylistic/quote-props */
 import { Comment, ModNote, Post, TriggerContext, UserSocialLink } from "@devvit/public-api";
 import Ajv, { JSONSchemaType } from "ajv";
-import { BIO_TEXT_STORE, SOCIAL_LINKS_STORE, UserDetails, UserFlag, UserStatus } from "../dataStore.js";
+import { BIO_TEXT_STORE, SOCIAL_LINKS_STORE, UserDetails } from "../dataStore.js";
 import { getControlSubSettings } from "../settings.js";
 import { CONTROL_SUBREDDIT } from "../constants.js";
 import { parseAllDocuments } from "yaml";
@@ -18,11 +18,13 @@ import { getUserSocialLinks } from "devvit-helpers";
 import { sendMessageOnDelay } from "./delayedSend.js";
 import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
 import { AppealConfigWithCompiledRegexes, AppealRegexConfig, type CompiledAppealRegexes, compileAppealConfigs, getAppealConfigRegexIssues } from "./appealConfigRegex.js";
+import { UserFlag, UserStatus } from "../types.js";
 
 const APPEAL_CONFIG_WIKI_PAGE = "appeal-config";
 const APPEAL_CONFIG_REDIS_KEY = "AppealConfig";
 
 interface AppealConfig extends AppealRegexConfig {
+    isHackedAppealConfig?: boolean;
     priority?: number;
     submitter?: string;
     operator?: string;
@@ -43,7 +45,7 @@ interface AppealConfig extends AppealRegexConfig {
     highlight?: boolean;
 }
 
-type CompiledAppealConfig = AppealConfigWithCompiledRegexes<AppealConfig>;
+export type CompiledAppealConfig = AppealConfigWithCompiledRegexes<AppealConfig>;
 
 let cachedAppealConfigData: string | undefined;
 let cachedAppealConfigs: CompiledAppealConfig[] = [];
@@ -58,6 +60,7 @@ const appealConfigSchema: JSONSchemaType<AppealConfig[]> = {
         type: "object",
         properties: {
             name: { type: "string" },
+            isHackedAppealConfig: { type: "boolean", nullable: true },
             priority: { type: "number", nullable: true },
             submitter: { type: "string", nullable: true },
             operator: { type: "string", nullable: true },
@@ -394,7 +397,7 @@ export async function validateAndSaveAppealConfig (username: string, context: Tr
     }
 }
 
-async function getAppealConfig (context: TriggerContext): Promise<CompiledAppealConfig[]> {
+export async function getAppealConfig (context: TriggerContext): Promise<CompiledAppealConfig[]> {
     const configData = await context.redis.get(APPEAL_CONFIG_REDIS_KEY);
     if (!configData) {
         cachedAppealConfigData = undefined;
@@ -444,14 +447,14 @@ function isAppealGrantStatus (status: string | undefined): boolean {
         || status === UserFlag.FutureNSFW;
 }
 
-export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDetails, context: TriggerContext): Promise<AppealOutcomeType> {
-    const username = modmail.participant;
-    if (!username) {
-        return AppealOutcomeType.Skipped;
+export async function getMatchedAppealConfig (username: string, userDetails: UserDetails, appealConfig: CompiledAppealConfig[], modmailMessage: string | undefined, context: TriggerContext) {
+    const initialAccountEvaluationResults = await getAccountInitialEvaluationResults(username, context);
+
+    // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
+    if (initialAccountEvaluationResults.length === 0 && appealConfig.every(config => config.evaluatorDetailRegex || config.evaluatorHitReasonRegex || config.evaluatorNameRegex)) {
+        return;
     }
 
-    const appealConfig = await getAppealConfig(context).then(configs => configs.sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0)));
-    const initialAccountEvaluationResults = await getAccountInitialEvaluationResults(username, context);
     // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
     const user = appealConfig.some(config => config.bioRegex || config["~bioRegex"]) ? await getUserExtended(username, context) : undefined;
     // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
@@ -482,7 +485,7 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
         currentEvaluationResults = await evaluateUserAccount({
             username,
             variables: await getEvaluatorVariables(context),
-        }, context);
+        }, context, true);
     }
 
     let history: (Post | Comment)[] = [];
@@ -500,7 +503,7 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
             const regexes = config.compiledRegexes;
 
             if (negatedAppealRegexesExcludeConfig(regexes, {
-                messageBody: modmail.bodyMarkdown,
+                messageBody: modmailMessage ?? "",
                 initialEvaluationResults: initialAccountEvaluationResults,
                 currentEvaluationResults,
                 originalBio,
@@ -517,7 +520,7 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
                 return;
             }
 
-            if (regexes.messageBodyRegex && !regexes.messageBodyRegex.some(regex => regex.test(modmail.bodyMarkdown))) {
+            if (regexes.messageBodyRegex && !regexes.messageBodyRegex.some(regex => regex.test(modmailMessage ?? ""))) {
                 return;
             }
 
@@ -650,6 +653,18 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
             return;
         }
     });
+
+    return matchedAppealConfig;
+}
+
+export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDetails, context: TriggerContext): Promise<AppealOutcomeType> {
+    const username = modmail.participant;
+    if (!username) {
+        return AppealOutcomeType.Skipped;
+    }
+
+    const appealConfig = await getAppealConfig(context).then(configs => configs.sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0)));
+    const matchedAppealConfig = await getMatchedAppealConfig(username, userDetails, appealConfig, modmail.bodyMarkdown, context);
 
     let appealOutcome: AppealOutcome;
     let appealOutcomeType: AppealOutcomeType = AppealOutcomeType.Neutral;

@@ -1,4 +1,5 @@
-import { UserDetails, UserStatus } from "../dataStore.js";
+import { UserDetails } from "../dataStore.js";
+import { UserStatus } from "../types.js";
 
 export function userIsBanned (userDetails: UserDetails): boolean {
     if (userDetails.userStatus === UserStatus.Banned) {

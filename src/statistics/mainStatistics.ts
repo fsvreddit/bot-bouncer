@@ -1,10 +1,10 @@
 import { JobContext, JSONObject, ScheduledJobEvent, WikiPage } from "@devvit/public-api";
-import { AGGREGATE_STORE, UserDetails, UserStatus } from "../dataStore.js";
+import { AGGREGATE_STORE, UserDetails } from "../dataStore.js";
 import _ from "lodash";
 import json2md from "json2md";
 import { addMinutes } from "date-fns";
 import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
-import { WikiPagePermissionLevel } from "../types.js";
+import { UserStatus, WikiPagePermissionLevel } from "../types.js";
 
 export async function updateMainStatisticsPage (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
     // TODO: Safe, performant implementation of correctAggregateStore

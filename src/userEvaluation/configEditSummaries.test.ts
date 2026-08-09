@@ -1,3 +1,4 @@
+import { expect, test } from "vitest";
 import { buildEvaluatorConfigEditSummaryWikiPage, nextTopOfHour, summarizeEvaluatorConfigChanges } from "./configEditSummaries.js";
 
 test("summarizeEvaluatorConfigChanges counts array additions and removals by evaluator module", () => {

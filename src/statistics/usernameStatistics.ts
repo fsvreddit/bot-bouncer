@@ -1,5 +1,5 @@
 import { JobContext } from "@devvit/public-api";
-import { UserStatus } from "../dataStore.js";
+import { UserStatus } from "../types.js";
 import { getEvaluatorVariable } from "../userEvaluation/evaluatorVariables.js";
 import { subWeeks } from "date-fns";
 import json2md from "json2md";

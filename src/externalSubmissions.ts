@@ -1,6 +1,6 @@
 import { JobContext, TriggerContext, User, WikiPage } from "@devvit/public-api";
 import { CONTROL_SUBREDDIT, INTERNAL_BOT } from "./constants.js";
-import { addUserToTempDeclineStore, getUserStatus, UserStatus } from "./dataStore.js";
+import { addUserToTempDeclineStore, getUserStatus } from "./dataStore.js";
 import { getControlSubSettings } from "./settings.js";
 import { addDays, addMinutes, addSeconds, addWeeks } from "date-fns";
 import { getUserOrUndefined } from "./utility.js";
@@ -14,6 +14,7 @@ import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { queueKarmaFarmingAccounts } from "./karmaFarmingSubsCheck.js";
 import { userIsTrustedSubmitter } from "./trustedSubmitterHelpers.js";
 import { expireKeyAt } from "devvit-helpers";
+import { UserStatus } from "./types.js";
 
 const WIKI_PAGE = "externalsubmissions";
 

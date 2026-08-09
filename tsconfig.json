@@ -3,7 +3,7 @@
     "compilerOptions": {
         "lib": ["ES2021", "WebWorker"],
         "types": [
-            "node"
+            "node",
         ]
     },
     "exclude": [

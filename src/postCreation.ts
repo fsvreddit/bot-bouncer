@@ -1,5 +1,5 @@
 import { JobContext, TriggerContext, ZMember } from "@devvit/public-api";
-import { getUserStatus, setUserStatus, storeInitialAccountProperties, UserDetails, UserStatus } from "./dataStore.js";
+import { getUserStatus, setUserStatus, storeInitialAccountProperties, UserDetails } from "./dataStore.js";
 import { CONTROL_SUBREDDIT, ControlSubredditJob, INTERNAL_BOT, PostFlairTemplate } from "./constants.js";
 import { UserExtended } from "@fsvreddit/fsv-devvit-helpers";
 import { addDays, addHours, addMinutes, addSeconds, subWeeks } from "date-fns";
@@ -9,6 +9,7 @@ import { queueSendFeedback } from "./submissionFeedback.js";
 import { formatTimeSince, isBannedWithCache, sendMessageToWebhook, updateWebhookMessage } from "./utility.js";
 import { isUserSubmitterOrMod } from "./cleanup.js";
 import { recordBotPostCreated } from "./scheduler/botPostMonitor.js";
+import { UserStatus } from "./types.js";
 
 export const statusToFlair: Record<UserStatus, PostFlairTemplate> = {
     [UserStatus.Pending]: PostFlairTemplate.Pending,

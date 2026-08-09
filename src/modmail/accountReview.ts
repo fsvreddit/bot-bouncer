@@ -110,7 +110,6 @@ export async function checkAccountsForReview (event: ScheduledJobEvent<JSONObjec
                 const subject = username ? `Account review reminder for /u/${username}` : "Account review reminder";
                 await context.reddit.modMail.createModInboxConversation({
                     subject,
-                    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
                     subredditId: context.subredditId as `t5_${string}`,
                     bodyMarkdown: json2md(message),
                 });

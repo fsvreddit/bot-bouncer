@@ -1,7 +1,7 @@
 import { TriggerContext } from "@devvit/public-api";
 import { PostFlairUpdate } from "@devvit/protos";
 import { CONTROL_SUBREDDIT, PostFlairTemplate } from "./constants.js";
-import { getUserStatus, setUserStatus, UserDetails, UserFlag, UserStatus, writeUserStatus } from "./dataStore.js";
+import { getUserStatus, setUserStatus, UserDetails, writeUserStatus } from "./dataStore.js";
 import { getUsernameFromUrl } from "./utility.js";
 import { queueSendFeedback } from "./submissionFeedback.js";
 import _ from "lodash";
@@ -11,6 +11,7 @@ import { statusToFlair } from "./postCreation.js";
 import { submitAccountForReview } from "./modmail/accountReview.js";
 import { fixPostTriggerEvent, hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
 import { T3ID } from "@devvit/public-api/types/tid.js";
+import { UserFlag, UserStatus } from "./types.js";
 
 interface FlairMapping {
     postFlair: string;
@@ -94,13 +95,12 @@ export async function handleControlSubFlairUpdate (event: PostFlairUpdate, conte
         }
 
         await context.reddit.setPostFlair({
-            // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
             postId: event.post.id as T3ID,
             subredditName: CONTROL_SUBREDDIT,
             flairTemplateId: mapping.destinationFlair,
         });
 
-        if (mapping.removeFromDatabaseAfterDays) {
+        if (mapping.removeFromDatabaseAfterDays && mapping.removeFromDatabaseAfterDays > 0) {
             await addToReversalsQueue(username, mapping.removeFromDatabaseAfterDays, context);
         }
 
@@ -118,7 +118,6 @@ export async function handleControlSubFlairUpdate (event: PostFlairUpdate, conte
         await context.redis.set(`userStatusOverrideValue~${username}`, event.author.name, { expiration: addHours(new Date(), 1) });
 
         await context.reddit.setPostFlair({
-            // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
             postId: event.post.id as T3ID,
             subredditName: CONTROL_SUBREDDIT,
             flairTemplateId: statusToFlair[status],

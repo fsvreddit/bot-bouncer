@@ -1,6 +1,6 @@
 import { JobContext, JSONObject, ScheduledJobEvent, UserSocialLink } from "@devvit/public-api";
 import { EvaluateBioTextDefinedHandles, EvaluateBotGroupAdvanced, EvaluateBotGroupAdvancedInternal, EvaluatePostTitleDefinedHandles, EvaluateSocialLinks } from "@fsvreddit/bot-bouncer-evaluation";
-import { getUserStatus, UserFlag, UserStatus } from "../dataStore.js";
+import { getUserStatus } from "../dataStore.js";
 import { getEvaluatorVariables } from "./evaluatorVariables.js";
 import { getSummaryForUser } from "../UserSummary/userSummary.js";
 import json2md from "json2md";
@@ -10,6 +10,7 @@ import { ControlSubredditJob } from "../constants.js";
 import pluralize from "pluralize";
 import { getUserExtended, hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
 import { AppSetting, getControlSubSettings } from "../settings.js";
+import { UserFlag, UserStatus } from "../types.js";
 
 const FLAGGED_RECHECKS_QUEUE_KEY = "flaggedRechecksQueue";
 
@@ -176,7 +177,6 @@ export async function recheckFlaggedUser (username: string, context: JobContext)
     }
 
     const newConversationId = await context.reddit.modMail.createModInboxConversation({
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
         subredditId: context.subredditId as `t5_${string}`,
         subject: `Flagged User Recheck: ${user.username}`,
         bodyMarkdown: firstString,

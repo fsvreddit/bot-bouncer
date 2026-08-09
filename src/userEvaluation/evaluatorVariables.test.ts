@@ -1,6 +1,7 @@
 import { yamlToVariables } from "@fsvreddit/bot-bouncer-evaluation";
 import { invalidEvaluatorVariableCondition } from "./evaluatorVariables.js";
 import { JobContext } from "@devvit/public-api";
+import { expect, test } from "vitest";
 
 test("Parsing YAML", () => {
     const yamlString = `

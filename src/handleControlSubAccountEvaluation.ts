@@ -1,6 +1,6 @@
 import { Comment, JobContext, JSONObject, JSONValue, Post, ScheduledJobEvent, SubredditInfo, TriggerContext } from "@devvit/public-api";
 import { EvaluateBotGroupAdvancedSubmitters, getSocialLinksWithCache, HitReason, UserEvaluatorBase } from "@fsvreddit/bot-bouncer-evaluation";
-import { getUserStatus, UserStatus } from "./dataStore.js";
+import { getUserStatus } from "./dataStore.js";
 import { ALL_RELEVANT_EVALUTORS, CONTROL_SUBREDDIT, ControlSubredditJob, PostFlairTemplate } from "./constants.js";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { createUserSummary } from "./UserSummary/userSummary.js";
@@ -11,6 +11,7 @@ import { conditionallyCompressString, conditionallyDecompressString } from "./ut
 import { AppSetting, getControlSubSettings } from "./settings.js";
 import { getPostOrCommentById, getUserExtended, hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
 import { T3ID } from "@devvit/public-api/types/tid.js";
+import { UserStatus } from "./types.js";
 
 export interface EvaluatorStats {
     hitCount: number;
@@ -31,7 +32,7 @@ interface EvaluateUserAccountOptions {
     targetId?: string;
 }
 
-export async function evaluateUserAccount (options: EvaluateUserAccountOptions, context: JobContext): Promise<EvaluationResult[]> {
+export async function evaluateUserAccount (options: EvaluateUserAccountOptions, context: JobContext, silent = false): Promise<EvaluationResult[]> {
     const user = await getUserExtended(options.username, context);
     if (!user) {
         return [];
@@ -68,7 +69,9 @@ export async function evaluateUserAccount (options: EvaluateUserAccountOptions, 
     }
 
     if (options.targetId && !userItems.some(item => item.id === options.targetId)) {
-        console.log(`Evaluator: Adding target item ${options.targetId} to evaluation for ${options.username}`);
+        if (!silent) {
+            console.log(`Evaluator: Adding target item ${options.targetId} to evaluation for ${options.username}`);
+        }
         userItems.unshift(await getPostOrCommentById(context.reddit, options.targetId));
     }
 
@@ -93,9 +96,13 @@ export async function evaluateUserAccount (options: EvaluateUserAccountOptions, 
             return;
         }
         if (isABot) {
-            console.log(`Evaluator: ${options.username} appears to be a bot via the evaluator: ${evaluator.name} 💥`);
+            if (!silent) {
+                console.log(`Evaluator: ${options.username} appears to be a bot via the evaluator: ${evaluator.name} 💥`);
+            }
             if (evaluator.name.includes("Bot Group") && evaluator.hitReasons && evaluator.hitReasons.length > 0) {
-                console.log(`Evaluator: Hit reasons: ${evaluator.hitReasons.map(item => typeof item === "string" ? item : item.reason).join(", ")}`);
+                if (!silent) {
+                    console.log(`Evaluator: Hit reasons: ${evaluator.hitReasons.map(item => typeof item === "string" ? item : item.reason).join(", ")}`);
+                }
             }
             detectedBots.push(evaluator);
         }

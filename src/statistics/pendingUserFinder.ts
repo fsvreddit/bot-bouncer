@@ -1,5 +1,5 @@
 import { JobContext, JSONObject, ScheduledJobEvent } from "@devvit/public-api";
-import { getFullDataStore, UserStatus } from "../dataStore.js";
+import { getFullDataStore } from "../dataStore.js";
 import { addDays, addHours, addMinutes, format, subDays } from "date-fns";
 import json2md from "json2md";
 import { StatsUserEntry } from "../scheduler/sixHourlyJobs.js";
@@ -7,6 +7,7 @@ import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
 import { getUsernameFromUrl } from "../utility.js";
 import _ from "lodash";
 import pluralize from "pluralize";
+import { UserStatus } from "../types.js";
 
 export async function pendingUserFinder (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
     const jobGuid = event.data?.jobGuid as string | undefined;
@@ -75,7 +76,6 @@ export async function pendingUserFinder (event: ScheduledJobEvent<JSONObject | u
     await context.reddit.modMail.createModInboxConversation({
         subject: "Pending Users Report",
         bodyMarkdown: json2md(output),
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
         subredditId: context.subredditId as `t5_${string}`,
     });
 

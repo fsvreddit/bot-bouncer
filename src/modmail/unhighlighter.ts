@@ -2,7 +2,8 @@ import { JobContext, TriggerContext } from "@devvit/public-api";
 import { ModmailMessage } from "./modmail.js";
 import { CONTROL_SUBREDDIT } from "../constants.js";
 import { addMinutes, addSeconds } from "date-fns";
-import { getUserStatus, UserStatus } from "../dataStore.js";
+import { getUserStatus } from "../dataStore.js";
+import { UserStatus } from "../types.js";
 import pluralize from "pluralize";
 
 const HIGHLIGHTED_CONVERSATION_QUEUE = "highlightedConversationQueue";

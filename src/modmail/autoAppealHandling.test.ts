@@ -1,3 +1,4 @@
+import { expect, test } from "vitest";
 import type { EvaluationResult } from "../handleControlSubAccountEvaluation.js";
 import {
     type AppealRegexConfig,

@@ -1,4 +1,5 @@
-import { UserStatus } from "./dataStore.js";
+import { expect, test } from "vitest";
+import { UserStatus } from "./types.js";
 import { statusToFlair } from "./postCreation.js";
 
 test("Every user status has a corresponding post flair template", () => {

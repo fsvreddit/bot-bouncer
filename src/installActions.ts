@@ -300,7 +300,6 @@ async function checkForBotSwatter (context: TriggerContext) {
     ];
 
     await context.reddit.modMail.createModInboxConversation({
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
         subredditId: context.subredditId as `t5_${string}`,
         subject: `Thanks for ${actionVerbage} Bot Bouncer - Bot Swatter detected`,
         bodyMarkdown: json2md(message),

@@ -63,6 +63,7 @@ export enum ControlSubredditJob {
     FlaggedUsersRechecks = "flaggedUsersRechecks",
     ProcessDelayedMessages = "processDelayedMessages",
     UpdateEvaluatorConfigEditSummaryPage = "updateEvaluatorConfigEditSummaryPage",
+    AutoAccountRecovery = "autoAccountRecovery",
 }
 
 /**

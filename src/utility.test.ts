@@ -1,4 +1,5 @@
 import { conditionallyCompressString, conditionallyDecompressString, getUsernameFromUrl, median, sendMessageToWebhook, updateWebhookMessage } from "./utility.js";
+import { expect, test, vi } from "vitest";
 
 test("URL parsing", () => {
     const expected = [

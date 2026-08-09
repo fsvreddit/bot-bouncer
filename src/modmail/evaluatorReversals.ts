@@ -1,5 +1,5 @@
 import { JobContext, JSONObject, ScheduledJobEvent, TriggerContext } from "@devvit/public-api";
-import { deleteUserStatus, getUserStatus, updateAggregate, UserStatus } from "../dataStore.js";
+import { deleteUserStatus, getUserStatus, updateAggregate } from "../dataStore.js";
 import { addDays, addMinutes, addSeconds } from "date-fns";
 import { CONTROL_SUBREDDIT, ControlSubredditJob, PostFlairTemplate } from "../constants.js";
 import { deleteAccountInitialEvaluationResults, getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
@@ -10,6 +10,7 @@ import { AsyncSubmission } from "../postCreation.js";
 import pluralize from "pluralize";
 import json2md from "json2md";
 import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
+import { UserStatus } from "../types.js";
 
 const REVERSED_USERS = "ReversedUsers";
 

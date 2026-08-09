@@ -1,5 +1,5 @@
 import { JobContext, JSONObject, Post, ScheduledJobEvent, ZMember } from "@devvit/public-api";
-import { BIO_TEXT_STORE, DISPLAY_NAME_STORE, getDataStoreFiltered, USER_DEFINED_HANDLES_POSTS, UserStatus } from "../dataStore.js";
+import { BIO_TEXT_STORE, DISPLAY_NAME_STORE, getDataStoreFiltered, USER_DEFINED_HANDLES_POSTS } from "../dataStore.js";
 import { addMinutes, addSeconds, format, subMonths } from "date-fns";
 import { getEvaluatorVariable } from "../userEvaluation/evaluatorVariables.js";
 import _ from "lodash";
@@ -11,6 +11,7 @@ import { parse } from "regjsparser";
 import { expireKeyAt } from "devvit-helpers";
 import pluralize from "pluralize";
 import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
+import { UserStatus } from "../types.js";
 
 const DEFINED_HANDLES_QUEUE = "definedHandlesQueue";
 const DEFINED_HANDLES_DATA = "definedHandlesData";

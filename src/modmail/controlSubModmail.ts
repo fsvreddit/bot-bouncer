@@ -1,6 +1,6 @@
 import { TriggerContext } from "@devvit/public-api";
 import { isCommentId, isLinkId } from "@devvit/public-api/types/tid.js";
-import { getUserStatus, UserStatus } from "../dataStore.js";
+import { getUserStatus } from "../dataStore.js";
 import { getSummaryForUser } from "../UserSummary/userSummary.js";
 import { getUserOrUndefined, isModeratorWithCache } from "../utility.js";
 import { CONFIGURATION_DEFAULTS, getControlSubSettings } from "../settings.js";
@@ -26,6 +26,7 @@ import { handleAskAI } from "../aiAnalysis/askAI.js";
 import pluralize from "pluralize";
 import { storeAppealRecordsForUser } from "./appealStore.js";
 import { count } from "@wordpress/wordcount";
+import { UserStatus } from "../types.js";
 
 export function getPossibleSetStatusValues (): string[] {
     return _.uniq([...FLAIR_MAPPINGS.map(entry => entry.postFlair), ...Object.values(UserStatus)]);

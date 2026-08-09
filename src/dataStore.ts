@@ -17,6 +17,7 @@ export const USER_DEFINED_HANDLES_POSTS = "userDefinedHandlesPosts";
 import { getUserSocialLinks, hGetAllChunked } from "devvit-helpers";
 import { removeUserFromReversalsQueue } from "./modmail/evaluatorReversals.js";
 import { deleteAppealRecordsForUser } from "./modmail/appealStore.js";
+import { UserFlag, UserStatus } from "./types.js";
 
 const TEMP_DECLINE_STORE = "TempDeclineStore";
 const RECENT_CHANGES_STORE = "RecentChangesStore";
@@ -26,23 +27,6 @@ export const DISPLAY_NAME_STORE = "DisplayNameStore";
 export const SOCIAL_LINKS_STORE = "SocialLinksStore";
 
 export const AGGREGATE_STORE = "AggregateStore";
-
-export enum UserStatus {
-    Pending = "pending",
-    Banned = "banned",
-    Service = "service",
-    Organic = "organic",
-    Purged = "purged",
-    Retired = "retired",
-    Inactive = "inactive",
-}
-
-export enum UserFlag {
-    HackedAndRecovered = "recovered",
-    Scammed = "scammed",
-    Locked = "locked",
-    FutureNSFW = "futurensfw",
-}
 
 const eligibleFlagsForStatus: Record<UserFlag, UserStatus[]> = {
     [UserFlag.HackedAndRecovered]: [UserStatus.Pending, UserStatus.Organic],

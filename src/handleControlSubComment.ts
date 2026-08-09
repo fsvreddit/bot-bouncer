@@ -1,9 +1,10 @@
 import { TriggerContext } from "@devvit/public-api";
 import { CommentCreate } from "@devvit/protos";
 import { CONTROL_SUBREDDIT } from "./constants.js";
-import { getUserStatus, UserStatus } from "./dataStore.js";
+import { getUserStatus } from "./dataStore.js";
 import json2md from "json2md";
 import { fixCommentTriggerEvent } from "@fsvreddit/fsv-devvit-helpers";
+import { UserStatus } from "./types.js";
 
 export async function handleControlSubCommentCreate (event: CommentCreate, context: TriggerContext) {
     if (context.subredditName !== CONTROL_SUBREDDIT) {

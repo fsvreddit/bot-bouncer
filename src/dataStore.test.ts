@@ -1,5 +1,7 @@
-import { shouldStoreClassificationEvent, UserStatus } from "./dataStore.js";
+import { expect, test } from "vitest";
+import { shouldStoreClassificationEvent } from "./dataStore.js";
 import type { UserDetails } from "./dataStore.js";
+import { UserStatus } from "./types.js";
 
 function details (overrides: Partial<UserDetails>): UserDetails {
     return {

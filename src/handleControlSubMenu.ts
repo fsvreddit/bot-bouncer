@@ -1,6 +1,6 @@
 import { Comment, Context, Form, FormField, FormOnSubmitEvent, JSONObject, Post } from "@devvit/public-api";
 import { getUsernameFromUrl } from "./utility.js";
-import { deleteUserStatus, getUsernameFromPostId, getUserStatus, updateAggregate, UserStatus } from "./dataStore.js";
+import { deleteUserStatus, getUsernameFromPostId, getUserStatus, updateAggregate } from "./dataStore.js";
 import { controlSubForm, controlSubQuerySubmissionForm } from "./main.js";
 import { CONTROL_SUBREDDIT } from "./constants.js";
 import { createUserSummary, getSummaryForUser } from "./UserSummary/userSummary.js";
@@ -13,6 +13,7 @@ import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { isUserPotentiallyBlockingBot } from "./UserSummary/blockChecker.js";
 import { markdownToText } from "./modmail/controlSubModmail.js";
 import { isCommentId } from "@devvit/public-api/types/tid.js";
+import { UserStatus } from "./types.js";
 
 enum ControlSubAction {
     RegenerateSummary = "generateSummary",

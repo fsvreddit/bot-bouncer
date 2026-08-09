@@ -1,10 +1,11 @@
 import { JobContext } from "@devvit/public-api";
-import { DISPLAY_NAME_STORE, UserDetails, UserStatus } from "../dataStore.js";
+import { DISPLAY_NAME_STORE, UserDetails } from "../dataStore.js";
 import { subWeeks } from "date-fns";
 import { getEvaluatorVariable } from "../userEvaluation/evaluatorVariables.js";
 import json2md from "json2md";
 import { StatsUserEntry } from "../scheduler/sixHourlyJobs.js";
 import { userIsBanned } from "./statsHelpers.js";
+import { UserStatus } from "../types.js";
 
 type UserDetailsWithDisplayName = UserDetails & { displayName?: string };
 

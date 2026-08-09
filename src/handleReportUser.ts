@@ -1,7 +1,7 @@
 import { Context, MenuItemOnPressEvent, JSONObject, FormOnSubmitEvent, FormFunction, TriggerContext } from "@devvit/public-api";
 import { CONTROL_SUBREDDIT } from "./constants.js";
 import { getUserOrUndefined, isBannedWithCache, isModeratorWithCache } from "./utility.js";
-import { getUserStatus, UserStatus } from "./dataStore.js";
+import { getUserStatus } from "./dataStore.js";
 import { addExternalSubmissionFromClientSub } from "./externalSubmissions.js";
 import { queryForm, reportForm } from "./main.js";
 import { addDays, addMinutes, subMonths } from "date-fns";
@@ -12,6 +12,7 @@ import { canUserReceiveFeedback } from "./submissionFeedback.js";
 import { isLinkId } from "@devvit/public-api/types/tid.js";
 import { addClassificationQueryToQueue } from "./modmail/classificationQuery.js";
 import { getPostOrCommentById } from "@fsvreddit/fsv-devvit-helpers";
+import { UserStatus } from "./types.js";
 
 enum ReportFormField {
     ReportContext = "reportContext",

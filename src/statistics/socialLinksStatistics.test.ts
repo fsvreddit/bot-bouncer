@@ -1,3 +1,4 @@
+import { expect, test } from "vitest";
 import { cleanLink } from "./socialLinksStatistics.js";
 
 test("Clean OF link with share code", () => {

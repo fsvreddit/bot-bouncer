@@ -1,13 +1,15 @@
 import { Comment, JobContext, JSONObject, Post, RedisClient, ScheduledJobEvent, TriggerContext, TxClientLike } from "@devvit/public-api";
 import { addDays, addHours, addMinutes, addSeconds, addWeeks, subDays, subMinutes, subSeconds } from "date-fns";
 import { CONTROL_SUBREDDIT, PostFlairTemplate, UniversalJob } from "./constants.js";
-import { deleteUserStatus, getUserStatus, removeRecordOfSubmitterOrMod, updateAggregate, UserFlag, UserStatus, writeUserStatus } from "./dataStore.js";
+import { deleteUserStatus, getUserStatus, removeRecordOfSubmitterOrMod, updateAggregate, writeUserStatus } from "./dataStore.js";
 import { getUserExtended, hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
 import { removeRecordOfBan, removeWhitelistUnban } from "./handleClientSubredditClassificationChanges.js";
 import _ from "lodash";
 import { getControlSubSettings } from "./settings.js";
 import { formatTimeSince } from "./utility.js";
 import { submitAccountForReview } from "./modmail/accountReview.js";
+import { addUserToRecoveredRechecksQueue } from "./autoAccountRecovery/autoAccountRecovery.js";
+import { UserFlag, UserStatus } from "./types.js";
 export const CLEANUP_LOG_KEY = "CleanupLog";
 const SUB_OR_MOD_LOG_KEY = "SubOrModLog";
 const DAYS_BETWEEN_CHECKS = 28;
@@ -200,6 +202,10 @@ export async function cleanupDeletedAccounts (event: ScheduledJobEvent<JSONObjec
                 overrideCleanupDate = addWeeks(new Date(), 1);
             }
 
+            if (!newFlair) {
+                await addUserToRecoveredRechecksQueue(username, currentStatus, context);
+            }
+
             if (currentStatus.flags?.includes(UserFlag.FutureNSFW)) {
                 // Check to see if the user has any new NSFW content. If they do, set a reminder for the user.
                 const posts = await context.reddit.getPostsByUser({
@@ -246,13 +252,6 @@ export async function cleanupDeletedAccounts (event: ScheduledJobEvent<JSONObjec
             if (new Date(currentStatus.lastUpdate) > subDays(new Date(), 8)) {
                 overrideCleanupDate = addDays(new Date(), 1);
             }
-        }
-
-        // eslint-disable-next-line @typescript-eslint/no-deprecated
-        if (currentStatus.mostRecentActivity) {
-            // eslint-disable-next-line @typescript-eslint/no-deprecated
-            delete currentStatus.mostRecentActivity;
-            await writeUserStatus(username, currentStatus, context);
         }
 
         await setCleanupForUser(username, context.redis, overrideCleanupDate);

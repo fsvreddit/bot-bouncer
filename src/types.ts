@@ -6,3 +6,26 @@ export enum WikiPagePermissionLevel {
     /** Only mods may edit and view */
     MODS_ONLY = 2,
 }
+
+// eslint-disable-next-line @typescript-eslint/consistent-type-definitions
+export type RecoveredAccountsData = {
+    firstRun: boolean;
+    jobGuid: string;
+};
+
+export enum UserStatus {
+    Pending = "pending",
+    Banned = "banned",
+    Service = "service",
+    Organic = "organic",
+    Purged = "purged",
+    Retired = "retired",
+    Inactive = "inactive",
+}
+
+export enum UserFlag {
+    HackedAndRecovered = "recovered",
+    Scammed = "scammed",
+    Locked = "locked",
+    FutureNSFW = "futurensfw",
+}

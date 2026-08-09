@@ -1,7 +1,7 @@
 import { Post, Comment, TriggerContext, JSONValue, UserSocialLink } from "@devvit/public-api";
 import { CommentCreate, CommentUpdate, PostCreate, PostUpdate } from "@devvit/protos";
 import { addDays, addSeconds, formatDate, subMinutes } from "date-fns";
-import { getUserStatus, UserDetails, UserStatus } from "./dataStore.js";
+import { getUserStatus, UserDetails } from "./dataStore.js";
 import { addUserToModqueueRemovalStore, isUserWhitelisted, recordBan, recordUserContentCreation } from "./handleClientSubredditClassificationChanges.js";
 import { ALL_RELEVANT_EVALUTORS, CONTROL_SUBREDDIT } from "./constants.js";
 import { getUserOrUndefined, isModeratorWithCache } from "./utility.js";
@@ -12,6 +12,7 @@ import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import { recordBanForSummary } from "./modmail/actionSummary.js";
 import { expireKeyAt, isBanned, isContributor } from "devvit-helpers";
 import { filterContent, fixCommentTriggerEvent, fixPostTriggerEvent, getPostOrCommentById, getUserExtended, hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
+import { UserStatus } from "./types.js";
 
 export async function handleClientPostCreate (event: PostCreate, context: TriggerContext) {
     if (context.subredditName === CONTROL_SUBREDDIT) {

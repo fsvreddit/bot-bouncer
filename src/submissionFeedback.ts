@@ -1,8 +1,9 @@
 import { TriggerContext } from "@devvit/public-api";
-import { getUserStatus, UserStatus } from "./dataStore.js";
+import { getUserStatus } from "./dataStore.js";
 import json2md from "json2md";
 import { CONTROL_SUBREDDIT } from "./constants.js";
 import { addMinutes, subDays } from "date-fns";
+import { UserStatus } from "./types.js";
 
 const FEEDBACK_QUEUE = "FeedbackQueue";
 const FAILED_FEEDBACK_STORE = "FailedFeedbackStore";

@@ -1,3 +1,4 @@
+import { expect, test } from "vitest";
 import { BOT_POST_MONITOR_DEFAULT_THRESHOLD_MINUTES, BotPostRecord, getBotPostFreshness, getBotPostMonitorThresholdMinutes } from "./botPostMonitor.js";
 
 function postRecord (createdAt: Date, overrides = {}): BotPostRecord {

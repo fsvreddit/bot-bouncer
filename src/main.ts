@@ -41,6 +41,7 @@ import { processDelayedMessages } from "./modmail/delayedSend.js";
 import { updateEvaluatorConfigEditSummaryPage } from "./userEvaluation/configEditSummaries.js";
 import { handleObserverSubMinutelyJob } from "./scheduler/handleObserverSubMinutelyJob.js";
 import { handleClientSubAnnouncements } from "./handleClientSubAnnouncements.js";
+import { checkPotentiallyRecoveredAccounts } from "./autoAccountRecovery/autoAccountRecovery.js";
 
 Devvit.addSettings(appSettings);
 
@@ -299,6 +300,11 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: ControlSubredditJob.UpdateEvaluatorConfigEditSummaryPage,
     onRun: updateEvaluatorConfigEditSummaryPage,
+});
+
+Devvit.addSchedulerJob({
+    name: ControlSubredditJob.AutoAccountRecovery,
+    onRun: checkPotentiallyRecoveredAccounts,
 });
 
 /**

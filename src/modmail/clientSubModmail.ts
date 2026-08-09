@@ -1,10 +1,11 @@
 import { TriggerContext } from "@devvit/public-api";
-import { getUserStatus, UserStatus } from "../dataStore.js";
+import { getUserStatus } from "../dataStore.js";
 import { wasUserBannedByApp } from "../handleClientSubredditClassificationChanges.js";
 import { AppSetting, CONFIGURATION_DEFAULTS } from "../settings.js";
 import { ModmailMessage } from "./modmail.js";
 import { isBanned } from "devvit-helpers";
 import json2md from "json2md";
+import { UserStatus } from "../types.js";
 
 export async function handleClientSubredditModmail (modmail: ModmailMessage, context: TriggerContext) {
     if (!modmail.isFirstMessage) {

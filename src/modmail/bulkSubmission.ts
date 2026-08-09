@@ -1,6 +1,6 @@
 import { TriggerContext } from "@devvit/public-api";
 import Ajv, { JSONSchemaType } from "ajv";
-import { getUserStatus, UserStatus } from "../dataStore.js";
+import { getUserStatus } from "../dataStore.js";
 import json2md from "json2md";
 import { AsyncSubmission, PostCreationQueueResult, queuePostCreation } from "../postCreation.js";
 import { getUserExtended } from "@fsvreddit/fsv-devvit-helpers";
@@ -9,6 +9,7 @@ import pluralize from "pluralize";
 import { ModmailMessage } from "./modmail.js";
 import { getControlSubSettings } from "../settings.js";
 import markdownEscape from "markdown-escape";
+import { UserStatus } from "../types.js";
 
 interface UserWithDetails {
     username: string;

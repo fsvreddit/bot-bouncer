@@ -1,7 +1,7 @@
 import { Comment, JobContext, JSONObject, Post, RedisClient, ScheduledJobEvent, SettingsValues, TriggerContext } from "@devvit/public-api";
 import { addDays, addMinutes, addSeconds, formatDate, subDays, subMinutes, subWeeks } from "date-fns";
 import pluralize from "pluralize";
-import { getRecentlyChangedUsers, getUserStatus, isUserInTempDeclineStore, UserDetails, UserStatus } from "./dataStore.js";
+import { getRecentlyChangedUsers, getUserStatus, isUserInTempDeclineStore, UserDetails } from "./dataStore.js";
 import { setCleanupForUser } from "./cleanup.js";
 import { ActionType, AppSetting, CONFIGURATION_DEFAULTS, ControlSubSettings, getControlSubSettings } from "./settings.js";
 import { getUserOrUndefined, isModeratorWithCache, postIdToShortLink } from "./utility.js";
@@ -10,6 +10,7 @@ import _ from "lodash";
 import { recordBanForSummary, recordUnbanForSummary, removeRecordOfBanForSummary } from "./modmail/actionSummary.js";
 import { expireKeyAt, hasPermissions, isBanned, isContributor } from "devvit-helpers";
 import { filterContent, getPostOrCommentById, hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
+import { UserStatus } from "./types.js";
 
 const UNBAN_WHITELIST = "UnbanWhitelist";
 const BAN_STORE = "BanStore";

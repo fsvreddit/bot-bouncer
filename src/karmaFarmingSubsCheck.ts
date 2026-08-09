@@ -2,7 +2,7 @@ import { JobContext, JSONObject, JSONValue, Post, ScheduledJobEvent, TriggerCont
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
 import _ from "lodash";
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "./constants.js";
-import { getAllKnownUsers, getUserStatus, UserDetails, UserStatus } from "./dataStore.js";
+import { getAllKnownUsers, getUserStatus, UserDetails } from "./dataStore.js";
 import { evaluateUserAccount, storeAccountInitialEvaluationResults, userHasContinuousNSFWHistory } from "./handleControlSubAccountEvaluation.js";
 import { getControlSubSettings } from "./settings.js";
 import { addMinutes, addSeconds, differenceInMinutes, subMinutes, subWeeks } from "date-fns";
@@ -10,6 +10,7 @@ import { getUserExtended, hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-he
 import { AsyncSubmission, PostCreationQueueResult, promotePositionInQueue, queuePostCreation } from "./postCreation.js";
 import pluralize from "pluralize";
 import json2md from "json2md";
+import { UserStatus } from "./types.js";
 
 export const CHECK_DATE_KEY = "KarmaFarmingSubsCheckDates";
 

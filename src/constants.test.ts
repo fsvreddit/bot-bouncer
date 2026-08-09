@@ -1,5 +1,6 @@
+import { expect, test } from "vitest";
 import { PostFlairTemplate } from "./constants.js";
-import { UserStatus } from "./dataStore.js";
+import { UserStatus } from "./types.js";
 
 test("All flair templates match regex", () => {
     const flairTemplateRegex = /^[0-9a-z]{8}(?:-[0-9a-z]{4}){4}[0-9a-z]{8}$/;

@@ -1,5 +1,5 @@
 import { JobContext, TriggerContext, WikiPage } from "@devvit/public-api";
-import { UserStatus } from "../dataStore.js";
+import { UserStatus } from "../types.js";
 import _ from "lodash";
 import { subMonths } from "date-fns";
 import json2md from "json2md";
