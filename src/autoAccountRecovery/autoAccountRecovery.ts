@@ -71,7 +71,7 @@ export async function checkPotentiallyRecoveredAccounts (event: ScheduledJobEven
             return;
         }
 
-        console.log(`Recovered Accounts: Starting job ${event.data.jobGuid}. Checking ${recoveredAccountsToCheck.length} ${pluralize("account", recoveredAccountsToCheck.length)} for recovery.`);
+        console.log(`Recovered Accounts: Starting job. Checking ${recoveredAccountsToCheck.length} ${pluralize("account", recoveredAccountsToCheck.length)} for recovery.`);
     }
 
     if (await hasTriggerBeenHandled(context.redis, `job:${event.data.jobGuid}`)) {
