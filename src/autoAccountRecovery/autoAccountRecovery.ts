@@ -6,6 +6,7 @@ import { addMinutes, addSeconds } from "date-fns";
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "../constants.js";
 import { RecoveredAccountsData, UserStatus } from "../types.js";
 import pluralize from "pluralize";
+import { getControlSubSettings } from "../settings.js";
 
 const RECOVERED_RECHECKS_QUEUE_KEY = "recoveredRechecksQueue";
 const RECOVERED_RECHECKS_RECOVERED_KEY = "recoveredRechecksRecovered";
@@ -60,6 +61,12 @@ async function checkAndHandleAccountIsRecovered (username: string, appealConfigs
 export async function checkPotentiallyRecoveredAccounts (event: ScheduledJobEvent<RecoveredAccountsData>, context: JobContext) {
     const recoveredAccountsToCheck = await context.redis.zRange(RECOVERED_RECHECKS_QUEUE_KEY, 0, -1);
     if (recoveredAccountsToCheck.length === 0) {
+        return;
+    }
+
+    const controlSubSettings = await getControlSubSettings(context);
+    if (!controlSubSettings.autoAccountRecoveryEnabled) {
+        console.log("Recovered Accounts: Auto account recovery is disabled in the control subreddit settings. Skipping this run.");
         return;
     }
 

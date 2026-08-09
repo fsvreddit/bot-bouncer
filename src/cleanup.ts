@@ -202,7 +202,7 @@ export async function cleanupDeletedAccounts (event: ScheduledJobEvent<JSONObjec
                 overrideCleanupDate = addWeeks(new Date(), 1);
             }
 
-            if (!newFlair) {
+            if (!newFlair && controlSubSettings.autoAccountRecoveryEnabled) {
                 await addUserToRecoveredRechecksQueue(username, currentStatus, context);
             }
 
