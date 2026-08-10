@@ -33,6 +33,7 @@ interface AppealConfig extends AppealRegexConfig {
     flags?: UserFlag[];
     "~flags"?: UserFlag[];
     hasMoreThanOneCommentOnPost?: boolean;
+    hasNSFWPosts?: boolean;
     setStatus?: string;
     privateReply?: string;
     reply?: string;
@@ -95,6 +96,7 @@ const appealConfigSchema: JSONSchemaType<AppealConfig[]> = {
             modNoteTextRegex: { type: "array", items: { type: "string" }, nullable: true },
             "~modNoteTextRegex": { type: "array", items: { type: "string" }, nullable: true },
             hasMoreThanOneCommentOnPost: { type: "boolean", nullable: true },
+            hasNSFWPosts: { type: "boolean", nullable: true },
             setStatus: { type: "string", enum: getPossibleSetStatusValues(), nullable: true },
             privateReply: { type: "string", nullable: true },
             reply: { type: "string", nullable: true },
@@ -490,7 +492,7 @@ export async function getMatchedAppealConfig (username: string, userDetails: Use
 
     let history: (Post | Comment)[] = [];
 
-    if (appealConfig.some(config => config.hasMoreThanOneCommentOnPost)) {
+    if (appealConfig.some(config => config.hasMoreThanOneCommentOnPost !== undefined || config.hasNSFWPosts !== undefined)) {
         history = await context.reddit.getCommentsAndPostsByUser({
             username,
             limit: 100,
@@ -631,6 +633,14 @@ export async function getMatchedAppealConfig (username: string, userDetails: Use
                 const hasMoreThanOneCommentOnPost = Object.values(commentsPerPost).some(count => count > 1);
 
                 if (config.hasMoreThanOneCommentOnPost !== hasMoreThanOneCommentOnPost) {
+                    return;
+                }
+            }
+
+            if (config.hasNSFWPosts !== undefined) {
+                const hasNSFWPosts = history.some(item => "nsfw" in item && item.nsfw);
+
+                if (config.hasNSFWPosts !== hasNSFWPosts) {
                     return;
                 }
             }
