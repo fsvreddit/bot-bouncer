@@ -37,6 +37,7 @@ async function checkAndHandleAccountIsRecovered (username: string, appealConfigs
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         console.error(`Recovered Accounts: Error checking appeal config for ${username}: ${errorMessage}`);
+        await context.redis.zRem(RECOVERED_RECHECKS_QUEUE_KEY, [username]);
         return;
     }
 
