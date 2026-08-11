@@ -1,5 +1,5 @@
 import { Comment, JSONValue, Post, TriggerContext } from "@devvit/public-api";
-import { median } from "../utility.js";
+import { median, normaliseHitReason } from "../utility.js";
 import { addMilliseconds, differenceInDays, differenceInHours, differenceInMilliseconds, differenceInMinutes, differenceInSeconds, Duration, format, formatDuration, getYear, intervalToDuration, startOfDecade } from "date-fns";
 import _ from "lodash";
 import { count } from "@wordpress/wordcount";
@@ -179,12 +179,7 @@ export function evaluationResultsToBullets (results: EvaluationResult[]) {
     for (const result of results) {
         let row = `**${result.botName}** matched`;
         if (result.hitReason) {
-            let reasonToStore: string;
-            if (typeof result.hitReason === "string") {
-                reasonToStore = result.hitReason;
-            } else {
-                reasonToStore = result.hitReason.reason;
-            }
+            const reasonToStore = normaliseHitReason(result.hitReason).reason;
             row += `: ${reasonToStore.length > 500 ? `${reasonToStore.substring(0, 500)}...` : reasonToStore}`;
         }
         markdown.push({ p: row });

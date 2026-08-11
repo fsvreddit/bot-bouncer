@@ -10,15 +10,15 @@ import { getPromptData, PromptData } from "./common.js";
 import { getControlSubSettings } from "../settings.js";
 import pluralize from "pluralize";
 import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
+import { normaliseHitReason } from "../utility.js";
 
 function evaluationResultsToBulletPoints (input: EvaluationResult[], evaluatorVariables: Record<string, unknown>): string[] {
     const bullets: string[] = [];
     for (const reason of input) {
         let matchReason: string | undefined;
-        if (typeof reason.hitReason === "string") {
-            matchReason = `${reason.botName}: ${reason.hitReason}`;
-        } else if (reason.hitReason?.details) {
-            matchReason = `${reason.botName}: ${reason.hitReason.reason}`;
+        if (reason.hitReason) {
+            const normalisedHitReason = normaliseHitReason(reason.hitReason);
+            matchReason = `${reason.botName}: ${normalisedHitReason.reason}`;
         }
 
         if (matchReason) {

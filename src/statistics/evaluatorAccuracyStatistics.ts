@@ -9,6 +9,7 @@ import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
 import { FLAGS_TO_EXCLUDE_FROM_STATS } from "../scheduler/sixHourlyJobs.js";
 import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
 import { UserStatus } from "../types.js";
+import { normaliseHitReason } from "../utility.js";
 
 const ACCURACY_QUEUE = "evaluatorAccuracyQueue";
 const ACCURACY_STORE = "evaluatorAccuracyStore";
@@ -50,11 +51,8 @@ interface EvaluationAccuracyResult {
 
 function getEvaluationResultsKey (evaluationResult: EvaluationResult): string {
     if (evaluationResult.hitReason && evaluationResult.botName.includes("Bot Group")) {
-        if (typeof evaluationResult.hitReason === "string") {
-            return `${evaluationResult.botName}~${evaluationResult.hitReason}`;
-        } else {
-            return `${evaluationResult.botName}~${evaluationResult.hitReason.reason}`;
-        }
+        const normalisedHitReason = normaliseHitReason(evaluationResult.hitReason);
+        return `${evaluationResult.botName}~${normalisedHitReason.reason}`;
     } else {
         return evaluationResult.botName;
     }

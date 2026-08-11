@@ -1,5 +1,5 @@
 import { Comment, JobContext, JSONObject, JSONValue, Post, ScheduledJobEvent, SubredditInfo, TriggerContext } from "@devvit/public-api";
-import { EvaluateBotGroupAdvancedSubmitters, getSocialLinksWithCache, HitReason, UserEvaluatorBase } from "@fsvreddit/bot-bouncer-evaluation";
+import { EvaluateBotGroupAdvancedSubmitters, getSocialLinksWithCache, HitReason, HitReasonDetailed, UserEvaluatorBase } from "@fsvreddit/bot-bouncer-evaluation";
 import { getUserStatus } from "./dataStore.js";
 import { ALL_RELEVANT_EVALUTORS, CONTROL_SUBREDDIT, ControlSubredditJob, PostFlairTemplate } from "./constants.js";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
@@ -7,7 +7,7 @@ import { createUserSummary } from "./UserSummary/userSummary.js";
 import { addMinutes, addSeconds, addWeeks, subMonths } from "date-fns";
 import _ from "lodash";
 import { getSubmitterSuccessRate } from "./statistics/submitterStatistics.js";
-import { conditionallyCompressString, conditionallyDecompressString } from "./utility.js";
+import { conditionallyCompressString, conditionallyDecompressString, normaliseHitReason, normaliseHitReasons } from "./utility.js";
 import { AppSetting, getControlSubSettings } from "./settings.js";
 import { getPostOrCommentById, getUserExtended, hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
 import { T3ID } from "@devvit/public-api/types/tid.js";
@@ -101,7 +101,8 @@ export async function evaluateUserAccount (options: EvaluateUserAccountOptions, 
             }
             if (evaluator.name.includes("Bot Group") && evaluator.hitReasons && evaluator.hitReasons.length > 0) {
                 if (!silent) {
-                    console.log(`Evaluator: Hit reasons: ${evaluator.hitReasons.map(item => typeof item === "string" ? item : item.reason).join(", ")}`);
+                    const reasons = normaliseHitReasons(evaluator.hitReasons);
+                    console.log(`Evaluator: Hit reasons: ${reasons.map(item => item.reason).join(", ")}`);
                 }
             }
             detectedBots.push(evaluator);
@@ -264,21 +265,18 @@ function getEvaluationResultsKey (username: string): string {
     return `evaluationResults:${username}`;
 }
 
-function truncatedHitReason (hitReason?: HitReason): HitReason | undefined {
+function truncatedHitReason (hitReason?: HitReason): HitReasonDetailed | undefined {
     if (!hitReason) {
         return;
     }
-    if (typeof hitReason === "string") {
-        return hitReason.length > 500 ? `${hitReason.substring(0, 500)}...` : hitReason;
-    } else {
-        return {
-            reason: hitReason.reason.length > 500 ? `${hitReason.reason.substring(0, 500)}...` : hitReason.reason,
-            details: hitReason.details.map(detail => ({
-                key: detail.key,
-                value: detail.value.length > 500 ? `${detail.value.substring(0, 500)}...` : detail.value,
-            })),
-        };
-    }
+    const normalised = normaliseHitReason(hitReason);
+    return {
+        reason: normalised.reason.length > 500 ? `${normalised.reason.substring(0, 500)}...` : normalised.reason,
+        details: normalised.details.map(detail => ({
+            key: detail.key,
+            value: detail.value.length > 500 ? `${detail.value.substring(0, 500)}...` : detail.value,
+        })),
+    };
 }
 
 export async function storeAccountInitialEvaluationResults (username: string, results: EvaluationResult[], context: TriggerContext) {

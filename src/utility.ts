@@ -1,4 +1,5 @@
 import { TriggerContext, User } from "@devvit/public-api";
+import { HitReason, HitReasonDetailed } from "@fsvreddit/bot-bouncer-evaluation";
 import { addDays, addHours, formatDuration, intervalToDuration } from "date-fns";
 import { isBanned, isModerator } from "devvit-helpers";
 import { deflate, inflate } from "pako";
@@ -202,4 +203,19 @@ export function conditionallyDecompressString (input: string): string {
 export function formatTimeSince (date: Date): string {
     const interval = intervalToDuration({ start: date, end: new Date() });
     return formatDuration(interval, { format: ["days", "hours", "minutes"] });
+}
+
+export function normaliseHitReason (hitReason: HitReason): HitReasonDetailed {
+    if (typeof hitReason === "string") {
+        return {
+            reason: hitReason,
+            details: [],
+        };
+    } else {
+        return hitReason;
+    }
+}
+
+export function normaliseHitReasons (hitReasons: HitReason[]): HitReasonDetailed[] {
+    return hitReasons.map(normaliseHitReason);
 }

@@ -2,7 +2,7 @@ import { JobContext, JSONObject, JSONValue, ScheduledJobEvent, TriggerContext } 
 import { EvaluateBotGroupAdvancedSubmitters, ValidationIssue, yamlToVariables } from "@fsvreddit/bot-bouncer-evaluation";
 import { ALL_RELEVANT_EVALUTORS, CONTROL_SUBREDDIT, ControlSubredditJob } from "../constants.js";
 import _ from "lodash";
-import { compressData, sendMessageToWebhook } from "../utility.js";
+import { compressData, normaliseHitReason, sendMessageToWebhook } from "../utility.js";
 import json2md from "json2md";
 import { getControlSubSettings } from "../settings.js";
 import { EvaluateBotGroupAdvanced } from "@fsvreddit/bot-bouncer-evaluation/dist/userEvaluation/EvaluateBotGroupAdvanced.js";
@@ -153,11 +153,7 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
             if (await evaluator.evaluate(user)) {
                 const reasons: string[] = [];
                 for (const reason of evaluator.hitReasons ?? []) {
-                    if (typeof reason === "string") {
-                        reasons.push(reason);
-                    } else {
-                        reasons.push(reason.reason);
-                    }
+                    reasons.push(normaliseHitReason(reason).reason);
                 }
                 if (reasons.length === 0) {
                     reasons.push("unknown reason");

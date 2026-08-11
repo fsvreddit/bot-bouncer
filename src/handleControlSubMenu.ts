@@ -1,5 +1,5 @@
 import { Comment, Context, Form, FormField, FormOnSubmitEvent, JSONObject, Post } from "@devvit/public-api";
-import { getUsernameFromUrl } from "./utility.js";
+import { getUsernameFromUrl, normaliseHitReason } from "./utility.js";
 import { deleteUserStatus, getUsernameFromPostId, getUserStatus, updateAggregate } from "./dataStore.js";
 import { controlSubForm, controlSubQuerySubmissionForm } from "./main.js";
 import { CONTROL_SUBREDDIT } from "./constants.js";
@@ -14,12 +14,27 @@ import { isUserPotentiallyBlockingBot } from "./UserSummary/blockChecker.js";
 import { markdownToText } from "./modmail/controlSubModmail.js";
 import { isCommentId } from "@devvit/public-api/types/tid.js";
 import { UserStatus } from "./types.js";
+import { HitReason } from "@fsvreddit/bot-bouncer-evaluation";
 
 enum ControlSubAction {
     RegenerateSummary = "generateSummary",
     QuerySubmission = "querySubmission",
     RemoveRecordForUser = "removeRecordForUser",
     CheckCurrentEvaluation = "checkCurrentEvaluation",
+}
+
+function getHitReasonText (hitReasonInput?: HitReason): string | undefined {
+    const hitReason = hitReasonInput ? normaliseHitReason(hitReasonInput) : undefined;
+
+    let hitReasonText: string | undefined;
+    if (hitReason) {
+        hitReasonText = hitReason.reason;
+        if (hitReason.details.length > 0) {
+            hitReasonText += `\n${hitReason.details.map(d => `- ${d.key} : ${d.value}`).join("\n")}`;
+        }
+    }
+
+    return hitReasonText;
 }
 
 export async function handleControlSubReportUser (target: Post | Comment, context: Context) {
@@ -90,18 +105,12 @@ export async function handleControlSubReportUser (target: Post | Comment, contex
     const initialEvaluationResult = await getAccountInitialEvaluationResults(username, context);
     let hitCount = 0;
     for (const hit of initialEvaluationResult) {
-        let hitReason: string | undefined;
-        if (typeof hit.hitReason === "string") {
-            hitReason = hit.hitReason;
-        } else if (hit.hitReason) {
-            hitReason = hit.hitReason.reason;
-        }
         fields.push({
             name: `${hit.botName}${hitCount}`,
             label: `User hit ${hit.botName}`,
             type: "paragraph",
             lineHeight: 4,
-            defaultValue: hitReason,
+            defaultValue: getHitReasonText(hit.hitReason),
         });
         hitCount++;
     }
@@ -313,20 +322,14 @@ async function reevaluateUserAccount (username: string, context: Context) {
     } else {
         let index = 0;
         for (const hit of evaluationResults) {
-            if (hit.hitReason) {
-                let hitReason: string;
-                if (typeof hit.hitReason === "string") {
-                    hitReason = hit.hitReason;
-                } else {
-                    hitReason = hit.hitReason.reason;
-                }
-
+            const hitReasonText = getHitReasonText(hit.hitReason);
+            if (hitReasonText) {
                 fields.push({
                     type: "paragraph",
                     label: `User hit ${hit.botName}`,
                     name: `hit.botName_${index}`,
-                    lineHeight: Math.min(Math.ceil(hitReason.length / 60), 8),
-                    defaultValue: hitReason,
+                    lineHeight: Math.min(Math.ceil(hitReasonText.length / 60), 8),
+                    defaultValue: hitReasonText,
                 });
             } else {
                 fields.push({

@@ -13,6 +13,7 @@ import { ControlSubredditJob } from "../constants.js";
 import { expireKeyAt, hMGetAsRecord } from "devvit-helpers";
 import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
 import { UserFlag, UserStatus, WikiPagePermissionLevel } from "../types.js";
+import { normaliseHitReason } from "../utility.js";
 
 interface ModmailDataExtract {
     status?: UserStatus[];
@@ -398,13 +399,8 @@ export async function continueDataExtract (event: ScheduledJobEvent<JSONObject |
                     return false;
                 }
 
-                if (typeof result.hitReason === "string") {
-                    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-                    return result.hitReason.toLowerCase().includes(request.hitReason!.toLowerCase());
-                }
-
                 // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-                return result.hitReason.reason.toLowerCase().includes(request.hitReason!.toLowerCase());
+                return normaliseHitReason(result.hitReason).reason.toLowerCase().includes(request.hitReason!.toLowerCase());
             })) {
                 entriesToRemove.add(username);
                 return;
@@ -417,11 +413,7 @@ export async function continueDataExtract (event: ScheduledJobEvent<JSONObject |
                     return false;
                 }
 
-                if (typeof result.hitReason === "string") {
-                    return regex.test(result.hitReason);
-                }
-
-                return regex.test(result.hitReason.reason);
+                return regex.test(normaliseHitReason(result.hitReason).reason);
             })) {
                 entriesToRemove.add(username);
                 return;

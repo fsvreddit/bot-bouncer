@@ -11,6 +11,7 @@ import pluralize from "pluralize";
 import json2md from "json2md";
 import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
 import { UserStatus } from "../types.js";
+import { normaliseHitReason } from "../utility.js";
 
 const REVERSED_USERS = "ReversedUsers";
 
@@ -298,13 +299,8 @@ export async function reversePostCreationQueue (event: ScheduledJobEvent<JSONObj
                     return false;
                 }
 
-                let hitReason: string;
-                if (typeof entry.hitReason === "string") {
-                    hitReason = entry.hitReason;
-                } else {
-                    hitReason = entry.hitReason.reason;
-                }
-                return hitReason.includes(hitReasonFilter) || (hitReasonRegexFilter && new RegExp(hitReasonRegexFilter).test(hitReason));
+                const normalisedHitReason = normaliseHitReason(entry.hitReason);
+                return normalisedHitReason.reason.includes(hitReasonFilter) || (hitReasonRegexFilter && new RegExp(hitReasonRegexFilter).test(normalisedHitReason.reason));
             })) {
                 continue;
             }

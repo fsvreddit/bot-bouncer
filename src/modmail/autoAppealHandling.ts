@@ -7,7 +7,7 @@ import { CONTROL_SUBREDDIT } from "../constants.js";
 import { parseAllDocuments } from "yaml";
 import _ from "lodash";
 import json2md from "json2md";
-import { sendMessageToWebhook } from "../utility.js";
+import { normaliseHitReason, sendMessageToWebhook } from "../utility.js";
 import { ModmailMessage } from "./modmail.js";
 import { evaluateUserAccount, EvaluationResult, getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
 import { getUserExtended } from "@fsvreddit/fsv-devvit-helpers";
@@ -153,11 +153,7 @@ function evaluationHitReasonMatches (evaluationResult: EvaluationResult, regexes
         return false;
     }
 
-    if (typeof evaluationResult.hitReason === "string") {
-        return regexesMatchText(regexes, evaluationResult.hitReason);
-    }
-
-    return regexesMatchText(regexes, evaluationResult.hitReason.reason);
+    return regexesMatchText(regexes, normaliseHitReason(evaluationResult.hitReason).reason);
 }
 
 function evaluationDetailMatches (evaluationResult: EvaluationResult, regexes: RegExp[] | undefined): boolean {

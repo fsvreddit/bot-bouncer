@@ -3,6 +3,7 @@ import { ModmailMessage } from "./modmail.js";
 import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
 import { evaluateUserAccount, EvaluationResult } from "../handleControlSubAccountEvaluation.js";
 import json2md from "json2md";
+import { normaliseHitReason } from "../utility.js";
 
 export async function evaluateAccountFromModmail (modmail: ModmailMessage, context: TriggerContext) {
     const regex = /^!evaluate ([a-zA-Z0-9_-]+)\b/;
@@ -39,11 +40,8 @@ export async function evaluateAccountFromModmail (modmail: ModmailMessage, conte
                     return;
                 }
 
-                if (typeof result.hitReason === "string") {
-                    bullets.push(`${result.botName} - ${result.hitReason.slice(0, 100)}`);
-                } else {
-                    bullets.push(`${result.botName} - ${result.hitReason.reason.slice(0, 100)}`);
-                }
+                const normalisedHitReason = normaliseHitReason(result.hitReason);
+                bullets.push(`${result.botName} - ${normalisedHitReason.reason.slice(0, 100)}`);
             });
             output.push({ ul: bullets });
         }
