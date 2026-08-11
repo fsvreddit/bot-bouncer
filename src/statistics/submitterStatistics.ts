@@ -1,5 +1,5 @@
 import { JobContext, TriggerContext, WikiPage } from "@devvit/public-api";
-import { UserStatus } from "../types.js";
+import { UserFlag, UserStatus } from "../types.js";
 import _ from "lodash";
 import { subMonths } from "date-fns";
 import json2md from "json2md";
@@ -92,7 +92,7 @@ export async function updateSubmitterStatistics (allStatuses: StatsUserEntry[], 
             continue;
         }
 
-        if (status.userStatus === UserStatus.Organic || status.userStatus === UserStatus.Service) {
+        if ((status.userStatus === UserStatus.Organic || status.userStatus === UserStatus.Service) && !status.flags?.includes(UserFlag.HackedAndRecovered)) {
             organicStatuses[status.submitter] = (organicStatuses[status.submitter] ?? 0) + 1;
         } else if (status.userStatus === UserStatus.Banned || (status.userStatus === UserStatus.Purged && status.lastStatus === UserStatus.Banned)) {
             bannedStatuses[status.submitter] = (bannedStatuses[status.submitter] ?? 0) + 1;
