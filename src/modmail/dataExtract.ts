@@ -28,6 +28,8 @@ interface ModmailDataExtract {
     evaluator?: string;
     hitReason?: string;
     hitReasonRegex?: string;
+    hitDetail?: string;
+    hitDetailRegex?: string;
     flags?: UserFlag[];
     "~flags"?: UserFlag[];
     since?: string;
@@ -57,6 +59,8 @@ const schema: JSONSchemaType<ModmailDataExtract> = {
         evaluator: { type: "string", nullable: true },
         hitReason: { type: "string", nullable: true },
         hitReasonRegex: { type: "string", nullable: true },
+        hitDetail: { type: "string", nullable: true },
+        hitDetailRegex: { type: "string", nullable: true },
         flags: {
             type: "array",
             items: { type: "string", enum: Object.values(UserFlag) },
@@ -187,6 +191,19 @@ export async function dataExtract (message: ModmailMessage, conversationId: stri
         }
     }
 
+    if (request.hitDetailRegex) {
+        try {
+            new RegExp(request.hitDetailRegex);
+        } catch {
+            await context.reddit.modMail.reply({
+                conversationId,
+                body: "Invalid regex provided for `hitDetailRegex`.",
+                isAuthorHidden: false,
+            });
+            return;
+        }
+    }
+
     // Get all data from database.
     const allData = await getFullDataStore(context, {
         since: request.since ? new Date(request.since) : undefined,
@@ -263,7 +280,7 @@ export async function dataExtract (message: ModmailMessage, conversationId: stri
     });
 
     let complicatedExtract = false;
-    if (request.bioRegex || request.displayNameRegex || request.socialLinkStartsWith || request.socialLinkTitleRegex || request.socialLinkUrlRegex || request.evaluator || request.hitReason || request.hitReasonRegex) {
+    if (request.bioRegex || request.displayNameRegex || request.socialLinkStartsWith || request.socialLinkTitleRegex || request.socialLinkUrlRegex || request.evaluator || request.hitReason || request.hitReasonRegex || request.hitDetail || request.hitDetailRegex) {
         complicatedExtract = true;
     }
 
@@ -293,7 +310,7 @@ export async function continueDataExtract (event: ScheduledJobEvent<JSONObject |
         return;
     }
 
-    if (!request.bioRegex && !request.displayNameRegex && !request.socialLinkStartsWith && !request.evaluator && !request.hitReason && !request.hitReasonRegex && !request.socialLinkUrlRegex && !request.socialLinkTitleRegex) {
+    if (!request.bioRegex && !request.displayNameRegex && !request.socialLinkStartsWith && !request.evaluator && !request.hitReason && !request.hitReasonRegex && !request.socialLinkUrlRegex && !request.socialLinkTitleRegex && !request.hitDetail && !request.hitDetailRegex) {
         await createDataExtract(extractId, request, conversationId, context);
         return;
     }
@@ -380,7 +397,7 @@ export async function continueDataExtract (event: ScheduledJobEvent<JSONObject |
         }
     }
 
-    if (request.evaluator || request.hitReason || request.hitReasonRegex) {
+    if (request.evaluator || request.hitReason || request.hitReasonRegex || request.hitDetail || request.hitDetailRegex) {
         await Promise.all(processingQueue.map(async (username) => {
             const results = await getAccountInitialEvaluationResults(username, context);
             if (results.length === 0) {
@@ -414,6 +431,31 @@ export async function continueDataExtract (event: ScheduledJobEvent<JSONObject |
                 }
 
                 return regex.test(normaliseHitReason(result.hitReason).reason);
+            })) {
+                entriesToRemove.add(username);
+                return;
+            }
+
+            if (request.hitDetail && !results.some((result) => {
+                if (!result.hitReason || typeof result.hitReason === "string") {
+                    return false;
+                }
+
+                // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+                return result.hitReason.details.some(detail => detail.value.toLowerCase().includes(request.hitDetail!.toLowerCase()));
+            })) {
+                entriesToRemove.add(username);
+                return;
+            }
+
+            if (request.hitDetailRegex && !results.some((result) => {
+                if (!result.hitReason || typeof result.hitReason === "string") {
+                    return false;
+                }
+
+                // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+                const regex = new RegExp(request.hitDetailRegex!, "u");
+                return result.hitReason.details.some(detail => regex.test(detail.value));
             })) {
                 entriesToRemove.add(username);
                 return;
