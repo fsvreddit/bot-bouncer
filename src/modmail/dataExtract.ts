@@ -671,12 +671,8 @@ async function createDataExtract (
     ];
 
     if (request.recheck) {
-        if (data.length > 200) {
-            body.push({ p: "Recheck is enabled, but the number of users is too high. Please recheck manually or rerun with a smaller dataset." });
-        } else {
-            await Promise.all(data.map(entry => setCleanupForUser(entry.username, context.redis, addSeconds(new Date(), 1))));
-            body.push({ p: "Users have been queued for recheck, please run the extract again in around 20-30 minutes." });
-        }
+        await Promise.all(data.map(entry => setCleanupForUser(entry.username, context.redis, addSeconds(new Date(), 1))));
+        body.push({ p: "Users have been queued for recheck, please run the extract again in around 20-30 minutes." });
     }
 
     await context.reddit.modMail.reply({
