@@ -27,15 +27,6 @@ export async function createTimeOfSubmissionStatistics (allEntries: UserDetails[
         });
     wikiContent.push({ table: { headers: ["Date", "Number of submissions"], rows: dayTableRows } });
 
-    wikiContent.push({ p: "## Time of day statistics" });
-
-    const timeOfDayRows = Array.from({ length: 24 }, (_, hour) => {
-        const submissionInHour = allDates.filter(date => date.getHours() === hour).length;
-        return [hour.toString(), submissionInHour.toLocaleString()];
-    });
-
-    wikiContent.push({ table: { headers: ["Time", "Number of submissions"], rows: timeOfDayRows } });
-
     wikiContent.push({ p: "This page updates once a day at midnight UTC, and may update more frequently." });
 
     const pageName = "statistics/time-of-submission";
