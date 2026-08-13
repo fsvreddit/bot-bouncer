@@ -525,7 +525,7 @@ async function createDataExtract (
 
     let wikiPage: WikiPage | undefined;
     try {
-        wikiPage = await context.reddit.getWikiPage(subredditName, "data-extract");
+        wikiPage = await context.reddit.getWikiPage(subredditName, "data-extract", {});
     } catch {
         //
     }

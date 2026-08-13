@@ -28,7 +28,7 @@ export async function getPromptData (wikiPageName: string, context: JobContext |
         return JSON.parse(cachedPrompt) as PromptData;
     }
 
-    const wikiPage = await context.reddit.getWikiPage(CONTROL_SUBREDDIT, wikiPageName);
+    const wikiPage = await context.reddit.getWikiPage(CONTROL_SUBREDDIT, wikiPageName, {});
     const content = _.compact(parseAllDocuments(wikiPage.content).map(doc => doc.toJSON() as PromptData));
 
     if (content.length === 0) {

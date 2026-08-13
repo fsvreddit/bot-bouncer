@@ -5,6 +5,8 @@ import { ALL_EVALUATORS, ALL_INTERNAL_EVALUATORS } from "@fsvreddit/bot-bouncer-
  */
 export const CONTROL_SUBREDDIT = "BotBouncer";
 
+export const APP_ACCOUNT_ID = "t2_1cvehhb668";
+
 export const INTERNAL_BOT = "bot-bouncer-int";
 
 export enum PostFlairTemplate {

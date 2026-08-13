@@ -105,7 +105,7 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
     const pageList = await context.reddit.getWikiPages(CONTROL_SUBREDDIT)
         .then(pages => pages.filter(page => page === EVALUATOR_VARIABLES_YAML_PAGE_ROOT || page.startsWith(`${EVALUATOR_VARIABLES_YAML_PAGE_ROOT}/`)));
 
-    const pages = await Promise.all(pageList.map(page => context.reddit.getWikiPage(CONTROL_SUBREDDIT, page)));
+    const pages = await Promise.all(pageList.map(page => context.reddit.getWikiPage(CONTROL_SUBREDDIT, page, {})));
 
     const recentRevisions = await context.redis.hGetAll(EVALUATOR_VARIABLES_LAST_REVISIONS_KEY);
     if (!event.data?.updateExtraVariables && !pages.some(page => recentRevisions[page.name] !== page.revisionId)) {

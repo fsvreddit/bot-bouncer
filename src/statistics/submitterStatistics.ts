@@ -138,7 +138,7 @@ export async function updateSubmitterStatistics (allStatuses: StatsUserEntry[], 
     let wikiPage: WikiPage | undefined;
     const submitterStatisticsWikiPage = "statistics/submitters";
     try {
-        wikiPage = await context.reddit.getWikiPage(subredditName, submitterStatisticsWikiPage);
+        wikiPage = await context.reddit.getWikiPage(subredditName, submitterStatisticsWikiPage, {});
     } catch {
         //
     }

@@ -15,7 +15,7 @@ const UPDATE_WIKI_PAGE = "upgrade-notifier";
 export async function getNewVersionInfo (context: JobContext): Promise<AppUpdate | undefined> {
     let wikiPage: WikiPage;
     try {
-        wikiPage = await context.reddit.getWikiPage(UPDATE_SUBREDDIT, UPDATE_WIKI_PAGE);
+        wikiPage = await context.reddit.getWikiPage(UPDATE_SUBREDDIT, UPDATE_WIKI_PAGE, {});
     } catch {
         console.error(`Update Checker: Error getting wiki page ${UPDATE_WIKI_PAGE} from ${UPDATE_SUBREDDIT}`);
         return;

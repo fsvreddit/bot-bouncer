@@ -30,7 +30,7 @@ export async function handleClientSubAnnouncements (_: unknown, context: JobCont
 
     let wikiPage: WikiPage | undefined;
     try {
-        wikiPage = await context.reddit.getWikiPage(CONTROL_SUBREDDIT, ANNOUNCEMENT_WIKI_PAGE);
+        wikiPage = await context.reddit.getWikiPage(CONTROL_SUBREDDIT, ANNOUNCEMENT_WIKI_PAGE, {});
     } catch (error) {
         console.error("Failed to fetch client sub announcements wiki page:", error);
     }

@@ -215,7 +215,7 @@ export async function handleExternalSubmissionsPageUpdate (context: TriggerConte
 
     let wikiPage: WikiPage | undefined;
     try {
-        wikiPage = await context.reddit.getWikiPage(context.subredditName, WIKI_PAGE);
+        wikiPage = await context.reddit.getWikiPage(context.subredditName, WIKI_PAGE, {});
     } catch {
         //
     }
@@ -331,7 +331,7 @@ export async function processAccountsToCheckFromObserverSubreddit (context: Trig
     const accountsToCheckPageName = "accountstocheck";
     let accountsToCheckWikiPage: WikiPage | undefined;
     try {
-        accountsToCheckWikiPage = await context.reddit.getWikiPage(subredditName, accountsToCheckPageName);
+        accountsToCheckWikiPage = await context.reddit.getWikiPage(subredditName, accountsToCheckPageName, {});
     } catch {
         console.log(`External Submissions: No accounts to check page found in /r/${subredditName}, skipping.`);
         return;

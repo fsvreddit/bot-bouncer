@@ -1,6 +1,6 @@
 import { AppInstall, AppUpgrade } from "@devvit/protos";
 import { TriggerContext } from "@devvit/public-api";
-import { ClientSubredditJob, CONTROL_SUBREDDIT, ControlSubredditJob, ObserverSubredditJob, UniversalJob } from "./constants.js";
+import { APP_ACCOUNT_ID, ClientSubredditJob, CONTROL_SUBREDDIT, ControlSubredditJob, ObserverSubredditJob, UniversalJob } from "./constants.js";
 import { handleExternalSubmissionsPageUpdate } from "./externalSubmissions.js";
 import { getControlSubSettings } from "./settings.js";
 import { addDays, addMinutes, addSeconds, isSameDay } from "date-fns";
@@ -23,6 +23,10 @@ export async function handleInstallOrUpgrade (_: AppInstall | AppUpgrade, contex
 
     if (context.subredditName === CONTROL_SUBREDDIT) {
         await addControlSubredditJobs(context);
+        const appAccount = await context.reddit.getAppUser();
+        if (appAccount.id !== APP_ACCOUNT_ID) {
+            console.warn(`App Install: The app account ID is ${appAccount.id}, expected ${APP_ACCOUNT_ID}.`);
+        }
     } else {
         // Delete cached control sub settings
         await context.redis.del("controlSubSettings", "evaluatorVariablesHash");

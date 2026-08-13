@@ -297,7 +297,7 @@ function setAppealConfigCache (configData: string, compiledConfigs: CompiledAppe
 
 export async function validateAndSaveAppealConfig (username: string, context: TriggerContext): Promise<void> {
     const appealConfigRevisionKey = "AppealConfigRevision";
-    const wikiPage = await context.reddit.getWikiPage(CONTROL_SUBREDDIT, APPEAL_CONFIG_WIKI_PAGE);
+    const wikiPage = await context.reddit.getWikiPage(CONTROL_SUBREDDIT, APPEAL_CONFIG_WIKI_PAGE, {});
     const lastAppealConfigRevision = await context.redis.get(appealConfigRevisionKey);
     if (wikiPage.revisionId === lastAppealConfigRevision) {
         // The saved config is up-to-date with the latest revision

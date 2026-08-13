@@ -19,7 +19,7 @@ export async function handleObserverSubsWikiPageCopy (_: unknown, context: Trigg
     for (const page of Object.values(ObserverSubWikiPage)) {
         let wikiPage: WikiPage | undefined;
         try {
-            wikiPage = await context.reddit.getWikiPage(subredditName, `statistics/${page}`);
+            wikiPage = await context.reddit.getWikiPage(subredditName, `statistics/${page}`, {});
         } catch {
             continue;
         }

@@ -13,14 +13,14 @@
     "lint": "eslint ."
   },
   "dependencies": {
-    "@devvit/protos": "0.13.11",
-    "@devvit/public-api": "0.13.11",
+    "@devvit/protos": "0.14.0",
+    "@devvit/public-api": "0.14.0",
     "@fsvreddit/bot-bouncer-evaluation": "github:fsvreddit/bot-bouncer-evaluation",
     "@fsvreddit/fsv-devvit-helpers": "github:fsvreddit/fsv-devvit-helpers",
     "@wordpress/wordcount": "^4.51.0",
     "ajv": "^8.17.1",
     "date-fns": "^4.1.0",
-    "devvit-helpers": "^0.10.0",
+    "devvit-helpers": "^0.11.0",
     "escape-string-regexp": "^5.0.0",
     "json2md": "^2.0.3",
     "lodash": "^4.17.21",

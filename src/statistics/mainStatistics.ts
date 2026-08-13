@@ -33,7 +33,7 @@ export async function updateMainStatisticsPage (event: ScheduledJobEvent<JSONObj
 
     let wikiPage: WikiPage | undefined;
     try {
-        wikiPage = await context.reddit.getWikiPage(subredditName, wikiPageName);
+        wikiPage = await context.reddit.getWikiPage(subredditName, wikiPageName, {});
     } catch {
         //
     }

@@ -34,7 +34,7 @@ export async function createTimeOfSubmissionStatistics (allEntries: UserDetails[
     let wikiPage: WikiPage | undefined;
     const subredditName = context.subredditName ?? await context.reddit.getCurrentSubredditName();
     try {
-        wikiPage = await context.reddit.getWikiPage(subredditName, pageName);
+        wikiPage = await context.reddit.getWikiPage(subredditName, pageName, {});
     } catch {
         // Ignore error
     }

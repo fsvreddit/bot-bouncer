@@ -2,7 +2,7 @@ import { JobContext, JSONObject, ScheduledJobEvent, TriggerContext } from "@devv
 import { updateSubmitterStatistics } from "../statistics/submitterStatistics.js";
 import { createTimeOfSubmissionStatistics } from "../statistics/timeOfSubmissionStatistics.js";
 import { ALL_POTENTIAL_USER_PREFIXES, checkDataStoreIntegrity, getFullDataStore, removeStaleRecentChangesEntries, UserDetails } from "../dataStore.js";
-import { CONTROL_SUBREDDIT, ControlSubredditJob } from "../constants.js";
+import { APP_ACCOUNT_ID, CONTROL_SUBREDDIT, ControlSubredditJob } from "../constants.js";
 import { addMinutes, subMonths } from "date-fns";
 import { updateUsernameStatistics } from "../statistics/usernameStatistics.js";
 import { updateDisplayNameStatistics } from "../statistics/displayNameStats.js";
@@ -129,12 +129,12 @@ export async function perform6HourlyJobsPart2 (event: ScheduledJobEvent<JSONObje
 export async function checkIfStatsNeedUpdating (context: TriggerContext) {
     const lastRevisionKey = "lastRemoteStatsUpdate";
     const lastRevisionVal = await context.redis.get(lastRevisionKey);
-    const wikiPage = await context.reddit.getWikiPage(CONTROL_SUBREDDIT, "statistics/update_stats");
+    const wikiPage = await context.reddit.getWikiPage(CONTROL_SUBREDDIT, "statistics/update_stats", {});
     if (lastRevisionVal === wikiPage.revisionId) {
         return;
     }
 
-    if (wikiPage.revisionAuthor?.username === context.appSlug) {
+    if (wikiPage.revisionAuthorId === APP_ACCOUNT_ID) {
         return;
     }
 
