@@ -1,6 +1,6 @@
 /* eslint-disable @stylistic/quote-props */
-import { JobContext, JSONObject, ScheduledJobEvent, TriggerContext, UserSocialLink, WikiPage } from "@devvit/public-api";
-import { BIO_TEXT_STORE, DISPLAY_NAME_STORE, getFullDataStore, SOCIAL_LINKS_STORE, UserDetails } from "../dataStore.js";
+import { JobContext, ScheduledJobEvent, TriggerContext, UserSocialLink, WikiPage } from "@devvit/public-api";
+import { ALL_POTENTIAL_USER_PREFIXES, BIO_TEXT_STORE, DISPLAY_NAME_STORE, getDataStoreFiltered, SOCIAL_LINKS_STORE, UserDetails } from "../dataStore.js";
 import Ajv, { JSONSchemaType } from "ajv";
 import pluralize from "pluralize";
 import json2md from "json2md";
@@ -37,6 +37,15 @@ interface ModmailDataExtract {
     recheck?: boolean;
     omitUserDetails?: boolean;
 }
+
+// eslint-disable-next-line @typescript-eslint/consistent-type-definitions
+type DataExtractJobData = {
+    extractId: string;
+    conversationId: string;
+    request: string;
+    prefixes?: string[];
+    jobGuid: string;
+};
 
 const dateRegex = /^\d{4}-\d{2}-\d{2}(?: \d{2}:\d{2})?$/;
 
@@ -138,10 +147,9 @@ export async function dataExtract (message: ModmailMessage, conversationId: stri
         return;
     }
 
-    let usernameRegex: RegExp | undefined;
     if (request.usernameRegex) {
         try {
-            usernameRegex = new RegExp(request.usernameRegex);
+            new RegExp(request.usernameRegex);
         } catch {
             await context.reddit.modMail.reply({
                 conversationId,
@@ -204,77 +212,126 @@ export async function dataExtract (message: ModmailMessage, conversationId: stri
         }
     }
 
-    // Get all data from database.
-    const allData = await getFullDataStore(context, {
-        since: request.since ? new Date(request.since) : undefined,
-        statuses: request.status,
-        submitter: request.submitter,
-        usernameRegex: usernameRegex ? new RegExp(usernameRegex) : undefined,
-    });
-
-    const data = Object.entries(allData)
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
-        .map(([username, data]) => ({ username, data: data as UserDetailsWithBioAndSocialLinks }))
-        .filter((entry) => {
-            if (request.submitter && !request.submitter.includes(entry.data.submitter ?? "")) {
-                return false;
-            }
-
-            if (request.operator && entry.data.operator !== request.operator) {
-                return false;
-            }
-
-            if (usernameRegex) {
-                if (!usernameRegex.test(entry.username)) {
-                    return false;
-                }
-            }
-
-            if (request.flags) {
-                if (!entry.data.flags || !request.flags.every(flag => entry.data.flags?.includes(flag))) {
-                    return false;
-                }
-            }
-
-            if (request["~flags"]) {
-                if (request["~flags"].some(flag => entry.data.flags?.includes(flag))) {
-                    return false;
-                }
-            }
-
-            if (request.until && entry.data.reportedAt) {
-                const untilDate = new Date(request.until);
-                if (new Date(entry.data.reportedAt) >= untilDate) {
-                    return false;
-                }
-            }
-
-            return true; // Keep the entry if it passes all filters
-        });
-
-    console.log(`Data Extract: Filtered data: ${data.length} entries match the criteria.`);
-
     const extractId = Date.now().toString();
-
-    await Promise.all(_.chunk(data, 10000).map(async (dataChunk) => {
-        const dataToStore = _.fromPairs(dataChunk.map(entry => [entry.username, JSON.stringify(entry.data)]));
-        await context.redis.hSet(getExtractTempStoreKey(extractId), dataToStore);
-        await context.redis.zAdd(getExtractTempQueueKey(extractId), ...dataChunk.map(entry => ({ score: 0, member: entry.username })));
-    }));
-
-    await expireKeyAt(context.redis, getExtractTempStoreKey(extractId), addHours(new Date(), 1));
-    await expireKeyAt(context.redis, getExtractTempQueueKey(extractId), addHours(new Date(), 1));
 
     console.log("Data Extract: Queuing data extract continuation job.");
 
     await context.scheduler.runJob({
-        name: ControlSubredditJob.DataExtractJob,
+        name: ControlSubredditJob.StartDataExtract,
         runAt: new Date(),
         data: {
             extractId,
             conversationId,
             request: JSON.stringify(request),
-            firstRun: true,
+            jobGuid: crypto.randomUUID(),
+        } satisfies DataExtractJobData,
+    });
+}
+
+export async function startDataExtract (event: ScheduledJobEvent<DataExtractJobData>, context: TriggerContext) {
+    const prefixes = event.data.prefixes ?? ALL_POTENTIAL_USER_PREFIXES;
+    const request = JSON.parse(event.data.request) as ModmailDataExtract;
+
+    const runLimit = addSeconds(new Date(), 15);
+
+    let usernameRegex: RegExp | undefined;
+    if (request.usernameRegex) {
+        usernameRegex = new RegExp(request.usernameRegex);
+    }
+
+    console.log(`Data Extract: Starting data extract for ${prefixes.length} prefixes.`);
+    let prefixesProcessed = 0;
+
+    while (prefixes.length > 0 && new Date() < runLimit) {
+        const prefix = prefixes.shift();
+        if (!prefix) {
+            continue;
+        }
+
+        const dataForPrefix = await getDataStoreFiltered(prefix, context, {
+            since: request.since ? new Date(request.since) : undefined,
+            statuses: request.status,
+            submitter: request.submitter,
+            usernameRegex,
+        });
+
+        const filteredData = Object.entries(dataForPrefix)
+            // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+            .map(([username, data]) => ({ username, data: data as UserDetailsWithBioAndSocialLinks }))
+            .filter((entry) => {
+                if (request.submitter && !request.submitter.includes(entry.data.submitter ?? "")) {
+                    return false;
+                }
+
+                if (request.operator && entry.data.operator !== request.operator) {
+                    return false;
+                }
+
+                if (usernameRegex) {
+                    if (!usernameRegex.test(entry.username)) {
+                        return false;
+                    }
+                }
+
+                if (request.flags) {
+                    if (!entry.data.flags || !request.flags.every(flag => entry.data.flags?.includes(flag))) {
+                        return false;
+                    }
+                }
+
+                if (request["~flags"]) {
+                    if (request["~flags"].some(flag => entry.data.flags?.includes(flag))) {
+                        return false;
+                    }
+                }
+
+                if (request.until && entry.data.reportedAt) {
+                    const untilDate = new Date(request.until);
+                    if (new Date(entry.data.reportedAt) >= untilDate) {
+                        return false;
+                    }
+                }
+
+                return true; // Keep the entry if it passes all filters
+            });
+
+        await Promise.all(_.chunk(filteredData, 10000).map(async (dataChunk) => {
+            const dataToStore = _.fromPairs(dataChunk.map(entry => [entry.username, JSON.stringify(entry.data)]));
+            await context.redis.hSet(getExtractTempStoreKey(event.data.extractId), dataToStore);
+            await context.redis.zAdd(getExtractTempQueueKey(event.data.extractId), ...dataChunk.map(entry => ({ score: 0, member: entry.username })));
+        }));
+
+        await expireKeyAt(context.redis, getExtractTempStoreKey(event.data.extractId), addHours(new Date(), 1));
+        await expireKeyAt(context.redis, getExtractTempQueueKey(event.data.extractId), addHours(new Date(), 1));
+
+        prefixesProcessed++;
+    }
+
+    console.log(`Data Extract: Processed ${prefixesProcessed} prefixes, ${prefixes.length} remaining.`);
+
+    if (prefixes.length > 0) {
+        await context.scheduler.runJob({
+            name: ControlSubredditJob.StartDataExtract,
+            runAt: addSeconds(new Date(), 1),
+            data: {
+                ...event.data,
+                jobGuid: crypto.randomUUID(),
+                prefixes,
+            } satisfies DataExtractJobData,
+        });
+
+        return;
+    }
+
+    console.log("Data Extract: All prefixes processed, continuing with additional filtering if necessary.");
+
+    const countEntriesInTempStore = await context.redis.hLen(getExtractTempStoreKey(event.data.extractId));
+
+    await context.scheduler.runJob({
+        name: ControlSubredditJob.ContinueDataExtract,
+        runAt: addSeconds(new Date(), 1),
+        data: {
+            ...event.data,
             jobGuid: crypto.randomUUID(),
         },
     });
@@ -284,29 +341,22 @@ export async function dataExtract (message: ModmailMessage, conversationId: stri
         complicatedExtract = true;
     }
 
-    if (complicatedExtract && data.length > 5000) {
+    if (complicatedExtract && countEntriesInTempStore > 5000) {
         await context.reddit.modMail.reply({
-            conversationId,
-            body: `This data extract uses filters that require additional processing. ${data.length.toLocaleString()} users match the initial "simple" criteria, which means that the extract will take some time to process. Please wait for a follow-up message once the extract is complete.`,
+            conversationId: event.data.conversationId,
+            body: `This data extract uses filters that require additional processing. ${countEntriesInTempStore.toLocaleString()} users match the initial "simple" criteria, which means that the extract will take some time to process. Please wait for a follow-up message once the extract is complete.`,
             isAuthorHidden: false,
         });
-        return;
     }
 }
 
-export async function continueDataExtract (event: ScheduledJobEvent<JSONObject | undefined>, context: TriggerContext) {
-    const extractId = event.data?.extractId as string | undefined;
-    const conversationId = event.data?.conversationId as string | undefined;
-    const request = event.data?.request ? JSON.parse(event.data.request as string) as ModmailDataExtract : undefined;
+export async function continueDataExtract (event: ScheduledJobEvent<DataExtractJobData>, context: TriggerContext) {
+    const extractId = event.data.extractId;
+    const conversationId = event.data.conversationId;
+    const request = JSON.parse(event.data.request) as ModmailDataExtract;
 
-    const jobGuid = event.data?.jobGuid as string | undefined;
-    if (jobGuid && await hasTriggerBeenHandled(context.redis, `job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
-        console.warn(`Data Extract: Job with guid ${jobGuid} has already been handled, skipping.`);
-        return;
-    }
-
-    if (!extractId || !conversationId || !request) {
-        console.error("Data Extract: Missing extractId, conversationId, or request data extract job");
+    if (await hasTriggerBeenHandled(context.redis, `job:${event.data.jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+        console.warn(`Data Extract: Job with guid ${event.data.jobGuid} has already been handled, skipping.`);
         return;
     }
 
@@ -477,14 +527,14 @@ export async function continueDataExtract (event: ScheduledJobEvent<JSONObject |
     await context.redis.zRem(getExtractTempQueueKey(extractId), processingQueue);
 
     await context.scheduler.runJob({
-        name: ControlSubredditJob.DataExtractJob,
+        name: ControlSubredditJob.ContinueDataExtract,
         runAt: addSeconds(new Date(), 1),
         data: {
             extractId,
             conversationId,
             request: JSON.stringify(request),
             jobGuid: crypto.randomUUID(),
-        },
+        } satisfies DataExtractJobData,
     });
 }
 

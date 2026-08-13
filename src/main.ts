@@ -26,7 +26,7 @@ import { handleCommentCreate, handlePostCreate, handlePostSubmit } from "./handl
 import { conditionalStatsUpdate } from "./statistics/conditionalStatsUpdate.js";
 import { asyncWikiUpdate } from "./statistics/asyncWikiUpdate.js";
 import { generateBioStatisticsReport, updateBioStatisticsJob } from "./statistics/userBioStatistics.js";
-import { continueDataExtract } from "./modmail/dataExtract.js";
+import { continueDataExtract, startDataExtract } from "./modmail/dataExtract.js";
 import { redosChecker } from "./userEvaluation/redosChecker.js";
 import { checkPermissionQueueItems, handlePermissionCheckEnqueueJob } from "./permissionChecksAndInstallDates.js";
 import { handleFiveMinutelyJob } from "./scheduler/fiveMinutelyJobs.js";
@@ -248,7 +248,12 @@ Devvit.addSchedulerJob({
 });
 
 Devvit.addSchedulerJob({
-    name: ControlSubredditJob.DataExtractJob,
+    name: ControlSubredditJob.StartDataExtract,
+    onRun: startDataExtract,
+});
+
+Devvit.addSchedulerJob({
+    name: ControlSubredditJob.ContinueDataExtract,
     onRun: continueDataExtract,
 });
 
