@@ -367,7 +367,7 @@ export async function continueDataExtract (event: ScheduledJobEvent<DataExtractJ
 
     const entriesToRemove = new Set<string>();
     const entriesToRewrite = new Set<string>();
-    const batchSize = request.evaluator || request.hitReason || request.hitReasonRegex ? 400 : 2000;
+    const batchSize = request.evaluator || request.hitReason || request.hitReasonRegex ? 1000 : 3000;
     const processingQueueData = await context.redis.zRange(getExtractTempQueueKey(extractId), 0, batchSize - 1);
     const processingQueue = processingQueueData.map(entry => entry.member);
 
@@ -528,7 +528,7 @@ export async function continueDataExtract (event: ScheduledJobEvent<DataExtractJ
 
     await context.scheduler.runJob({
         name: ControlSubredditJob.ContinueDataExtract,
-        runAt: addSeconds(new Date(), 1),
+        runAt: addSeconds(new Date(), 2),
         data: {
             extractId,
             conversationId,
@@ -692,6 +692,10 @@ async function createDataExtract (
     markdown.push({ table: { headers, rows } });
     const content = json2md(markdown);
 
+    if (request.recheck) {
+        await Promise.all(data.map(entry => setCleanupForUser(entry.username, context.redis, addSeconds(new Date(), 1))));
+    }
+
     if (content.length > 512 * 1024) {
         await context.reddit.modMail.reply({
             conversationId,
@@ -721,7 +725,6 @@ async function createDataExtract (
     ];
 
     if (request.recheck) {
-        await Promise.all(data.map(entry => setCleanupForUser(entry.username, context.redis, addSeconds(new Date(), 1))));
         body.push({ p: "Users have been queued for recheck, please run the extract again in around 20-30 minutes." });
     }
 
