@@ -1,5 +1,5 @@
 import { JobContext, JSONObject, ScheduledJobEvent, TriggerContext } from "@devvit/public-api";
-import { addDays, addHours, addMinutes, addSeconds, format, max, subDays, subWeeks } from "date-fns";
+import { addDays, addHours, addMinutes, addSeconds, addWeeks, format, max, subDays, subWeeks } from "date-fns";
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "./constants.js";
 import { hasPermissions, hMGetAsRecord, isModerator } from "devvit-helpers";
 import json2md from "json2md";
@@ -29,6 +29,10 @@ async function addSubToPermissionChecksQueue (subredditName: string, context: Tr
     await context.redis.global.zAdd(PERMISSION_CHECKS_QUEUE, { member: subredditName, score: Date.now() });
     await context.redis.global.set(recentCheckKey, "true", { expiration: addDays(new Date(), 7) });
     console.log(`Permission Checks: Added /r/${subredditName} to permission checks queue.`);
+}
+
+function getPermissionMessageSentKeyForSubreddit (subredditName: string) {
+    return `permissionMessageSent:${subredditName}`;
 }
 
 export async function checkPermissionQueueItems (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
@@ -121,7 +125,7 @@ export async function checkPermissionQueueItems (event: ScheduledJobEvent<JSONOb
         return;
     }
 
-    if (await context.redis.hGet(PERMISSION_MESSAGE_SENT_HASH, subredditName)) {
+    if (await context.redis.exists(getPermissionMessageSentKeyForSubreddit(subredditName))) {
         console.log(`Permission Checks: Permissions message already sent to ${subredditName}, skipping check.`);
         if (inBacklog) {
             await context.scheduler.runJob({
@@ -137,8 +141,8 @@ export async function checkPermissionQueueItems (event: ScheduledJobEvent<JSONOb
     const message: json2md.DataObject[] = [
         { p: `Hello! During a recent check, Bot Bouncer detected that there is a problem with its moderator permissions in your subreddit, /r/${subredditName}. As a result, some or all of the bot's functionality may not work correctly.` },
         ...problemFound,
-        { p: `If you have any questions or need assistance, please message the mods of /r/BotBouncer.` },
-        { p: `*This is an automated message, replies will not be read. You won't receive another notification about this issue unless the permissions change.*` },
+        { p: `If you have any questions or need assistance, please [message the mods of /r/BotBouncer](https://www.reddit.com/message/compose/?to=/r/BotBouncer).` },
+        { p: `*This is an automated message, replies will not be read. You won't receive another notification about this issue for another two weeks unless the permissions change.*` },
     ];
 
     await context.reddit.sendPrivateMessage({
@@ -148,6 +152,7 @@ export async function checkPermissionQueueItems (event: ScheduledJobEvent<JSONOb
     });
 
     await context.redis.hSet(PERMISSION_MESSAGE_SENT_HASH, { [subredditName]: issueFound ?? "unknown" });
+    await context.redis.set(getPermissionMessageSentKeyForSubreddit(subredditName), Date.now().toString(), { expiration: addWeeks(new Date(), 2) });
     console.log(`Permission Checks: Sent permissions issue message to /r/${subredditName}.`);
 
     if (inBacklog) {
