@@ -173,8 +173,11 @@ export async function cleanupDeletedAccounts (event: ScheduledJobEvent<JSONObjec
                 // User is still pending, so set the next check date to be very soon to allow for pending->retired transitions.
                 overrideCleanupDate = addMinutes(new Date(), 15);
             } else if (currentStatus.userStatus === UserStatus.Banned && new Date(currentStatus.lastUpdate) > subDays(new Date(), 8)) {
-                // Recheck banned but active users every day for the first week, then normal cadence after.
+                // Recheck banned but active users every day for the first week.
                 overrideCleanupDate = addDays(new Date(), 1);
+            } else if (currentStatus.userStatus === UserStatus.Banned) {
+                // User is banned, but has been active for more than a week. Check every week.
+                overrideCleanupDate = addWeeks(new Date(), 1);
             } else if (currentStatus.userStatus === UserStatus.Purged || currentStatus.userStatus === UserStatus.Retired) {
                 // User's last status was purged or retired, but user is now active again. Restore last status or Pending.
                 switch (currentStatus.lastStatus) {
