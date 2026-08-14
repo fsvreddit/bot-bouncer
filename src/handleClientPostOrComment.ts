@@ -315,8 +315,8 @@ async function handleContentCreation (username: string, currentStatus: UserDetai
             console.log(`Content Create: 💥 ${user.username} banned from ${subredditName}`);
         }
 
-        const removedByMod = await context.redis.exists(`removedbymod:${targetId}`);
-        if (!removedByMod) {
+        const removedByMod = await context.redis.get(`removedbymod:${targetId}`);
+        if (!removedByMod || removedByMod === "AutoModerator" || removedByMod === "reddit") {
             promises.push(context.reddit.remove(targetId, true));
             if (settings[AppSetting.LockContentWhenRemoving]) {
                 const target = await getPostOrCommentById(context.reddit, targetId);
