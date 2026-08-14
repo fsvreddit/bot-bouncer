@@ -223,6 +223,10 @@ async function checkJobsAreApplicable (context: TriggerContext) {
 }
 
 export async function ensureClientSubJobsExist (context: TriggerContext) {
+    if (context.subredditName === CONTROL_SUBREDDIT) {
+        throw new Error("ensureClientSubJobsExist should not be called from control subreddit");
+    }
+
     const lastCheckKey = "clientJobCheckerLastCheckValue";
     if (await context.redis.exists(lastCheckKey)) {
         return;
@@ -234,6 +238,9 @@ export async function ensureClientSubJobsExist (context: TriggerContext) {
         ClientSubredditJob.QueueReclassificationChanges,
         ClientSubredditJob.UpgradeNotifier,
         ClientSubredditJob.SendDailyDigest,
+        ClientSubredditJob.PermissionCheckEnqueue,
+        ClientSubredditJob.ClientSubAnnouncements,
+        ClientSubredditJob.RemoveUsersFromModqueueAfterBan,
         UniversalJob.Cleanup,
     ];
 
