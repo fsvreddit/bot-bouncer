@@ -70,15 +70,6 @@ export async function handleControlSubReportUser (target: Post | Comment, contex
     const actions: FieldConfig_Selection_Item[] = [];
     if (currentStatus.userStatus === UserStatus.Pending) {
         actions.push({ label: "Regenerate Summary", value: ControlSubAction.RegenerateSummary });
-
-        if (currentStatus.submitter && currentStatus.submitter !== context.appSlug) {
-            actions.push({ label: "Query Submission", value: ControlSubAction.QuerySubmission });
-        }
-
-        actions.push({
-            label: "Remove record for user after valid takedown request",
-            value: ControlSubAction.RemoveRecordForUser,
-        });
     }
 
     if (currentStatus.submitter && currentStatus.submitter !== context.appSlug) {
