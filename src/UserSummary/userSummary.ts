@@ -387,7 +387,7 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
             filter: "NOTE",
         }).all();
 
-        const relevantModNotes = allModNotes.filter(note => note.userNote?.note && note.operator.name && note.operator.name !== context.appSlug);
+        const relevantModNotes = allModNotes.filter(note => note.userNote?.note && note.operator.name && (note.operator.name !== context.appSlug || note.userNote.note.startsWith("u/")));
 
         if (relevantModNotes.length > 0) {
             summary.push({ h2: "Mod Notes" });
