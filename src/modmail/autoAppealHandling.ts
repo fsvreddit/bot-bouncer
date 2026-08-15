@@ -49,9 +49,6 @@ interface AppealConfig extends AppealRegexConfig {
 
 export type CompiledAppealConfig = AppealConfigWithCompiledRegexes<AppealConfig>;
 
-let cachedAppealConfigData: string | undefined;
-let cachedAppealConfigs: CompiledAppealConfig[] = [];
-
 const acceptableMuteDurations = [3, 7, 28];
 
 const dateRegex = /^\d{4}-\d{2}-\d{2}(?: \d{2}:\d{2})?$/;
@@ -292,12 +289,6 @@ function getSubstitutions (wikiPage: string): Record<string, string | string[]> 
     return results;
 }
 
-function setAppealConfigCache (configData: string, compiledConfigs: CompiledAppealConfig[]): CompiledAppealConfig[] {
-    cachedAppealConfigData = configData;
-    cachedAppealConfigs = compiledConfigs;
-    return cachedAppealConfigs;
-}
-
 export async function validateAndSaveAppealConfig (username: string, context: TriggerContext): Promise<void> {
     const appealConfigRevisionKey = "AppealConfigRevision";
     const wikiPage = await context.reddit.getWikiPage(CONTROL_SUBREDDIT, APPEAL_CONFIG_WIKI_PAGE, {});
@@ -372,7 +363,6 @@ export async function validateAndSaveAppealConfig (username: string, context: Tr
         const configData = JSON.stringify(parsedConfigs);
         await context.redis.set(APPEAL_CONFIG_REDIS_KEY, configData);
         await context.redis.set(appealConfigRevisionKey, wikiPage.revisionId);
-        setAppealConfigCache(configData, compiledConfigs);
         console.log(`Appeal config updated to revision ${wikiPage.revisionId}`);
         return;
     }
@@ -398,25 +388,33 @@ export async function validateAndSaveAppealConfig (username: string, context: Tr
     }
 }
 
+function sortedAppealConfigs (configs: CompiledAppealConfig[]): CompiledAppealConfig[] {
+    // Sort configs by priority (higher priority first), and then preserve the original order for configs with the same priority.
+    return [...configs].sort((a, b) => {
+        const priorityA = a.priority ?? 0;
+        const priorityB = b.priority ?? 0;
+
+        if (priorityA !== priorityB) {
+            return priorityB - priorityA; // Higher priority first
+        }
+
+        return 0; // Preserve original order for same priority
+    });
+}
+
 export async function getAppealConfig (context: TriggerContext): Promise<CompiledAppealConfig[]> {
     const configData = await context.redis.get(APPEAL_CONFIG_REDIS_KEY);
     if (!configData) {
-        cachedAppealConfigData = undefined;
-        cachedAppealConfigs = [];
+        console.warn("No appeal config found in Redis. Returning empty config.");
         return [];
-    }
-
-    if (configData === cachedAppealConfigData) {
-        return cachedAppealConfigs;
     }
 
     try {
         const configs = JSON.parse(configData) as AppealConfig[];
-        const compiledConfigs = compileAppealConfigs(configs);
-        return setAppealConfigCache(configData, compiledConfigs);
+        return sortedAppealConfigs(compileAppealConfigs(configs));
     } catch (error) {
         console.error("Unable to compile stored appeal config; continuing with the last known good in-memory config:", error instanceof Error ? error.message : String(error));
-        return cachedAppealConfigs;
+        return [];
     }
 }
 
@@ -672,7 +670,7 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
         return AppealOutcomeType.Skipped;
     }
 
-    let appealConfig = await getAppealConfig(context).then(configs => configs.sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0)));
+    let appealConfig = await getAppealConfig(context);
     if (recoveredOnly) {
         appealConfig = appealConfig.filter(config => config.isHackedAppealConfig && config.setStatus === UserFlag.HackedAndRecovered);
     }
