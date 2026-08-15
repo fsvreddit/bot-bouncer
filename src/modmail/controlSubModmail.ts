@@ -13,7 +13,7 @@ import { markAppealAsHandled } from "../statistics/appealStatistics.js";
 import { statusToFlair } from "../postCreation.js";
 import { CONTROL_SUBREDDIT, ControlSubredditJob, INTERNAL_BOT } from "../constants.js";
 import { handleBulkSubmission, retryBulkSubmission } from "./bulkSubmission.js";
-import { AppealOutcomeType, handleAppeal } from "./autoAppealHandling.js";
+import { AppealOutcomeType, clearRespondToFurtherMessagesFlag, getRespondToFurtherMessagesFlag, handleAppeal } from "./autoAppealHandling.js";
 import { FLAIR_MAPPINGS } from "../handleControlSubFlairUpdate.js";
 import _ from "lodash";
 import { CHECK_DATE_KEY } from "../karmaFarmingSubsCheck.js";
@@ -56,6 +56,17 @@ export async function handleControlSubredditModmail (modmail: ModmailMessage, co
                 await context.reddit.modMail.archiveConversation(modmail.conversationId);
                 return;
             }
+        }
+    }
+
+    if (!modmail.isFirstMessage && await getRespondToFurtherMessagesFlag(context, modmail.conversationId)) {
+        const currentStatus = await getUserStatus(modmail.messageAuthor, context);
+        if (currentStatus?.userStatus === UserStatus.Banned) {
+            const appealOutcome = await handleAppeal(modmail, currentStatus, context, true);
+            if (appealOutcome === AppealOutcomeType.AppealGranted) {
+                console.log(`Modmail: ℹ️ ${modmail.messageAuthor} sent a followup message in an appeal conversation. Appeal granted.`);
+            }
+            await clearRespondToFurtherMessagesFlag(context, modmail.conversationId);
         }
     }
 

@@ -12,7 +12,7 @@ import { ModmailMessage } from "./modmail.js";
 import { evaluateUserAccount, EvaluationResult, getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
 import { getUserExtended } from "@fsvreddit/fsv-devvit-helpers";
 import { statusToFlair } from "../postCreation.js";
-import { addMinutes, addSeconds, differenceInMonths, format, getYear } from "date-fns";
+import { addMinutes, addSeconds, addWeeks, differenceInMonths, format, getYear } from "date-fns";
 import { getPossibleSetStatusValues } from "./controlSubModmail.js";
 import { getUserSocialLinks } from "devvit-helpers";
 import { sendMessageOnDelay } from "./delayedSend.js";
@@ -44,6 +44,7 @@ interface AppealConfig extends AppealRegexConfig {
     archive?: boolean;
     mute?: number;
     highlight?: boolean;
+    respondToFurtherMessages?: boolean;
 }
 
 export type CompiledAppealConfig = AppealConfigWithCompiledRegexes<AppealConfig>;
@@ -113,6 +114,7 @@ const appealConfigSchema: JSONSchemaType<AppealConfig[]> = {
             archive: { type: "boolean", nullable: true },
             mute: { type: "number", enum: acceptableMuteDurations, nullable: true },
             highlight: { type: "boolean", nullable: true },
+            respondToFurtherMessages: { type: "boolean", nullable: true },
         },
         additionalProperties: false,
         required: ["name"],
@@ -131,6 +133,7 @@ interface AppealOutcome {
     archive?: boolean;
     mute?: number;
     highlight?: boolean;
+    respondToFurtherMessages?: boolean;
 }
 
 const defaultAppealOutcome: AppealOutcome = {
@@ -663,13 +666,17 @@ export async function getMatchedAppealConfig (username: string, userDetails: Use
     return matchedAppealConfig;
 }
 
-export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDetails, context: TriggerContext): Promise<AppealOutcomeType> {
+export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDetails, context: TriggerContext, recoveredOnly = false): Promise<AppealOutcomeType> {
     const username = modmail.participant;
     if (!username) {
         return AppealOutcomeType.Skipped;
     }
 
-    const appealConfig = await getAppealConfig(context).then(configs => configs.sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0)));
+    let appealConfig = await getAppealConfig(context).then(configs => configs.sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0)));
+    if (recoveredOnly) {
+        appealConfig = appealConfig.filter(config => config.isHackedAppealConfig && config.setStatus === UserFlag.HackedAndRecovered);
+    }
+
     const matchedAppealConfig = await getMatchedAppealConfig(username, userDetails, appealConfig, modmail.bodyMarkdown, context);
 
     let appealOutcome: AppealOutcome;
@@ -692,6 +699,7 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
             archive: matchedAppealConfig.archive,
             mute: matchedAppealConfig.mute,
             highlight: matchedAppealConfig.highlight,
+            respondToFurtherMessages: matchedAppealConfig.respondToFurtherMessages,
         };
     } else {
         console.log(`Appeals: No specific appeal config matched for user ${username}, using default reply.`);
@@ -779,5 +787,26 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
         await context.reddit.modMail.highlightConversation(modmail.conversationId);
     }
 
+    if (appealOutcome.respondToFurtherMessages === true) {
+        await setRespondToFurtherMessagesFlag(context, modmail.conversationId);
+    }
+
     return appealOutcomeType;
+}
+
+function getRespondToFurtherMessagesKey (conversationId: string): string {
+    return `RespondToFurtherMessages:${conversationId}`;
+}
+
+async function setRespondToFurtherMessagesFlag (context: TriggerContext, conversationId: string): Promise<void> {
+    await context.redis.set(getRespondToFurtherMessagesKey(conversationId), "true", { expiration: addWeeks(new Date(), 4) });
+}
+
+export async function getRespondToFurtherMessagesFlag (context: TriggerContext, conversationId: string): Promise<boolean> {
+    const value = await context.redis.get(getRespondToFurtherMessagesKey(conversationId));
+    return value === "true";
+}
+
+export async function clearRespondToFurtherMessagesFlag (context: TriggerContext, conversationId: string): Promise<void> {
+    await context.redis.del(getRespondToFurtherMessagesKey(conversationId));
 }
