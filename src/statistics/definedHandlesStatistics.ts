@@ -41,6 +41,12 @@ export type DefinedHandlesStatsInitializerJobData = {
     prefixes: string[];
 };
 
+// eslint-disable-next-line @typescript-eslint/consistent-type-definitions
+type DefinedHandlesStatsJobData = {
+    jobGuid: string;
+    firstRun: boolean;
+};
+
 export async function definedHandlesStatsInitializer (event: ScheduledJobEvent<DefinedHandlesStatsInitializerJobData>, context: JobContext) {
     if (event.data.firstRun && await context.redis.exists(definedHandlesRecentlyRunKey)) {
         console.log("Defined handles statistics job ran recently; skipping this run.");
@@ -91,15 +97,15 @@ export async function definedHandlesStatsInitializer (event: ScheduledJobEvent<D
         await context.scheduler.runJob({
             name: ControlSubredditJob.DefinedHandlesStatistics,
             runAt: addSeconds(new Date(), 5),
-            data: { firstRun: true, jobGuid: crypto.randomUUID() },
+            data: { firstRun: true, jobGuid: crypto.randomUUID() } satisfies DefinedHandlesStatsJobData,
         });
     }
 }
 
-export async function gatherDefinedHandlesStats (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
-    const entriesInQueue = await context.redis.zCard(DEFINED_HANDLES_QUEUE);
-    if (await hasTriggerBeenHandled(context.redis, `definedHandlesLockAt:${entriesInQueue}`, { expiration: addMinutes(new Date(), 1) })) {
-        console.error(`Defined Handles: Duplicate job at ${entriesInQueue} remaining!`);
+export async function gatherDefinedHandlesStats (event: ScheduledJobEvent<DefinedHandlesStatsJobData | undefined>, context: JobContext) {
+    const jobGuid = event.data?.jobGuid;
+    if (jobGuid && await hasTriggerBeenHandled(context.redis, `job:${jobGuid}`, { expiration: addMinutes(new Date(), 1) })) {
+        console.error(`Defined Handles: Duplicate job with GUID ${jobGuid}!`);
         return;
     }
 
@@ -210,7 +216,7 @@ export async function gatherDefinedHandlesStats (event: ScheduledJobEvent<JSONOb
     await context.scheduler.runJob({
         name: ControlSubredditJob.DefinedHandlesStatistics,
         runAt: addSeconds(new Date(), 1),
-        data: { firstRun: false, jobGuid: crypto.randomUUID() },
+        data: { firstRun: false, jobGuid: crypto.randomUUID() } satisfies DefinedHandlesStatsJobData,
     });
 }
 
