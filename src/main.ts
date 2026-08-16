@@ -22,7 +22,7 @@ import { handleRapidJob } from "./scheduler/handleRapidJob.js";
 import { buildEvaluatorAccuracyStatistics } from "./statistics/evaluatorAccuracyStatistics.js";
 import { definedHandlesStatsInitializer, gatherDefinedHandlesStats, storeDefinedHandlesDataJob } from "./statistics/definedHandlesStatistics.js";
 import { deleteRecordsForRemovedUsers, classificationReversalsJob, reversePostCreationQueue } from "./modmail/evaluatorReversals.js";
-import { handleCommentCreate, handlePostCreate, handlePostSubmit } from "./handleContentCreation.js";
+import { handleCommentCreate, handlePostCreate } from "./handleContentCreation.js";
 import { conditionalStatsUpdate } from "./statistics/conditionalStatsUpdate.js";
 import { asyncWikiUpdate } from "./statistics/asyncWikiUpdate.js";
 import { generateBioStatisticsReport, updateBioStatisticsJob } from "./statistics/userBioStatistics.js";
@@ -53,11 +53,6 @@ Devvit.addTrigger({
 Devvit.addTrigger({
     event: "PostCreate",
     onEvent: handlePostCreate,
-});
-
-Devvit.addTrigger({
-    event: "PostSubmit",
-    onEvent: handlePostSubmit,
 });
 
 Devvit.addTrigger({

@@ -1,4 +1,4 @@
-import { CommentCreate, PostCreate, PostSubmit } from "@devvit/protos";
+import { CommentCreate, PostCreate } from "@devvit/protos";
 import { TriggerContext } from "@devvit/public-api";
 import { CONTROL_SUBREDDIT } from "./constants.js";
 import { handleControlSubCommentCreate } from "./handleControlSubComment.js";
@@ -40,9 +40,4 @@ export async function handlePostCreate (event: PostCreate, context: TriggerConte
         await handleClientPostCreate(event, context);
         await ensureClientSubJobsExist(context);
     }
-}
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function handlePostSubmit (event: PostSubmit, _: TriggerContext) {
-    console.log(`PostSubmit: Received event for post ${event.post?.id} from ${event.author?.name}`);
 }
