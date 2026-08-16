@@ -7,8 +7,10 @@ import {
     compileAppealConfigRegexes,
 } from "./appealConfigRegex.js";
 import {
+    CompiledAppealConfig,
     evaluationResultMatchesRegexes,
     negatedAppealRegexesExcludeConfig,
+    sortedAppealConfigs,
     type NegatedAppealRegexContext,
 } from "./autoAppealHandling.js";
 
@@ -219,4 +221,39 @@ test("empty negated evaluator arrays do not exclude configs", () => {
         compiledRegexesFor("~evaluatorHitReasonRegex", []),
         context,
     )).toBe(false);
+});
+
+test("sortedAppealConfigs returns configs sorted as expected", () => {
+    const configs: CompiledAppealConfig[] = [
+        {
+            name: "Config 1",
+            priority: -1,
+            compiledRegexes: {},
+        },
+        {
+            name: "Config 2",
+            compiledRegexes: {},
+        },
+        {
+            name: "Config 3",
+            priority: 1,
+            compiledRegexes: {},
+        },
+        {
+            name: "Config 4",
+            priority: 0,
+            compiledRegexes: {},
+        },
+    ];
+
+    const sorted = sortedAppealConfigs(configs);
+
+    const expected = [
+        "Config 3",
+        "Config 2",
+        "Config 4",
+        "Config 1",
+    ];
+
+    expect(sorted.map(c => c.name)).toEqual(expected);
 });

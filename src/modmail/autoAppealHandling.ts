@@ -388,7 +388,7 @@ export async function validateAndSaveAppealConfig (username: string, context: Tr
     }
 }
 
-function sortedAppealConfigs (configs: CompiledAppealConfig[]): CompiledAppealConfig[] {
+export function sortedAppealConfigs (configs: CompiledAppealConfig[]): CompiledAppealConfig[] {
     // Sort configs by priority (higher priority first), and then preserve the original order for configs with the same priority.
     return [...configs].sort((a, b) => {
         const priorityA = a.priority ?? 0;
