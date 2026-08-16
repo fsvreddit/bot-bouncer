@@ -699,6 +699,8 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
             highlight: matchedAppealConfig.highlight,
             respondToFurtherMessages: matchedAppealConfig.respondToFurtherMessages,
         };
+    } else if (recoveredOnly) {
+        return AppealOutcomeType.Skipped;
     } else {
         console.log(`Appeals: No specific appeal config matched for user ${username}, using default reply.`);
         appealOutcome = defaultAppealOutcome;
