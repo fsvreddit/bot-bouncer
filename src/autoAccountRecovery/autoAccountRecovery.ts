@@ -7,6 +7,7 @@ import { CONTROL_SUBREDDIT, ControlSubredditJob } from "../constants.js";
 import { RecoveredAccountsData, UserStatus } from "../types.js";
 import pluralize from "pluralize";
 import { getControlSubSettings } from "../settings.js";
+import { recordAppealHandled } from "../statistics/appealStatistics.js";
 
 const RECOVERED_RECHECKS_QUEUE_KEY = "recoveredRechecksQueue";
 const RECOVERED_RECHECKS_RECOVERED_KEY = "recoveredRechecksRecovered";
@@ -50,6 +51,7 @@ async function checkAndHandleAccountIsRecovered (username: string, appealConfigs
                 text: "recovered",
             });
             const newCount = await context.redis.incrBy(RECOVERED_RECHECKS_RECOVERED_KEY, 1);
+            await recordAppealHandled(context.appSlug, context);
             console.log(`Recovered Accounts: User ${username} has been marked as recovered. ${newCount} accounts handled now.`);
         } else {
             console.warn(`Recovered Accounts: User ${username} has no tracking post ID. Cannot update status to recovered.`);

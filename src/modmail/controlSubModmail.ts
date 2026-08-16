@@ -9,7 +9,7 @@ import json2md from "json2md";
 import { ModmailMessage } from "./modmail.js";
 import { dataExtract } from "./dataExtract.js";
 import { addAllUsersFromModmail } from "../similarBioTextFinder/bioTextFinder.js";
-import { markAppealAsHandled } from "../statistics/appealStatistics.js";
+import { markAppealAsHandledByMod } from "../statistics/appealStatistics.js";
 import { statusToFlair } from "../postCreation.js";
 import { CONTROL_SUBREDDIT, ControlSubredditJob, INTERNAL_BOT } from "../constants.js";
 import { handleBulkSubmission, retryBulkSubmission } from "./bulkSubmission.js";
@@ -146,7 +146,7 @@ export async function handleControlSubredditModmail (modmail: ModmailMessage, co
     }
 
     if (!modmail.isInternal && modmail.messageAuthor !== context.appSlug) {
-        await markAppealAsHandled(modmail, context);
+        await markAppealAsHandledByMod(modmail, context);
     }
 
     if (modmail.bodyMarkdown.startsWith("!evaluate ")) {

@@ -19,6 +19,7 @@ import { sendMessageOnDelay } from "./delayedSend.js";
 import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
 import { AppealConfigWithCompiledRegexes, AppealRegexConfig, type CompiledAppealRegexes, compileAppealConfigs, getAppealConfigRegexIssues } from "./appealConfigRegex.js";
 import { UserFlag, UserStatus } from "../types.js";
+import { recordAppealHandled } from "../statistics/appealStatistics.js";
 
 const APPEAL_CONFIG_WIKI_PAGE = "appeal-config";
 const APPEAL_CONFIG_REDIS_KEY = "AppealConfig";
@@ -717,6 +718,9 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
         });
 
         appealOutcomeType = isAppealGrantStatus(appealOutcome.newStatus) ? AppealOutcomeType.AppealGranted : AppealOutcomeType.StatusChanged;
+        if (appealOutcomeType === AppealOutcomeType.AppealGranted) {
+            await recordAppealHandled(context.appSlug, context);
+        }
     }
 
     if (appealOutcome.privateReply) {

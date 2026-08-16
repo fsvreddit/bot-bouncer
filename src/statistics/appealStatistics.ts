@@ -8,7 +8,11 @@ function getKeyForDate (date = new Date()): string {
     return `appealStatistics~${format(date, "yyyy-MM-dd")}`;
 }
 
-export async function markAppealAsHandled (modmail: ModmailMessage, context: TriggerContext) {
+export async function recordAppealHandled (modUsername: string, context: TriggerContext): Promise<number> {
+    return await context.redis.zIncrBy(getKeyForDate(), modUsername, 1);
+}
+
+export async function markAppealAsHandledByMod (modmail: ModmailMessage, context: TriggerContext) {
     if (modmail.isInternal || !modmail.messageAuthorIsMod || modmail.messageAuthor === context.appSlug) {
         return;
     }
@@ -18,7 +22,7 @@ export async function markAppealAsHandled (modmail: ModmailMessage, context: Tri
         return;
     }
 
-    const handled = await context.redis.zIncrBy(getKeyForDate(), modmail.messageAuthor, 1);
+    const handled = await recordAppealHandled(modmail.messageAuthor, context);
     await deleteKeyForAppeal(modmail.conversationId, context);
 
     console.log(`User ${modmail.messageAuthor} handled an appeal. Total handled today: ${handled}`);
