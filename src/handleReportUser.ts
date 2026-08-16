@@ -8,7 +8,6 @@ import { addDays, addMinutes, subMonths } from "date-fns";
 import { AppSetting, getControlSubSettings } from "./settings.js";
 import { handleControlSubReportUser } from "./handleControlSubMenu.js";
 import { recordReportForSummary } from "./modmail/actionSummary.js";
-import { canUserReceiveFeedback } from "./submissionFeedback.js";
 import { isLinkId } from "@devvit/public-api/types/tid.js";
 import { addClassificationQueryToQueue } from "./modmail/classificationQuery.js";
 import { getPostOrCommentById } from "@fsvreddit/fsv-devvit-helpers";
@@ -41,8 +40,6 @@ export const reportFormDefinition: FormFunction = data => ({
         {
             type: "boolean",
             label: "Receive a notification when this account is classified",
-            helpText: data.feedbackHelpText as string,
-            disabled: data.feedbackDisabled as boolean,
             defaultValue: data.userFeedbackPreference as boolean | undefined ?? false,
             name: ReportFormField.SendFeedback,
         },
@@ -153,12 +150,9 @@ export async function handleReportUser (event: MenuItemOnPressEvent, context: Co
         return;
     }
 
-    const canReceiveFeedback = await canUserReceiveFeedback(currentUser.username, context);
     const data = {
         username: target.authorName,
         userFeedbackPreference: await getUserFeedbackPreference(currentUser.username, context),
-        feedbackHelpText: canReceiveFeedback ? "You must be able to receive chat messages from /u/bot-bouncer to receive this notification" : "We've tried to send feedback for you several times but this hasn't worked. Check to make sure you can receive chats from /u/bot-bouncer. This option will return within 24h.",
-        feedbackDisabled: !canReceiveFeedback,
     };
 
     context.ui.showForm(reportForm, data);

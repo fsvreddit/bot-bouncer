@@ -2,17 +2,10 @@ import { TriggerContext } from "@devvit/public-api";
 import { getUserStatus } from "./dataStore.js";
 import json2md from "json2md";
 import { CONTROL_SUBREDDIT } from "./constants.js";
-import { addMinutes, subDays } from "date-fns";
+import { addMinutes } from "date-fns";
 import { UserStatus } from "./types.js";
 
 const FEEDBACK_QUEUE = "FeedbackQueue";
-const FAILED_FEEDBACK_STORE = "FailedFeedbackStore";
-const FAILED_FEEDBACK_WIKI_PAGE = "failed-feedback-users";
-
-interface FailedFeedbackItem {
-    firstFailed: number;
-    countFailed: number;
-}
 
 const statusToExplanation: Record<UserStatus, string> = {
     [UserStatus.Organic]: "seems likely to be a human run account rather than a bot.",
@@ -44,15 +37,6 @@ export async function queueSendFeedback (username: string, context: TriggerConte
         return;
     }
 
-    const failedFeedbackItem = await context.redis.global.hGet(FAILED_FEEDBACK_STORE, currentStatus.submitter);
-    if (failedFeedbackItem) {
-        const parsedItem = JSON.parse(failedFeedbackItem) as FailedFeedbackItem;
-        if (parsedItem.countFailed >= 5) {
-            console.log(`Not sending feedback to ${currentStatus.submitter} as there have been ${parsedItem.countFailed} previous failures`);
-            return;
-        }
-    }
-
     await context.redis.zAdd(FEEDBACK_QUEUE, { member: username, score: addMinutes(new Date(), 2).getTime() });
 }
 
@@ -78,7 +62,7 @@ export async function processFeedbackQueue (context: TriggerContext) {
     await context.redis.zRem(FEEDBACK_QUEUE, [firstUser]);
 
     if (await context.redis.exists(`sendFeedback:${firstUser}`)) {
-        await sendFeedbackViaMessage(firstUser, currentStatus.submitter, currentStatus.operator, currentStatus.userStatus, context);
+        await sendFeedbackViaModmail(firstUser, currentStatus.submitter, currentStatus.operator, currentStatus.userStatus, context);
     } else {
         const commentId = await context.redis.get(`callbackCommentPosted:${firstUser}`);
         if (commentId) {
@@ -91,7 +75,10 @@ export async function processFeedbackQueue (context: TriggerContext) {
     }
 }
 
-async function sendFeedbackViaMessage (username: string, submitter: string, operator: string | undefined, userStatus: UserStatus, context: TriggerContext) {
+async function sendFeedbackViaModmail (username: string, submitter: string, operator: string | undefined, userStatus: UserStatus, context: TriggerContext) {
+    const modmailKeyForUser = `feedbackModmailConversation:${username}`;
+    const existingModmailId = await context.redis.get(modmailKeyForUser);
+
     const automaticText = operator === context.appSlug ? "automatically" : "manually";
     const message: json2md.DataObject[] = [
         { p: `Hi ${submitter}, you recently reported /u/${username} to /r/${CONTROL_SUBREDDIT}.` },
@@ -107,76 +94,43 @@ async function sendFeedbackViaMessage (username: string, submitter: string, oper
     message.push({ p: "This status may change in the future if we receive more information or if the user questions their classification." });
 
     if (userStatus === UserStatus.Organic || userStatus === UserStatus.Service) {
-        message.push({ p: `If you have any more information to help us understand why this may be a harmful or disruptive bot, please [message /r/${CONTROL_SUBREDDIT}](https://www.reddit.com/message/compose?to=/r/${CONTROL_SUBREDDIT}&subject=More%20information%20about%20/u/${username})` });
+        message.push({ p: `If you have any more information to help us understand why this may be a harmful or disruptive bot, please reply to this message.` });
     }
 
-    message.push({ p: "*Please do not reply to this message, replies will not be read. If you have any questions please contact /r/BotBouncer by modmail*" });
-
     try {
-        await context.reddit.sendPrivateMessage({
-            to: submitter,
-            subject: `Bot Bouncer classification for /u/${username}`,
-            text: json2md(message),
-        });
+        if (existingModmailId) {
+            const conversation = await context.reddit.modMail.getConversation({ conversationId: existingModmailId });
+            await context.reddit.modMail.reply({
+                conversationId: existingModmailId,
+                body: json2md(message),
+            });
+            if (conversation.conversation?.state?.toLowerCase() === "archived") {
+                await context.reddit.modMail.archiveConversation(existingModmailId);
+            }
+        } else {
+            const newModmailConversation = await context.reddit.modMail.createConversation({
+                subredditName: CONTROL_SUBREDDIT,
+                subject: "Bot Bouncer classification feedback",
+                body: json2md(message),
+                to: submitter,
+            });
+            if (newModmailConversation.conversation.id) {
+                await context.redis.set(modmailKeyForUser, newModmailConversation.conversation.id);
+                await context.reddit.modMail.archiveConversation(newModmailConversation.conversation.id);
+            }
+        }
 
         console.log(`Feedback sent to ${submitter} about ${username} being classified as ${userStatus} by ${operator}`);
     } catch (error) {
-        const existingFailedItem = await context.redis.global.hGet(FAILED_FEEDBACK_STORE, submitter);
-        let itemToStore: FailedFeedbackItem;
-        if (existingFailedItem) {
-            itemToStore = JSON.parse(existingFailedItem) as FailedFeedbackItem;
-            itemToStore.countFailed++;
-        } else {
-            itemToStore = { firstFailed: Date.now(), countFailed: 1 };
-        }
-
-        console.error(`Failed to send feedback to ${submitter}. Total failed now: ${itemToStore.countFailed}: ${error}`);
-
-        await context.redis.global.hSet(FAILED_FEEDBACK_STORE, { [submitter]: JSON.stringify(itemToStore) });
-
-        if (itemToStore.countFailed >= 3) {
-            await updateFailedFeedbackStorage(context);
+        const message = error instanceof Error ? error.message : String(error);
+        console.error(`Failed to send feedback to ${submitter} about ${username} being classified as ${userStatus} by ${operator}: ${message}`);
+        if (existingModmailId) {
+            // Might have hit a limit on the conversation, so clear existing key to create a new one next time.
+            await context.redis.del(modmailKeyForUser);
         }
     }
 
     await context.redis.del(`sendFeedback:${username}`);
-}
-
-export async function updateFailedFeedbackStorage (context: TriggerContext) {
-    const failedFeedbackDataRaw = await context.redis.global.hGetAll(FAILED_FEEDBACK_STORE);
-    const itemsToRemoveFromStore: string[] = [];
-    const itemsToExcludeFromPage: string[] = [];
-
-    for (const [username, data] of Object.entries(failedFeedbackDataRaw)) {
-        const parsedData = JSON.parse(data) as FailedFeedbackItem;
-        if (parsedData.firstFailed < subDays(new Date(), 1).getTime()) {
-            itemsToRemoveFromStore.push(username);
-        }
-
-        if (parsedData.countFailed < 3) {
-            itemsToExcludeFromPage.push(username);
-        }
-    }
-
-    if (itemsToRemoveFromStore.length > 0) {
-        await context.redis.global.hDel(FAILED_FEEDBACK_STORE, itemsToRemoveFromStore);
-    }
-
-    const usernamesWithFailedFeedback = Object.keys(failedFeedbackDataRaw)
-        .filter(username => !itemsToRemoveFromStore.includes(username) && !itemsToExcludeFromPage.includes(username));
-
-    await context.reddit.updateWikiPage({
-        subredditName: CONTROL_SUBREDDIT,
-        page: FAILED_FEEDBACK_WIKI_PAGE,
-        content: JSON.stringify(usernamesWithFailedFeedback),
-    });
-}
-
-export async function canUserReceiveFeedback (username: string, context: TriggerContext): Promise<boolean> {
-    const userCanReceiveFeedback = await context.redis.global.hGet(FAILED_FEEDBACK_STORE, username)
-        .then(item => item === undefined);
-
-    return userCanReceiveFeedback;
 }
 
 async function updateCommentWithFeedback (username: string, commentId: string, userStatus: UserStatus, context: TriggerContext) {

@@ -8,7 +8,6 @@ import { updateUsernameStatistics } from "../statistics/usernameStatistics.js";
 import { updateDisplayNameStatistics } from "../statistics/displayNameStats.js";
 import { updateSocialLinksStatistics } from "../statistics/socialLinksStatistics.js";
 import { updateBioStatistics } from "../statistics/userBioStatistics.js";
-import { updateFailedFeedbackStorage } from "../submissionFeedback.js";
 import { analyseBioText } from "../similarBioTextFinder/bioTextFinder.js";
 import { DefinedHandlesStatsInitializerJobData } from "../statistics/definedHandlesStatistics.js";
 import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
@@ -93,7 +92,6 @@ export async function perform6HourlyJobs (event: ScheduledJobEvent<JSONObject | 
 
     await Promise.all([
         createTimeOfSubmissionStatistics(allValues, context),
-        updateFailedFeedbackStorage(context),
         analyseBioText(context),
         checkDataStoreIntegrity(context),
     ]);
