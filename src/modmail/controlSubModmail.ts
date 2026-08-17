@@ -59,7 +59,7 @@ export async function handleControlSubredditModmail (modmail: ModmailMessage, co
         }
     }
 
-    if (!modmail.isFirstMessage && await getRespondToFurtherMessagesFlag(context, modmail.conversationId)) {
+    if (!modmail.isFirstMessage && modmail.messageAuthor === modmail.participant && await getRespondToFurtherMessagesFlag(context, modmail.conversationId)) {
         const currentStatus = await getUserStatus(modmail.messageAuthor, context);
         if (currentStatus?.userStatus === UserStatus.Banned) {
             const appealOutcome = await handleAppeal(modmail, currentStatus, context, true);
