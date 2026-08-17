@@ -142,7 +142,7 @@ export async function checkPermissionQueueItems (event: ScheduledJobEvent<JSONOb
         { p: `Hello! During a recent check, Bot Bouncer detected that there is a problem with its moderator permissions in your subreddit, /r/${subredditName}. As a result, some or all of the bot's functionality may not work correctly.` },
         ...problemFound,
         { p: `If you have any questions or need assistance, please [message the mods of /r/BotBouncer](https://www.reddit.com/message/compose/?to=/r/BotBouncer).` },
-        { p: `*This is an automated message, replies will not be read. You won't receive another notification about this issue for another two weeks unless the permissions change.*` },
+        { p: `*This is an automated message, replies will not be read. You won't receive another notification about this issue for another four weeks unless the permissions change.*` },
     ];
 
     await context.reddit.sendPrivateMessage({
@@ -152,7 +152,7 @@ export async function checkPermissionQueueItems (event: ScheduledJobEvent<JSONOb
     });
 
     await context.redis.hSet(PERMISSION_MESSAGE_SENT_HASH, { [subredditName]: issueFound ?? "unknown" });
-    await context.redis.set(getPermissionMessageSentKeyForSubreddit(subredditName), Date.now().toString(), { expiration: addWeeks(new Date(), 2) });
+    await context.redis.set(getPermissionMessageSentKeyForSubreddit(subredditName), Date.now().toString(), { expiration: addWeeks(new Date(), 4) });
     console.log(`Permission Checks: Sent permissions issue message to /r/${subredditName}.`);
 
     if (inBacklog) {
