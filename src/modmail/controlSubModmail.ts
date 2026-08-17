@@ -1,6 +1,6 @@
 import { TriggerContext } from "@devvit/public-api";
 import { isCommentId, isLinkId } from "@devvit/public-api/types/tid.js";
-import { getUserStatus } from "../dataStore.js";
+import { getUserStatus, UserDetails } from "../dataStore.js";
 import { getSummaryForUser } from "../UserSummary/userSummary.js";
 import { getUserOrUndefined, isModeratorWithCache } from "../utility.js";
 import { CONFIGURATION_DEFAULTS, getControlSubSettings } from "../settings.js";
@@ -13,7 +13,7 @@ import { markAppealAsHandledByMod } from "../statistics/appealStatistics.js";
 import { statusToFlair } from "../postCreation.js";
 import { CONTROL_SUBREDDIT, ControlSubredditJob, INTERNAL_BOT } from "../constants.js";
 import { handleBulkSubmission, retryBulkSubmission } from "./bulkSubmission.js";
-import { AppealOutcomeType, clearRespondToFurtherMessagesFlag, getRespondToFurtherMessagesFlag, handleAppeal } from "./autoAppealHandling.js";
+import { AppealOutcomeType, clearRespondToFurtherMessagesFlag, getAppealConfig, getMatchedAppealConfig, getRespondToFurtherMessagesFlag, handleAppeal } from "./autoAppealHandling.js";
 import { FLAIR_MAPPINGS } from "../handleControlSubFlairUpdate.js";
 import _ from "lodash";
 import { CHECK_DATE_KEY } from "../karmaFarmingSubsCheck.js";
@@ -201,6 +201,36 @@ export async function handleControlSubredditModmail (modmail: ModmailMessage, co
                     isInternal: true,
                 });
             }
+        }
+    }
+
+    if (modmail.participant && modmail.bodyMarkdown.startsWith("!testappeal")) {
+        const appealConfigs = await getAppealConfig(context);
+        const currentStatus = await getUserStatus(modmail.participant, context);
+        if (!currentStatus) {
+            await context.reddit.modMail.reply({
+                conversationId: modmail.conversationId,
+                body: "User does not have a status, so cannot check the auto appeal handling",
+                isInternal: true,
+            });
+        } else {
+            const statusToCheck: UserDetails = {
+                ...currentStatus,
+                userStatus: UserStatus.Banned,
+            };
+
+            const matchedAppealConfig = await getMatchedAppealConfig(modmail.participant, statusToCheck, appealConfigs, modmail.firstMessageBodyMarkdown, context, true);
+            let response: string;
+            if (matchedAppealConfig) {
+                response = `Matched appeal config: ${matchedAppealConfig.name}`;
+            } else {
+                response = `Did not match any of the ${appealConfigs.length} appeal configs`;
+            }
+            await context.reddit.modMail.reply({
+                conversationId: modmail.conversationId,
+                body: response,
+                isInternal: true,
+            });
         }
     }
 }

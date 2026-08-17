@@ -13,6 +13,7 @@ export interface ModmailMessage {
     messageAuthor: string;
     messageAuthorIsMod: boolean;
     bodyMarkdown: string;
+    firstMessageBodyMarkdown?: string;
     isFirstMessage: boolean;
     isInternal: boolean;
     isHighlighted?: boolean;
@@ -68,6 +69,7 @@ export async function handleModmail (event: ModMail, context: TriggerContext) {
         messageAuthor: currentMessage.author.name ?? "",
         messageAuthorIsMod: currentMessage.author.isMod ?? false,
         bodyMarkdown: currentMessage.bodyMarkdown,
+        firstMessageBodyMarkdown: firstMessage.bodyMarkdown,
         isFirstMessage,
         isInternal: currentMessage.isInternal ?? false,
         isHighlighted: conversationResponse.conversation.isHighlighted,

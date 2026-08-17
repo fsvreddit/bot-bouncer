@@ -447,7 +447,7 @@ function isAppealGrantStatus (status: string | undefined): boolean {
         || status === UserFlag.FutureNSFW;
 }
 
-export async function getMatchedAppealConfig (username: string, userDetails: UserDetails, appealConfig: CompiledAppealConfig[], modmailMessage: string | undefined, context: TriggerContext) {
+export async function getMatchedAppealConfig (username: string, userDetails: UserDetails, appealConfig: CompiledAppealConfig[], modmailMessage: string | undefined, context: TriggerContext, debug = false) {
     const initialAccountEvaluationResults = await getAccountInitialEvaluationResults(username, context);
 
     // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
@@ -460,8 +460,8 @@ export async function getMatchedAppealConfig (username: string, userDetails: Use
     // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
     const socialLinks = appealConfig.some(config => config.socialLinkRegex || config["~socialLinkRegex"]) ? await getUserSocialLinks(username, context.metadata) : [];
 
-    const originalBio = await context.redis.hGet(BIO_TEXT_STORE, username.toLowerCase());
-    const originalSocialLinks = await context.redis.hGet(SOCIAL_LINKS_STORE, username.toLowerCase())
+    const originalBio = await context.redis.hGet(BIO_TEXT_STORE, username);
+    const originalSocialLinks = await context.redis.hGet(SOCIAL_LINKS_STORE, username)
         .then(data => data ? JSON.parse(data) as UserSocialLink[] : []);
 
     let modNotes: ModNote[] = [];
@@ -513,30 +513,51 @@ export async function getMatchedAppealConfig (username: string, userDetails: Use
             }
 
             if (regexes.usernameRegex && !regexes.usernameRegex.some(regex => regex.test(username))) {
+                if (debug) {
+                    console.log(`Appeals: usernameRegex did not match for ${config.name}`);
+                }
                 return;
             }
 
             if (regexes["~usernameRegex"]?.some(regex => regex.test(username))) {
+                if (debug) {
+                    console.log(`Appeals: ~usernameRegex matched username on ${config.name}`);
+                }
                 return;
             }
 
             if (regexes.messageBodyRegex && !regexes.messageBodyRegex.some(regex => regex.test(modmailMessage ?? ""))) {
+                if (debug) {
+                    console.log(`Appeals: messageBodyRegex did not match for ${config.name}`);
+                }
                 return;
             }
 
             if (config.banDateFrom && (userDetails.reportedAt ?? userDetails.lastUpdate) < new Date(config.banDateFrom).getTime()) {
+                if (debug) {
+                    console.log(`Appeals: banDateFrom did not match for ${config.name}`);
+                }
                 return;
             }
 
             if (config.banDateTo && (userDetails.reportedAt ?? userDetails.lastUpdate) > new Date(config.banDateTo).getTime()) {
+                if (debug) {
+                    console.log(`Appeals: banDateTo did not match for ${config.name}`);
+                }
                 return;
             }
 
             if (config.submitter && config.submitter !== userDetails.submitter) {
+                if (debug) {
+                    console.log(`Appeals: submitter did not match for ${config.name}`);
+                }
                 return;
             }
 
             if (config.operator && config.operator !== userDetails.operator) {
+                if (debug) {
+                    console.log(`Appeals: operator did not match for ${config.name}`);
+                }
                 return;
             }
 
@@ -564,64 +585,100 @@ export async function getMatchedAppealConfig (username: string, userDetails: Use
 
             if (config.bioRegex) {
                 if (!user?.userDescription) {
+                    if (debug) {
+                        console.log(`Appeals: bioRegex cannot match due to lack of current bio for ${config.name}`);
+                    }
                     return;
                 }
 
                 if (!regexes.bioRegex?.some(regex => regex.test(user.userDescription ?? ""))) {
+                    if (debug) {
+                        console.log(`Appeals: bioRegex did not match for ${config.name}`);
+                    }
                     return;
                 }
             }
 
             if (config["~bioRegex"] && user?.userDescription) {
                 if (regexes["~bioRegex"]?.some(regex => regex.test(user.userDescription ?? ""))) {
+                    if (debug) {
+                        console.log(`Appeals: ~bioRegex matched current bio for ${config.name}`);
+                    }
                     return;
                 }
             }
 
             if (config.originalBioRegex) {
                 if (!originalBio) {
+                    if (debug) {
+                        console.log(`Appeals: originalBioRegex cannot match, user has no original bio stored for ${config.name}`);
+                    }
                     return;
                 }
 
                 if (!regexes.originalBioRegex?.some(regex => regex.test(originalBio))) {
+                    if (debug) {
+                        console.log(`Appeals: originalBioRegex did not match the user's original bio for ${config.name}`);
+                    }
                     return;
                 }
             }
 
             if (config.socialLinkRegex) {
                 if (!socialLinks.length) {
+                    if (debug) {
+                        console.log(`Appeals: socialLinkRegex cannot match as user has no current links for ${config.name}`);
+                    }
                     return;
                 }
 
                 if (!regexes.socialLinkRegex?.some(regex => socialLinks.some(link => regex.test(link.outboundUrl)))) {
+                    if (debug) {
+                        console.log(`Appeals: socialLinkRegex did not match for ${config.name}`);
+                    }
                     return;
                 }
             }
 
             if (config["~socialLinkRegex"] && socialLinks.length > 0) {
                 if (regexes["~socialLinkRegex"]?.some(regex => socialLinks.some(link => regex.test(link.outboundUrl)))) {
+                    if (debug) {
+                        console.log(`Appeals: ~socialLinkRegex matched a current link for ${config.name}`);
+                    }
                     return;
                 }
             }
 
             if (config.originalSocialLinkRegex) {
                 if (originalSocialLinks.length === 0) {
+                    if (debug) {
+                        console.log(`Appeals: originalSocialLinkRegex cannot match due to no original links for ${config.name}`);
+                    }
                     return;
                 }
 
                 if (!regexes.originalSocialLinkRegex?.some(regex => originalSocialLinks.some(link => regex.test(link.outboundUrl)))) {
+                    if (debug) {
+                        console.log(`Appeals: originalSocialLinkRegex did not match an original link for ${config.name}`);
+                    }
                     return;
                 }
             }
 
             if (config.flags) {
                 if (!userDetails.flags || !config.flags.every(flag => userDetails.flags?.includes(flag))) {
+                    if (debug) {
+                        console.log(`Appeals: flags did not match for ${config.name}`);
+                    }
                     return;
                 }
             }
 
             if (config["~flags"]) {
                 if (userDetails.flags && config["~flags"].some(flag => userDetails.flags?.includes(flag))) {
+                    if (debug) {
+                        console.log(`Appeals: ~flags matched a current flag for ${config.name}`);
+                    }
                     return;
                 }
             }
@@ -631,6 +688,9 @@ export async function getMatchedAppealConfig (username: string, userDetails: Use
                 const hasMoreThanOneCommentOnPost = Object.values(commentsPerPost).some(count => count > 1);
 
                 if (config.hasMoreThanOneCommentOnPost !== hasMoreThanOneCommentOnPost) {
+                    if (debug) {
+                        console.log(`Appeals: user has more than one comment on post ${config.name}`);
+                    }
                     return;
                 }
             }
@@ -639,18 +699,27 @@ export async function getMatchedAppealConfig (username: string, userDetails: Use
                 const hasNSFWPosts = history.some(item => "nsfw" in item && item.nsfw);
 
                 if (config.hasNSFWPosts !== hasNSFWPosts) {
+                    if (debug) {
+                        console.log(`Appeals: hasNSFWPosts failed as user has NSFW posts for ${config.name}`);
+                    }
                     return;
                 }
             }
 
             if (config.modNoteTextRegex) {
                 if (!modNotes.some(modNote => regexes.modNoteTextRegex?.some(regex => regex.test(modNote.userNote?.note ?? "")))) {
+                    if (debug) {
+                        console.log(`Appeals: modNoteTextRegex did not match for ${config.name}`);
+                    }
                     return;
                 }
             }
 
             if (config["~modNoteTextRegex"]) {
                 if (modNotes.some(modNote => regexes["~modNoteTextRegex"]?.some(regex => regex.test(modNote.userNote?.note ?? "")))) {
+                    if (debug) {
+                        console.log(`Appeals: ~modNoteTextRegex matched a mod note for ${config.name}`);
+                    }
                     return;
                 }
             }
