@@ -187,7 +187,7 @@ async function buildInstalledSubredditsReport (context: TriggerContext) {
     await context.redis.set(reportLastUpdatedKey, "", { expiration: addHours(new Date(), 2) });
 
     // Checks are run weekly, so remove subs that are likely now uninstalled.
-    const subsNotCheckedRecently = await context.redis.zRange(INSTALL_DATES_LAST_CHECKED_KEY, 0, subDays(new Date(), 9).getTime(), { by: "score" });
+    const subsNotCheckedRecently = await context.redis.zRange(INSTALL_DATES_LAST_CHECKED_KEY, 0, subDays(new Date(), 29).getTime(), { by: "score" });
 
     if (subsNotCheckedRecently.length > 0) {
         await context.redis.zRem(INSTALL_DATES_KEY, subsNotCheckedRecently.map(sub => sub.member));
