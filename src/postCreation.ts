@@ -303,6 +303,8 @@ export async function processQueuedSubmission (context: JobContext) {
 
     await createNewSubmission(JSON.parse(submissionDetails) as AsyncSubmission, context);
 
+    await context.redis.del(cooldownKey);
+
     const remainingItemsInQueue = queuedSubmissions.length - 1;
     const firstItemNonUrgent = queuedSubmissions.find(item => item.score > subWeeks(new Date(), 1).getTime());
 
@@ -358,6 +360,4 @@ export async function processQueuedSubmission (context: JobContext) {
             }
         }
     }
-
-    await context.redis.del(cooldownKey);
 }
