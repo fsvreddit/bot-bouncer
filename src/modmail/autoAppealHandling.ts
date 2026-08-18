@@ -471,7 +471,7 @@ export async function getMatchedAppealConfig (username: string, userDetails: Use
             subreddit: context.subredditName ?? await context.reddit.getCurrentSubredditName(),
             user: username,
             filter: "NOTE",
-        }).all().then(items => items.filter(item => item.userNote?.note));
+        }).all().then(items => items.filter(item => item.userNote?.note && item.operator.name !== username));
     }
 
     let currentEvaluationResults: EvaluationResult[] = [];

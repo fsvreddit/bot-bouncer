@@ -76,7 +76,7 @@ export async function processFeedbackQueue (context: TriggerContext) {
 }
 
 async function sendFeedbackViaModmail (username: string, submitter: string, operator: string | undefined, userStatus: UserStatus, context: TriggerContext) {
-    const modmailKeyForUser = `feedbackModmailConversation:${username}`;
+    const modmailKeyForUser = `feedbackModmailConversation:${submitter}`;
     const existingModmailId = await context.redis.get(modmailKeyForUser);
 
     const automaticText = operator === context.appSlug ? "automatically" : "manually";
@@ -106,6 +106,8 @@ async function sendFeedbackViaModmail (username: string, submitter: string, oper
             });
             if (conversation.conversation?.state?.toLowerCase() === "archived") {
                 await context.reddit.modMail.archiveConversation(existingModmailId);
+            } else {
+                console.log(`Feedback message was sent to ${submitter} about ${username}, conversation was not archived.`);
             }
         } else {
             const newModmailConversation = await context.reddit.modMail.createConversation({
@@ -117,6 +119,8 @@ async function sendFeedbackViaModmail (username: string, submitter: string, oper
             if (newModmailConversation.conversation.id) {
                 await context.redis.set(modmailKeyForUser, newModmailConversation.conversation.id);
                 await context.reddit.modMail.archiveConversation(newModmailConversation.conversation.id);
+            } else {
+                console.warn(`Feedback message was sent to ${submitter} but no conversation ID was returned.`);
             }
         }
 
