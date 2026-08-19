@@ -111,6 +111,10 @@ export async function cleanupDeletedAccounts (event: ScheduledJobEvent<JSONObjec
         return;
     }
 
+    if (event.data?.firstRun) {
+        console.log(`Cleanup: First run, processing ${items.length} users.`);
+    }
+
     const firstCleanupDate = new Date(items[0].score);
 
     await context.redis.set(recentlyRunKey, "true", { expiration: addSeconds(new Date(), 30) });
