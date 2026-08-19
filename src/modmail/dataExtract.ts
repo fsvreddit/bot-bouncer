@@ -693,7 +693,15 @@ async function createDataExtract (
     const content = json2md(markdown);
 
     if (request.recheck) {
-        await Promise.all(data.map(entry => setCleanupForUser(entry.username, context.redis, addSeconds(new Date(), 1))));
+        if (data.length < 5000) {
+            await Promise.all(data.map(entry => setCleanupForUser(entry.username, context.redis, addSeconds(new Date(), 1))));
+        } else {
+            await context.reddit.modMail.reply({
+                conversationId,
+                body: `The data to export includes ${data.length} records, which exceeds the maximum of 5000 for rechecks. Users have not been queued for recheck.`,
+                isAuthorHidden: false,
+            });
+        }
     }
 
     if (content.length > 512 * 1024) {
