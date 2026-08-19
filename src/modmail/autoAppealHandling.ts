@@ -25,6 +25,7 @@ const APPEAL_CONFIG_WIKI_PAGE = "appeal-config";
 const APPEAL_CONFIG_REDIS_KEY = "AppealConfig";
 
 interface AppealConfig extends AppealRegexConfig {
+    draft?: boolean;
     isHackedAppealConfig?: boolean;
     priority?: number;
     submitter?: string;
@@ -60,6 +61,7 @@ const appealConfigSchema: JSONSchemaType<AppealConfig[]> = {
         type: "object",
         properties: {
             name: { type: "string" },
+            draft: { type: "boolean", nullable: true },
             isHackedAppealConfig: { type: "boolean", nullable: true },
             priority: { type: "number", nullable: true },
             submitter: { type: "string", nullable: true },
@@ -499,6 +501,10 @@ export async function getMatchedAppealConfig (username: string, userDetails: Use
     }
 
     const matchedAppealConfig = appealConfig.find((config) => {
+        if (config.draft && !debug) {
+            return;
+        }
+
         try {
             const regexes = config.compiledRegexes;
 
