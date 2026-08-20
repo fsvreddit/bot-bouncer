@@ -48,9 +48,10 @@ If an account was banned by Bot Bouncer on a sub but successfully appeals via r/
 
 # Latest Changes
 
-## v1.34.0 (coming soon)
+## v1.34.0
 
 * Prevent comments and posts that were removed/filtered by AutoModerator or Reddit from being re-approved if a user's appeal is successful
+* Add detections for image repost bots
 
 ## v1.33.2
 
