@@ -50,8 +50,8 @@ If an account was banned by Bot Bouncer on a sub but successfully appeals via r/
 
 ## v1.34.0
 
+* Add detections for image and video repost bots
 * Prevent comments and posts that were removed/filtered by AutoModerator or Reddit from being re-approved if a user's appeal is successful
-* Add detections for image repost bots
 
 ## v1.33.2
 

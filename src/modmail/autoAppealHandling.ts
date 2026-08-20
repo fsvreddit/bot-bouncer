@@ -793,7 +793,7 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
         });
 
         appealOutcomeType = isAppealGrantStatus(appealOutcome.newStatus) ? AppealOutcomeType.AppealGranted : AppealOutcomeType.StatusChanged;
-        if (appealOutcomeType === AppealOutcomeType.AppealGranted) {
+        if (appealOutcomeType === AppealOutcomeType.AppealGranted && !recoveredOnly) {
             await recordAppealHandled(context.appSlug, context);
         }
     }
