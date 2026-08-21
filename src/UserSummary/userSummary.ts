@@ -206,7 +206,7 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
     if (userStatus && source === "modmail") {
         const post = await context.reddit.getPostById(userStatus.trackingPostId);
 
-        let firstLine = `/u/${username} is currently listed as ${userStatus.userStatus}, set by ${markdownEscape(userStatus.operator ?? "unknown")} at ${new Date(userStatus.lastUpdate).toUTCString()}`;
+        let firstLine = `[${markdownEscape(username)}](https://www.reddit.com/user/${username}) is currently listed as ${userStatus.userStatus}, set by ${markdownEscape(userStatus.operator ?? "unknown")} at ${new Date(userStatus.lastUpdate).toUTCString()}`;
         if (userStatus.submitter) {
             firstLine += ` and reported by ${markdownEscape(userStatus.submitter)}`;
             const successRate = await getSubmitterSuccessRate(userStatus.submitter, context);
@@ -327,11 +327,11 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
 
     const potentiallyBlocking = await isUserPotentiallyBlockingBot([...userComments, ...userPosts], context);
     if (potentiallyBlocking) {
-        accountPropsBullets.push("User is potentially blocking bot u/bot-bouncer (their visible history only shows subs where app is installed)");
+        accountPropsBullets.push("User is potentially blocking Bot Bouncer (their visible history only shows subs where app is installed)");
     } else if (potentiallyBlocking === undefined) {
-        accountPropsBullets.push("Could not determine if user is blocking bot u/bot-bouncer, as they have less than 5 distinct subreddits in their visible history");
+        accountPropsBullets.push("Could not determine if user is blocking Bot Bouncer, as they have less than 5 distinct subreddits in their visible history");
     } else {
-        accountPropsBullets.push("User is not blocking u/bot-bouncer");
+        accountPropsBullets.push("User is not blocking Bot Bouncer");
     }
 
     if (source === "modmail") {
@@ -393,11 +393,22 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
             summary.push({ h2: "Mod Notes" });
             for (const note of relevantModNotes) {
                 summary.push({ p: `**${markdownEscape(note.operator.name ?? "unknown")}** on ${format(note.createdAt, "yyyy-MM-dd")}` });
-                summary.push({ blockquote: note.userNote?.note ?? "" });
+
+                const usernameRegex = /^u\/([A-Za-z0-9_-]+)/;
+                const match = usernameRegex.exec(note.userNote?.note ?? "");
+                if (match) {
+                    const noteUsername = match[1];
+                    const usernote = (note.userNote?.note ?? "").replace(usernameRegex, `[${markdownEscape(noteUsername)}](https://www.reddit.com/user/${noteUsername})`);
+                    summary.push({ blockquote: usernote });
+                } else {
+                    summary.push({ blockquote: note.userNote?.note ?? "" });
+                }
             }
         }
-    } catch {
-        // This seems to fail a fair bit. Just ignore it if mod notes don't load.
+    } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error(`User Summary: Error fetching mod notes for ${username}: ${message}`);
+        summary.push({ p: "An error occurred when fetching mod notes. This may be due to a Reddit bug that prevents some mod notes from being retrieved by the Dev Platform." });
     }
 
     const extras = getSummaryExtras(evaluatorVariables);

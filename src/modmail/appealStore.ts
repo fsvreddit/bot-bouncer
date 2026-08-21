@@ -60,7 +60,7 @@ export async function getAppealTextForUser (username: string, triggerConversatio
     }
 
     const results: json2md.DataObject[] = [
-        { h2: `Previous appeals for u/${username}` },
+        { h2: "Previous appeals" },
     ];
 
     appealRecords.sort((a, b) => compareDesc(a.createdAt, b.createdAt));
