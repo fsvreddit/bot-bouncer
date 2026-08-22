@@ -31,7 +31,7 @@ import { redosChecker } from "./userEvaluation/redosChecker.js";
 import { checkPermissionQueueItems, handlePermissionCheckEnqueueJob } from "./permissionChecksAndInstallDates.js";
 import { handleFiveMinutelyJob } from "./scheduler/fiveMinutelyJobs.js";
 import { checkAccountsForReview } from "./modmail/accountReview.js";
-import { pendingUserFinder } from "./statistics/pendingUserFinder.js";
+import { createSummariesForPendingUsers, pendingUserFinder } from "./statistics/pendingUserFinder.js";
 import { handleMinutelyJob } from "./scheduler/handleMinutelyJob.js";
 import { generateOpenAISummary, openAISummaryLookupAndRespond } from "./aiAnalysis/createAISummary.js";
 import { updateTokenStatsMessage } from "./aiAnalysis/statistics.js";
@@ -305,6 +305,11 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: ControlSubredditJob.AutoAccountRecovery,
     onRun: checkPotentiallyRecoveredAccounts,
+});
+
+Devvit.addSchedulerJob({
+    name: ControlSubredditJob.CreateSummaries,
+    onRun: createSummariesForPendingUsers,
 });
 
 /**

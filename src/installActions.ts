@@ -118,6 +118,11 @@ async function addControlSubredditJobs (context: TriggerContext) {
         }),
 
         context.scheduler.runJob({
+            name: ControlSubredditJob.PendingUserFinder,
+            runAt: addSeconds(new Date(), 10),
+        }),
+
+        context.scheduler.runJob({
             name: UniversalJob.Cleanup,
             cron: "* * * * *",
             data: { firstRun: true },

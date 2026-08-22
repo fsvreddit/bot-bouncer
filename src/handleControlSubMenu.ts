@@ -3,7 +3,7 @@ import { getUsernameFromUrl, normaliseHitReason } from "./utility.js";
 import { deleteUserStatus, getUsernameFromPostId, getUserStatus, updateAggregate } from "./dataStore.js";
 import { controlSubForm, controlSubQuerySubmissionForm } from "./main.js";
 import { CONTROL_SUBREDDIT } from "./constants.js";
-import { createUserSummary, getSummaryForUser } from "./UserSummary/userSummary.js";
+import { getSummaryForUser, regenerateSummary } from "./UserSummary/userSummary.js";
 import { evaluateUserAccount, getAccountInitialEvaluationResults } from "./handleControlSubAccountEvaluation.js";
 import json2md from "json2md";
 import { CLEANUP_LOG_KEY } from "./cleanup.js";
@@ -166,7 +166,8 @@ export async function handleControlSubForm (event: FormOnSubmitEvent<JSONObject>
 
     switch (action) {
         case ControlSubAction.RegenerateSummary:
-            await handleRegenerateSummary(username, post, context);
+            await regenerateSummary(username, post, context);
+            context.ui.showToast("Summary regenerated");
             break;
         case ControlSubAction.QuerySubmission:
             context.ui.showForm(controlSubQuerySubmissionForm);
@@ -181,19 +182,6 @@ export async function handleControlSubForm (event: FormOnSubmitEvent<JSONObject>
             context.ui.showToast("You must select an action");
             break;
     }
-}
-
-async function handleRegenerateSummary (username: string, post: Post, context: Context) {
-    const comment = await post.comments.all();
-    const commentToDelete = comment.find(c => c.authorName === context.appSlug && c.body.includes("## Account Properties"));
-
-    if (commentToDelete) {
-        await commentToDelete.delete();
-    }
-
-    await createUserSummary(username, post.id, context);
-
-    context.ui.showToast("Summary regenerated");
 }
 
 export const controlSubQuerySubmissionFormDefinition: Form = {

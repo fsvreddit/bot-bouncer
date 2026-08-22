@@ -542,3 +542,14 @@ async function evaluatorsMatched (user: UserExtended, userHistory: (Post | Comme
 
     return evaluatorsMatched;
 }
+
+export async function regenerateSummary (username: string, post: Post, context: TriggerContext) {
+    const comment = await post.comments.all();
+    const commentToDelete = comment.find(c => c.authorName === context.appSlug && c.body.includes("## Account Properties"));
+
+    if (commentToDelete) {
+        await commentToDelete.delete();
+    }
+
+    await createUserSummary(username, post.id, context);
+}
