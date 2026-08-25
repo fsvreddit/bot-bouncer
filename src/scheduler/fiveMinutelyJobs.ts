@@ -6,6 +6,7 @@ import { updateClassificationStatistics } from "../statistics/classificationStat
 import { updateAppealStatistics } from "../statistics/appealStatistics.js";
 import { RecoveredAccountsData } from "../types.js";
 import { addSeconds } from "date-fns";
+import { ModmailArchiverJobData } from "../modmail/modmailArchiver.js";
 
 export async function handleFiveMinutelyJob (_: unknown, context: JobContext) {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
@@ -37,6 +38,15 @@ export async function handleFiveMinutelyJob (_: unknown, context: JobContext) {
             firstRun: true,
             jobGuid: crypto.randomUUID(),
         } satisfies RecoveredAccountsData,
+    });
+
+    await context.scheduler.runJob({
+        name: ControlSubredditJob.ModmailArchiver,
+        data: {
+            jobGuid: crypto.randomUUID(),
+            firstRun: true,
+        } satisfies ModmailArchiverJobData,
+        runAt: addSeconds(new Date(), 10),
     });
 
     await Promise.allSettled([

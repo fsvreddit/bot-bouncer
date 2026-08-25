@@ -27,12 +27,15 @@ import pluralize from "pluralize";
 import { storeAppealRecordsForUser } from "./appealStore.js";
 import { count } from "@wordpress/wordcount";
 import { UserStatus } from "../types.js";
+import { addConversationToModmailArchiverQueue } from "./modmailArchiver.js";
 
 export function getPossibleSetStatusValues (): string[] {
     return _.uniq([...FLAIR_MAPPINGS.map(entry => entry.postFlair), ...Object.values(UserStatus)]);
 }
 
 export async function handleControlSubredditModmail (modmail: ModmailMessage, context: TriggerContext) {
+    await addConversationToModmailArchiverQueue(modmail, context);
+
     const controlSubSettings = await getControlSubSettings(context);
 
     await handleHighlightedModmail(modmail, context);

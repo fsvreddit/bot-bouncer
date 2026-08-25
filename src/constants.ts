@@ -68,6 +68,7 @@ export enum ControlSubredditJob {
     ProcessDelayedMessages = "processDelayedMessages",
     UpdateEvaluatorConfigEditSummaryPage = "updateEvaluatorConfigEditSummaryPage",
     AutoAccountRecovery = "autoAccountRecovery",
+    ModmailArchiver = "modmailArchiver",
 }
 
 /**
