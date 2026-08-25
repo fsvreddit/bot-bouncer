@@ -3,6 +3,7 @@ import { ModmailMessage } from "../modmail/modmail.js";
 import { getPromptData, PromptData } from "./common.js";
 import { getUserInfoForOpenAI } from "./gatherUserDetailsForOpenAI.js";
 import { callOpenAI } from "./openAI.js";
+import { OpenAI } from "openai";
 
 export async function handleAskAI (modmail: ModmailMessage, context: TriggerContext) {
     if (!modmail.bodyMarkdown.startsWith("!askai")) {
@@ -28,8 +29,6 @@ export async function handleAskAI (modmail: ModmailMessage, context: TriggerCont
         return;
     }
 
-    const blockQuotedQuestion = question.split("\n").map(line => `> ${line}`).join("\n");
-
     let promptData: PromptData;
     try {
         promptData = await getPromptData("prompts/ask-ai", context);
@@ -53,14 +52,25 @@ export async function handleAskAI (modmail: ModmailMessage, context: TriggerCont
         return;
     }
 
-    let prompt = promptData.prompt.replace("{{modQuestion}}", blockQuotedQuestion);
-
-    prompt += "\n\n" + JSON.stringify(userInfo, null, 2);
+    const structuredPrompt: OpenAI.Responses.ResponseInput = [
+        {
+            role: "system",
+            content: promptData.prompt,
+        },
+        {
+            role: "user",
+            content: question,
+        },
+        {
+            role: "user",
+            content: JSON.stringify(userInfo, null, 2),
+        },
+    ];
 
     const result = await callOpenAI({
         model: promptData.model,
         temperature: promptData.temperature,
-        prompt,
+        prompt: structuredPrompt,
     }, context);
 
     await context.reddit.modMail.reply({

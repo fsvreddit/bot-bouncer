@@ -3,6 +3,9 @@ import { isLinkId } from "@devvit/public-api/types/tid.js";
 import { getUserExtended } from "@fsvreddit/fsv-devvit-helpers";
 import _ from "lodash";
 import { getUserSocialLinks } from "devvit-helpers";
+import { CONTROL_SUBREDDIT } from "../constants.js";
+import { getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
+import { normaliseHitReason } from "../utility.js";
 
 interface PostInfo {
     title: string;
@@ -13,6 +16,10 @@ interface PostInfo {
 export async function getUserInfoForOpenAI (username: string, context: TriggerContext) {
     try {
         const user = await getUserExtended(username, context);
+        if (!user) {
+            return;
+        }
+
         const socialLinks = await getUserSocialLinks(username, context.metadata);
 
         const history = await context.reddit.getCommentsAndPostsByUser({
@@ -41,11 +48,30 @@ export async function getUserInfoForOpenAI (username: string, context: TriggerCo
             };
         }));
 
+        const modNotes = await context.reddit.getModNotes({
+            user: username,
+            subreddit: CONTROL_SUBREDDIT,
+            filter: "NOTE",
+        }).all().then(notes => notes.filter(note => note.userNote?.note && note.operator.name !== username));
+
+        const initialEvaluationResults = await getAccountInitialEvaluationResults(username, context);
+        for (const evaluationResult of initialEvaluationResults) {
+            if (evaluationResult.hitReason) {
+                evaluationResult.hitReason = normaliseHitReason(evaluationResult.hitReason);
+            }
+        }
+
         return {
             userInfo: {
                 ...user,
                 socialLinks: socialLinks.map(link => ({ title: link.title, url: link.outboundUrl })),
             },
+            modNotesAboutUser: modNotes.map(note => ({
+                note: note.userNote?.note,
+                createdAt: note.createdAt,
+                operator: note.operator.name,
+            })),
+            initialReasonsForFlaggingAsBot: initialEvaluationResults,
             history: history.map((item) => {
                 if ("postId" in item) {
                     return {

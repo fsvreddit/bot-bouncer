@@ -6,7 +6,7 @@ import { storeTokenStatsForResponse } from "./statistics.js";
 
 interface OpenAIQuery {
     model?: string;
-    prompt: string;
+    prompt: string | OpenAI.Responses.ResponseInput;
     temperature?: number;
 }
 

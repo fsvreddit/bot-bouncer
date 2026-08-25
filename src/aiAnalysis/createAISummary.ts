@@ -1,45 +1,14 @@
 import { JobContext, JSONObject, JSONValue, ScheduledJobEvent } from "@devvit/public-api";
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "../constants.js";
 import { getUserInfoForOpenAI } from "./gatherUserDetailsForOpenAI.js";
-import { EvaluationResult, getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
 import json2md from "json2md";
 import { callOpenAI } from "./openAI.js";
-import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
 import { addDays, addMinutes, differenceInDays } from "date-fns";
 import { getPromptData, PromptData } from "./common.js";
 import { getControlSubSettings } from "../settings.js";
 import pluralize from "pluralize";
 import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
-import { normaliseHitReason } from "../utility.js";
-
-function evaluationResultsToBulletPoints (input: EvaluationResult[], evaluatorVariables: Record<string, unknown>): string[] {
-    const bullets: string[] = [];
-    for (const reason of input) {
-        let matchReason: string | undefined;
-        if (reason.hitReason) {
-            const normalisedHitReason = normaliseHitReason(reason.hitReason);
-            matchReason = `${reason.botName}: ${normalisedHitReason.reason}`;
-        }
-
-        if (matchReason) {
-            const keys = Object.keys(evaluatorVariables).filter(key => key.split(":")[1] === "name").map(key => key.split(":")[0]);
-            for (const key of keys) {
-                if (evaluatorVariables[`${key}:name`] === reason.botName) {
-                    const description = evaluatorVariables[`${key}:descriptionForAI`] as string | undefined;
-                    if (description) {
-                        matchReason += ` (${description})`;
-                    }
-                }
-            }
-        }
-
-        if (matchReason) {
-            bullets.push(matchReason);
-        }
-    }
-
-    return bullets;
-}
+import OpenAI from "openai";
 
 export async function createResponse (opts: { conversationId?: string; postId?: string; output: string }, context: JobContext) {
     const { conversationId, postId, output } = opts;
@@ -116,16 +85,9 @@ export async function generateOpenAISummary (event: ScheduledJobEvent<JSONObject
         return;
     }
 
-    const [userInfo, modNotes, evaluatorVariables, controlSubSettings] = await Promise.all([
-        getUserInfoForOpenAI(username, context),
-        context.reddit.getModNotes({
-            user: username,
-            subreddit: CONTROL_SUBREDDIT,
-            filter: "NOTE",
-        }).all(),
-        getEvaluatorVariables(context),
-        getControlSubSettings(context),
-    ]);
+    const controlSubSettings = await getControlSubSettings(context);
+
+    const userInfo = await getUserInfoForOpenAI(username, context);
 
     if (!userInfo) {
         await createResponse({
@@ -143,7 +105,7 @@ export async function generateOpenAISummary (event: ScheduledJobEvent<JSONObject
     const minimumAccountAgeInDays = controlSubSettings.openAIMinimumAccountAgeInDays ?? 30;
     const minimumContentItems = controlSubSettings.openAIMinimumContentCount ?? 25;
 
-    const accountAgeInDays = userInfo.userInfo.createdAt ? differenceInDays(new Date(), userInfo.userInfo.createdAt) : undefined;
+    const accountAgeInDays = differenceInDays(new Date(), userInfo.userInfo.createdAt);
     if (!accountAgeInDays || accountAgeInDays < minimumAccountAgeInDays) {
         reasonsToSkipCreation.push(`The account is ${accountAgeInDays} ${pluralize("day", accountAgeInDays)} old, which is less than the minimum required ${minimumAccountAgeInDays} days`);
     }
@@ -165,63 +127,11 @@ export async function generateOpenAISummary (event: ScheduledJobEvent<JSONObject
         return;
     }
 
-    const completedPrompt: string[] = [];
-    for (const entry of promptData.prompt.split("\n").map(line => line.trim())) {
-        const promptLine = entry.replaceAll("{{username}}", username);
-
-        if (promptLine.includes("{{initialEvaluationResults}}")) {
-            const initialReasons = await getAccountInitialEvaluationResults(username, context);
-
-            const bullets = evaluationResultsToBulletPoints(initialReasons, evaluatorVariables);
-            if (bullets.length > 0) {
-                const text: json2md.DataObject[] = [
-                    { p: "At the point the user was flagged, they were detected by automatic checks for the following reasons:" },
-                    { ul: bullets },
-                ];
-                completedPrompt.push(json2md(text));
-            }
-
-            continue;
-        }
-
-        if (promptLine.includes("{{modNotes}}")) {
-            const bullets: string[] = [];
-            for (const note of modNotes) {
-                if (!note.userNote?.note) {
-                    continue;
-                }
-
-                if (!note.userNote.label) {
-                    continue;
-                }
-                bullets.push(`${note.createdAt}: ${note.userNote.note}`);
-            }
-            if (bullets.length > 0) {
-                const text: json2md.DataObject[] = [
-                    { p: "Notes about the user made by moderators:" },
-                    { ul: bullets },
-                ];
-                if (modNotes.some(note => note.userNote?.note?.includes("VA"))) {
-                    text.push({ p: "In a mod note, 'VA' stands for 'Virtual Assistant', i.e. someone paid to promote products or services. " });
-                }
-                if (modNotes.some(note => note.userNote?.note?.includes("AE"))) {
-                    text.push({ p: "In a mod note, 'AE' stands for AliExpress. " });
-                }
-                completedPrompt.push(json2md(text));
-            }
-
-            continue;
-        }
-
-        completedPrompt.push(promptLine);
-    }
-
-    completedPrompt.push(JSON.stringify(userInfo));
-
     const jobData: Record<string, JSONValue> = {
         username,
         model: promptData.model,
-        prompt: completedPrompt.join("\n\n"),
+        prompt: promptData.prompt,
+        payload: JSON.stringify(userInfo),
         jobGuid: crypto.randomUUID(),
     };
 
@@ -262,16 +172,28 @@ export async function openAISummaryLookupAndRespond (event: ScheduledJobEvent<JS
     const model = event.data?.model as string | undefined;
     const temperature = event.data?.temperature as number | undefined;
     const prompt = event.data?.prompt as string | undefined;
+    const payload = event.data?.payload as string | undefined;
 
-    if (!username || !prompt || (!conversationId && !postId)) {
+    if (!username || !prompt || !payload || (!conversationId && !postId)) {
         console.error("Missing username, prompt or conversationId/postId in job event data");
         return;
     }
 
+    const structuredPrompt: OpenAI.Responses.ResponseInput = [
+        {
+            role: "system",
+            content: prompt,
+        },
+        {
+            role: "user",
+            content: payload,
+        },
+    ];
+
     const result = await callOpenAI({
         model,
         temperature,
-        prompt,
+        prompt: structuredPrompt,
     }, context);
 
     const cacheKey = getCacheKeyForUserSummary(username);
