@@ -63,7 +63,7 @@ export async function handleModmailArchiverJob (event: ScheduledJobEvent<Modmail
         return;
     }
 
-    await context.redis.set(recentlyRunKey, Date.now().toString(), { expiration: addMinutes(new Date(), 10) });
+    await context.redis.set(recentlyRunKey, Date.now().toString(), { expiration: addMinutes(new Date(), 3) });
 
     const runLimit = addSeconds(new Date(), 15);
     const conversationsToCheck = await context.redis.zRange(CONVERSATIONS_TO_CHECK_QUEUE, 0, -1).then(entries => entries.map(entry => entry.member));
