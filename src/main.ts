@@ -42,6 +42,7 @@ import { updateEvaluatorConfigEditSummaryPage } from "./userEvaluation/configEdi
 import { handleObserverSubMinutelyJob } from "./scheduler/handleObserverSubMinutelyJob.js";
 import { handleClientSubAnnouncements } from "./handleClientSubAnnouncements.js";
 import { checkPotentiallyRecoveredAccounts } from "./autoAccountRecovery/autoAccountRecovery.js";
+import { handleModmailArchiverJob } from "./modmail/modmailArchiver.js";
 
 Devvit.addSettings(appSettings);
 
@@ -310,6 +311,11 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: ControlSubredditJob.CreateSummaries,
     onRun: createSummariesForPendingUsers,
+});
+
+Devvit.addSchedulerJob({
+    name: ControlSubredditJob.ModmailArchiver,
+    onRun: handleModmailArchiverJob,
 });
 
 /**
