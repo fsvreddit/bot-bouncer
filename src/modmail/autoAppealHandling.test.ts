@@ -10,6 +10,7 @@ import {
     CompiledAppealConfig,
     evaluationResultMatchesRegexes,
     negatedAppealRegexesExcludeConfig,
+    shouldFetchModNotes,
     sortedAppealConfigs,
     type NegatedAppealRegexContext,
 } from "./autoAppealHandling.js";
@@ -256,4 +257,24 @@ test("sortedAppealConfigs returns configs sorted as expected", () => {
     ];
 
     expect(sorted.map(c => c.name)).toEqual(expected);
+});
+
+test("shouldFetchModNotes returns false when no mod note regexes are configured", () => {
+    const configs: CompiledAppealConfig[] = [{
+        name: "No mod note regex",
+        compiledRegexes: {},
+    }];
+
+    expect(shouldFetchModNotes(configs)).toBe(false);
+});
+
+test("shouldFetchModNotes returns true for negated mod note regex even when positive array is empty", () => {
+    const configs: CompiledAppealConfig[] = [{
+        name: "Negated mod note regex",
+        modNoteTextRegex: [],
+        "~modNoteTextRegex": ["blocked"],
+        compiledRegexes: {},
+    }];
+
+    expect(shouldFetchModNotes(configs)).toBe(true);
 });

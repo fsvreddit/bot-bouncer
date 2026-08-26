@@ -220,7 +220,8 @@ export function negatedAppealRegexesExcludeConfig (
 
     const hasInitialEvaluatorNegation =
         regexes["~evaluatorNameRegex"] !== undefined ||
-        regexes["~evaluatorHitReasonRegex"] !== undefined;
+        regexes["~evaluatorHitReasonRegex"] !== undefined ||
+        regexes["~evaluatorDetailRegex"] !== undefined;
 
     if (
         hasInitialEvaluatorNegation &&
@@ -236,7 +237,8 @@ export function negatedAppealRegexesExcludeConfig (
 
     const hasCurrentEvaluatorNegation =
         regexes["~currentEvaluatorNameRegex"] !== undefined ||
-        regexes["~currentEvaluatorHitReasonRegex"] !== undefined;
+        regexes["~currentEvaluatorHitReasonRegex"] !== undefined ||
+        regexes["~currentEvaluatorDetailRegex"] !== undefined;
 
     if (
         hasCurrentEvaluatorNegation &&
@@ -449,6 +451,11 @@ function isAppealGrantStatus (status: string | undefined): boolean {
         || status === UserFlag.FutureNSFW;
 }
 
+export function shouldFetchModNotes (appealConfig: CompiledAppealConfig[]): boolean {
+    return appealConfig.some(config => (config.modNoteTextRegex?.length ?? 0) > 0
+        || (config["~modNoteTextRegex"]?.length ?? 0) > 0);
+}
+
 export async function getMatchedAppealConfig (username: string, userDetails: UserDetails, appealConfig: CompiledAppealConfig[], modmailMessage: string | undefined, context: TriggerContext, debug = false) {
     const initialAccountEvaluationResults = await getAccountInitialEvaluationResults(username, context);
 
@@ -468,7 +475,7 @@ export async function getMatchedAppealConfig (username: string, userDetails: Use
 
     let modNotes: ModNote[] = [];
 
-    if (appealConfig.some(config => config.modNoteTextRegex?.length ?? config["~modNoteTextRegex"]?.length)) {
+    if (shouldFetchModNotes(appealConfig)) {
         modNotes = await context.reddit.getModNotes({
             subreddit: context.subredditName ?? await context.reddit.getCurrentSubredditName(),
             user: username,
@@ -481,8 +488,10 @@ export async function getMatchedAppealConfig (username: string, userDetails: Use
     if (appealConfig.some(config => [
         config.compiledRegexes.currentEvaluatorHitReasonRegex,
         config.compiledRegexes.currentEvaluatorNameRegex,
+        config.compiledRegexes.currentEvaluatorDetailRegex,
         config.compiledRegexes["~currentEvaluatorHitReasonRegex"],
         config.compiledRegexes["~currentEvaluatorNameRegex"],
+        config.compiledRegexes["~currentEvaluatorDetailRegex"],
     ].some(regexes => (regexes?.length ?? 0) > 0))) {
         currentEvaluationResults = await evaluateUserAccount({
             username,
@@ -567,7 +576,11 @@ export async function getMatchedAppealConfig (username: string, userDetails: Use
                 return;
             }
 
-            if (regexes.evaluatorNameRegex !== undefined || regexes.evaluatorHitReasonRegex !== undefined) {
+            if (
+                regexes.evaluatorNameRegex !== undefined ||
+                regexes.evaluatorHitReasonRegex !== undefined ||
+                regexes.evaluatorDetailRegex !== undefined
+            ) {
                 if (!evaluationResultsContainMatch(
                     initialAccountEvaluationResults,
                     regexes.evaluatorNameRegex,
@@ -578,7 +591,11 @@ export async function getMatchedAppealConfig (username: string, userDetails: Use
                 }
             }
 
-            if (regexes.currentEvaluatorNameRegex !== undefined || regexes.currentEvaluatorHitReasonRegex !== undefined) {
+            if (
+                regexes.currentEvaluatorNameRegex !== undefined ||
+                regexes.currentEvaluatorHitReasonRegex !== undefined ||
+                regexes.currentEvaluatorDetailRegex !== undefined
+            ) {
                 if (!evaluationResultsContainMatch(
                     currentEvaluationResults,
                     regexes.currentEvaluatorNameRegex,

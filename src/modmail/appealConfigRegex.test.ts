@@ -15,10 +15,14 @@ const supportedRegexProperties = [
     "~evaluatorNameRegex",
     "evaluatorHitReasonRegex",
     "~evaluatorHitReasonRegex",
+    "evaluatorDetailRegex",
+    "~evaluatorDetailRegex",
     "currentEvaluatorNameRegex",
     "~currentEvaluatorNameRegex",
     "currentEvaluatorHitReasonRegex",
     "~currentEvaluatorHitReasonRegex",
+    "currentEvaluatorDetailRegex",
+    "~currentEvaluatorDetailRegex",
     "bioRegex",
     "~bioRegex",
     "originalBioRegex",
@@ -79,14 +83,14 @@ test("validates scalar regex values before or after AJV coercion", () => {
     expect(issues[0]).toContain("usernameRegex[0]");
 });
 
-test("preserves configured empty regex arrays", () => {
-    const config = compileAppealConfigRegexes({
+test("treats configured empty regex arrays as validation errors", () => {
+    const issues = getAppealConfigRegexIssues([{
         name: "Empty regex test",
         evaluatorNameRegex: [],
-    });
+    }]);
 
-    expect(config.compiledRegexes).toHaveProperty("evaluatorNameRegex");
-    expect(config.compiledRegexes.evaluatorNameRegex).toEqual([]);
+    expect(issues).toHaveLength(1);
+    expect(issues[0]).toContain("Empty regex array in evaluatorNameRegex for config Empty regex test");
 });
 
 test("reports the invalid array position without including valid expressions", () => {

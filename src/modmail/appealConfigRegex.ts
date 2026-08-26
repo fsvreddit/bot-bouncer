@@ -104,6 +104,11 @@ export function getAppealConfigRegexIssues (configs: AppealRegexConfig[]): strin
 
     for (const config of configs) {
         for (const [property, values] of getAppealRegexEntries(config)) {
+            if (values.length === 0) {
+                issues.push(`Empty regex array in ${property} for config ${config.name}. Remove the property or provide at least one pattern.`);
+                continue;
+            }
+
             values.forEach((value, index) => {
                 try {
                     new RegExp(value, getAppealRegexFlags(property));
