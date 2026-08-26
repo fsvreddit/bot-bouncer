@@ -1,3 +1,4 @@
+/* eslint-disable @stylistic/quote-props */
 import { expect, test } from "vitest";
 import type { EvaluationResult } from "../handleControlSubAccountEvaluation.js";
 import {
