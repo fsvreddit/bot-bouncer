@@ -21,7 +21,7 @@ import { evaluateAccountFromModmail } from "./modmailEvaluaton.js";
 import { handleReversalCommand } from "./evaluatorReversals.js";
 import { handleHighlightedModmail } from "./unhighlighter.js";
 import { getUserExtended } from "@fsvreddit/fsv-devvit-helpers";
-import { generateOpenAISummary } from "../aiAnalysis/createAISummary.js";
+import { OpenAISummaryGatherData } from "../aiAnalysis/createAISummary.js";
 import { handleAskAI } from "../aiAnalysis/askAI.js";
 import pluralize from "pluralize";
 import { storeAppealRecordsForUser } from "./appealStore.js";
@@ -121,14 +121,21 @@ export async function handleControlSubredditModmail (modmail: ModmailMessage, co
     }
 
     if (modmail.bodyMarkdown.startsWith("!aisummary")) {
-        const regex = /^!aisummary(?: ([\w\d_-]+))?/;
+        const regex = /^!aisummary(#\w+)?(?: ([\w\d_-]+))?/;
         const match = regex.exec(modmail.bodyMarkdown);
-        const username = match?.[1] ?? modmail.participant;
+        const promptName = match?.[1]?.substring(1);
+        const username = match?.[2] ?? modmail.participant;
         if (username) {
-            await generateOpenAISummary({
-                data: { username, conversationId: modmail.conversationId },
-                name: "generateOpenAISummaryForModmail",
-            }, context);
+            await context.scheduler.runJob<OpenAISummaryGatherData>({
+                name: ControlSubredditJob.OpenAISummaryGather,
+                runAt: new Date(),
+                data: {
+                    username,
+                    conversationId: modmail.conversationId,
+                    jobGuid: crypto.randomUUID(),
+                    promptName,
+                },
+            });
             return;
         }
     }
@@ -356,12 +363,11 @@ async function handleModmailFromUser (modmail: ModmailMessage, context: TriggerC
         await addSummaryForUser(modmail.conversationId, username, context);
 
         if (currentStatus.userStatus === UserStatus.Banned) {
-            await context.scheduler.runJob({
+            await context.scheduler.runJob<OpenAISummaryGatherData>({
                 name: ControlSubredditJob.OpenAISummaryGather,
                 data: {
                     username,
                     conversationId: modmail.conversationId,
-                    userMessage: modmail.bodyMarkdown,
                     jobGuid: crypto.randomUUID(),
                 },
                 runAt: addSeconds(new Date(), 5),

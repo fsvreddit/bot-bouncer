@@ -112,13 +112,13 @@ export async function checkPotentiallyRecoveredAccounts (event: ScheduledJobEven
     console.log(`Recovered Accounts: Processed ${processed} ${pluralize("account", processed)} for recovery, ${recoveredAccountsToCheck.length} remain in queue.`);
 
     if (recoveredAccountsToCheck.length > 0) {
-        await context.scheduler.runJob({
+        await context.scheduler.runJob<RecoveredAccountsData>({
             name: ControlSubredditJob.AutoAccountRecovery,
             runAt: addSeconds(new Date(), 5),
             data: {
                 firstRun: false,
                 jobGuid: crypto.randomUUID(),
-            } satisfies RecoveredAccountsData,
+            },
         });
     }
 }

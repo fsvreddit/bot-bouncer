@@ -32,21 +32,30 @@ function getCacheKeyForUserSummary (username: string) {
     return `aiSummary:${username}`;
 }
 
-export async function generateOpenAISummary (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
+// eslint-disable-next-line @typescript-eslint/consistent-type-definitions
+export type OpenAISummaryGatherData = {
+    jobGuid?: string;
+    username: string;
+    conversationId?: string;
+    postId?: string;
+    promptName?: string;
+};
+
+export async function generateOpenAISummary (event: ScheduledJobEvent<OpenAISummaryGatherData | undefined>, context: JobContext) {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
         console.error(`generateOpenAISummary should only run on subreddit ${CONTROL_SUBREDDIT}, but is running on ${context.subredditName}`);
         return;
     }
 
-    const jobGuid = event.data?.jobGuid as string | undefined;
+    const jobGuid = event.data?.jobGuid;
     if (jobGuid && await hasTriggerBeenHandled(context.redis, `job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
         console.warn(`AI Summary: Job with guid ${jobGuid} has already been handled, skipping.`);
         return;
     }
 
-    const username = event.data?.username as string | undefined;
-    const conversationId = event.data?.conversationId as string | undefined;
-    const postId = event.data?.postId as string | undefined;
+    const username = event.data?.username;
+    const conversationId = event.data?.conversationId;
+    const postId = event.data?.postId;
 
     if (!username || (!conversationId && !postId)) {
         console.error("Missing username or conversationId/postId in job event data");
@@ -83,6 +92,24 @@ export async function generateOpenAISummary (event: ScheduledJobEvent<JSONObject
             ]),
         }, context);
         return;
+    }
+
+    let prompt: string = promptData.prompt;
+    if (event.data?.promptName) {
+        const altPrompt = promptData.altPrompts?.[event.data.promptName];
+        if (!altPrompt) {
+            console.error(`Error: Prompt name ${event.data.promptName} not found in prompt data`);
+            await createResponse({
+                conversationId,
+                postId,
+                output: json2md([
+                    { p: "**OpenAI Summary**. Use these results as a guide as they may be inaccurate." },
+                    { p: `Error generating OpenAI summary: prompt name ${event.data.promptName} not found in prompt data. Please contact the developers to resolve this issue.` },
+                ]),
+            }, context);
+            return;
+        }
+        prompt = altPrompt;
     }
 
     const controlSubSettings = await getControlSubSettings(context);
@@ -130,7 +157,7 @@ export async function generateOpenAISummary (event: ScheduledJobEvent<JSONObject
     const jobData: Record<string, JSONValue> = {
         username,
         model: promptData.model,
-        prompt: promptData.prompt,
+        prompt,
         payload: JSON.stringify(userInfo),
         jobGuid: crypto.randomUUID(),
     };

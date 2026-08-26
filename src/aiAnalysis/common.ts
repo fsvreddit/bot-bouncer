@@ -8,6 +8,7 @@ export interface PromptData {
     model: string;
     temperature?: number;
     prompt: string;
+    altPrompts?: Record<string, string>;
 }
 
 const promptSchema: JSONSchemaType<PromptData> = {
@@ -16,6 +17,13 @@ const promptSchema: JSONSchemaType<PromptData> = {
         model: { type: "string" },
         temperature: { type: "number", nullable: true },
         prompt: { type: "string" },
+        altPrompts: {
+            type: "object",
+            propertyNames: { type: "string" },
+            additionalProperties: { type: "string" },
+            nullable: true,
+            required: [],
+        },
     },
     required: ["model", "prompt"],
     additionalProperties: false,

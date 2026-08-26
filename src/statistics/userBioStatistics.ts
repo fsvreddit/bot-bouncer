@@ -66,10 +66,10 @@ export async function updateBioStatistics (allEntries: StatsUserEntry[], context
     console.log(`Bio Stats: queued ${recentData.length} users for bio stats processing`);
 
     console.log("Bio Stats: Queueing first bio stats update job");
-    await context.scheduler.runJob({
+    await context.scheduler.runJob<BioStatsJobData>({
         name: ControlSubredditJob.BioStatsUpdate,
         runAt: addSeconds(new Date(), 5),
-        data: { statsId, jobGuid: crypto.randomUUID() } satisfies BioStatsJobData,
+        data: { statsId, jobGuid: crypto.randomUUID() },
     });
 }
 

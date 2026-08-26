@@ -216,7 +216,7 @@ export async function dataExtract (message: ModmailMessage, conversationId: stri
 
     console.log("Data Extract: Queuing data extract continuation job.");
 
-    await context.scheduler.runJob({
+    await context.scheduler.runJob<DataExtractJobData>({
         name: ControlSubredditJob.StartDataExtract,
         runAt: new Date(),
         data: {
@@ -224,7 +224,7 @@ export async function dataExtract (message: ModmailMessage, conversationId: stri
             conversationId,
             request: JSON.stringify(request),
             jobGuid: crypto.randomUUID(),
-        } satisfies DataExtractJobData,
+        },
     });
 }
 
@@ -317,7 +317,7 @@ export async function startDataExtract (event: ScheduledJobEvent<DataExtractJobD
                 ...event.data,
                 jobGuid: crypto.randomUUID(),
                 prefixes,
-            } satisfies DataExtractJobData,
+            },
         });
 
         return;
@@ -526,7 +526,7 @@ export async function continueDataExtract (event: ScheduledJobEvent<DataExtractJ
 
     await context.redis.zRem(getExtractTempQueueKey(extractId), processingQueue);
 
-    await context.scheduler.runJob({
+    await context.scheduler.runJob<DataExtractJobData>({
         name: ControlSubredditJob.ContinueDataExtract,
         runAt: addSeconds(new Date(), 2),
         data: {
@@ -534,7 +534,7 @@ export async function continueDataExtract (event: ScheduledJobEvent<DataExtractJ
             conversationId,
             request: JSON.stringify(request),
             jobGuid: crypto.randomUUID(),
-        } satisfies DataExtractJobData,
+        },
     });
 }
 

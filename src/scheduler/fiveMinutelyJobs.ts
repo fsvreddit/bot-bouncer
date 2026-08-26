@@ -31,21 +31,21 @@ export async function handleFiveMinutelyJob (_: unknown, context: JobContext) {
         runAt: new Date(),
     });
 
-    await context.scheduler.runJob({
+    await context.scheduler.runJob<RecoveredAccountsData>({
         name: ControlSubredditJob.AutoAccountRecovery,
         runAt: addSeconds(new Date(), 5),
         data: {
             firstRun: true,
             jobGuid: crypto.randomUUID(),
-        } satisfies RecoveredAccountsData,
+        },
     });
 
-    await context.scheduler.runJob({
+    await context.scheduler.runJob<ModmailArchiverJobData>({
         name: ControlSubredditJob.ModmailArchiver,
         data: {
             jobGuid: crypto.randomUUID(),
             firstRun: true,
-        } satisfies ModmailArchiverJobData,
+        },
         runAt: addSeconds(new Date(), 10),
     });
 

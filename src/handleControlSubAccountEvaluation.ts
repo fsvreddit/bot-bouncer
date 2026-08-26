@@ -12,6 +12,7 @@ import { AppSetting, getControlSubSettings } from "./settings.js";
 import { getPostOrCommentById, getUserExtended, hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
 import { T3ID } from "@devvit/public-api/types/tid.js";
 import { UserStatus } from "./types.js";
+import { OpenAISummaryGatherData } from "./aiAnalysis/createAISummary.js";
 
 export interface EvaluatorStats {
     hitCount: number;
@@ -238,7 +239,7 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
             await createUserSummary(username, postId, context);
             const controlSubSettings = await getControlSubSettings(context);
             if (controlSubSettings.createAISummaryOnNewPosts) {
-                await context.scheduler.runJob({
+                await context.scheduler.runJob<OpenAISummaryGatherData>({
                     name: ControlSubredditJob.OpenAISummaryGather,
                     data: {
                         username,

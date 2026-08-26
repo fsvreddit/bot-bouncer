@@ -51,12 +51,12 @@ export async function handleModmailArchiverJob (event: ScheduledJobEvent<Modmail
 
         console.log(`Modmail Archiver: First run completed. Added ${conversationsToCheck.length} conversations to the queue.`);
 
-        await context.scheduler.runJob({
+        await context.scheduler.runJob<ModmailArchiverJobData>({
             name: ControlSubredditJob.ModmailArchiver,
             data: {
                 jobGuid: crypto.randomUUID(),
                 firstRun: false,
-            } satisfies ModmailArchiverJobData,
+            },
             runAt: addSeconds(new Date(), 5),
         });
 
@@ -108,12 +108,12 @@ export async function handleModmailArchiverJob (event: ScheduledJobEvent<Modmail
     }
 
     if (conversationsToCheck.length > 0) {
-        await context.scheduler.runJob({
+        await context.scheduler.runJob<ModmailArchiverJobData>({
             name: ControlSubredditJob.ModmailArchiver,
             data: {
                 jobGuid: crypto.randomUUID(),
                 firstRun: false,
-            } satisfies ModmailArchiverJobData,
+            },
             runAt: addSeconds(new Date(), 5),
         });
 

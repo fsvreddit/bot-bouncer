@@ -84,20 +84,20 @@ export async function definedHandlesStatsInitializer (event: ScheduledJobEvent<D
 
     if (prefixes.length > 0) {
         console.log(`Defined Handles: Not all prefixes processed; scheduling another initializer job for remaining ${prefixes.length} ${pluralize("prefix", prefixes.length)}.`);
-        await context.scheduler.runJob({
+        await context.scheduler.runJob<DefinedHandlesStatsInitializerJobData>({
             name: ControlSubredditJob.DefinedHandlesStatisticsInitialiser,
             runAt: addSeconds(new Date(), 5),
             data: {
                 firstRun: false,
                 prefixes,
                 jobGuid: crypto.randomUUID(),
-            } satisfies DefinedHandlesStatsInitializerJobData,
+            },
         });
     } else {
-        await context.scheduler.runJob({
+        await context.scheduler.runJob<DefinedHandlesStatsJobData>({
             name: ControlSubredditJob.DefinedHandlesStatistics,
             runAt: addSeconds(new Date(), 5),
-            data: { firstRun: true, jobGuid: crypto.randomUUID() } satisfies DefinedHandlesStatsJobData,
+            data: { firstRun: true, jobGuid: crypto.randomUUID() },
         });
     }
 }
@@ -213,10 +213,10 @@ export async function gatherDefinedHandlesStats (event: ScheduledJobEvent<Define
     const remainingHandles = await context.redis.zCard(DEFINED_HANDLES_QUEUE);
     console.log(`Processed ${processedCount} defined handles. Remaining in queue: ${remainingHandles}.`);
 
-    await context.scheduler.runJob({
+    await context.scheduler.runJob<DefinedHandlesStatsJobData>({
         name: ControlSubredditJob.DefinedHandlesStatistics,
         runAt: addSeconds(new Date(), 1),
-        data: { firstRun: false, jobGuid: crypto.randomUUID() } satisfies DefinedHandlesStatsJobData,
+        data: { firstRun: false, jobGuid: crypto.randomUUID() },
     });
 }
 

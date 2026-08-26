@@ -57,14 +57,14 @@ export async function perform6HourlyJobs (event: ScheduledJobEvent<JSONObject | 
             data: { jobGuid: crypto.randomUUID() },
         }),
 
-        context.scheduler.runJob({
+        context.scheduler.runJob<DefinedHandlesStatsInitializerJobData>({
             name: ControlSubredditJob.DefinedHandlesStatisticsInitialiser,
             runAt: addMinutes(new Date(), 2),
             data: {
                 firstRun: true,
                 jobGuid: crypto.randomUUID(),
                 prefixes: ALL_POTENTIAL_USER_PREFIXES,
-            } satisfies DefinedHandlesStatsInitializerJobData,
+            },
         }),
 
         context.scheduler.runJob({

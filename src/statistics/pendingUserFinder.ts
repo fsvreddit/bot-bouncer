@@ -64,13 +64,13 @@ export async function pendingUserFinder (event: ScheduledJobEvent<JSONObject | u
         content: JSON.stringify(userData),
     });
 
-    await context.scheduler.runJob({
+    await context.scheduler.runJob<PendingUserFinderJobData>({
         name: ControlSubredditJob.CreateSummaries,
         runAt: new Date(),
         data: {
             jobGuid: crypto.randomUUID(),
             userData,
-        } satisfies PendingUserFinderJobData,
+        },
     });
 
     const lastReportSentKey = "pendingUsersReportSentRecentlyValue";
@@ -143,13 +143,13 @@ export async function createSummariesForPendingUsers (event: ScheduledJobEvent<P
     }
 
     if (userData.length > 0) {
-        await context.scheduler.runJob({
+        await context.scheduler.runJob<PendingUserFinderJobData>({
             name: ControlSubredditJob.CreateSummaries,
             runAt: addSeconds(new Date(), 5),
             data: {
                 jobGuid: crypto.randomUUID(),
                 userData,
-            } satisfies PendingUserFinderJobData,
+            },
         });
     }
 }

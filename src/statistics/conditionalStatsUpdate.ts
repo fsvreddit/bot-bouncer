@@ -111,13 +111,13 @@ export async function shouldUpdateStatistic (config: ConditionalStatsUpdateConfi
 }
 
 async function definedHandlesStatsJobRunner (_: StatsUserEntry[], context: JobContext) {
-    await context.scheduler.runJob({
+    await context.scheduler.runJob<DefinedHandlesStatsInitializerJobData>({
         name: ControlSubredditJob.DefinedHandlesStatisticsInitialiser,
         runAt: addSeconds(new Date(), 5),
         data: {
             firstRun: true,
             prefixes: ALL_POTENTIAL_USER_PREFIXES,
             jobGuid: crypto.randomUUID(),
-        } satisfies DefinedHandlesStatsInitializerJobData,
+        },
     });
 };
