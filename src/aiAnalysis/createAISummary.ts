@@ -64,7 +64,7 @@ export async function generateOpenAISummary (event: ScheduledJobEvent<OpenAISumm
 
     const cacheKey = getCacheKeyForUserSummary(username);
     const cachedSummary = await context.redis.get(cacheKey);
-    if (cachedSummary) {
+    if (!event.data?.promptName && cachedSummary) {
         console.log(`AI Summary: Using cached summary for user ${username}`);
         await createResponse({
             conversationId,
