@@ -57,7 +57,7 @@ export async function handleModmailArchiverJob (event: ScheduledJobEvent<Modmail
                 jobGuid: crypto.randomUUID(),
                 firstRun: false,
             } satisfies ModmailArchiverJobData,
-            runAt: addSeconds(new Date(), 10),
+            runAt: addSeconds(new Date(), 5),
         });
 
         return;
@@ -67,6 +67,7 @@ export async function handleModmailArchiverJob (event: ScheduledJobEvent<Modmail
 
     const runLimit = addSeconds(new Date(), 15);
     const conversationsToCheck = await context.redis.zRange(CONVERSATIONS_TO_CHECK_QUEUE, 0, -1).then(entries => entries.map(entry => entry.member));
+    let processed = 0;
 
     while (conversationsToCheck.length > 0 && new Date() < runLimit) {
         const conversationId = conversationsToCheck.shift();
@@ -74,15 +75,19 @@ export async function handleModmailArchiverJob (event: ScheduledJobEvent<Modmail
             break;
         }
 
+        processed++;
+
         await context.redis.zRem(CONVERSATIONS_TO_CHECK_QUEUE, [conversationId]);
 
         const conversation = await context.reddit.modMail.getConversation({ conversationId });
 
         if (!conversation.conversation) {
+            console.warn(`Modmail Archiver: Conversation ${conversationId} not found. Removing from known conversations.`);
             continue;
         }
 
         if (conversation.conversation.state?.toLowerCase() === "archived") {
+            console.log(`Modmail Archiver: Conversation ${conversationId} is already archived. Removing from known conversations.`);
             await context.redis.zRem(KNOWN_CONVERSATIONS_KEY, [conversationId]);
         }
 
@@ -97,7 +102,7 @@ export async function handleModmailArchiverJob (event: ScheduledJobEvent<Modmail
         }
 
         if (conversation.user?.isShadowBanned || conversation.user?.isSuspended) {
-            await handleSuspendedUser(conversation, context);
+            await handleSuspendedUser(conversationId, conversation, context);
             await context.redis.zRem(KNOWN_CONVERSATIONS_KEY, [conversationId]);
         }
     }
@@ -109,18 +114,23 @@ export async function handleModmailArchiverJob (event: ScheduledJobEvent<Modmail
                 jobGuid: crypto.randomUUID(),
                 firstRun: false,
             } satisfies ModmailArchiverJobData,
-            runAt: addSeconds(new Date(), 10),
+            runAt: addSeconds(new Date(), 5),
         });
+
+        console.log(`Modmail Archiver: Processed ${processed} conversations. ${conversationsToCheck.length} conversations remain in the queue. Scheduled another run.`);
+        return;
     }
+
+    console.log(`Modmail Archiver: Processed ${processed} conversations. No more conversations remain in the queue.`);
 }
 
-async function handleSuspendedUser (conversation: GetConversationResponse, context: JobContext) {
+async function handleSuspendedUser (conversationId: string, conversation: GetConversationResponse, context: JobContext) {
     if (!conversation.conversation?.id) {
         return;
     }
 
     // Only act on a conversation that hasn't been responded to by a human yet.
-    if (!await isActiveAppeal(conversation.conversation.id, context)) {
+    if (!await isActiveAppeal(conversationId, context)) {
         return;
     }
 
