@@ -4,8 +4,9 @@ import { getUserExtended } from "@fsvreddit/fsv-devvit-helpers";
 import _ from "lodash";
 import { getUserSocialLinks } from "devvit-helpers";
 import { CONTROL_SUBREDDIT } from "../constants.js";
-import { getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
+import { evaluateUserAccount, getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
 import { normaliseHitReason } from "../utility.js";
+import { getEvaluatorVariables } from "../userEvaluation/evaluatorVariables.js";
 
 interface PostInfo {
     title: string;
@@ -61,6 +62,18 @@ export async function getUserInfoForOpenAI (username: string, context: TriggerCo
             }
         }
 
+        const currentAccountEvaluationResults = await evaluateUserAccount({
+            username,
+            variables: await getEvaluatorVariables(context),
+            history,
+        }, context);
+
+        for (const evaluationResult of currentAccountEvaluationResults) {
+            if (evaluationResult.hitReason) {
+                evaluationResult.hitReason = normaliseHitReason(evaluationResult.hitReason);
+            }
+        }
+
         return {
             userInfo: {
                 ...user,
@@ -72,6 +85,7 @@ export async function getUserInfoForOpenAI (username: string, context: TriggerCo
                 operator: note.operator.name,
             })),
             initialReasonsForFlaggingAsBot: initialEvaluationResults,
+            currentAccountEvaluationResults,
             history: history.map((item) => {
                 if ("postId" in item) {
                     return {

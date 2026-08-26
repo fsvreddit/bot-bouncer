@@ -456,6 +456,25 @@ export function shouldFetchModNotes (appealConfig: CompiledAppealConfig[]): bool
         || (config["~modNoteTextRegex"]?.length ?? 0) > 0);
 }
 
+function hasEvaluatorRegexes (appealConfig: CompiledAppealConfig[]): boolean {
+    return appealConfig.some(config => [
+        config.compiledRegexes.currentEvaluatorHitReasonRegex,
+        config.compiledRegexes.currentEvaluatorNameRegex,
+        config.compiledRegexes.currentEvaluatorDetailRegex,
+        config.compiledRegexes["~currentEvaluatorHitReasonRegex"],
+        config.compiledRegexes["~currentEvaluatorNameRegex"],
+        config.compiledRegexes["~currentEvaluatorDetailRegex"],
+    ].some(regexes => (regexes?.length ?? 0) > 0));
+}
+
+function shouldFetchHistory (appealConfig: CompiledAppealConfig[]): boolean {
+    if (appealConfig.some(config => config.hasMoreThanOneCommentOnPost !== undefined || config.hasNSFWPosts !== undefined)) {
+        return true;
+    }
+
+    return hasEvaluatorRegexes(appealConfig);
+}
+
 export async function getMatchedAppealConfig (username: string, userDetails: UserDetails, appealConfig: CompiledAppealConfig[], modmailMessage: string | undefined, context: TriggerContext, debug = false) {
     const initialAccountEvaluationResults = await getAccountInitialEvaluationResults(username, context);
 
@@ -485,28 +504,22 @@ export async function getMatchedAppealConfig (username: string, userDetails: Use
 
     let currentEvaluationResults: EvaluationResult[] = [];
 
-    if (appealConfig.some(config => [
-        config.compiledRegexes.currentEvaluatorHitReasonRegex,
-        config.compiledRegexes.currentEvaluatorNameRegex,
-        config.compiledRegexes.currentEvaluatorDetailRegex,
-        config.compiledRegexes["~currentEvaluatorHitReasonRegex"],
-        config.compiledRegexes["~currentEvaluatorNameRegex"],
-        config.compiledRegexes["~currentEvaluatorDetailRegex"],
-    ].some(regexes => (regexes?.length ?? 0) > 0))) {
-        currentEvaluationResults = await evaluateUserAccount({
-            username,
-            variables: await getEvaluatorVariables(context),
-        }, context, true);
-    }
-
     let history: (Post | Comment)[] = [];
 
-    if (appealConfig.some(config => config.hasMoreThanOneCommentOnPost !== undefined || config.hasNSFWPosts !== undefined)) {
+    if (shouldFetchHistory(appealConfig)) {
         history = await context.reddit.getCommentsAndPostsByUser({
             username,
             limit: 100,
             sort: "new",
         }).all();
+    }
+
+    if (hasEvaluatorRegexes(appealConfig)) {
+        currentEvaluationResults = await evaluateUserAccount({
+            username,
+            variables: await getEvaluatorVariables(context),
+            history,
+        }, context, true);
     }
 
     const matchedAppealConfig = appealConfig.find((config) => {

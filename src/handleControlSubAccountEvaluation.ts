@@ -29,6 +29,7 @@ export interface EvaluationResult {
 interface EvaluateUserAccountOptions {
     username: string;
     variables: Record<string, JSONValue>;
+    history?: (Post | Comment)[];
     throwOnError?: boolean;
     targetId?: string;
 }
@@ -57,16 +58,18 @@ export async function evaluateUserAccount (options: EvaluateUserAccountOptions, 
         return [];
     }
 
-    let userItems: (Post | Comment)[] | undefined;
-    try {
-        userItems = await context.reddit.getCommentsAndPostsByUser({
-            username: options.username,
-            sort: "new",
-            limit: 100,
-        }).all();
-    } catch {
-        // Error retrieving user history, likely shadowbanned.
-        return [];
+    let userItems: (Post | Comment)[] | undefined = options.history;
+    if (userItems === undefined) {
+        try {
+            userItems = await context.reddit.getCommentsAndPostsByUser({
+                username: options.username,
+                sort: "new",
+                limit: 100,
+            }).all();
+        } catch {
+            // Error retrieving user history, likely shadowbanned.
+            return [];
+        }
     }
 
     if (options.targetId && !userItems.some(item => item.id === options.targetId)) {
