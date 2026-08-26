@@ -52,7 +52,7 @@ export async function getUserInfoForOpenAI (username: string, context: TriggerCo
             user: username,
             subreddit: CONTROL_SUBREDDIT,
             filter: "NOTE",
-        }).all().then(notes => notes.filter(note => note.userNote?.note && note.operator.name !== username));
+        }).all().then(notes => notes.filter(note => note.userNote?.note && note.operator.name !== username && !note.userNote.note.startsWith("Status changed to")));
 
         const initialEvaluationResults = await getAccountInitialEvaluationResults(username, context);
         for (const evaluationResult of initialEvaluationResults) {
