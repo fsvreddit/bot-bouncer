@@ -131,6 +131,7 @@ export async function handleControlSubredditModmail (modmail: ModmailMessage, co
                 runAt: new Date(),
                 data: {
                     username,
+                    mode: "manual",
                     conversationId: modmail.conversationId,
                     jobGuid: crypto.randomUUID(),
                     promptName,
@@ -367,6 +368,7 @@ async function handleModmailFromUser (modmail: ModmailMessage, context: TriggerC
                 name: ControlSubredditJob.OpenAISummaryGather,
                 data: {
                     username,
+                    mode: "auto",
                     conversationId: modmail.conversationId,
                     jobGuid: crypto.randomUUID(),
                 },

@@ -246,6 +246,7 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
                     name: ControlSubredditJob.OpenAISummaryGather,
                     data: {
                         username,
+                        mode: "auto",
                         postId,
                         jobGuid: crypto.randomUUID(),
                     },

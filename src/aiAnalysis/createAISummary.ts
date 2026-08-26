@@ -35,6 +35,7 @@ function getCacheKeyForUserSummary (username: string) {
 // eslint-disable-next-line @typescript-eslint/consistent-type-definitions
 export type OpenAISummaryGatherData = {
     jobGuid?: string;
+    mode: "auto" | "manual";
     username: string;
     conversationId?: string;
     postId?: string;
@@ -132,26 +133,28 @@ export async function generateOpenAISummary (event: ScheduledJobEvent<OpenAISumm
     const minimumAccountAgeInDays = controlSubSettings.openAIMinimumAccountAgeInDays ?? 30;
     const minimumContentItems = controlSubSettings.openAIMinimumContentCount ?? 25;
 
-    const accountAgeInDays = differenceInDays(new Date(), userInfo.userInfo.createdAt);
-    if (!accountAgeInDays || accountAgeInDays < minimumAccountAgeInDays) {
-        reasonsToSkipCreation.push(`The account is ${accountAgeInDays} ${pluralize("day", accountAgeInDays)} old, which is less than the minimum required ${minimumAccountAgeInDays} days`);
-    }
+    if (event.data?.mode === "auto") {
+        const accountAgeInDays = differenceInDays(new Date(), userInfo.userInfo.createdAt);
+        if (!accountAgeInDays || accountAgeInDays < minimumAccountAgeInDays) {
+            reasonsToSkipCreation.push(`The account is ${accountAgeInDays} ${pluralize("day", accountAgeInDays)} old, which is less than the minimum required ${minimumAccountAgeInDays} days`);
+        }
 
-    if (userInfo.history.length < minimumContentItems) {
-        reasonsToSkipCreation.push(`The user has only ${userInfo.history.length} content ${pluralize("item", userInfo.history.length)}, which is less than the minimum required ${minimumContentItems} items`);
-    }
+        if (userInfo.history.length < minimumContentItems) {
+            reasonsToSkipCreation.push(`The user has only ${userInfo.history.length} content ${pluralize("item", userInfo.history.length)}, which is less than the minimum required ${minimumContentItems} items`);
+        }
 
-    if (reasonsToSkipCreation.length > 0) {
-        await createResponse({
-            conversationId,
-            postId,
-            output: json2md([
-                { p: "**OpenAI Summary**." },
-                { p: "This user does not meet the requirements for generating an OpenAI summary because of the following reasons:" },
-                { ul: reasonsToSkipCreation },
-            ]),
-        }, context);
-        return;
+        if (reasonsToSkipCreation.length > 0) {
+            await createResponse({
+                conversationId,
+                postId,
+                output: json2md([
+                    { p: "**OpenAI Summary**." },
+                    { p: "This user does not meet the requirements for generating an OpenAI summary because of the following reasons:" },
+                    { ul: reasonsToSkipCreation },
+                ]),
+            }, context);
+            return;
+        }
     }
 
     const jobData: Record<string, JSONValue> = {
