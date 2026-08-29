@@ -12,7 +12,7 @@ import { ModmailMessage } from "./modmail.js";
 import { evaluateUserAccount, EvaluationResult, getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
 import { getUserExtended } from "@fsvreddit/fsv-devvit-helpers";
 import { statusToFlair } from "../postCreation.js";
-import { addMinutes, addSeconds, addWeeks, differenceInMonths, format, getYear } from "date-fns";
+import { addMinutes, addSeconds, addWeeks, differenceInMonths, format, getYear, subDays } from "date-fns";
 import { getPossibleSetStatusValues } from "./controlSubModmail.js";
 import { getUserSocialLinks } from "devvit-helpers";
 import { sendMessageOnDelay } from "./delayedSend.js";
@@ -32,6 +32,8 @@ interface AppealConfig extends AppealRegexConfig {
     operator?: string;
     banDateFrom?: string;
     banDateTo?: string;
+    banDateBeforeDays?: number;
+    banDateAfterDays?: number;
     flags?: UserFlag[];
     "~flags"?: UserFlag[];
     hasMoreThanOneCommentOnPost?: boolean;
@@ -72,6 +74,8 @@ const appealConfigSchema: JSONSchemaType<AppealConfig[]> = {
             "~messageBodyRegex": { type: "array", items: { type: "string" }, nullable: true },
             banDateFrom: { type: "string", pattern: dateRegex.source, nullable: true },
             banDateTo: { type: "string", pattern: dateRegex.source, nullable: true },
+            banDateBeforeDays: { type: "number", minimum: 0, nullable: true },
+            banDateAfterDays: { type: "number", minimum: 0, nullable: true },
             evaluatorNameRegex: { type: "array", items: { type: "string" }, nullable: true },
             "~evaluatorNameRegex": { type: "array", items: { type: "string" }, nullable: true },
             evaluatorHitReasonRegex: { type: "array", items: { type: "string" }, nullable: true },
@@ -561,18 +565,38 @@ export async function getMatchedAppealConfig (username: string, userDetails: Use
                 return;
             }
 
-            if (config.banDateFrom && (userDetails.reportedAt ?? userDetails.lastUpdate) < new Date(config.banDateFrom).getTime()) {
+            const banDate = new Date(userDetails.reportedAt ?? userDetails.lastUpdate);
+
+            if (config.banDateFrom && banDate < new Date(config.banDateFrom)) {
                 if (debug) {
                     console.log(`Appeals: banDateFrom did not match for ${config.name}`);
                 }
                 return;
             }
 
-            if (config.banDateTo && (userDetails.reportedAt ?? userDetails.lastUpdate) > new Date(config.banDateTo).getTime()) {
+            if (config.banDateTo && banDate > new Date(config.banDateTo)) {
                 if (debug) {
                     console.log(`Appeals: banDateTo did not match for ${config.name}`);
                 }
                 return;
+            }
+
+            if (config.banDateBeforeDays !== undefined) {
+                if (banDate > subDays(new Date(), config.banDateBeforeDays)) {
+                    if (debug) {
+                        console.log(`Appeals: banDateBeforeDays did not match for ${config.name}`);
+                    }
+                    return;
+                }
+            }
+
+            if (config.banDateAfterDays !== undefined) {
+                if (banDate < subDays(new Date(), config.banDateAfterDays)) {
+                    if (debug) {
+                        console.log(`Appeals: banDateAfterDays did not match for ${config.name}`);
+                    }
+                    return;
+                }
             }
 
             if (config.submitter && config.submitter !== userDetails.submitter) {
