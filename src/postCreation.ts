@@ -209,6 +209,8 @@ export async function queuePostCreation (submissions: AsyncSubmission[], context
         return [PostCreationQueueResult.Error];
     }
 
+    const bannedSubmitters = new Set(controlSubSettings.reporterBlacklist);
+
     for (const submission of submissions) {
         const currentStatus = await getUserStatus(submission.user.username, context);
         if (currentStatus) {
@@ -219,6 +221,12 @@ export async function queuePostCreation (submissions: AsyncSubmission[], context
 
         if (submission.submitter && await isBannedWithCache(submission.submitter, context)) {
             console.log(`Post Creation: Submitter ${submission.submitter} is banned from the control subreddit.`);
+            results.push(PostCreationQueueResult.Error);
+            continue;
+        }
+
+        if (submission.submitter && bannedSubmitters.has(submission.submitter)) {
+            console.log(`Post Creation: Submitter ${submission.submitter} is blacklisted from submitting.`);
             results.push(PostCreationQueueResult.Error);
             continue;
         }
