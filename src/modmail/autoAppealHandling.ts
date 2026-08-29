@@ -12,7 +12,7 @@ import { ModmailMessage } from "./modmail.js";
 import { evaluateUserAccount, EvaluationResult, getAccountInitialEvaluationResults } from "../handleControlSubAccountEvaluation.js";
 import { getUserExtended } from "@fsvreddit/fsv-devvit-helpers";
 import { statusToFlair } from "../postCreation.js";
-import { addMinutes, addSeconds, addWeeks, differenceInMonths, format, getYear, subMonths } from "date-fns";
+import { addMinutes, addSeconds, addWeeks, differenceInMonths, format, getYear } from "date-fns";
 import { getPossibleSetStatusValues } from "./controlSubModmail.js";
 import { getUserSocialLinks } from "devvit-helpers";
 import { sendMessageOnDelay } from "./delayedSend.js";
@@ -732,7 +732,7 @@ export async function getMatchedAppealConfig (username: string, userDetails: Use
             }
 
             if (config.hasNSFWPosts !== undefined) {
-                const hasNSFWPosts = history.some(item => "nsfw" in item && item.nsfw && item.createdAt > subMonths(new Date(), 6));
+                const hasNSFWPosts = history.some(item => "nsfw" in item && item.nsfw);
 
                 if (config.hasNSFWPosts !== hasNSFWPosts) {
                     if (debug) {
