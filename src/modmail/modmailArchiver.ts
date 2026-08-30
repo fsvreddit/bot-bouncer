@@ -87,7 +87,6 @@ export async function handleModmailArchiverJob (event: ScheduledJobEvent<Modmail
         }
 
         if (conversation.conversation.state?.toLowerCase() === "archived") {
-            console.log(`Modmail Archiver: Conversation ${conversationId} is already archived. Removing from known conversations.`);
             await context.redis.zRem(KNOWN_CONVERSATIONS_KEY, [conversationId]);
         }
 
