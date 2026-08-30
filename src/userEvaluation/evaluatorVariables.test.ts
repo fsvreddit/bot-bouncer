@@ -6,6 +6,7 @@ import { expect, test } from "vitest";
 test("Parsing YAML", () => {
     const yamlString = `
 name: biotext
+killswitch: false
 
 maxageweeks: 24
 ---
@@ -31,9 +32,13 @@ namestems: addison|adele|allie
 badhandles: vanswoods|vidahsq
 ---
 name: badusername
+killswitch: false
+
 regexes: (?:{{namestems}})
 ---
 name: badusername2
+killswitch: false
+
 regexes:
     - (?:{{namestems}})
     - (?:{{badhandles}})
@@ -51,6 +56,7 @@ regexes:
 
 test("Invalid regex", async () => {
     const variables = {
+        "biotext:killswitch": false,
         "biotext:bantext": [
             "(?:addison|adele|allie",
         ],
@@ -62,6 +68,7 @@ test("Invalid regex", async () => {
 
 test("Regex with || condition", async () => {
     const variables = {
+        "biotext:killswitch": false,
         "biotext:bantext": [
             "(?:addison|adele||allie)",
         ],
@@ -69,11 +76,11 @@ test("Regex with || condition", async () => {
 
     const result = await invalidEvaluatorVariableCondition(variables, {} as unknown as JobContext, true);
     expect(result.length).toBe(1);
-    console.log(result);
 });
 
 test("Regex with badly formed array", async () => {
     const variables = {
+        "randommodule:killswitch": false,
         "randommodule:thing": [
             "(?:addison|adele|allie)",
             {

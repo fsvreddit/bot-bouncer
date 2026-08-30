@@ -297,6 +297,8 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: ScheduledJ
 export async function invalidEvaluatorVariableCondition (variables: Record<string, JSONValue>, context: JobContext, calledFromTest = false): Promise<ValidationIssue[]> {
     const results: ValidationIssue[] = [];
 
+    const knownKeys: string[] = [];
+
     // Now check for inconsistent types.
     for (const key of Object.keys(variables)) {
         if (key.startsWith("int-")) {
@@ -309,11 +311,18 @@ export async function invalidEvaluatorVariableCondition (variables: Record<strin
                 results.push({ severity: "error", message: `Inconsistent types for ${key} which may be a result of an undoubled single quote: ${distinctTypes.join(", ")}` });
             }
         }
+
+        knownKeys.push(key);
     }
 
     // Now check evaluator-specific validators
     for (const Evaluator of [...ALL_RELEVANT_EVALUTORS, EvaluateBotGroupAdvancedSubmitters]) {
         const evaluator = new Evaluator({} as unknown as TriggerContext, [], undefined, variables);
+
+        if (calledFromTest && !knownKeys.some(key => key.startsWith(`${evaluator.shortname}:`))) {
+            continue;
+        }
+
         const errors = evaluator.validateVariables();
         if (errors.length > 0) {
             results.push(...errors.map(r => ({ severity: r.severity, message: `${evaluator.name}: ${r.message.length < 200 ? r.message : r.message.substring(0, 197) + "..."}` })));
