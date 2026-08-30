@@ -48,6 +48,11 @@ If an account was banned by Bot Bouncer on a sub but successfully appeals via r/
 
 # Latest Changes
 
+## v1.35.0 (coming soon)
+
+* Content removals now consistently use "remove" rather than a mix of "remove" and "spam"
+* New evaluation capabilities for certain styles of NSFW account
+
 ## v1.34.0
 
 * Add detections for image and video repost bots
