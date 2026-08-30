@@ -205,7 +205,6 @@ async function handleSetBanned (username: string, subredditName: string, setting
     const recentLocalContent = userContent.filter(item => item.subredditName === subredditName && item.createdAt > subWeeks(new Date(), 1));
 
     if (recentLocalContent.length === 0) {
-        console.log(`Classification Update: ${username} has no recent content on ${subredditName}. Skipping ban to avoid banning potentially inactive users.`);
         return;
     }
 
@@ -401,6 +400,10 @@ export async function handleClassificationChanges (event: ScheduledJobEvent<JSON
 
     if (!await appAccountHasPermissions(context)) {
         console.warn(`Classification Update: Bot Bouncer does not have sufficient permissions on r/${subredditName} to process classification changes.`);
+
+        // Remove entries from the reclassification queue over a week old to prevent the queue from growing indefinitely
+        await context.redis.zRemRangeByScore(RECLASSIFICATION_QUEUE, 0, subWeeks(new Date(), 1).getTime());
+
         return;
     }
 
