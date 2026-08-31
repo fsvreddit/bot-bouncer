@@ -192,8 +192,10 @@ async function createNewSubmission (submission: AsyncSubmission, context: Trigge
 
     const results = await Promise.allSettled(promises);
 
-    if (results.some(result => result.status === "rejected")) {
-        console.error(`Post Creation: One or more non-critical post creation tasks failed for ${submission.user.username}.`, results);
+    const rejectedPromises = results.filter(result => result.status === "rejected");
+
+    if (rejectedPromises.length > 0) {
+        console.error(`Post Creation: One or more non-critical post creation tasks failed for ${submission.user.username}.`, rejectedPromises);
     }
 }
 

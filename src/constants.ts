@@ -70,6 +70,7 @@ export enum ControlSubredditJob {
     AutoAccountRecovery = "autoAccountRecovery",
     ModmailArchiver = "modmailArchiver",
     ExternalSubmissionsQueue = "externalSubmissionsQueue",
+    PendingUserReevaluation = "pendingUserReevaluation",
 }
 
 /**

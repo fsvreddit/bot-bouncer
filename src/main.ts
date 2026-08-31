@@ -44,6 +44,7 @@ import { handleClientSubAnnouncements } from "./handleClientSubAnnouncements.js"
 import { checkPotentiallyRecoveredAccounts } from "./autoAccountRecovery/autoAccountRecovery.js";
 import { handleModmailArchiverJob } from "./modmail/modmailArchiver.js";
 import { processExternalSubmissionsQueue } from "./externalSubmissions.js";
+import { processPendingUserReevaluationQueue } from "./userEvaluation/pendingUserReevaluation.js";
 
 Devvit.addSettings(appSettings);
 
@@ -322,6 +323,11 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: ControlSubredditJob.ExternalSubmissionsQueue,
     onRun: processExternalSubmissionsQueue,
+});
+
+Devvit.addSchedulerJob({
+    name: ControlSubredditJob.PendingUserReevaluation,
+    onRun: processPendingUserReevaluationQueue,
 });
 
 /**

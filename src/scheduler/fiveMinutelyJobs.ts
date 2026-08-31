@@ -49,6 +49,15 @@ export async function handleFiveMinutelyJob (_: unknown, context: JobContext) {
         runAt: addSeconds(new Date(), 10),
     });
 
+    await context.scheduler.runJob({
+        name: ControlSubredditJob.PendingUserReevaluation,
+        data: {
+            firstRun: true,
+            jobGuid: crypto.randomUUID(),
+        },
+        runAt: addSeconds(new Date(), 30),
+    });
+
     await Promise.allSettled([
         processHighlightedModmailQueue(context),
         gatherTokenStatistics(context),
