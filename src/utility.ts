@@ -202,7 +202,7 @@ export function conditionallyDecompressString (input: string): string {
 
 export function formatTimeSince (date: Date): string {
     const interval = intervalToDuration({ start: date, end: new Date() });
-    return formatDuration(interval, { format: ["days", "hours", "minutes"] });
+    return formatDuration(interval, { format: ["days", "hours", "minutes", "seconds"] });
 }
 
 export function normaliseHitReason (hitReason: HitReason): HitReasonDetailed {
