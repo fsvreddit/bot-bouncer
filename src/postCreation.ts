@@ -2,7 +2,7 @@ import { JobContext, Post, TriggerContext, ZMember } from "@devvit/public-api";
 import { getUserStatus, setUserStatus, storeInitialAccountProperties, UserDetails } from "./dataStore.js";
 import { CONTROL_SUBREDDIT, ControlSubredditJob, INTERNAL_BOT, PostFlairTemplate } from "./constants.js";
 import { UserExtended } from "@fsvreddit/fsv-devvit-helpers";
-import { addDays, addHours, addMinutes, addSeconds, subWeeks } from "date-fns";
+import { addDays, addHours, addMinutes, addSeconds, differenceInMinutes, subWeeks } from "date-fns";
 import { getControlSubSettings } from "./settings.js";
 import pluralize from "pluralize";
 import { queueSendFeedback } from "./submissionFeedback.js";
@@ -325,7 +325,7 @@ export async function processQueuedSubmission (context: JobContext) {
 
     if (remainingItemsInQueue > 0) {
         let message = `Post Creation: ${remainingItemsInQueue} ${pluralize("submission", remainingItemsInQueue)} still in the queue.`;
-        if (firstItemNonUrgent) {
+        if (firstItemNonUrgent && differenceInMinutes(new Date(), new Date(firstItemNonUrgent.score)) >= 1) {
             message += ` Backlog: ${formatTimeSince(new Date(firstItemNonUrgent.score))}`;
         }
         console.log(message);
