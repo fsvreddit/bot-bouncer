@@ -15,8 +15,8 @@
   "dependencies": {
     "@devvit/protos": "0.14.1",
     "@devvit/public-api": "0.14.1",
-    "@fsvreddit/bot-bouncer-evaluation": "github:fsvreddit/bot-bouncer-evaluation",
-    "@fsvreddit/fsv-devvit-helpers": "github:fsvreddit/fsv-devvit-helpers",
+    "@fsvreddit/bot-bouncer-evaluation": "^0.7.40",
+    "@fsvreddit/fsv-devvit-helpers": "^0.1.13",
     "@wordpress/wordcount": "^4.51.0",
     "ajv": "^8.17.1",
     "date-fns": "^4.1.0",
@@ -34,7 +34,7 @@
     "yaml": "^2.8.1"
   },
   "devDependencies": {
-    "@fsvreddit/eslint-config": "github:fsvreddit/eslint-config",
+    "@fsvreddit/eslint-config": "^0.1.0",
     "@types/json2md": "^1.5.4",
     "@types/lodash": "^4.17.13",
     "@types/markdown-escape": "^1.1.3",
