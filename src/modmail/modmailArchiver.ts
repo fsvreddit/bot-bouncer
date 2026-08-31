@@ -21,7 +21,6 @@ export async function addConversationToModmailArchiverQueue (modmail: ModmailMes
     await context.redis.zAdd(KNOWN_CONVERSATIONS_KEY, { member: modmail.conversationId, score: Date.now() });
 }
 
-// eslint-disable-next-line @typescript-eslint/consistent-type-definitions
 export type ModmailArchiverJobData = {
     jobGuid: string;
     firstRun?: boolean;

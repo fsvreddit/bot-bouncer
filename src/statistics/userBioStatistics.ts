@@ -86,7 +86,6 @@ function sha1hash (input: string): string {
     return crypto.createHash("sha256").update(input).digest("hex");
 }
 
-// eslint-disable-next-line @typescript-eslint/consistent-type-definitions
 type BioStatsJobData = {
     statsId: string;
     batch?: number;

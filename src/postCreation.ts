@@ -1,4 +1,4 @@
-import { JobContext, TriggerContext, ZMember } from "@devvit/public-api";
+import { JobContext, Post, TriggerContext, ZMember } from "@devvit/public-api";
 import { getUserStatus, setUserStatus, storeInitialAccountProperties, UserDetails } from "./dataStore.js";
 import { CONTROL_SUBREDDIT, ControlSubredditJob, INTERNAL_BOT, PostFlairTemplate } from "./constants.js";
 import { UserExtended } from "@fsvreddit/fsv-devvit-helpers";
@@ -49,6 +49,34 @@ export async function promotePositionInQueue (username: string, context: JobCont
     if (existingScore !== undefined) {
         await context.redis.zAdd(SUBMISSION_QUEUE, { member: username, score: Date.now() / 1000 });
         console.log(`Post Creation: Promoted ${username}'s position in the queue.`);
+    }
+}
+
+async function addReportContextComment (submission: AsyncSubmission, post: Post) {
+    if (!submission.commentToAdd || submission.commentToAdd.trim().length === 0) {
+        return;
+    }
+
+    const newComment = await post.addComment({
+        text: submission.commentToAdd,
+    });
+    await newComment.distinguish();
+    if (submission.removeComment) {
+        await newComment.remove();
+    }
+}
+
+async function addCallbackComment (submission: AsyncSubmission, post: Post, context: TriggerContext) {
+    if (!submission.callback) {
+        return;
+    }
+
+    const callbackPost = await context.reddit.getPostById(submission.callback.postId);
+    if (callbackPost.authorName !== "[deleted]") {
+        const commentText = submission.callback.comment.replace("{{permalink}}", post.permalink);
+        const newComment = await callbackPost.addComment({ text: commentText });
+        await newComment.distinguish(true);
+        await context.redis.set(`callbackCommentPosted:${submission.user.username}`, newComment.id, { expiration: addDays(new Date(), 7) });
     }
 }
 
@@ -108,71 +136,43 @@ async function createNewSubmission (submission: AsyncSubmission, context: Trigge
         nsfw: submission.user.nsfw,
     });
 
-    try {
-        await recordBotPostCreated(newPost, context);
-    } catch (error) {
-        console.error("Bot Post Monitor: Error recording new bot post.", error);
-    }
-
     submission.details.trackingPostId = newPost.id;
     submission.details.reportedAt = Date.now();
     submission.details.lastUpdate = Date.now();
 
     await setUserStatus(submission.user.username, submission.details, context);
 
-    if (submission.commentToAdd) {
-        const newComment = await newPost.addComment({
-            text: submission.commentToAdd,
-        });
-        await newComment.distinguish();
-        if (submission.removeComment) {
-            await newComment.remove();
-        }
-    }
+    const promises: Promise<unknown>[] = [
+        recordBotPostCreated(newPost, context),
+        addReportContextComment(submission, newPost),
+        addCallbackComment(submission, newPost, context),
+        storeInitialAccountProperties(submission.user.username, context),
+    ];
 
     if (submission.details.userStatus === UserStatus.Pending || !submission.evaluatorsChecked) {
-        const controlSubSettings = await getControlSubSettings(context);
-        if (!controlSubSettings.evaluationDisabled) {
-            await context.scheduler.runJob({
-                name: ControlSubredditJob.EvaluateUser,
-                runAt: addSeconds(new Date(), 5),
-                data: {
-                    username: submission.user.username,
-                    postId: newPost.id,
-                    forceManualReview,
-                    forceManualReviewReasons,
-                    jobGuid: crypto.randomUUID(),
-                },
-            });
-        }
-    }
-
-    if (submission.callback) {
-        const callbackPost = await context.reddit.getPostById(submission.callback.postId);
-        if (callbackPost.authorName !== "[deleted]") {
-            const commentText = submission.callback.comment.replace("{{permalink}}", newPost.permalink);
-            const newComment = await callbackPost.addComment({ text: commentText });
-            await newComment.distinguish(true);
-            await context.redis.set(`callbackCommentPosted:${submission.user.username}`, newComment.id, { expiration: addDays(new Date(), 7) });
-        }
-    }
-
-    try {
-        await storeInitialAccountProperties(submission.user.username, context);
-    } catch (error) {
-        console.error(`Post Creation: Error storing initial account properties for user ${submission.user.username}.`, error);
+        promises.push(context.scheduler.runJob({
+            name: ControlSubredditJob.EvaluateUser,
+            runAt: addSeconds(new Date(), 5),
+            data: {
+                username: submission.user.username,
+                postId: newPost.id,
+                forceManualReview,
+                forceManualReviewReasons,
+                jobGuid: crypto.randomUUID(),
+            },
+        }));
     }
 
     if (submission.details.userStatus !== UserStatus.Pending) {
-        await queueSendFeedback(submission.user.username, context);
+        promises.push(queueSendFeedback(submission.user.username, context));
     }
 
     if (submission.details.userStatus === UserStatus.Banned) {
-        await context.scheduler.runJob({
+        promises.push(context.scheduler.runJob({
             name: ControlSubredditJob.DefinedHandlesPostStore,
             runAt: addSeconds(new Date(), 1),
             data: { username: submission.user.username, jobGuid: crypto.randomUUID() },
-        });
+        }));
     }
 
     console.log(`Post Creation: Created new post for ${submission.user.username} with status ${submission.details.userStatus}.`);
@@ -182,11 +182,18 @@ async function createNewSubmission (submission: AsyncSubmission, context: Trigge
         if (modNoteText.length > 250) {
             modNoteText = modNoteText.substring(0, 247) + "...";
         }
-        await context.reddit.addModNote({
+
+        promises.push(context.reddit.addModNote({
             user: submission.user.username,
             subreddit: CONTROL_SUBREDDIT,
             note: modNoteText,
-        });
+        }));
+    }
+
+    const results = await Promise.allSettled(promises);
+
+    if (results.some(result => result.status === "rejected")) {
+        console.error(`Post Creation: One or more non-critical post creation tasks failed for ${submission.user.username}.`, results);
     }
 }
 
@@ -301,7 +308,7 @@ export async function processQueuedSubmission (context: JobContext) {
         return;
     }
 
-    await context.redis.set(cooldownKey, "", { expiration: addMinutes(new Date(), 3) });
+    await context.redis.set(cooldownKey, "", { expiration: addMinutes(new Date(), 2) });
 
     const txn = await context.redis.watch();
     await txn.multi();

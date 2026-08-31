@@ -38,7 +38,6 @@ interface ModmailDataExtract {
     omitUserDetails?: boolean;
 }
 
-// eslint-disable-next-line @typescript-eslint/consistent-type-definitions
 type DataExtractJobData = {
     extractId: string;
     conversationId: string;

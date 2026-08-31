@@ -144,8 +144,9 @@ export async function writeUserStatus (username: string, details: UserDetails, c
     try {
         await context.redis.global.hSet(getStoreKey(username), { [username]: JSON.stringify(details) });
     } catch (error) {
-        console.error(`Failed to write user status of ${details.userStatus} for ${username}:`, error);
-        throw new Error(`Failed to write user status for ${username}`);
+        const message = error instanceof Error ? error.message : String(error);
+        console.error(`Failed to write user status of ${details.userStatus} for ${username}:`, message);
+        throw error;
     }
 }
 

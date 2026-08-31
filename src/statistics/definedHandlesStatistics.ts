@@ -34,14 +34,12 @@ interface UserDefinedHandlePost {
 const definedHandlesRecentlyRunKey = "definedHandlesStatsLastRunValue";
 const DEFINED_HANDLES_LOOKBACK_MONTHS = 6;
 
-// eslint-disable-next-line @typescript-eslint/consistent-type-definitions
 export type DefinedHandlesStatsInitializerJobData = {
     jobGuid: string;
     firstRun: boolean;
     prefixes: string[];
 };
 
-// eslint-disable-next-line @typescript-eslint/consistent-type-definitions
 type DefinedHandlesStatsJobData = {
     jobGuid: string;
     firstRun: boolean;

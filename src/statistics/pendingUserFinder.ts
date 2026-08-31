@@ -14,7 +14,6 @@ import { regenerateSummary } from "../UserSummary/userSummary.js";
 const PENDING_USER_WIKI_PAGE = "pending-users";
 const PENDING_USERS_TO_ALERT_KEY = "pendingUsersToAlert";
 
-// eslint-disable-next-line @typescript-eslint/consistent-type-definitions
 type PendingUserFinderJobData = {
     jobGuid: string;
     userData: {

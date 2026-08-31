@@ -155,6 +155,12 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
         return;
     }
 
+    const controlSubSettings = await getControlSubSettings(context);
+    if (controlSubSettings.evaluationDisabled) {
+        console.log("Control Sub Account Evaluation: Evaluation is disabled in settings.");
+        return;
+    }
+
     const jobGuid = event.data?.jobGuid as string | undefined;
     if (jobGuid && await hasTriggerBeenHandled(context.redis, `job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
         console.warn(`Control Sub Account Evaluation: Job with guid ${jobGuid} has already been handled, skipping.`);

@@ -43,6 +43,7 @@ import { handleObserverSubMinutelyJob } from "./scheduler/handleObserverSubMinut
 import { handleClientSubAnnouncements } from "./handleClientSubAnnouncements.js";
 import { checkPotentiallyRecoveredAccounts } from "./autoAccountRecovery/autoAccountRecovery.js";
 import { handleModmailArchiverJob } from "./modmail/modmailArchiver.js";
+import { processExternalSubmissionsQueue } from "./externalSubmissions.js";
 
 Devvit.addSettings(appSettings);
 
@@ -316,6 +317,11 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: ControlSubredditJob.ModmailArchiver,
     onRun: handleModmailArchiverJob,
+});
+
+Devvit.addSchedulerJob({
+    name: ControlSubredditJob.ExternalSubmissionsQueue,
+    onRun: processExternalSubmissionsQueue,
 });
 
 /**

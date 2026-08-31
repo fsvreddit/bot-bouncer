@@ -7,7 +7,6 @@ export enum WikiPagePermissionLevel {
     MODS_ONLY = 2,
 }
 
-// eslint-disable-next-line @typescript-eslint/consistent-type-definitions
 export type RecoveredAccountsData = {
     firstRun: boolean;
     jobGuid: string;

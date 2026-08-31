@@ -1,5 +1,5 @@
-import { JobContext, TriggerContext, User, WikiPage } from "@devvit/public-api";
-import { CONTROL_SUBREDDIT, INTERNAL_BOT } from "./constants.js";
+import { JobContext, ScheduledJobEvent, TriggerContext, User, WikiPage } from "@devvit/public-api";
+import { CONTROL_SUBREDDIT, ControlSubredditJob, INTERNAL_BOT } from "./constants.js";
 import { addUserToTempDeclineStore, getUserStatus } from "./dataStore.js";
 import { getControlSubSettings } from "./settings.js";
 import { addDays, addMinutes, addSeconds, addWeeks } from "date-fns";
@@ -7,7 +7,7 @@ import { getUserOrUndefined } from "./utility.js";
 import { isLinkId } from "@devvit/public-api/types/tid.js";
 import { AsyncSubmission, isUserAlreadyQueued, PostCreationQueueResult, promotePositionInQueue, queuePostCreation } from "./postCreation.js";
 import pluralize from "pluralize";
-import { getPostOrCommentById, getUserExtendedFromUser } from "@fsvreddit/fsv-devvit-helpers";
+import { getPostOrCommentById, getUserExtendedFromUser, hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
 import { evaluateUserAccount, EvaluationResult, storeAccountInitialEvaluationResults } from "./handleControlSubAccountEvaluation.js";
 import json2md from "json2md";
 import { getEvaluatorVariables } from "./userEvaluation/evaluatorVariables.js";
@@ -265,17 +265,32 @@ export async function handleExternalSubmissionsPageUpdate (context: TriggerConte
     await processAccountsToCheckFromObserverSubreddit(context);
 }
 
-export async function processExternalSubmissionsQueue (context: JobContext): Promise<number> {
+type ExternalSubmissionQueueData = {
+    firstRun: boolean;
+    jobGuid: string;
+};
+
+export async function processExternalSubmissionsQueue (event: ScheduledJobEvent<ExternalSubmissionQueueData>, context: JobContext) {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
         throw new Error("This function can only be called from the control subreddit.");
     }
 
+    const executionLimit = addSeconds(new Date(), 15);
     const submissionQueue = await context.redis.global.zRange(EXTERNAL_SUBMISSION_QUEUE_KEY, 0, -1);
     if (submissionQueue.length === 0) {
-        return 0;
+        return;
     }
 
-    const executionLimit = addSeconds(new Date(), 15);
+    const runRecentlyKey = "externalSubmissionQueueRunRecently";
+    if (event.data.firstRun && await context.redis.exists(runRecentlyKey)) {
+        return;
+    }
+    await context.redis.set(runRecentlyKey, Date.now().toString(), { expiration: addMinutes(new Date(), 1) });
+
+    if (await hasTriggerBeenHandled(context.redis, `job:${event.data.jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+        console.log(`External Submissions: Job ${event.data.jobGuid} has already been handled, skipping.`);
+        return;
+    }
 
     // Process each submission in the queue.
     let processed = 0;
@@ -305,7 +320,7 @@ export async function processExternalSubmissionsQueue (context: JobContext): Pro
 
         const submissionData = JSON.parse(submissionDataRaw) as ExternalSubmission;
         const postSubmitted = await addExternalSubmissionToPostCreationQueue(submissionData, submissionData.immediate ?? submissionData.submitter === undefined, context);
-        await context.redis.del(getExternalSubmissionDataKey(username));
+        await context.redis.global.del(getExternalSubmissionDataKey(username));
         if (postSubmitted) {
             processed++;
         }
@@ -314,7 +329,16 @@ export async function processExternalSubmissionsQueue (context: JobContext): Pro
     }
 
     console.log(`External Submissions: Processed ${processed} external ${pluralize("submission", processed)} from the queue.`);
-    return processed;
+
+    if (submissionQueue.length > 0) {
+        await context.scheduler.runJob<ExternalSubmissionQueueData>({
+            name: ControlSubredditJob.ExternalSubmissionsQueue,
+            data: { firstRun: false, jobGuid: crypto.randomUUID() },
+            runAt: addSeconds(new Date(), 1),
+        });
+    } else {
+        await context.redis.del(runRecentlyKey);
+    }
 }
 
 export async function processAccountsToCheckFromObserverSubreddit (context: TriggerContext) {

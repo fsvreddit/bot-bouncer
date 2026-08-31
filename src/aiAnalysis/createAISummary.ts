@@ -32,7 +32,6 @@ function getCacheKeyForUserSummary (username: string) {
     return `aiSummary:${username}`;
 }
 
-// eslint-disable-next-line @typescript-eslint/consistent-type-definitions
 export type OpenAISummaryGatherData = {
     jobGuid?: string;
     mode: "auto" | "manual";

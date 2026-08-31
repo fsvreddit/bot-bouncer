@@ -69,6 +69,7 @@ export enum ControlSubredditJob {
     UpdateEvaluatorConfigEditSummaryPage = "updateEvaluatorConfigEditSummaryPage",
     AutoAccountRecovery = "autoAccountRecovery",
     ModmailArchiver = "modmailArchiver",
+    ExternalSubmissionsQueue = "externalSubmissionsQueue",
 }
 
 /**
