@@ -124,13 +124,7 @@ export async function analyseBioText (context: TriggerContext) {
     const addableUsers: string[] = [];
 
     if (Object.keys(results).length === 0) {
-        const recentlySent = await context.redis.exists(BIO_TEXT_MODMAIL_SENT);
-        if (recentlySent) {
-            console.log("No similar bio text patterns found, and a modmail was sent recently.");
-            return;
-        }
-        console.log("No similar bio text patterns found.");
-        output.push({ p: "No similar enough bio text patterns found on this run." });
+        return;
     } else {
         const variables = await getEvaluatorVariables(context);
         let index = 1;
