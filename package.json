@@ -13,8 +13,8 @@
     "lint": "eslint ."
   },
   "dependencies": {
-    "@devvit/protos": "0.14.1",
-    "@devvit/public-api": "0.14.1",
+    "@devvit/protos": "0.14.2",
+    "@devvit/public-api": "0.14.2",
     "@fsvreddit/bot-bouncer-evaluation": "^0.7.40",
     "@fsvreddit/fsv-devvit-helpers": "^0.1.13",
     "@wordpress/wordcount": "^4.51.0",
