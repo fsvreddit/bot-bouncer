@@ -103,3 +103,8 @@ export const ALL_RELEVANT_EVALUTORS = [
     ...ALL_EVALUATORS,
     ...ALL_INTERNAL_EVALUATORS,
 ];
+
+/**
+ * Reusable message strings
+ */
+export const FROM_BOT_MSG_FOOTER = "^(_This message was sent by a_) [^(_bot_)](https://www.reddit.com/r/BotBouncer/wiki/index)^.";

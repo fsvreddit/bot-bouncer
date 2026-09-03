@@ -1,7 +1,7 @@
 import { TriggerContext } from "@devvit/public-api";
 import { getUserStatus } from "./dataStore.js";
 import json2md from "json2md";
-import { CONTROL_SUBREDDIT } from "./constants.js";
+import { CONTROL_SUBREDDIT, FROM_BOT_MSG_FOOTER } from "./constants.js";
 import { addMinutes } from "date-fns";
 import { UserStatus } from "./types.js";
 
@@ -95,6 +95,8 @@ async function sendFeedbackViaModmail (username: string, submitter: string, oper
 
     if (userStatus === UserStatus.Organic || userStatus === UserStatus.Service) {
         message.push({ p: `If you have any more information to help us understand why this may be a harmful or disruptive bot, please reply to this message.` });
+        message.push({ p: FROM_BOT_MSG_FOOTER });
+
     }
 
     try {
