@@ -323,7 +323,13 @@ export async function invalidEvaluatorVariableCondition (variables: Record<strin
             continue;
         }
 
-        const errors = evaluator.validateVariables();
+        const errors: ValidationIssue[] = [];
+        try {
+            errors.push(...evaluator.validateVariables());
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            results.push({ severity: "error", message: `Exception thrown while validating variables for ${evaluator.name}: ${message}` });
+        }
         if (errors.length > 0) {
             results.push(...errors.map(r => ({ severity: r.severity, message: `${evaluator.name}: ${r.message.length < 200 ? r.message : r.message.substring(0, 197) + "..."}` })));
         }
