@@ -2,7 +2,7 @@ import { JobContext, Post, TriggerContext, ZMember } from "@devvit/public-api";
 import { getUserStatus, setUserStatus, storeInitialAccountProperties, UserDetails } from "./dataStore.js";
 import { CONTROL_SUBREDDIT, ControlSubredditJob, INTERNAL_BOT, PostFlairTemplate } from "./constants.js";
 import { UserExtended } from "@fsvreddit/fsv-devvit-helpers";
-import { addDays, addHours, addMinutes, addSeconds, differenceInMinutes } from "date-fns";
+import { addDays, addHours, addMinutes, addSeconds, differenceInMinutes, format } from "date-fns";
 import { getControlSubSettings } from "./settings.js";
 import pluralize from "pluralize";
 import { queueSendFeedback } from "./submissionFeedback.js";
@@ -303,10 +303,10 @@ export async function processQueuedSubmission (context: JobContext) {
     if (!await context.redis.exists(bulkProcessedKey)) {
         const firstBulkSubmission = queuedSubmissions.find(item => item.score > new Date().getTime() / 1.5);
         if (firstBulkSubmission) {
-            console.log(`Post Creation: Processing a bulk submission for user ${firstBulkSubmission.member}.`);
+            console.log(`Post Creation: Processing a bulk submission for user ${firstBulkSubmission.member} from ${format(new Date(firstBulkSubmission.score), "yyyy-MM-dd hh:mm")}.`);
             usernameToProcess = firstBulkSubmission.member;
+            await context.redis.set(bulkProcessedKey, Date.now().toString(), { expiration: addMinutes(new Date(), 2) });
         }
-        await context.redis.set(bulkProcessedKey, Date.now().toString(), { expiration: addMinutes(new Date(), 2) });
     }
 
     usernameToProcess ??= queuedSubmissions[0].member;
