@@ -2,7 +2,7 @@ import { JobContext, Post, TriggerContext, ZMember } from "@devvit/public-api";
 import { getUserStatus, setUserStatus, storeInitialAccountProperties, UserDetails } from "./dataStore.js";
 import { CONTROL_SUBREDDIT, ControlSubredditJob, INTERNAL_BOT, PostFlairTemplate } from "./constants.js";
 import { UserExtended } from "@fsvreddit/fsv-devvit-helpers";
-import { addDays, addHours, addMinutes, addSeconds, differenceInMinutes, subWeeks } from "date-fns";
+import { addDays, addHours, addMinutes, addSeconds, differenceInMinutes } from "date-fns";
 import { getControlSubSettings } from "./settings.js";
 import pluralize from "pluralize";
 import { queueSendFeedback } from "./submissionFeedback.js";
@@ -323,7 +323,7 @@ export async function processQueuedSubmission (context: JobContext) {
     await context.redis.del(cooldownKey);
 
     const remainingItemsInQueue = queuedSubmissions.length - 1;
-    const firstItemNonUrgent = queuedSubmissions.find(item => item.score > subWeeks(new Date(), 1).getTime());
+    const firstItemNonUrgent = queuedSubmissions.find(item => item.score > new Date().getTime() / 5);
 
     if (remainingItemsInQueue > 0) {
         let message = `Post Creation: ${remainingItemsInQueue} ${pluralize("submission", remainingItemsInQueue)} still in the queue.`;
@@ -356,10 +356,11 @@ export async function processQueuedSubmission (context: JobContext) {
 
                 let message = `⚠️ Post creation queue is backlogged. As at <t:${Math.round(Date.now() / 1000)}:t> there ${pluralize("is", remainingItemsInQueue)} currently ${remainingItemsInQueue.toLocaleString()} ${pluralize("submission", remainingItemsInQueue)} waiting to be processed. (Max observed: ${maxQueueLength.toLocaleString()}).`;
                 if (firstItemNonUrgent) {
-                    message += `\n\nOldest non-urgent item: ${formatTimeSince(new Date(firstItemNonUrgent.score))} ago.`;
+                    const firstItemNonUrgentTime = firstItemNonUrgent.score < Date.now() / 1.5 ? new Date(firstItemNonUrgent.score * 2) : new Date(firstItemNonUrgent.score);
+                    message += `\n\nFirst non-urgent item: ${formatTimeSince(firstItemNonUrgentTime)} ago.`;
                 }
 
-                const immediateCount = queuedSubmissions.filter(item => item.score <= subWeeks(new Date(), 1).getTime()).length;
+                const immediateCount = queuedSubmissions.filter(item => item.score <= new Date().getTime() / 5).length;
                 if (immediateCount > 0) {
                     message += ` There ${pluralize("is", immediateCount)} ${immediateCount.toLocaleString()} immediate ${pluralize("submission", immediateCount)} in the queue.`;
                 }
