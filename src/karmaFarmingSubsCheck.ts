@@ -297,8 +297,9 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
     const firstDate = new Date(accounts[0].score);
 
     const variables = await getEvaluatorVariables(context);
+    const controlSubSettings = await getControlSubSettings(context);
 
-    const chunk = accounts.slice(0, 10).map(item => item.member);
+    const chunk = accounts.slice(0, controlSubSettings.proactiveEvaluationBatchSize ?? 10).map(item => item.member);
 
     let failedInBatch = 0;
 
