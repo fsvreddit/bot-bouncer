@@ -296,11 +296,25 @@ export async function processQueuedSubmission (context: JobContext) {
         return;
     }
 
-    const [firstSubmission] = queuedSubmissions;
-    const submissionDetails = await context.redis.hGet(SUBMISSION_DETAILS, firstSubmission.member);
+    let usernameToProcess: string | undefined;
+
+    // Every two minutes, process an entry queued from a bulk submission so they don't end up lingering.
+    const bulkProcessedKey = "postCreationBulkProcessedRecently";
+    if (!await context.redis.exists(bulkProcessedKey)) {
+        const firstBulkSubmission = queuedSubmissions.find(item => item.score > new Date().getTime() / 1.5);
+        if (firstBulkSubmission) {
+            console.log(`Post Creation: Processing a bulk submission for user ${firstBulkSubmission.member}.`);
+            usernameToProcess = firstBulkSubmission.member;
+        }
+        await context.redis.set(bulkProcessedKey, Date.now().toString(), { expiration: addMinutes(new Date(), 2) });
+    }
+
+    usernameToProcess ??= queuedSubmissions[0].member;
+
+    const submissionDetails = await context.redis.hGet(SUBMISSION_DETAILS, usernameToProcess);
     if (!submissionDetails) {
-        console.error(`Post Creation: No details found in redis for user ${firstSubmission.member}.`);
-        await context.redis.zRem(SUBMISSION_QUEUE, [firstSubmission.member]);
+        console.error(`Post Creation: No details found in redis for user ${usernameToProcess}.`);
+        await context.redis.zRem(SUBMISSION_QUEUE, [usernameToProcess]);
         return;
     }
 
@@ -310,12 +324,12 @@ export async function processQueuedSubmission (context: JobContext) {
         return;
     }
 
-    await context.redis.set(cooldownKey, "", { expiration: addMinutes(new Date(), 2) });
+    await context.redis.set(cooldownKey, Date.now().toString(), { expiration: addMinutes(new Date(), 2) });
 
     const txn = await context.redis.watch();
     await txn.multi();
-    await txn.zRem(SUBMISSION_QUEUE, [firstSubmission.member]);
-    await txn.hDel(SUBMISSION_DETAILS, [firstSubmission.member]);
+    await txn.zRem(SUBMISSION_QUEUE, [usernameToProcess]);
+    await txn.hDel(SUBMISSION_DETAILS, [usernameToProcess]);
     await txn.exec();
 
     await createNewSubmission(JSON.parse(submissionDetails) as AsyncSubmission, context);
