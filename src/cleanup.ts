@@ -103,7 +103,7 @@ export async function cleanupDeletedAccounts (event: ScheduledJobEvent<JSONObjec
         return;
     }
 
-    const runLimit = addSeconds(new Date(), 10);
+    const runLimit = addSeconds(new Date(), 20);
 
     const recentlyRunKey = "CleanupRecentlyRun";
 
@@ -117,7 +117,7 @@ export async function cleanupDeletedAccounts (event: ScheduledJobEvent<JSONObjec
 
     const firstCleanupDate = new Date(items[0].score);
 
-    await context.redis.set(recentlyRunKey, "true", { expiration: addSeconds(new Date(), 30) });
+    await context.redis.set(recentlyRunKey, "true", { expiration: addMinutes(new Date(), 1) });
 
     // Check platform is up.
     await context.reddit.getAppUser();
@@ -125,17 +125,14 @@ export async function cleanupDeletedAccounts (event: ScheduledJobEvent<JSONObjec
     let deletedCount = 0;
     let activeCount = 0;
     let suspendedCount = 0;
-    let totalProcessed = 0;
 
     // Get the first N accounts that are due a check.
     const usersToCheck = items.map(item => item.member);
-    while (usersToCheck.length > 0 && new Date() < runLimit && totalProcessed < 10) {
+    while (usersToCheck.length > 0 && new Date() < runLimit) {
         const username = usersToCheck.shift();
         if (!username) {
             break;
         }
-
-        totalProcessed++;
 
         // Push forward cleanup by one day in case retrieving user fails catastrophically.
         await setCleanupForUser(username, context.redis, addDays(new Date(), 1));
