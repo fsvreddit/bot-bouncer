@@ -341,8 +341,11 @@ export async function processQueuedSubmission (context: JobContext) {
 
     if (remainingItemsInQueue > 0) {
         let message = `Post Creation: ${remainingItemsInQueue} ${pluralize("submission", remainingItemsInQueue)} still in the queue.`;
-        if (firstItemNonUrgent && differenceInMinutes(new Date(), new Date(firstItemNonUrgent.score)) >= 1) {
-            message += ` Backlog: ${formatTimeSince(new Date(firstItemNonUrgent.score))}`;
+        if (firstItemNonUrgent) {
+            const firstItemNonUrgentTime = firstItemNonUrgent.score < Date.now() / 1.5 ? new Date(firstItemNonUrgent.score * 2) : new Date(firstItemNonUrgent.score);
+            if (differenceInMinutes(new Date(), new Date(firstItemNonUrgentTime)) >= 1) {
+                message += ` Backlog: ${formatTimeSince(firstItemNonUrgentTime)}`;
+            }
         }
         console.log(message);
     }
