@@ -15,6 +15,7 @@ import { UserStatus } from "./types.js";
 const UNBAN_WHITELIST = "UnbanWhitelist";
 const BAN_STORE = "BanStore";
 const RECLASSIFICATION_QUEUE = "ReclassificationQueue";
+const NO_PERMISSIONS_QUEUE = "NoPermissionsQueue";
 
 export async function recordBan (username: string, redis: RedisClient) {
     await redis.zAdd(BAN_STORE, { member: username, score: new Date().getTime() });
@@ -363,6 +364,39 @@ function effectiveStatus (userDetails?: UserDetails): "human" | "bot" | undefine
     }
 }
 
+async function handleReclassificationWithPermissions (username: string, status: "human" | "bot" | undefined, subredditName: string, settings: SettingsValues, controlSubSettings: ControlSubSettings, context: JobContext) {
+    if (status === "human") {
+        await handleSetOrganic(username, subredditName, settings, controlSubSettings, context);
+    } else if (status === "bot") {
+        await handleSetBanned(username, subredditName, settings, controlSubSettings, context);
+    } else if (await isUserInTempDeclineStore(username, context)) {
+        await handleSetOrganic(username, subredditName, settings, controlSubSettings, context);
+    }
+}
+
+async function handleReclassificationWithoutPermissions (username: string, status: "human" | "bot" | undefined, context: JobContext) {
+    if (status !== "human") {
+        return;
+    }
+
+    const userBannedByApp = await wasUserBannedByApp(username, context);
+    if (!userBannedByApp) {
+        return;
+    }
+
+    await context.redis.zAdd(NO_PERMISSIONS_QUEUE, { score: Date.now(), member: username });
+}
+
+async function reinstateItemsFromNoPermissionsQueue (context: JobContext) {
+    const items = await context.redis.zRange(NO_PERMISSIONS_QUEUE, 0, -1);
+    if (items.length === 0) {
+        return;
+    }
+
+    await context.redis.zAdd(RECLASSIFICATION_QUEUE, ...items);
+    await context.redis.zRem(NO_PERMISSIONS_QUEUE, items.map(item => item.member));
+}
+
 export async function handleClassificationChanges (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
     const recentlyRunKey = "classificationChangesInProgress";
     if (event.data?.firstRun && await context.redis.exists(recentlyRunKey)) {
@@ -398,19 +432,16 @@ export async function handleClassificationChanges (event: ScheduledJobEvent<JSON
         console.log(`Classification Update: Processing ${items.length} of ${totalCount} ${pluralize("user", totalCount)} in reclassification queue for ${subredditName}.`);
     }
 
-    if (!await appAccountHasPermissions(context)) {
-        console.warn(`Classification Update: Bot Bouncer does not have sufficient permissions on r/${subredditName} to process classification changes.`);
-
-        // Remove entries from the reclassification queue over a week old to prevent the queue from growing indefinitely
-        await context.redis.zRemRangeByScore(RECLASSIFICATION_QUEUE, 0, subWeeks(new Date(), 1).getTime());
-
-        return;
-    }
+    const appHasPermissions = await appAccountHasPermissions(context);
 
     const controlSubSettings = await getControlSubSettings(context);
     if (controlSubSettings.clientReclassificationDisabled) {
         console.log(`Classification Update: Client subreddit reclassification is disabled.`);
         return;
+    }
+
+    if (appHasPermissions && event.data?.firstRun) {
+        await reinstateItemsFromNoPermissionsQueue(context);
     }
 
     const settings = await context.settings.getAll();
@@ -427,12 +458,11 @@ export async function handleClassificationChanges (event: ScheduledJobEvent<JSON
         const currentStatus = await getUserStatus(username, context);
 
         const status = effectiveStatus(currentStatus);
-        if (status === "human") {
-            await handleSetOrganic(username, subredditName, settings, controlSubSettings, context);
-        } else if (status === "bot") {
-            await handleSetBanned(username, subredditName, settings, controlSubSettings, context);
-        } else if (await isUserInTempDeclineStore(username, context)) {
-            await handleSetOrganic(username, subredditName, settings, controlSubSettings, context);
+
+        if (appHasPermissions) {
+            await handleReclassificationWithPermissions(username, status, subredditName, settings, controlSubSettings, context);
+        } else {
+            await handleReclassificationWithoutPermissions(username, status, context);
         }
 
         await context.redis.zRem(RECLASSIFICATION_QUEUE, [username]);
