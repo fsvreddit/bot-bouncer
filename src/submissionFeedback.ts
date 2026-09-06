@@ -81,21 +81,15 @@ async function sendFeedbackViaModmail (username: string, submitter: string, oper
 
     const automaticText = operator === context.appSlug ? "automatically" : "manually";
     const message: json2md.DataObject[] = [
-        { p: `Hi ${submitter}, you recently reported /u/${username} to /r/${CONTROL_SUBREDDIT}.` },
+        { p: `Following your report to /r/${CONTROL_SUBREDDIT}, /u/${username} has been classified ${automaticText} as **${userStatus}**.` },
     ];
-
-    let nextLine = `The account has been classified ${automaticText} as **${userStatus}**.`;
-    if (userStatus in statusToExplanation) {
-        nextLine += ` This means that the account ${statusToExplanation[userStatus]}`;
-    }
-
-    message.push({ p: nextLine });
-
-    message.push({ p: "This status may change in the future if we receive more information or if the user questions their classification." });
 
     if (userStatus === UserStatus.Organic || userStatus === UserStatus.Service) {
         message.push({ p: `If you have any more information to help us understand why this may be a harmful or disruptive bot, please reply to this message.` });
     }
+
+    message.push({ p: "*This is an automated message, but replies will be read.*" });
+    const modmailFailureKey = `modmailFailureCount:${username}`;
 
     try {
         if (existingModmailId) {
@@ -110,6 +104,7 @@ async function sendFeedbackViaModmail (username: string, submitter: string, oper
             } else {
                 console.log(`Feedback message was sent to ${submitter} about ${username}, conversation was not archived.`);
             }
+            await context.redis.del(modmailFailureKey);
         } else {
             const newModmailConversation = await context.reddit.modMail.createConversation({
                 subredditName: CONTROL_SUBREDDIT,
@@ -131,8 +126,10 @@ async function sendFeedbackViaModmail (username: string, submitter: string, oper
         const message = error instanceof Error ? error.message : String(error);
         console.error(`Failed to send feedback to ${submitter} about ${username} being classified as ${userStatus} by ${operator}: ${message}`);
         if (existingModmailId) {
-            // Might have hit a limit on the conversation, so clear existing key to create a new one next time.
-            await context.redis.del(modmailKeyForUser);
+            const failureCount = await context.redis.incrBy(modmailFailureKey, 1);
+            if (failureCount >= 3) {
+                await context.redis.del(modmailKeyForUser, modmailFailureKey);
+            }
         }
     }
 
