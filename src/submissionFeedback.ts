@@ -103,6 +103,7 @@ async function sendFeedbackViaModmail (username: string, submitter: string, oper
             await context.reddit.modMail.reply({
                 conversationId: existingModmailId,
                 body: json2md(message),
+                isAuthorHidden: false,
             });
             if (conversation.conversation?.state?.toLowerCase() === "archived") {
                 await context.reddit.modMail.archiveConversation(existingModmailId);
@@ -115,6 +116,7 @@ async function sendFeedbackViaModmail (username: string, submitter: string, oper
                 subject: "Bot Bouncer classification feedback",
                 body: json2md(message),
                 to: submitter,
+                isAuthorHidden: false,
             });
             if (newModmailConversation.conversation.id) {
                 await context.redis.set(modmailKeyForUser, newModmailConversation.conversation.id);

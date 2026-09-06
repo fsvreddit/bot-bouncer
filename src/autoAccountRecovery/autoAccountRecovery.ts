@@ -96,7 +96,7 @@ export async function checkPotentiallyRecoveredAccounts (event: ScheduledJobEven
         return;
     }
 
-    const runLimit = addSeconds(new Date(), 20);
+    const runLimit = addSeconds(new Date(), 15);
     let processed = 0;
 
     const chunks = _.chunk(recoveredAccountsToCheck, 10);
