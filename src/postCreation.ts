@@ -371,7 +371,7 @@ export async function processQueuedSubmission (context: JobContext) {
                 let message = `⚠️ Post creation queue is backlogged. As at <t:${Math.round(Date.now() / 1000)}:t> there ${pluralize("is", remainingItemsInQueue)} currently ${remainingItemsInQueue.toLocaleString()} ${pluralize("submission", remainingItemsInQueue)} waiting to be processed. (Max observed: ${maxQueueLength.toLocaleString()}).`;
                 if (firstItemNonUrgent) {
                     const firstItemNonUrgentTime = firstItemNonUrgent.score < Date.now() / 1.5 ? new Date(firstItemNonUrgent.score * 2) : new Date(firstItemNonUrgent.score);
-                    message += `\n\nFirst non-urgent item: ${formatTimeSince(firstItemNonUrgentTime)} ago.`;
+                    message += `\n\nFirst non-urgent item: <t:${Math.round(firstItemNonUrgentTime.getTime() / 1000)}:R>.`;
                 }
 
                 const immediateCount = queuedSubmissions.filter(item => item.score <= new Date().getTime() / 5).length;

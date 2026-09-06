@@ -7,6 +7,7 @@ import { CONTROL_SUBREDDIT, ControlSubredditJob } from "../constants.js";
 import { RecoveredAccountsData, UserStatus } from "../types.js";
 import pluralize from "pluralize";
 import { getControlSubSettings } from "../settings.js";
+import _ from "lodash";
 
 const RECOVERED_RECHECKS_QUEUE_KEY = "recoveredRechecksQueue";
 const RECOVERED_RECHECKS_RECOVERED_KEY = "recoveredRechecksRecovered";
@@ -98,15 +99,19 @@ export async function checkPotentiallyRecoveredAccounts (event: ScheduledJobEven
     const runLimit = addSeconds(new Date(), 20);
     let processed = 0;
 
-    while (recoveredAccountsToCheck.length > 0 && new Date() < runLimit) {
-        const firstEntry = recoveredAccountsToCheck.shift();
-        if (!firstEntry) {
+    const chunks = _.chunk(recoveredAccountsToCheck, 10);
+
+    while (chunks.flat().length > 0 && new Date() < runLimit) {
+        const firstChunk = chunks.shift();
+        if (!firstChunk) {
             break;
         }
 
-        const username = firstEntry.member;
-        await checkAndHandleAccountIsRecovered(username, appealConfigs, context);
-        processed++;
+        await Promise.all(firstChunk.map(async (entry) => {
+            const username = entry.member;
+            await checkAndHandleAccountIsRecovered(username, appealConfigs, context);
+            processed++;
+        }));
     }
 
     console.log(`Recovered Accounts: Processed ${processed} ${pluralize("account", processed)} for recovery, ${recoveredAccountsToCheck.length} remain in queue.`);
