@@ -7,7 +7,7 @@ import { evaluateUserAccount, storeAccountInitialEvaluationResults, userHasConti
 import { getControlSubSettings } from "./settings.js";
 import { addMinutes, addSeconds, differenceInMinutes, subMinutes, subWeeks } from "date-fns";
 import { getUserExtended, hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
-import { AsyncSubmission, PostCreationQueueResult, promotePositionInQueue, queuePostCreation } from "./postCreation.js";
+import { AsyncSubmission, isUserAlreadyQueued, PostCreationQueueResult, promotePositionInQueue, queuePostCreation } from "./postCreation.js";
 import pluralize from "pluralize";
 import json2md from "json2md";
 import { UserStatus } from "./types.js";
@@ -305,6 +305,12 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
 
     await Promise.all(chunk.map(async (username) => {
         await context.redis.global.zRem(ACCOUNTS_QUEUED_KEY, [username]);
+
+        if (await isUserAlreadyQueued(username, context)) {
+            await promotePositionInQueue(username, context);
+            processed++;
+            return;
+        }
 
         try {
             await evaluateAndHandleUser(username, variables, context);
