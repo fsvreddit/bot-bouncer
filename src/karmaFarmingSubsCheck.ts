@@ -228,6 +228,10 @@ export async function evaluateKarmaFarmingSubs (event: ScheduledJobEvent<JSONObj
     }
 
     if (event.data?.firstRun && !event.data.cohort) {
+        if (await hasTriggerBeenHandled(context.redis, `job:${ControlSubredditJob.EvaluateKarmaFarmingSubs}`, { expiration: addSeconds(new Date(), 5) })) {
+            console.warn(`Karma Farming Subs: First run for job ${ControlSubredditJob.EvaluateKarmaFarmingSubs} has already been handled, skipping.`);
+            return;
+        }
         try {
             await rebalanceCohorts(context);
         } catch (error) {
