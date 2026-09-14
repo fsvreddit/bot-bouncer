@@ -12,6 +12,7 @@ import { expireKeyAt, hGetAllChunked, hMGetAsRecord, zRangeAsRecord } from "devv
 import escapeStringRegexp from "escape-string-regexp";
 import { hSetChunked } from "../redisHelper.js";
 import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
+import _ from "lodash";
 
 const BIO_STATS_UPDATE_IN_PROGRESS = "BioTextStatsUpdateInProgressKey";
 
@@ -60,7 +61,9 @@ export async function updateBioStatistics (allEntries: StatsUserEntry[], context
 
     await clearDownTemporaryKeys(statsId, context);
 
-    await context.redis.zAdd(getBioQueueKey(statsId), ...recentData.map(item => ({ member: item.username, score: item.data.reportedAt ?? 0 })));
+    const chunkedData = _.chunk(recentData, 20000);
+
+    await Promise.all(chunkedData.map(entries => context.redis.zAdd(getBioQueueKey(statsId), ...entries.map(item => ({ member: item.username, score: item.data.reportedAt ?? 0 })))));
     await expireKeyAt(context.redis, getBioQueueKey(statsId), addHours(new Date(), 1));
 
     console.log(`Bio Stats: queued ${recentData.length} users for bio stats processing`);
