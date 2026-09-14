@@ -80,7 +80,7 @@ export async function pendingUserFinder (event: ScheduledJobEvent<JSONObject | u
     }
 
     const output: json2md.DataObject[] = [
-        { p: `${pendingUsersNotInQueue.length} ${pluralize("user", pendingUsersNotInQueue.length)} ${pluralize("is", pendingUsersNotInQueue.length)} with a status of 'pending' without being in the mod queue. Please take a look and classify as needed.` },
+        { p: `${pendingUsersNotInQueue.length} ${pluralize("user", pendingUsersNotInQueue.length)} ${pluralize("has", pendingUsersNotInQueue.length)} a status of 'pending' without being in the mod queue. Please take a look and classify as needed.` },
         { p: "This can happen due to a crash in the app or a user's shadowban or suspension being lifted." },
     ];
 
