@@ -38,6 +38,41 @@ export interface ExternalSubmission {
     immediate?: boolean;
 };
 
+const ALLOWED_EXTERNAL_INITIAL_STATUSES = new Set<UserStatus>([
+    UserStatus.Pending,
+    UserStatus.Banned,
+    UserStatus.Organic,
+    UserStatus.Service,
+]);
+
+export function resolveExternalSubmissionInitialStatus (
+    item: Pick<ExternalSubmission, "submitter" | "initialStatus">,
+    submitterIsTrusted: boolean,
+): UserStatus {
+    const initialStatusWasSupplied = item.initialStatus !== undefined;
+    const requestedInitialStatus = item.initialStatus && ALLOWED_EXTERNAL_INITIAL_STATUSES.has(item.initialStatus)
+        ? item.initialStatus
+        : undefined;
+
+    // Automatic/internal submissions may set an initial status as part of evaluator processing.
+    if (!item.submitter || item.submitter === INTERNAL_BOT) {
+        return requestedInitialStatus ?? UserStatus.Pending;
+    }
+
+    // Never trust an externally supplied status from an ordinary submitter.
+    if (!submitterIsTrusted) {
+        return UserStatus.Pending;
+    }
+
+    // Malformed or unsupported explicit statuses fail closed to manual review.
+    if (initialStatusWasSupplied && !requestedInitialStatus) {
+        return UserStatus.Pending;
+    }
+
+    // Preserve the existing trusted-submitter default of banning when no status was supplied.
+    return requestedInitialStatus ?? UserStatus.Banned;
+}
+
 export async function addExternalSubmissionFromClientSub (data: ExternalSubmission, context: TriggerContext) {
     if (context.subredditName === CONTROL_SUBREDDIT) {
         throw new Error("This function must be called from a client subreddit, not the control subreddit.");
@@ -129,7 +164,14 @@ export async function addExternalSubmissionToPostCreationQueue (item: ExternalSu
         }
     }
 
-    const initialStatus = item.initialStatus ??= item.submitter && await userIsTrustedSubmitter(item.submitter, context) ? UserStatus.Banned : UserStatus.Pending;
+    const submitterIsTrusted = item.submitter && item.submitter !== INTERNAL_BOT
+        ? await userIsTrustedSubmitter(item.submitter, context)
+        : false;
+    const initialStatus = resolveExternalSubmissionInitialStatus(item, submitterIsTrusted);
+
+    if (item.submitter && item.submitter !== INTERNAL_BOT && !submitterIsTrusted && item.initialStatus && item.initialStatus !== UserStatus.Pending) {
+        console.warn(`External Submissions: Ignoring unauthorized initial status ${item.initialStatus} from ${item.submitter} for ${item.username}.`);
+    }
 
     let commentToAdd: string | undefined;
 
