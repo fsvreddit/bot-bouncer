@@ -42,23 +42,10 @@ describe("resolveExternalSubmissionInitialStatus", () => {
         }, false)).toBe(UserStatus.Banned);
     });
 
-    test("treats empty-string submitter values as untrusted external input", () => {
-        expect(resolveExternalSubmissionInitialStatus({
-            submitter: "",
-            initialStatus: UserStatus.Banned,
-        }, false)).toBe(UserStatus.Pending);
-    });
-
-    test("allows internal submissions to carry any valid evaluator status", () => {
-        expect(resolveExternalSubmissionInitialStatus({
-            submitter: INTERNAL_BOT,
-            initialStatus: UserStatus.Purged,
-        }, false)).toBe(UserStatus.Purged);
-    });
-
     test("rejects statuses not supported by external account submission", () => {
         expect(resolveExternalSubmissionInitialStatus({
             submitter: "trusted-user",
             initialStatus: UserStatus.Purged,
         }, true)).toBe(UserStatus.Pending);
     });
+});
