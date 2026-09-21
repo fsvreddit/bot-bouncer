@@ -41,7 +41,8 @@ export async function handleControlSubredditModmail (modmail: ModmailMessage, co
     await handleHighlightedModmail(modmail, context);
 
     if (controlSubSettings.bulkSubmitters?.includes(modmail.messageAuthor) && modmail.bodyMarkdown.startsWith("{")) {
-        const isTrusted = controlSubSettings.trustedSubmitters.includes(modmail.messageAuthor);
+        const trustedSubmitters = new Set(controlSubSettings.trustedSubmitters.map(entry => entry.toLowerCase()));
+        const isTrusted = trustedSubmitters.has(modmail.messageAuthor.toLowerCase());
         await handleBulkSubmission(modmail.messageAuthor, isTrusted, modmail.conversationId, modmail.bodyMarkdown, context);
         return;
     }

@@ -218,7 +218,7 @@ export async function queuePostCreation (submissions: AsyncSubmission[], context
         return [PostCreationQueueResult.Error];
     }
 
-    const bannedSubmitters = new Set(controlSubSettings.reporterBlacklist);
+    const bannedSubmitters = new Set(controlSubSettings.reporterBlacklist.map(entry => entry.toLowerCase()));
 
     for (const submission of submissions) {
         const currentStatus = await getUserStatus(submission.user.username, context);
@@ -234,7 +234,7 @@ export async function queuePostCreation (submissions: AsyncSubmission[], context
             continue;
         }
 
-        if (submission.submitter && bannedSubmitters.has(submission.submitter)) {
+        if (submission.submitter && bannedSubmitters.has(submission.submitter.toLowerCase())) {
             console.log(`Post Creation: Submitter ${submission.submitter} is blacklisted from submitting.`);
             results.push(PostCreationQueueResult.Error);
             continue;

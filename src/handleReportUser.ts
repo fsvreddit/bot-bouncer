@@ -112,7 +112,8 @@ export async function handleReportUser (event: MenuItemOnPressEvent, context: Co
         return;
     }
 
-    if (controlSubSettings.reporterBlacklist.includes(currentUser.username)) {
+    const reporterBlacklist = new Set(controlSubSettings.reporterBlacklist.map(entry => entry.toLowerCase()));
+    if (reporterBlacklist.has(currentUser.username.toLowerCase())) {
         context.ui.showToast("You are not currently permitted to submit bots to r/BotBouncer. Please write in to modmail if you believe this is a mistake");
         return;
     }

@@ -219,7 +219,8 @@ export async function retryBulkSubmission (modmail: ModmailMessage, context: Tri
     }
 
     const controlSubSettings = await getControlSubSettings(context);
-    const isTrusted = controlSubSettings.trustedSubmitters.includes(commandMessage.author.name);
+    const trustedSubmitters = new Set(controlSubSettings.trustedSubmitters.map(entry => entry.toLowerCase()));
+    const isTrusted = trustedSubmitters.has(commandMessage.author.name.toLowerCase());
 
     await handleBulkSubmission(modmail.participant, isTrusted, modmail.conversationId, commandMessage.bodyMarkdown, context);
     console.log(`Retry bulk submission: Retried bulk submission for conversation ${modmail.conversationId}`);

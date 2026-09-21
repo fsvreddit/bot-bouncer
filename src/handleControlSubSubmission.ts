@@ -77,7 +77,8 @@ export async function handleControlSubPostCreate (event: PostCreate, context: Tr
         return;
     }
 
-    if (controlSubSettings.reporterBlacklist.includes(event.author.name)) {
+    const reporterBlacklist = new Set(controlSubSettings.reporterBlacklist.map(entry => entry.toLowerCase()));
+    if (reporterBlacklist.has(event.author.name.toLowerCase())) {
         await postSubmissionResponse({
             submissionResponse: [{ p: `You are not currently permitted to submit bots to r/${CONTROL_SUBREDDIT}. Please [message the mods](https://www.reddit.com/message/compose/?to=/r/${CONTROL_SUBREDDIT}) if you believe this is a mistake` }],
             postId: event.post.id,
