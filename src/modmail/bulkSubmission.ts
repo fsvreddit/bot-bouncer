@@ -13,6 +13,9 @@ import { UserStatus } from "../types.js";
 
 interface UserWithDetails {
     username: string;
+    /**
+     * @deprecated submitters are ignored in bulk submissions
+     */
     submitter: string;
     reason?: string;
 }
@@ -178,7 +181,7 @@ export async function handleBulkSubmission (submitter: string, trusted: boolean,
         queued = await handleBulkItems(data.userDetails.map(entry => ({
             username: entry.username,
             initialStatus,
-            submitter: entry.submitter,
+            submitter,
             reason: entry.reason,
         })), context);
     }
@@ -199,6 +202,11 @@ export async function retryBulkSubmission (modmail: ModmailMessage, context: Tri
         return;
     }
 
+    if (!modmail.participant) {
+        console.log(`Retry bulk submission: Participant not found in conversation ${modmail.conversationId}`);
+        return;
+    }
+
     const commandMessage = Object.values(conversation.conversation.messages).find(message => message.bodyMarkdown?.startsWith("{"));
     if (!commandMessage?.bodyMarkdown) {
         console.log(`Retry bulk submission: Command message not found in conversation ${modmail.conversationId}`);
@@ -213,6 +221,6 @@ export async function retryBulkSubmission (modmail: ModmailMessage, context: Tri
     const controlSubSettings = await getControlSubSettings(context);
     const isTrusted = controlSubSettings.trustedSubmitters.includes(commandMessage.author.name);
 
-    await handleBulkSubmission(commandMessage.author.name, isTrusted, modmail.conversationId, commandMessage.bodyMarkdown, context);
+    await handleBulkSubmission(modmail.participant, isTrusted, modmail.conversationId, commandMessage.bodyMarkdown, context);
     console.log(`Retry bulk submission: Retried bulk submission for conversation ${modmail.conversationId}`);
 }
