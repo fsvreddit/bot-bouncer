@@ -1,5 +1,28 @@
 # Changelog for Bot Bouncer
 
+## v1.34.0
+
+* Add detections for image and video repost bots
+* Prevent comments and posts that were removed/filtered by AutoModerator or Reddit from being re-approved if a user's appeal is successful
+
+## v1.33.2
+
+* Fix update notifier (not working for over a year)
+
+## v1.33.0
+
+* Improved detection of some NSFW bot styles that use text in images to share social handles
+
+## v1.32.0
+
+* Added a new evaluator type targeting NSFW bots with specific text/watermarks on images
+* Fixed an issue detecting bots where the post or comment had been removed or filtered
+* Add option to remove content when manually reporting accounts to r/BotBoucer
+* When reporting bots, the "Receive Feedback" option defaults to the last value chosen
+* Better handling of bot accounts that edit content into posts and comments
+* Action summary modmail now sends a very short summary after so that modmail isn't dominated with one large message
+* Performance and reliability improvements
+
 ## v1.31.0
 
 * Add option (enabled by default when action type is "Ban and remove") to remove queued posts/comments from users after they are banned
