@@ -138,7 +138,7 @@ export async function handleReportUser (event: MenuItemOnPressEvent, context: Co
         return;
     }
 
-    if (await isBannedWithCache(currentUser.username, context, CONTROL_SUBREDDIT)) {
+    if (await isBannedWithCache(currentUser.username, context, CONTROL_SUBREDDIT, addMinutes(new Date(), 10))) {
         context.ui.showToast("You are currently banned from r/BotBouncer, so you cannot report other users.");
         return;
     }
