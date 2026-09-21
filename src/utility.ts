@@ -95,6 +95,12 @@ export function median (numbers: number[]): number {
 }
 
 export async function sendMessageToWebhook (webhookUrl: string, message: string): Promise<string | undefined> {
+    const validWebhookRegex = /^https:\/\/discord(?:app)?\.com\/api\/webhooks\/\d+\/[\w-]+$/;
+    if (!validWebhookRegex.test(webhookUrl)) {
+        console.error("Invalid Discord webhook URL:", webhookUrl);
+        return;
+    }
+
     const params = {
         content: message.replaceAll("\n\n\n", "\n\n").replaceAll("\n\n", "\n"),
     };
