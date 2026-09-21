@@ -3,6 +3,7 @@ import { HitReason, HitReasonDetailed } from "@fsvreddit/bot-bouncer-evaluation"
 import { addDays, addHours, formatDuration, intervalToDuration } from "date-fns";
 import { isBanned, isModerator } from "devvit-helpers";
 import { deflate, inflate } from "pako";
+import { getControlSubSettings } from "./settings.js";
 
 export function getUsernameFromUrl (url: string) {
     const urlRegex = /reddit\.com\/u(?:ser)?\/([\w_-]+)\/?(?:[?/].+)?$/i;
@@ -218,4 +219,10 @@ export function normaliseHitReason (hitReason: HitReason): HitReasonDetailed {
 
 export function normaliseHitReasons (hitReasons: HitReason[]): HitReasonDetailed[] {
     return hitReasons.map(normaliseHitReason);
+}
+
+export async function accountIsBotBouncerApp (username: string, context: TriggerContext) {
+    const controlSubSettings = await getControlSubSettings(context);
+    const botBouncerBots = new Set(controlSubSettings.botBouncerBots.map(username => username.toLowerCase()));
+    return botBouncerBots.has(username.toLowerCase());
 }

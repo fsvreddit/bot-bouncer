@@ -2,7 +2,7 @@ import { TriggerContext } from "@devvit/public-api";
 import { isCommentId, isLinkId } from "@devvit/public-api/types/tid.js";
 import { getUserStatus, UserDetails } from "../dataStore.js";
 import { getSummaryForUser } from "../UserSummary/userSummary.js";
-import { getUserOrUndefined, isModeratorWithCache } from "../utility.js";
+import { accountIsBotBouncerApp, getUserOrUndefined, isModeratorWithCache } from "../utility.js";
 import { CONFIGURATION_DEFAULTS, getControlSubSettings } from "../settings.js";
 import { addDays, addHours, addSeconds, addWeeks, format, subMinutes } from "date-fns";
 import json2md from "json2md";
@@ -272,7 +272,11 @@ export function markdownToText (markdown: json2md.DataObject[], limit = 5000): s
 async function handleModmailFromUser (modmail: ModmailMessage, context: TriggerContext) {
     const username = modmail.messageAuthor;
 
-    if (username === INTERNAL_BOT || username.startsWith(context.appSlug)) {
+    if (username === INTERNAL_BOT) {
+        return;
+    }
+
+    if (await accountIsBotBouncerApp(username, context)) {
         return;
     }
 

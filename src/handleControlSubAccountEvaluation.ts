@@ -7,7 +7,7 @@ import { createUserSummary } from "./UserSummary/userSummary.js";
 import { addMinutes, addSeconds, addWeeks, subMonths } from "date-fns";
 import _ from "lodash";
 import { getSubmitterSuccessRate } from "./statistics/submitterStatistics.js";
-import { conditionallyCompressString, conditionallyDecompressString, normaliseHitReason, normaliseHitReasons } from "./utility.js";
+import { accountIsBotBouncerApp, conditionallyCompressString, conditionallyDecompressString, normaliseHitReason, normaliseHitReasons } from "./utility.js";
 import { AppSetting, getControlSubSettings } from "./settings.js";
 import { getPostOrCommentById, getUserExtended, hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
 import { T3ID } from "@devvit/public-api/types/tid.js";
@@ -191,7 +191,7 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
         return;
     }
 
-    if (evaluationResults.length === 0 && currentStatus?.submitter && !currentStatus.submitter.startsWith(context.appSlug)) {
+    if (evaluationResults.length === 0 && currentStatus?.submitter && !await accountIsBotBouncerApp(currentStatus.submitter, context)) {
         const history = await context.reddit.getCommentsAndPostsByUser({
             username,
             sort: "new",
@@ -235,7 +235,7 @@ export async function handleControlSubAccountEvaluation (event: ScheduledJobEven
     }
 
     if (reportReason) {
-        if (currentStatus?.submitter && !currentStatus.submitter.startsWith(context.appSlug)) {
+        if (currentStatus?.submitter && !await accountIsBotBouncerApp(currentStatus.submitter, context)) {
             reportReason += ` Submitted by ${currentStatus.submitter}`;
             const submitterSuccessRate = await getSubmitterSuccessRate(currentStatus.submitter, context);
             if (submitterSuccessRate !== undefined) {

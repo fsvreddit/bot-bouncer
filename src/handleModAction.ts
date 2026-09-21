@@ -8,7 +8,7 @@ import { addDays, addMinutes, addSeconds, subMinutes } from "date-fns";
 import { validateAndSaveAppealConfig } from "./modmail/autoAppealHandling.js";
 import { checkIfStatsNeedUpdating } from "./scheduler/sixHourlyJobs.js";
 import { handleObserverSubsWikiPageCopy } from "./statistics/observerSubWikiPageCopy.js";
-import { isModeratorWithCache, removeCachedBanStatus, sendMessageToWebhook } from "./utility.js";
+import { accountIsBotBouncerApp, isModeratorWithCache, removeCachedBanStatus, sendMessageToWebhook } from "./utility.js";
 import { getExtendedDevvit } from "devvit-helpers";
 import { getInstallDate } from "./installActions.js";
 import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
@@ -98,7 +98,7 @@ async function handleModActionClientSub (event: ModAction, context: TriggerConte
     }
 
     // Special actions for observer subreddits
-    if (event.action === "wikirevise" && event.moderator?.name.startsWith(context.appSlug) && event.moderator.name !== context.appSlug && event.moderator.name !== INTERNAL_BOT) {
+    if (event.action === "wikirevise" && event.moderator?.name && event.moderator.name !== context.appSlug && event.moderator.name !== INTERNAL_BOT && await accountIsBotBouncerApp(event.moderator.name, context)) {
         await handleObserverSubsWikiPageCopy(event, context);
         await handleExternalSubmissionsPageUpdate(context);
     }

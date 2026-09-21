@@ -294,6 +294,7 @@ export interface ControlSubSettings {
     proactiveEvaluationEnabled?: boolean;
     proactiveEvaluationBatchSize?: number;
     maxInactivityMonths?: number;
+    botBouncerBots: string[];
     trustedSubmitters: string[];
     trustedSubmitterAutoThreshold?: number;
     trustedSubmitterAutoExcludedUsers?: string[];
@@ -340,6 +341,7 @@ const schema: JSONSchemaType<ControlSubSettings> = {
         proactiveEvaluationEnabled: { type: "boolean", nullable: true },
         proactiveEvaluationBatchSize: { type: "number", nullable: true },
         maxInactivityMonths: { type: "number", nullable: true },
+        botBouncerBots: { type: "array", items: { type: "string" } },
         trustedSubmitters: { type: "array", items: { type: "string" } },
         trustedSubmitterAutoThreshold: { type: "number", nullable: true },
         trustedSubmitterAutoExcludedUsers: { type: "array", items: { type: "string" }, nullable: true },
