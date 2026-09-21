@@ -1,6 +1,6 @@
 import { Post, Comment, TriggerContext, JSONValue, UserSocialLink } from "@devvit/public-api";
 import { CommentCreate, CommentUpdate, PostCreate, PostUpdate } from "@devvit/protos";
-import { addDays, addSeconds, formatDate, subMinutes } from "date-fns";
+import { addDays, addSeconds, formatDate } from "date-fns";
 import { getUserStatus, UserDetails } from "./dataStore.js";
 import { addUserToModqueueRemovalStore, isUserWhitelisted, recordBan, recordUserContentCreation } from "./handleClientSubredditClassificationChanges.js";
 import { ALL_RELEVANT_EVALUTORS, CONTROL_SUBREDDIT } from "./constants.js";
@@ -111,19 +111,7 @@ export async function handleClientCommentCreate (event: CommentCreate, context: 
         return;
     }
 
-    const redisKey = `lastBotCheckForUser:${fixedEvent.author.name}`;
-    const recentlyChecked = await context.redis.get(redisKey);
-    if (recentlyChecked) {
-        // Allow some rechecks within 15 minutes, to find rapid fire bots.
-        const lastCheck = new Date(parseInt(recentlyChecked));
-        if (lastCheck < subMinutes(new Date(), 15)) {
-            return;
-        }
-    }
-
     await checkAndReportPotentialBot(fixedEvent.author.name, fixedEvent, variables, context);
-
-    await context.redis.set(redisKey, new Date().getTime().toString(), { expiration: addDays(new Date(), 2) });
 }
 
 export async function handleClientCommentUpdate (event: CommentUpdate, context: TriggerContext) {
@@ -173,19 +161,7 @@ export async function handleClientCommentUpdate (event: CommentUpdate, context: 
         return;
     }
 
-    const redisKey = `lastBotCheckForUser:${fixedEvent.author.name}`;
-    const recentlyChecked = await context.redis.get(redisKey);
-    if (recentlyChecked) {
-        // Allow some rechecks within 15 minutes, to find rapid fire bots.
-        const lastCheck = new Date(parseInt(recentlyChecked));
-        if (lastCheck < subMinutes(new Date(), 15)) {
-            return;
-        }
-    }
-
     await checkAndReportPotentialBot(fixedEvent.author.name, fixedEvent, variables, context);
-
-    await context.redis.set(redisKey, new Date().getTime().toString(), { expiration: addDays(new Date(), 2) });
 }
 
 export async function handleClientPostUpdate (event: PostUpdate, context: TriggerContext) {
