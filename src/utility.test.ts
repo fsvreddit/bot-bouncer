@@ -71,7 +71,7 @@ test("sendMessageToWebhook returns message id when webhook responds successfully
 
     vi.stubGlobal("fetch", fetchMock);
 
-    const messageId = await sendMessageToWebhook("https://example.com/webhook", "hello");
+    const messageId = await sendMessageToWebhook("https://discord.com/api/webhooks/1111111111111111111/fakewebhook", "hello");
 
     expect(messageId).toBe("abc123");
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -88,7 +88,7 @@ test("sendMessageToWebhook returns undefined when webhook responds with failure"
 
     vi.stubGlobal("fetch", fetchMock);
 
-    const messageId = await sendMessageToWebhook("https://example.com/webhook", "hello");
+    const messageId = await sendMessageToWebhook("https://discord.com/api/webhooks/1111111111111111111/fakewebhook", "hello");
 
     expect(messageId).toBeUndefined();
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -104,8 +104,8 @@ test("updateWebhookMessage returns true on success and false on failure", async 
 
     vi.stubGlobal("fetch", fetchMock);
 
-    const success = await updateWebhookMessage("https://example.com/webhook", "message-1", "updated");
-    const failure = await updateWebhookMessage("https://example.com/webhook", "message-2", "updated");
+    const success = await updateWebhookMessage("https://discord.com/api/webhooks/1111111111111111111/fakewebhook", "message-1", "updated");
+    const failure = await updateWebhookMessage("https://discord.com/api/webhooks/1111111111111111111/fakewebhook", "message-2", "updated");
 
     expect(success).toBe(true);
     expect(failure).toBe(false);
