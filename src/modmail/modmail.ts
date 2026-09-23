@@ -27,15 +27,25 @@ function getSortedMessages (conversation: ConversationData): MessageData[] {
     });
 }
 
+function normaliseConversationId (conversationId: string): string {
+    return "ModmailConversation_" + conversationId.replace(/^ModmailConversation_/i, "");
+}
+
+function normaliseMessageId (messageId: string): string {
+    return "ModmailMessage_" + messageId.replace(/^ModmailMessage_/i, "");
+}
+
 export async function handleModmail (event: ModMail, context: TriggerContext) {
     if (event.messageAuthor?.name === context.appSlug) {
         return;
     }
 
+    console.log(`Modmail: ${event.conversationId} (${normaliseConversationId(event.conversationId)}), ${event.messageId} (${normaliseMessageId(event.messageId)})`);
+
     let conversationResponse: GetConversationResponse;
     try {
         conversationResponse = await context.reddit.modMail.getConversation({
-            conversationId: event.conversationId,
+            conversationId: normaliseConversationId(event.conversationId),
         });
     } catch (error) {
         console.log("Error in modmail event:", JSON.stringify(event, null, 2));
@@ -49,20 +59,20 @@ export async function handleModmail (event: ModMail, context: TriggerContext) {
 
     const messagesInConversation = getSortedMessages(conversationResponse.conversation);
     const firstMessage = messagesInConversation[0];
-    const isFirstMessage = firstMessage.id !== undefined && event.messageId === `ModmailMessage_${firstMessage.id}`;
+    const isFirstMessage = firstMessage.id !== undefined && normaliseMessageId(event.messageId) === normaliseMessageId(firstMessage.id);
 
-    const currentMessage = messagesInConversation.find(message => message.id && event.messageId === `ModmailMessage_${message.id}`);
+    const currentMessage = messagesInConversation.find(message => message.id && normaliseMessageId(event.messageId) === normaliseMessageId(message.id));
 
     if (!currentMessage?.author?.name || !conversationResponse.conversation.subject || !currentMessage.bodyMarkdown) {
         return;
     }
 
-    if (await hasTriggerBeenHandled(context.redis, event.messageId)) {
+    if (await hasTriggerBeenHandled(context.redis, normaliseMessageId(event.messageId))) {
         return;
     }
 
     const modmail: ModmailMessage = {
-        conversationId: event.conversationId,
+        conversationId: normaliseConversationId(event.conversationId),
         createdAt: new Date(firstMessage.date ?? Date.now()),
         subject: conversationResponse.conversation.subject,
         participant: conversationResponse.conversation.participant?.name,
