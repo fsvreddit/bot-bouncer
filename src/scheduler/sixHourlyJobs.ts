@@ -1,7 +1,7 @@
 import { JobContext, JSONObject, ScheduledJobEvent, TriggerContext } from "@devvit/public-api";
 import { updateSubmitterStatistics } from "../statistics/submitterStatistics.js";
 import { createTimeOfSubmissionStatistics } from "../statistics/timeOfSubmissionStatistics.js";
-import { ALL_POTENTIAL_USER_PREFIXES, checkDataStoreIntegrity, getFullDataStore, removeStaleRecentChangesEntries, UserDetails } from "../dataStore.js";
+import { ALL_POTENTIAL_USER_PREFIXES, getFullDataStore, removeStaleRecentChangesEntries, UserDetails } from "../dataStore.js";
 import { APP_ACCOUNT_ID, CONTROL_SUBREDDIT, ControlSubredditJob } from "../constants.js";
 import { addMinutes, subMonths } from "date-fns";
 import { updateUsernameStatistics } from "../statistics/usernameStatistics.js";
@@ -40,9 +40,9 @@ export async function perform6HourlyJobs (event: ScheduledJobEvent<JSONObject | 
 
     await Promise.all([
         context.scheduler.runJob({
-            name: ControlSubredditJob.EvaluatorAccuracyStatistics,
-            runAt: new Date(),
-            data: { firstRun: true, jobGuid: crypto.randomUUID() },
+            name: ControlSubredditJob.EvaluatorAccuracyStatisticsInitialiser,
+            runAt: addMinutes(new Date(), 1),
+            data: { jobGuid: crypto.randomUUID() },
         }),
 
         context.scheduler.runJob({
@@ -53,13 +53,13 @@ export async function perform6HourlyJobs (event: ScheduledJobEvent<JSONObject | 
 
         context.scheduler.runJob({
             name: ControlSubredditJob.Perform6HourlyJobsPart2,
-            runAt: addMinutes(new Date(), 1),
+            runAt: addMinutes(new Date(), 3),
             data: { jobGuid: crypto.randomUUID() },
         }),
 
         context.scheduler.runJob<DefinedHandlesStatsInitializerJobData>({
             name: ControlSubredditJob.DefinedHandlesStatisticsInitialiser,
-            runAt: addMinutes(new Date(), 2),
+            runAt: addMinutes(new Date(), 10),
             data: {
                 firstRun: true,
                 jobGuid: crypto.randomUUID(),
@@ -69,7 +69,7 @@ export async function perform6HourlyJobs (event: ScheduledJobEvent<JSONObject | 
 
         context.scheduler.runJob({
             name: ControlSubredditJob.PendingUserFinder,
-            runAt: addMinutes(new Date(), 3),
+            runAt: addMinutes(new Date(), 5),
             data: { jobGuid: crypto.randomUUID() },
         }),
 
@@ -93,7 +93,6 @@ export async function perform6HourlyJobs (event: ScheduledJobEvent<JSONObject | 
     await Promise.all([
         createTimeOfSubmissionStatistics(allValues, context),
         analyseBioText(context),
-        checkDataStoreIntegrity(context),
     ]);
 
     console.log("Statistics updated successfully.");

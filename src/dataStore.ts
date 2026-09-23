@@ -4,11 +4,9 @@ import { setCleanupForSubmittersAndMods, setCleanupForUser } from "./cleanup.js"
 import { CONTROL_SUBREDDIT } from "./constants.js";
 import { addDays, addHours, addMinutes, subDays, subHours } from "date-fns";
 import pluralize from "pluralize";
-import { getControlSubSettings } from "./settings.js";
 import { isCommentId, isLinkId } from "@devvit/public-api/types/tid.js";
 import { deleteAccountInitialEvaluationResults } from "./handleControlSubAccountEvaluation.js";
-import json2md from "json2md";
-import { getUsernameFromUrl, sendMessageToWebhook } from "./utility.js";
+import { getUsernameFromUrl } from "./utility.js";
 import { getUserExtended } from "@fsvreddit/fsv-devvit-helpers";
 import { storeClassificationEvent } from "./statistics/classificationStatistics.js";
 import { ZMember } from "@devvit/protos";
@@ -69,7 +67,7 @@ interface DataStoreExtractFilter {
 }
 
 export async function getDataStoreFiltered (prefix: string, context: TriggerContext, filter?: DataStoreExtractFilter): Promise<Record<string, UserDetails>> {
-    const data = await hGetAllChunked(context.redis.global as RedisClient, getStoreKey(prefix), 10000);
+    const data = await hGetAllChunked(context.redis.global as RedisClient, getStoreKey(prefix), 5000);
     if (!filter) {
         return _.fromPairs(Object.entries(data).map(([key, value]) => [key, JSON.parse(value) as UserDetails]));
     }
@@ -364,47 +362,4 @@ export async function isUserInTempDeclineStore (username: string, context: Trigg
 
 export async function getRecentlyChangedUsers (since: Date, now: Date, context: TriggerContext): Promise<ZMember[]> {
     return await context.redis.global.zRange(RECENT_CHANGES_STORE, since.getTime(), now.getTime(), { by: "score" });
-}
-
-export async function checkDataStoreIntegrity (context: TriggerContext) {
-    const misplacedEntries: { username: string; actualPrefix: string; inCorrectStore: boolean }[] = [];
-
-    for (const prefix of ALL_POTENTIAL_USER_PREFIXES) {
-        const storeKey = getStoreKey(prefix);
-        const keys = await context.redis.global.hKeys(storeKey);
-
-        for (const key of keys.filter(key => !key.startsWith(prefix))) {
-            const entryFromCorrectStore = await context.redis.global.hGet(getStoreKey(key[0]), key);
-            misplacedEntries.push({ username: key, actualPrefix: key[0], inCorrectStore: !!entryFromCorrectStore });
-        }
-    }
-
-    if (misplacedEntries.length === 0) {
-        return;
-    }
-
-    console.warn("Data Store: Found misplaced entries:", JSON.stringify(misplacedEntries, null, 2));
-
-    const controlSubSettings = await getControlSubSettings(context);
-    const webhook = controlSubSettings.monitoringWebhook;
-    if (!webhook) {
-        console.warn("Data Store: No monitoring webhook configured, cannot send alert.");
-        return;
-    }
-
-    const message: json2md.DataObject[] = [
-        { p: `Found ${misplacedEntries.length} misplaced ${pluralize("entry", misplacedEntries.length)} in the data store.` },
-        {
-            table: {
-                headers: ["Username", "Actual Prefix", "In Correct Store"],
-                rows: misplacedEntries.map(entry => [
-                    entry.username,
-                    entry.actualPrefix,
-                    entry.inCorrectStore ? "Yes" : "No",
-                ]),
-            },
-        },
-    ];
-
-    await sendMessageToWebhook(webhook, json2md(message));
 }

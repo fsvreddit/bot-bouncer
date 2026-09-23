@@ -1,5 +1,5 @@
 import { JobContext, JSONObject, ScheduledJobEvent } from "@devvit/public-api";
-import { getFullDataStore } from "../dataStore.js";
+import { ALL_POTENTIAL_USER_PREFIXES, getDataStoreFiltered } from "../dataStore.js";
 import _ from "lodash";
 import { addMinutes, addSeconds, format, subDays } from "date-fns";
 import { ALL_RELEVANT_EVALUTORS, CONTROL_SUBREDDIT, ControlSubredditJob } from "../constants.js";
@@ -10,6 +10,7 @@ import { FLAGS_TO_EXCLUDE_FROM_STATS } from "../scheduler/sixHourlyJobs.js";
 import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-helpers";
 import { UserStatus } from "../types.js";
 import { normaliseHitReason } from "../utility.js";
+import { hGetAllChunked } from "devvit-helpers";
 
 const ACCURACY_QUEUE = "evaluatorAccuracyQueue";
 const ACCURACY_STORE = "evaluatorAccuracyStore";
@@ -17,28 +18,6 @@ const ACCURACY_STORE = "evaluatorAccuracyStore";
 interface AccuracyQueueItem {
     status: UserStatus;
     reportedAt?: number;
-}
-
-async function gatherUsernames (context: JobContext) {
-    const fullDataStore = await getFullDataStore(context, {
-        since: subDays(new Date(), 14),
-        omitFlags: FLAGS_TO_EXCLUDE_FROM_STATS,
-    });
-
-    const relevantData = _.toPairs(fullDataStore).map(([username, data]) => ({ username, data }));
-
-    const recordsToQueue = _.fromPairs(relevantData.map((item) => {
-        let itemToQueue: AccuracyQueueItem;
-        if (item.data.userStatus === UserStatus.Purged || item.data.userStatus === UserStatus.Retired) {
-            itemToQueue = { status: item.data.lastStatus ?? item.data.userStatus, reportedAt: item.data.reportedAt };
-        } else {
-            itemToQueue = { status: item.data.userStatus, reportedAt: item.data.reportedAt };
-        }
-        return [item.username, JSON.stringify(itemToQueue)];
-    }));
-
-    await context.redis.hSet(ACCURACY_QUEUE, recordsToQueue);
-    console.log(`Evaluator Accuracy Statistics: Queued ${relevantData.length} usernames for accuracy evaluation.`);
 }
 
 interface EvaluationAccuracyResult {
@@ -58,22 +37,76 @@ function getEvaluationResultsKey (evaluationResult: EvaluationResult): string {
     }
 }
 
+type EvaluatorAccuracyInitialiserData = {
+    jobGuid: string;
+    prefixes?: string[];
+};
+
+export async function initialiseEvaluatorAccuracyStatistics (event: ScheduledJobEvent<EvaluatorAccuracyInitialiserData | undefined>, context: JobContext) {
+    if (!event.data) {
+        console.warn("Evaluator Accuracy Statistics: No data provided for initialiser job, skipping.");
+        return;
+    }
+
+    if (await hasTriggerBeenHandled(context.redis, `job:${event.data.jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+        console.warn(`Evaluator Accuracy Statistics: Initialiser job with guid ${event.data.jobGuid} has already been handled, skipping.`);
+        return;
+    }
+
+    if (!event.data.prefixes) {
+        await context.redis.del(ACCURACY_QUEUE, ACCURACY_STORE);
+    }
+
+    const prefixes = event.data.prefixes ?? [...ALL_POTENTIAL_USER_PREFIXES];
+
+    console.log(`Evaluator Accuracy Statistics: Initialising with ${prefixes.length} prefixes.`);
+
+    const runLimit = addSeconds(new Date(), 10);
+
+    while (prefixes.length > 0 && new Date() < runLimit) {
+        const prefix = prefixes.shift();
+        if (!prefix) {
+            break;
+        }
+
+        const dataForPrefix = await getDataStoreFiltered(prefix, context, {
+            since: subDays(new Date(), 14),
+            omitFlags: FLAGS_TO_EXCLUDE_FROM_STATS,
+        });
+
+        const recordsToQueue = Object.entries(dataForPrefix).map(([username, data]) => {
+            let itemToQueue: AccuracyQueueItem;
+            if (data.userStatus === UserStatus.Purged || data.userStatus === UserStatus.Retired) {
+                itemToQueue = { status: data.lastStatus ?? data.userStatus, reportedAt: data.reportedAt };
+            } else {
+                itemToQueue = { status: data.userStatus, reportedAt: data.reportedAt };
+            }
+            return [username, JSON.stringify(itemToQueue)];
+        });
+
+        await context.redis.hSet(ACCURACY_QUEUE, _.fromPairs(recordsToQueue));
+    }
+
+    if (prefixes.length > 0) {
+        await context.scheduler.runJob<EvaluatorAccuracyInitialiserData>({
+            name: ControlSubredditJob.EvaluatorAccuracyStatisticsInitialiser,
+            runAt: addSeconds(new Date(), 2),
+            data: { prefixes, jobGuid: crypto.randomUUID() },
+        });
+    } else {
+        console.log("Evaluator Accuracy Statistics: All prefixes have been processed.");
+        await context.scheduler.runJob({
+            name: ControlSubredditJob.EvaluatorAccuracyStatistics,
+            runAt: addSeconds(new Date(), 2),
+            data: { jobGuid: crypto.randomUUID() },
+        });
+    }
+}
+
 export async function buildEvaluatorAccuracyStatistics (event: ScheduledJobEvent<JSONObject | undefined>, context: JobContext) {
     const jobGuid = event.data?.jobGuid as string | undefined;
     if (jobGuid && await hasTriggerBeenHandled(context.redis, `job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
         console.warn(`Evaluator Accuracy Statistics: Job with guid ${jobGuid} has already been handled, skipping.`);
-        return;
-    }
-
-    if (event.data?.firstRun) {
-        console.log("Evaluator Accuracy Statistics: First run, gathering usernames.");
-        await context.redis.del(ACCURACY_QUEUE, ACCURACY_STORE);
-        await gatherUsernames(context);
-        await context.scheduler.runJob({
-            name: ControlSubredditJob.EvaluatorAccuracyStatistics,
-            runAt: addSeconds(new Date(), 2),
-            data: { firstRun: false, jobGuid: crypto.randomUUID() },
-        });
         return;
     }
 
@@ -83,7 +116,7 @@ export async function buildEvaluatorAccuracyStatistics (event: ScheduledJobEvent
 
     const existingResults = await context.redis.hGetAll(ACCURACY_STORE);
 
-    const data = _.toPairs(await context.redis.hGetAll(ACCURACY_QUEUE));
+    const data = _.toPairs(await hGetAllChunked(context.redis, ACCURACY_QUEUE, 10000));
     while (data.length > 0 && new Date() < runLimit) {
         const record = data.shift();
         if (!record) {

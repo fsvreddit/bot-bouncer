@@ -104,7 +104,7 @@ export async function updateBioStatisticsJob (event: ScheduledJobEvent<BioStatsJ
 
     await context.redis.set(BIO_STATS_UPDATE_IN_PROGRESS, "true", { expiration: addSeconds(new Date(), 30) });
 
-    const batchSize = 2000;
+    const batchSize = 15000;
 
     const statsId = event.data.statsId;
 
@@ -281,7 +281,7 @@ export async function generateBioStatisticsReport (event: ScheduledJobEvent<BioS
         currentContent.push({ hr: {} });
 
         if (record.record.inEvaluators) {
-            if (record.record.hits > 2) {
+            if (record.record.hits > 3) {
                 coveredByEvaluatorData.push(...currentContent);
             }
         } else {
@@ -299,7 +299,7 @@ export async function generateBioStatisticsReport (event: ScheduledJobEvent<BioS
     }
 
     content.push({ h2: "Bio text covered by Evaluator configuration and seen in the last four weeks" });
-    content.push({ p: "Now only shows entries used more than twice." });
+    content.push({ p: "Now only shows entries used more than three times." });
     if (coveredByEvaluatorData.length === 0) {
         content.push({ p: "None" });
     } else {

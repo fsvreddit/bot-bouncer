@@ -19,7 +19,7 @@ import { sendDailySummary } from "./modmail/actionSummary.js";
 import { perform6HourlyJobs, perform6HourlyJobsPart2 } from "./scheduler/sixHourlyJobs.js";
 import { checkUptimeAndMessages } from "./uptimeMonitor.js";
 import { handleRapidJob } from "./scheduler/handleRapidJob.js";
-import { buildEvaluatorAccuracyStatistics } from "./statistics/evaluatorAccuracyStatistics.js";
+import { buildEvaluatorAccuracyStatistics, initialiseEvaluatorAccuracyStatistics } from "./statistics/evaluatorAccuracyStatistics.js";
 import { definedHandlesStatsInitializer, gatherDefinedHandlesStats, storeDefinedHandlesDataJob } from "./statistics/definedHandlesStatistics.js";
 import { deleteRecordsForRemovedUsers, classificationReversalsJob, reversePostCreationQueue } from "./modmail/evaluatorReversals.js";
 import { handleCommentCreate, handlePostCreate } from "./handleContentCreation.js";
@@ -183,6 +183,11 @@ Devvit.addSchedulerJob({
 Devvit.addSchedulerJob({
     name: ControlSubredditJob.UptimeAndMessageCheck,
     onRun: checkUptimeAndMessages,
+});
+
+Devvit.addSchedulerJob({
+    name: ControlSubredditJob.EvaluatorAccuracyStatisticsInitialiser,
+    onRun: initialiseEvaluatorAccuracyStatistics,
 });
 
 Devvit.addSchedulerJob({

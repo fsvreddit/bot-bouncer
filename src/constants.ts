@@ -40,6 +40,7 @@ export enum ControlSubredditJob {
     QueueKarmaFarmingSubs = "queueKarmaFarmingSubs",
     UptimeAndMessageCheck = "uptimeAndMessageCheck",
     RapidJob = "rapidJob",
+    EvaluatorAccuracyStatisticsInitialiser = "evaluatorAccuracyStatisticsInitialiser",
     EvaluatorAccuracyStatistics = "evaluatorAccuracyStatistics",
     DefinedHandlesStatisticsInitialiser = "definedHandlesStatisticsInitialiser",
     DefinedHandlesStatistics = "definedHandlesStatistics",
