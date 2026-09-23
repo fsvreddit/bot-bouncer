@@ -4,6 +4,7 @@ import { getSubmitterStatusCells, submitterNeedsGuidance } from "./submitterStat
 
 const baseControlSubSettings: ControlSubSettings = {
     evaluationDisabled: false,
+    botBouncerBots: ["bot-bouncer"],
     reporterBlacklist: [],
     trustedSubmitters: [],
 };
