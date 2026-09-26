@@ -209,7 +209,6 @@ function evaluationResultsContainMatch (
 export interface NegatedAppealRegexContext {
     messageBody: string;
     initialEvaluationResults: EvaluationResult[];
-    currentEvaluationResults: EvaluationResult[];
     originalBio: string | undefined;
     originalSocialLinks: { outboundUrl: string }[];
 }
@@ -239,23 +238,6 @@ export function negatedAppealRegexesExcludeConfig (
         return true;
     }
 
-    const hasCurrentEvaluatorNegation =
-        regexes["~currentEvaluatorNameRegex"] !== undefined ||
-        regexes["~currentEvaluatorHitReasonRegex"] !== undefined ||
-        regexes["~currentEvaluatorDetailRegex"] !== undefined;
-
-    if (
-        hasCurrentEvaluatorNegation &&
-        evaluationResultsContainMatch(
-            context.currentEvaluationResults,
-            regexes["~currentEvaluatorNameRegex"],
-            regexes["~currentEvaluatorHitReasonRegex"],
-            regexes["~currentEvaluatorDetailRegex"],
-        )
-    ) {
-        return true;
-    }
-
     if (
         context.originalBio &&
         regexes["~originalBioRegex"]?.some(regex => regex.test(context.originalBio ?? ""))
@@ -266,6 +248,22 @@ export function negatedAppealRegexesExcludeConfig (
     if (
         regexes["~originalSocialLinkRegex"]?.some(regex => context.originalSocialLinks.some(link => regex.test(link.outboundUrl)))
     ) {
+        return true;
+    }
+
+    return false;
+}
+
+export function negatedCurrentEvaluationRegexesExcludeConfig (
+    regexes: CompiledAppealRegexes,
+    currentEvaluationResults: EvaluationResult[],
+): boolean {
+    if (evaluationResultsContainMatch(
+        currentEvaluationResults,
+        regexes["~currentEvaluatorNameRegex"],
+        regexes["~currentEvaluatorHitReasonRegex"],
+        regexes["~currentEvaluatorDetailRegex"],
+    )) {
         return true;
     }
 
@@ -506,7 +504,7 @@ export async function getMatchedAppealConfig (username: string, userDetails: Use
         }).all().then(items => items.filter(item => item.userNote?.note && item.operator.name !== username));
     }
 
-    let currentEvaluationResults: EvaluationResult[] = [];
+    let currentEvaluationResults: EvaluationResult[] | undefined;
 
     let history: (Post | Comment)[] = [];
 
@@ -518,51 +516,35 @@ export async function getMatchedAppealConfig (username: string, userDetails: Use
         }).all();
     }
 
-    if (hasEvaluatorRegexes(appealConfig)) {
-        currentEvaluationResults = await evaluateUserAccount({
-            username,
-            variables: await getEvaluatorVariables(context),
-            history,
-        }, context, true);
-    }
+    let matchedAppealConfig: CompiledAppealConfig | undefined;
 
-    const matchedAppealConfig = appealConfig.find((config) => {
+    for (const config of appealConfig) {
         if (config.draft && !debug) {
-            return;
+            continue;
         }
 
         try {
             const regexes = config.compiledRegexes;
 
-            if (negatedAppealRegexesExcludeConfig(regexes, {
-                messageBody: modmailMessage ?? "",
-                initialEvaluationResults: initialAccountEvaluationResults,
-                currentEvaluationResults,
-                originalBio,
-                originalSocialLinks,
-            })) {
-                return;
-            }
-
             if (regexes.usernameRegex && !regexes.usernameRegex.some(regex => regex.test(username))) {
                 if (debug) {
                     console.log(`Appeals: usernameRegex did not match for ${config.name}`);
                 }
-                return;
+                continue;
             }
 
             if (regexes["~usernameRegex"]?.some(regex => regex.test(username))) {
                 if (debug) {
                     console.log(`Appeals: ~usernameRegex matched username on ${config.name}`);
                 }
-                return;
+                continue;
             }
 
             if (regexes.messageBodyRegex && !regexes.messageBodyRegex.some(regex => regex.test(modmailMessage ?? ""))) {
                 if (debug) {
                     console.log(`Appeals: messageBodyRegex did not match for ${config.name}`);
                 }
-                return;
+                continue;
             }
 
             const banDate = new Date(userDetails.reportedAt ?? userDetails.lastUpdate);
@@ -571,14 +553,14 @@ export async function getMatchedAppealConfig (username: string, userDetails: Use
                 if (debug) {
                     console.log(`Appeals: banDateFrom did not match for ${config.name}`);
                 }
-                return;
+                continue;
             }
 
             if (config.banDateTo && banDate > new Date(config.banDateTo)) {
                 if (debug) {
                     console.log(`Appeals: banDateTo did not match for ${config.name}`);
                 }
-                return;
+                continue;
             }
 
             if (config.banDateBeforeDays !== undefined) {
@@ -586,7 +568,7 @@ export async function getMatchedAppealConfig (username: string, userDetails: Use
                     if (debug) {
                         console.log(`Appeals: banDateBeforeDays did not match for ${config.name}`);
                     }
-                    return;
+                    continue;
                 }
             }
 
@@ -595,7 +577,7 @@ export async function getMatchedAppealConfig (username: string, userDetails: Use
                     if (debug) {
                         console.log(`Appeals: banDateAfterDays did not match for ${config.name}`);
                     }
-                    return;
+                    continue;
                 }
             }
 
@@ -603,14 +585,14 @@ export async function getMatchedAppealConfig (username: string, userDetails: Use
                 if (debug) {
                     console.log(`Appeals: submitter did not match for ${config.name}`);
                 }
-                return;
+                continue;
             }
 
             if (config.operator && config.operator !== userDetails.operator) {
                 if (debug) {
                     console.log(`Appeals: operator did not match for ${config.name}`);
                 }
-                return;
+                continue;
             }
 
             if (
@@ -624,22 +606,7 @@ export async function getMatchedAppealConfig (username: string, userDetails: Use
                     regexes.evaluatorHitReasonRegex,
                     regexes.evaluatorDetailRegex,
                 )) {
-                    return;
-                }
-            }
-
-            if (
-                regexes.currentEvaluatorNameRegex !== undefined ||
-                regexes.currentEvaluatorHitReasonRegex !== undefined ||
-                regexes.currentEvaluatorDetailRegex !== undefined
-            ) {
-                if (!evaluationResultsContainMatch(
-                    currentEvaluationResults,
-                    regexes.currentEvaluatorNameRegex,
-                    regexes.currentEvaluatorHitReasonRegex,
-                    regexes.currentEvaluatorDetailRegex,
-                )) {
-                    return;
+                    continue;
                 }
             }
 
@@ -648,14 +615,14 @@ export async function getMatchedAppealConfig (username: string, userDetails: Use
                     if (debug) {
                         console.log(`Appeals: bioRegex cannot match due to lack of current bio for ${config.name}`);
                     }
-                    return;
+                    continue;
                 }
 
                 if (!regexes.bioRegex?.some(regex => regex.test(user.userDescription ?? ""))) {
                     if (debug) {
                         console.log(`Appeals: bioRegex did not match for ${config.name}`);
                     }
-                    return;
+                    continue;
                 }
             }
 
@@ -664,7 +631,7 @@ export async function getMatchedAppealConfig (username: string, userDetails: Use
                     if (debug) {
                         console.log(`Appeals: ~bioRegex matched current bio for ${config.name}`);
                     }
-                    return;
+                    continue;
                 }
             }
 
@@ -673,14 +640,14 @@ export async function getMatchedAppealConfig (username: string, userDetails: Use
                     if (debug) {
                         console.log(`Appeals: originalBioRegex cannot match, user has no original bio stored for ${config.name}`);
                     }
-                    return;
+                    continue;
                 }
 
                 if (!regexes.originalBioRegex?.some(regex => regex.test(originalBio))) {
                     if (debug) {
                         console.log(`Appeals: originalBioRegex did not match the user's original bio for ${config.name}`);
                     }
-                    return;
+                    continue;
                 }
             }
 
@@ -689,14 +656,14 @@ export async function getMatchedAppealConfig (username: string, userDetails: Use
                     if (debug) {
                         console.log(`Appeals: socialLinkRegex cannot match as user has no current links for ${config.name}`);
                     }
-                    return;
+                    continue;
                 }
 
                 if (!regexes.socialLinkRegex?.some(regex => socialLinks.some(link => regex.test(link.outboundUrl)))) {
                     if (debug) {
                         console.log(`Appeals: socialLinkRegex did not match for ${config.name}`);
                     }
-                    return;
+                    continue;
                 }
             }
 
@@ -705,7 +672,7 @@ export async function getMatchedAppealConfig (username: string, userDetails: Use
                     if (debug) {
                         console.log(`Appeals: ~socialLinkRegex matched a current link for ${config.name}`);
                     }
-                    return;
+                    continue;
                 }
             }
 
@@ -714,14 +681,14 @@ export async function getMatchedAppealConfig (username: string, userDetails: Use
                     if (debug) {
                         console.log(`Appeals: originalSocialLinkRegex cannot match due to no original links for ${config.name}`);
                     }
-                    return;
+                    continue;
                 }
 
                 if (!regexes.originalSocialLinkRegex?.some(regex => originalSocialLinks.some(link => regex.test(link.outboundUrl)))) {
                     if (debug) {
                         console.log(`Appeals: originalSocialLinkRegex did not match an original link for ${config.name}`);
                     }
-                    return;
+                    continue;
                 }
             }
 
@@ -730,7 +697,7 @@ export async function getMatchedAppealConfig (username: string, userDetails: Use
                     if (debug) {
                         console.log(`Appeals: flags did not match for ${config.name}`);
                     }
-                    return;
+                    continue;
                 }
             }
 
@@ -739,7 +706,7 @@ export async function getMatchedAppealConfig (username: string, userDetails: Use
                     if (debug) {
                         console.log(`Appeals: ~flags matched a current flag for ${config.name}`);
                     }
-                    return;
+                    continue;
                 }
             }
 
@@ -751,7 +718,7 @@ export async function getMatchedAppealConfig (username: string, userDetails: Use
                     if (debug) {
                         console.log(`Appeals: user has more than one comment on post ${config.name}`);
                     }
-                    return;
+                    continue;
                 }
             }
 
@@ -762,7 +729,7 @@ export async function getMatchedAppealConfig (username: string, userDetails: Use
                     if (debug) {
                         console.log(`Appeals: hasNSFWPosts failed as user has NSFW posts for ${config.name}`);
                     }
-                    return;
+                    continue;
                 }
             }
 
@@ -771,7 +738,7 @@ export async function getMatchedAppealConfig (username: string, userDetails: Use
                     if (debug) {
                         console.log(`Appeals: modNoteTextRegex did not match for ${config.name}`);
                     }
-                    return;
+                    continue;
                 }
             }
 
@@ -780,16 +747,64 @@ export async function getMatchedAppealConfig (username: string, userDetails: Use
                     if (debug) {
                         console.log(`Appeals: ~modNoteTextRegex matched a mod note for ${config.name}`);
                     }
-                    return;
+                    continue;
                 }
             }
 
-            return config;
+            if (negatedAppealRegexesExcludeConfig(regexes, {
+                messageBody: modmailMessage ?? "",
+                initialEvaluationResults: initialAccountEvaluationResults,
+                originalBio,
+                originalSocialLinks,
+            })) {
+                continue;
+            }
+
+            if (
+                regexes.currentEvaluatorNameRegex !== undefined ||
+                regexes.currentEvaluatorHitReasonRegex !== undefined ||
+                regexes.currentEvaluatorDetailRegex !== undefined
+            ) {
+                currentEvaluationResults ??= await evaluateUserAccount({
+                    username,
+                    variables: await getEvaluatorVariables(context),
+                    history,
+                }, context, true);
+
+                if (!evaluationResultsContainMatch(
+                    currentEvaluationResults,
+                    regexes.currentEvaluatorNameRegex,
+                    regexes.currentEvaluatorHitReasonRegex,
+                    regexes.currentEvaluatorDetailRegex,
+                )) {
+                    continue;
+                }
+            }
+
+            const hasCurrentEvaluatorNegation =
+                regexes["~currentEvaluatorNameRegex"] !== undefined ||
+                regexes["~currentEvaluatorHitReasonRegex"] !== undefined ||
+                regexes["~currentEvaluatorDetailRegex"] !== undefined;
+
+            if (hasCurrentEvaluatorNegation) {
+                currentEvaluationResults ??= await evaluateUserAccount({
+                    username,
+                    variables: await getEvaluatorVariables(context),
+                    history,
+                }, context, true);
+
+                if (negatedCurrentEvaluationRegexesExcludeConfig(regexes, currentEvaluationResults)) {
+                    continue;
+                }
+            }
+
+            matchedAppealConfig = config;
+            break;
         } catch (error) {
             console.error(`Error processing appeal config ${config.name}:`, error instanceof Error ? error.message : String(error));
-            return;
+            continue;
         }
-    });
+    }
 
     return matchedAppealConfig;
 }

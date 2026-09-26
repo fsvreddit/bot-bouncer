@@ -40,7 +40,6 @@ function compiledRegexesFor (
 const emptyNegatedContext: NegatedAppealRegexContext = {
     messageBody: "ordinary appeal",
     initialEvaluationResults: [],
-    currentEvaluationResults: [],
     originalBio: undefined,
     originalSocialLinks: [],
 };
@@ -134,32 +133,6 @@ test("matching negated appeal regexes exclude configs", () => {
             },
         },
         {
-            property: "~currentEvaluatorNameRegex",
-            pattern: "blocked evaluator",
-            context: {
-                ...emptyNegatedContext,
-                currentEvaluationResults: [
-                    evaluationResult(
-                        "Blocked Evaluator",
-                        "ordinary reason",
-                    ),
-                ],
-            },
-        },
-        {
-            property: "~currentEvaluatorHitReasonRegex",
-            pattern: "blocked reason",
-            context: {
-                ...emptyNegatedContext,
-                currentEvaluationResults: [
-                    evaluationResult(
-                        "Ordinary Evaluator",
-                        { reason: "Blocked reason" },
-                    ),
-                ],
-            },
-        },
-        {
             property: "~originalBioRegex",
             pattern: "blocked bio",
             context: {
@@ -201,12 +174,6 @@ test("empty negated evaluator arrays do not exclude configs", () => {
     const context: NegatedAppealRegexContext = {
         ...emptyNegatedContext,
         initialEvaluationResults: [
-            evaluationResult(
-                "Bot Group Advanced",
-                "Future Laura account",
-            ),
-        ],
-        currentEvaluationResults: [
             evaluationResult(
                 "Bot Group Advanced",
                 "Future Laura account",

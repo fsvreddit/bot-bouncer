@@ -391,7 +391,13 @@ Devvit.addSchedulerJob({
 Devvit.configure({
     redditAPI: true,
     redis: true,
-    http: true,
+    http: {
+        domains: [
+            "api.openai.com",
+            "api.redgifs.com",
+            "discord.com",
+        ],
+    },
 });
 
 export default Devvit;
