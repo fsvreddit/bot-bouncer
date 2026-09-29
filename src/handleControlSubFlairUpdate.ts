@@ -54,6 +54,7 @@ export async function handleControlSubFlairUpdate (event: PostFlairUpdate, conte
         return;
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-assignment
     const postFlair = event.post.linkFlair?.text as UserStatus | undefined;
     if (!postFlair) {
         return;
@@ -113,6 +114,7 @@ export async function handleControlSubFlairUpdate (event: PostFlairUpdate, conte
     const regex = `^(${Object.values(UserStatus).join("|")}):(\\d+)$`;
     const match = new RegExp(regex).exec(postFlair);
     if (event.author.name !== context.appSlug && match) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-assignment
         const status = match[1] as UserStatus;
         const reviewPeriod = parseInt(match[2], 10);
         await context.redis.set(`userStatusOverrideValue~${username}`, event.author.name, { expiration: addHours(new Date(), 1) });

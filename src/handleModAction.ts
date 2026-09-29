@@ -237,6 +237,7 @@ async function queueConfigWikiCheck (configWikiPage: ConfigWikiPage, updatedBy: 
 }
 
 export async function handleConfigWikiChange (event: ScheduledJobEvent<JSONObject>, context: JobContext) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-assignment
     const configWikiPage = event.data.page as ConfigWikiPage;
     const updatedBy = event.data.updatedBy as string;
     const redisKey = `configWikiQueued:${configWikiPage}`;

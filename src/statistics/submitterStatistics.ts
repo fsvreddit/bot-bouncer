@@ -154,6 +154,7 @@ export async function updateSubmitterStatistics (allStatuses: StatsUserEntry[], 
             listed: true,
             page: submitterStatisticsWikiPage,
             subredditName,
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-assignment
             permLevel: WikiPagePermissionLevel.MODS_ONLY,
         });
     }

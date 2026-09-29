@@ -722,6 +722,7 @@ async function createDataExtract (
         await context.reddit.updateWikiPageSettings({
             subredditName,
             page: wikiPageName,
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-assignment
             permLevel: WikiPagePermissionLevel.MODS_ONLY,
             listed: true,
         });

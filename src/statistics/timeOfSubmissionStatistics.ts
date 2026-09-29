@@ -50,6 +50,7 @@ export async function createTimeOfSubmissionStatistics (allEntries: UserDetails[
             listed: true,
             page: pageName,
             subredditName,
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-assignment
             permLevel: WikiPagePermissionLevel.MODS_ONLY,
         });
     }

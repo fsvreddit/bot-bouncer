@@ -852,6 +852,7 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
     }
 
     if (appealOutcome.newStatus && userDetails.trackingPostId) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-assignment
         const flairTemplateId = Object.values(UserStatus).includes(appealOutcome.newStatus as UserStatus) ? statusToFlair[appealOutcome.newStatus as UserStatus] : undefined;
         const flairText = flairTemplateId === undefined ? appealOutcome.newStatus : undefined;
         await context.reddit.setPostFlair({

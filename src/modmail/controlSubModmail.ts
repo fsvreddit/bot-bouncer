@@ -180,6 +180,7 @@ export async function handleControlSubredditModmail (modmail: ModmailMessage, co
         const statusChangeRegex = new RegExp(`!setstatus (${getPossibleSetStatusValues().join("|")})`);
         const statusChangeMatch = statusChangeRegex.exec(modmail.bodyMarkdown);
         if (statusChangeMatch?.length === 2) {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-assignment
             const newStatus = statusChangeMatch[1] as UserStatus;
 
             const username = await getOverrideForSetStatusCommand(modmail.conversationId, context) ?? modmail.participant;

@@ -53,6 +53,7 @@ export async function updateMainStatisticsPage (event: ScheduledJobEvent<JSONObj
             listed: true,
             page: wikiPageName,
             subredditName,
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-assignment
             permLevel: WikiPagePermissionLevel.MODS_ONLY,
         });
     }
@@ -63,6 +64,7 @@ async function correctAggregateData (entries: UserDetails[], context: JobContext
     const statusesToUpdate = [UserStatus.Banned, UserStatus.Pending, UserStatus.Organic, UserStatus.Service];
     const statuses = Object.entries(_.countBy(entries.map(item => item.userStatus)))
         .map(([key, value]) => ({ member: key, score: value }))
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-assignment
         .filter(item => statusesToUpdate.includes(item.member as UserStatus));
 
     await context.redis.zAdd(AGGREGATE_STORE, ...statuses);
