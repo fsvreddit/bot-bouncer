@@ -15,7 +15,7 @@
   "dependencies": {
     "@devvit/protos": "0.14.6",
     "@devvit/public-api": "0.14.6",
-    "@fsvreddit/bot-bouncer-evaluation": "^0.7.50",
+    "@fsvreddit/bot-bouncer-evaluation": "^0.7.51",
     "@fsvreddit/fsv-devvit-helpers": "^0.1.13",
     "@wordpress/wordcount": "^4.51.0",
     "ajv": "^8.17.1",
