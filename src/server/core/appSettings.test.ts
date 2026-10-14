@@ -18,7 +18,7 @@ vi.mock("@fsvreddit/fsv-devvit-web-helpers", () => ({
     hasTriggerBeenHandled: vi.fn(),
 }));
 
-import { describe, it } from "vitest";
+import { assert, describe, it } from "vitest";
 import devvitConfig from "../../../devvit.json";
 import { AppSetting } from "./appSettings.js";
 

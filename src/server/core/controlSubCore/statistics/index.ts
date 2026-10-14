@@ -5,7 +5,6 @@ export * from "./definedHandlesStatistics.js";
 export * from "./displayNameStats.js";
 export * from "./evaluatorAccuracyStatistics.js";
 export * from "./mainStatistics.js";
-export * from "./pendingUserFinder.js";
 export * from "./observerSubWikiPageCopy.js";
 export * from "./pendingUserFinder.js";
 export * from "./socialLinksStatistics.js";

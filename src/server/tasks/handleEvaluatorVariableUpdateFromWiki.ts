@@ -19,5 +19,5 @@ export const handleEvaluatorVariableUpdateFromWikiJob = async (c: Context): Prom
 
     await updateEvaluatorVariablesFromWikiHandler(request);
 
-    return c.json<TaskResponse>({ message: "Evalutor variables updated" }, 200);
+    return c.json<TaskResponse>({ message: "Evaluator variables updated" }, 200);
 };
