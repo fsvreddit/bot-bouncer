@@ -8,6 +8,7 @@ interface SortedSetMember {
 type ZAdd = (key: string, value: SortedSetMember) => Promise<void>;
 
 vi.hoisted(() => {
+    // @ts-expect-error config stub for tests
     globalThis.devvit = { config: {} };
 });
 

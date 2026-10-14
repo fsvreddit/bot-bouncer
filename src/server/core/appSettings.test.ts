@@ -1,6 +1,7 @@
 import { vi } from "vitest";
 
 vi.hoisted(() => {
+    // @ts-expect-error config stub for tests
     globalThis.devvit = { config: {} };
 });
 

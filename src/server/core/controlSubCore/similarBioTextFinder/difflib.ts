@@ -26,10 +26,10 @@ function _arrayCmp (a: number[], b: number[]) {
     const la = a.length;
     const lb = b.length;
     for (let i = 0, end = Math.min(la, lb), asc = 0 <= end; asc ? i < end : i > end; asc ? i++ : i--) {
-        if (a[i] < b[i]) {
+        if (a[i]! < b[i]!) {
             return -1;
         }
-        if (a[i] > b[i]) {
+        if (a[i]! > b[i]!) {
             return 1;
         }
     }
@@ -125,7 +125,7 @@ export class SequenceMatcher {
    * ascending & non-overlapping in i and in j; terminated by
    * a dummy (len(a), len(b), 0) sentinel
    */
-    matchingBlocks!: number[][] | null;
+    matchingBlocks!: [number, number, number][] | null;
 
     /**
    * a user-supplied function taking a sequence element and
@@ -302,8 +302,8 @@ export class SequenceMatcher {
         this.b2j = b2j = {};
 
         for (let i = 0; i < b.length; i++) {
-            const elt = b[i];
-            indices = _has(b2j, elt) ? b2j[elt] : b2j[elt] = [];
+            const elt = b[i]!;
+            indices = _has(b2j, elt) ? b2j[elt]! : b2j[elt] = [];
             indices.push(i);
         }
 
@@ -325,7 +325,7 @@ export class SequenceMatcher {
         if (this.autojunk && n >= 200) {
             const ntest = Math.floor(n / 100) + 1;
             for (const elt of Object.keys(b2j)) {
-                const idxs = b2j[elt];
+                const idxs = b2j[elt]!;
                 if (idxs.length > ntest) {
                     popular[elt] = true;
                     delete b2j[elt];
@@ -377,7 +377,7 @@ export class SequenceMatcher {
         ahi: number,
         blo: number,
         bhi: number,
-    ) {
+    ): [number, number, number] {
     // CAUTION: stripping common prefix or suffix would be incorrect.
     // E.g.,
     //    ab
@@ -401,7 +401,7 @@ export class SequenceMatcher {
             // look at all instances of a[i] in b; note that because
             // b2j has no junk keys, the loop is skipped if a[i] is junk
             const newj2len: Record<string, number> = {};
-            const jarray = _has(b2j, a[i]) ? b2j[a[i]] : [];
+            const jarray = _has(b2j, a[i]!) ? b2j[a[i]!]! : [];
             for (const j of jarray) {
                 // a[i] matches b[j]
                 if (j < blo) {
@@ -423,13 +423,13 @@ export class SequenceMatcher {
         // the inner loop above, but also means "the best" match so far
         // doesn't contain any junk *or* popular non-junk elements.
         while (besti > alo && bestj > blo &&
-            !isbjunk(b[bestj - 1]) &&
-            a[besti - 1] === b[bestj - 1]) {
+            !isbjunk(b[bestj - 1]!) &&
+            a[besti - 1]! === b[bestj - 1]!) {
             [besti, bestj, bestsize] = [besti - 1, bestj - 1, bestsize + 1];
         }
         while (besti + bestsize < ahi && bestj + bestsize < bhi &&
-            !isbjunk(b[bestj + bestsize]) &&
-            a[besti + bestsize] === b[bestj + bestsize]) {
+            !isbjunk(b[bestj + bestsize]!) &&
+            a[besti + bestsize]! === b[bestj + bestsize]!) {
             bestsize++;
         }
 
@@ -441,13 +441,13 @@ export class SequenceMatcher {
         // interesting match, this is clearly the right thing to do,
         // because no other kind of match is possible in the regions.
         while (besti > alo && bestj > blo &&
-            isbjunk(b[bestj - 1]) &&
-            a[besti - 1] === b[bestj - 1]) {
+            isbjunk(b[bestj - 1]!) &&
+            a[besti - 1]! === b[bestj - 1]!) {
             [besti, bestj, bestsize] = [besti - 1, bestj - 1, bestsize + 1];
         }
         while (besti + bestsize < ahi && bestj + bestsize < bhi &&
-            isbjunk(b[bestj + bestsize]) &&
-            a[besti + bestsize] === b[bestj + bestsize]) {
+            isbjunk(b[bestj + bestsize]!) &&
+            a[besti + bestsize]! === b[bestj + bestsize]!) {
             bestsize++;
         }
 
@@ -487,8 +487,8 @@ export class SequenceMatcher {
         // ('queue`) of blocks we still need to look at, and append partial
         // results to `matching_blocks` in a loop; the matches are sorted
         // at the end.
-        const queue = [[0, la, 0, lb]];
-        const matchingBlocks: number[][] = [];
+        const queue: [number, number, number, number][] = [[0, la, 0, lb]];
+        const matchingBlocks: [number, number, number][] = [];
         while (queue.length) {
             const [alo, ahi, blo, bhi] = queue.pop()!;
             const x = this.findLongestMatch(alo, ahi, blo, bhi);
@@ -590,7 +590,7 @@ export class SequenceMatcher {
         for (elt of this.a) {
             let numb;
             if (_has(avail, elt)) {
-                numb = avail[elt];
+                numb = avail[elt]!;
             } else {
                 numb = fullbcount[elt] || 0;
             }

@@ -1,9 +1,7 @@
 import { vi } from "vitest";
 
 vi.hoisted(() => {
-    // @fsvreddit/fsv-devvit-web-helpers calls getDevvitConfig() at module level inside
-    // @fsvreddit/bot-bouncer-evaluation's CJS require chain, which Vitest cannot intercept.
-    // Stub the global so the module loads without throwing.
+    // @ts-expect-error config stub for tests
     globalThis.devvit = { config: {} };
 });
 
@@ -20,7 +18,7 @@ vi.mock("@fsvreddit/fsv-devvit-web-helpers", () => ({
 }));
 
 import { yamlToVariables } from "@fsvreddit/bot-bouncer-evaluation";
-import { runWithContext } from "@devvit/server";
+import { type Context, runWithContext } from "@devvit/server";
 import { invalidEvaluatorVariableCondition } from "./evaluatorVariables.js";
 import { expect, test } from "vitest";
 
@@ -83,7 +81,7 @@ test("Invalid regex", async () => {
         ],
     };
 
-    const result = await runWithContext({ appSlug: "test" }, () => invalidEvaluatorVariableCondition(variables, true));
+    const result = await runWithContext({ appSlug: "test" } as unknown as Context, () => invalidEvaluatorVariableCondition(variables, true));
     expect(result.length).toBe(1);
 });
 
@@ -95,7 +93,7 @@ test("Regex with || condition", async () => {
         ],
     };
 
-    const result = await runWithContext({ appSlug: "test" }, () => invalidEvaluatorVariableCondition(variables, true));
+    const result = await runWithContext({ appSlug: "test" } as unknown as Context, () => invalidEvaluatorVariableCondition(variables, true));
     expect(result.length).toBe(1);
 });
 
@@ -111,7 +109,7 @@ test("Regex with badly formed array", async () => {
         ],
     };
 
-    const result = await runWithContext({ appSlug: "test" }, () => invalidEvaluatorVariableCondition(variables, true));
+    const result = await runWithContext({ appSlug: "test" } as unknown as Context, () => invalidEvaluatorVariableCondition(variables, true));
     expect(result.length).toBe(1);
 });
 
@@ -129,6 +127,6 @@ group1:
         - AccidentalSlapstick
 `;
     const variables = yamlToVariables(yaml);
-    const results = await runWithContext({ appSlug: "test" }, () => invalidEvaluatorVariableCondition(variables, true));
+    const results = await runWithContext({ appSlug: "test" } as unknown as Context, () => invalidEvaluatorVariableCondition(variables, true));
     expect(results.length).toBe(0);
 });
