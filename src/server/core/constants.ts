@@ -1,0 +1,59 @@
+import { ALL_EVALUATORS, ALL_INTERNAL_EVALUATORS } from "@fsvreddit/bot-bouncer-evaluation";
+import { UserFlag } from "./types";
+
+/**
+ * The subreddit that is used for user submissions
+ */
+export const CONTROL_SUBREDDIT = "BotBouncer";
+
+export const APP_ACCOUNT_ID = "t2_1cvehhb668";
+
+export const INTERNAL_BOT = "bot-bouncer-int";
+
+export enum PostFlairTemplate {
+    Pending = "fb53b906-a19f-11ef-bc80-ca18933c38fe",
+    Banned = "0ab378aa-a1a0-11ef-bd1f-fe6cc3602208",
+    Service = "1dbb83ac-a1a0-11ef-b683-7ef1bd574708",
+    Organic = "301b4a0a-a1a0-11ef-9bc1-c67e6d699878",
+    Purged = "46c7d570-a1a0-11ef-a875-ca4499635235",
+    Retired = "5dc983ae-a1a0-11ef-8101-ca18933c38fe",
+    Inactive = "82f4d952-bede-11ef-9dec-4a43f41509f3",
+}
+
+/**
+ * Evaluator helper consts
+ */
+export const ALL_RELEVANT_EVALUTORS = [
+    ...ALL_EVALUATORS,
+    ...ALL_INTERNAL_EVALUATORS,
+];
+
+interface FlairMapping {
+    postFlair: string;
+    flagToSet: UserFlag;
+    destinationFlair: PostFlairTemplate;
+    removeFromDatabaseAfterDays?: number;
+}
+
+export const FLAIR_MAPPINGS: FlairMapping[] = [
+    {
+        postFlair: "recovered",
+        flagToSet: UserFlag.HackedAndRecovered,
+        destinationFlair: PostFlairTemplate.Organic,
+    },
+    {
+        postFlair: "scammed",
+        flagToSet: UserFlag.Scammed,
+        destinationFlair: PostFlairTemplate.Organic,
+    },
+    {
+        postFlair: "locked",
+        flagToSet: UserFlag.Locked,
+        destinationFlair: PostFlairTemplate.Banned,
+    },
+    {
+        postFlair: "futurensfw",
+        flagToSet: UserFlag.FutureNSFW,
+        destinationFlair: PostFlairTemplate.Organic,
+    },
+];

@@ -1,0 +1,254 @@
+/* eslint-disable @stylistic/quote-props */
+import { vi } from "vitest";
+
+vi.hoisted(() => {
+    globalThis.devvit = { config: {} };
+});
+
+vi.mock("@devvit/web/server", () => ({
+    context: {},
+    reddit: {},
+    redis: {},
+    scheduler: {},
+}));
+
+vi.mock("@fsvreddit/fsv-devvit-web-helpers", () => ({
+    getUserExtended: vi.fn(),
+    getUserSocialLinks: vi.fn(),
+    hasTriggerBeenHandled: vi.fn(),
+}));
+import { EvaluationResult } from "@fsvreddit/bot-bouncer-types";
+import { expect, test } from "vitest";
+import { AppealRegexConfig, AppealRegexProperty, compileAppealConfigRegexes, CompiledAppealRegexes } from "./appealConfigRegex";
+import { CompiledAppealConfig, evaluationResultMatchesRegexes, NegatedAppealRegexContext, negatedAppealRegexesExcludeConfig, shouldFetchModNotes, sortedAppealConfigs } from "./autoAppealHandling";
+
+function evaluationResult (botName: string, hitReason?: string | { reason: string }): EvaluationResult {
+    return {
+        botName,
+        hitReason: hitReason as EvaluationResult["hitReason"],
+        canAutoBan: true,
+        metThreshold: true,
+    };
+}
+
+function compiledRegexesFor (
+    property: AppealRegexProperty,
+    values: string[],
+): CompiledAppealRegexes {
+    const config = {
+        name: "test",
+        [property]: values,
+    } as AppealRegexConfig;
+
+    return compileAppealConfigRegexes(config).compiledRegexes;
+}
+
+const emptyNegatedContext: NegatedAppealRegexContext = {
+    messageBody: "ordinary appeal",
+    initialEvaluationResults: [],
+    originalBio: undefined,
+    originalSocialLinks: [],
+};
+
+test("evaluation result regex matching combines evaluator and hit reason", () => {
+    const result = evaluationResult(
+        "Bot Group Advanced",
+        "Future Laura account",
+    );
+
+    expect(evaluationResultMatchesRegexes(
+        result,
+        [/^Bot Group Advanced$/i],
+        [/Future Laura/i],
+    )).toBe(true);
+
+    expect(evaluationResultMatchesRegexes(
+        result,
+        [/^Social Links Bot$/i],
+        [/Future Laura/i],
+    )).toBe(false);
+
+    expect(evaluationResultMatchesRegexes(
+        result,
+        [/^Bot Group Advanced$/i],
+        [/Social Links/i],
+    )).toBe(false);
+});
+
+test("evaluation result regex matching supports structured hit reasons", () => {
+    const result = evaluationResult(
+        "Bot Group Advanced",
+        { reason: "Anime sole post bot" },
+    );
+
+    expect(evaluationResultMatchesRegexes(
+        result,
+        [/^Bot Group Advanced$/i],
+        [/Anime sole post/i],
+    )).toBe(true);
+});
+
+test("configured empty evaluator regex arrays match no evaluation results", () => {
+    const result = evaluationResult(
+        "Bot Group Advanced",
+        "Future Laura account",
+    );
+
+    expect(evaluationResultMatchesRegexes(result, [])).toBe(false);
+    expect(evaluationResultMatchesRegexes(result, undefined, [])).toBe(false);
+});
+
+test("matching negated appeal regexes exclude configs", () => {
+    const cases: {
+        property: AppealRegexProperty;
+        pattern: string;
+        context: NegatedAppealRegexContext;
+    }[] = [
+        {
+            property: "~messageBodyRegex",
+            pattern: "blocked",
+            context: {
+                ...emptyNegatedContext,
+                messageBody: "This appeal contains a blocked phrase.",
+            },
+        },
+        {
+            property: "~evaluatorNameRegex",
+            pattern: "blocked evaluator",
+            context: {
+                ...emptyNegatedContext,
+                initialEvaluationResults: [
+                    evaluationResult(
+                        "Blocked Evaluator",
+                        "ordinary reason",
+                    ),
+                ],
+            },
+        },
+        {
+            property: "~evaluatorHitReasonRegex",
+            pattern: "blocked reason",
+            context: {
+                ...emptyNegatedContext,
+                initialEvaluationResults: [
+                    evaluationResult(
+                        "Ordinary Evaluator",
+                        "Blocked reason",
+                    ),
+                ],
+            },
+        },
+        {
+            property: "~originalBioRegex",
+            pattern: "blocked bio",
+            context: {
+                ...emptyNegatedContext,
+                originalBio: "This is a blocked bio.",
+            },
+        },
+        {
+            property: "~originalSocialLinkRegex",
+            pattern: "blocked-site",
+            context: {
+                ...emptyNegatedContext,
+                originalSocialLinks: [{
+                    outboundUrl: "https://blocked-site.example/profile",
+                }],
+            },
+        },
+    ];
+
+    for (const testCase of cases) {
+        const regexes = compiledRegexesFor(
+            testCase.property,
+            [testCase.pattern],
+        );
+
+        expect(negatedAppealRegexesExcludeConfig(
+            regexes,
+            testCase.context,
+        )).toBe(true);
+    }
+
+    expect(negatedAppealRegexesExcludeConfig(
+        compiledRegexesFor("~messageBodyRegex", ["blocked"]),
+        emptyNegatedContext,
+    )).toBe(false);
+});
+
+test("empty negated evaluator arrays do not exclude configs", () => {
+    const context: NegatedAppealRegexContext = {
+        ...emptyNegatedContext,
+        initialEvaluationResults: [
+            evaluationResult(
+                "Bot Group Advanced",
+                "Future Laura account",
+            ),
+        ],
+    };
+
+    expect(negatedAppealRegexesExcludeConfig(
+        compiledRegexesFor("~evaluatorNameRegex", []),
+        context,
+    )).toBe(false);
+
+    expect(negatedAppealRegexesExcludeConfig(
+        compiledRegexesFor("~evaluatorHitReasonRegex", []),
+        context,
+    )).toBe(false);
+});
+
+test("sortedAppealConfigs returns configs sorted as expected", () => {
+    const configs: CompiledAppealConfig[] = [
+        {
+            name: "Config 1",
+            priority: -1,
+            compiledRegexes: {},
+        },
+        {
+            name: "Config 2",
+            compiledRegexes: {},
+        },
+        {
+            name: "Config 3",
+            priority: 1,
+            compiledRegexes: {},
+        },
+        {
+            name: "Config 4",
+            priority: 0,
+            compiledRegexes: {},
+        },
+    ];
+
+    const sorted = sortedAppealConfigs(configs);
+
+    const expected = [
+        "Config 3",
+        "Config 2",
+        "Config 4",
+        "Config 1",
+    ];
+
+    expect(sorted.map(c => c.name)).toEqual(expected);
+});
+
+test("shouldFetchModNotes returns false when no mod note regexes are configured", () => {
+    const configs: CompiledAppealConfig[] = [{
+        name: "No mod note regex",
+        compiledRegexes: {},
+    }];
+
+    expect(shouldFetchModNotes(configs)).toBe(false);
+});
+
+test("shouldFetchModNotes returns true for negated mod note regex even when positive array is empty", () => {
+    const configs: CompiledAppealConfig[] = [{
+        name: "Negated mod note regex",
+        modNoteTextRegex: [],
+        "~modNoteTextRegex": ["blocked"],
+        compiledRegexes: {},
+    }];
+
+    expect(shouldFetchModNotes(configs)).toBe(true);
+});

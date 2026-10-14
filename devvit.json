@@ -1,20 +1,385 @@
 {
     "$schema": "https://developers.reddit.com/schema/config-file.v1.json",
     "name": "bot-bouncer",
-    "blocks": {
-        "entry": "src/main.ts",
-        "triggers": [
-            "onAppInstall",
-            "onAppUpgrade",
-            "onCommentCreate",
-            "onCommentUpdate",
-            "onModAction",
-            "onModMail",
-            "onPostCreate",
-            "onPostDelete",
-            "onPostFlairUpdate",
-            "onPostSubmit",
-            "onPostUpdate"
+        "permissions": {
+        "http": {
+            "domains": [
+                "api.openai.com",
+                "api.redgifs.com",
+                "discord.com",
+                "discordapp.com"
+            ]
+        },
+        "reddit": true
+    },
+    "scripts": {
+        "build": "vite build",
+        "dev": "vite build --watch"
+    },
+    "server": {
+        "dir": "dist/server",
+        "entry": "index.cjs"
+    },
+    "settings": {
+        "subreddit": {
+            "group_banAndUnbanSettings": {
+                "type": "group",
+                "label": "Ban/Report and unban settings",
+                "fields": {
+                    "action": {
+                        "type": "select",
+                        "label": "Action to take when a banned account posts or comments",
+                        "helpText": "This action applies to accounts that are listed on /r/BotBouncer as a bot",
+                        "options": [
+                            { "label": "Ban and remove content", "value": "ban" },
+                            { "label": "Filter content to the mod queue", "value": "filter" },
+                            { "label": "Report content", "value": "report" }
+                        ],
+                        "defaultValue": "ban",
+                        "validationEndpoint": "/internal/validators/select-field-has-option-chosen"
+                    },
+                    "removeFromModqueueWhenBanning": {
+                        "type": "boolean",
+                        "label": "Remove content from modqueue when banning",
+                        "helpText": "If banning users, also remove user content from the modqueue",
+                        "defaultValue": true
+                    },
+                    "removeReportedContentOnReport": {
+                        "type": "boolean",
+                        "label": "Remove content when reporting users to Bot Bouncer",
+                        "helpText": "If enabled, using the post/comment context menu to report a user to Bot Bouncer will also remove the reported post or comment from this subreddit.",
+                        "defaultValue": false
+                    },
+                    "lockContentWhenRemoving": {
+                        "type": "boolean",
+                        "label": "Lock content when removing",
+                        "helpText": "If banning and removing content, also lock the post/comment to prevent further engagement",
+                        "defaultValue": false
+                    },
+                    "banMessage": {
+                        "type": "paragraph",
+                        "label": "Ban message to use when banning user",
+                        "helpText": "Supports placeholders {account}, {subreddit}",
+                        "defaultValue": "Bots and bot-like accounts are not welcome on /r/{subreddit}.\n\n[I am a bot, and this action was performed automatically](/r/BotBouncer/wiki/index).\n\n**If you wish to appeal the classification of the /u/{account} account, please [message /r/${CONTROL_SUBREDDIT}](https://www.reddit.com/message/compose?to=/r/BotBouncer&subject=Ban%20dispute%20for%20/u/{account}%20on%20/r/{subreddit}&message=bot%20classification%20appeal) rather than replying to this message.**"
+                    },
+                    "autoWhitelist": {
+                        "type": "boolean",
+                        "label": "Automatically exempt users banned by Bot Bouncer if they are then unbanned by you",
+                        "helpText": "If this is selected, and you unban a user that has been banned by Bot Bouncer, then the app will not act on that user again.",
+                        "defaultValue": true
+                    },
+                    "exemptApprovedUsers": {
+                        "type": "boolean",
+                        "label": "Exempt approved users",
+                        "helpText": "If this is selected, users that have been marked as approved by a moderator will be exempt from Bot Bouncer's actions, even if they are listed on /r/BotBouncer.",
+                        "defaultValue": true
+                    },
+                    "addModNoteOnClassificationChange": {
+                        "type": "boolean",
+                        "label": "Add a moderator note to users when they are banned or unbanned by Bot Bouncer",
+                        "helpText": "If this is turned on, a mod note will be added to the account when it is banned or unbanned by Bot Bouncer. The note will include the date and time of the action.",
+                        "defaultValue": false
+                    }
+                }
+            },
+            "group_ModmailOptions": {
+                "type": "group",
+                "label": "Modmail Options",
+                "fields": {
+                    "clientModmailNote": {
+                        "type": "paragraph",
+                        "label": "Template for private moderator note that will be added if banned users write in",
+                        "helpText": "Supports placeholders {account}, {subreddit} and {link} (which links to the submission on /r/BotBouncer)",
+                        "defaultValue": "/u/{account} is [listed on /r/BotBouncer]({link}).\n\nIf this account is claiming to be human and isn't an obvious novelty account, we recommend asking the account owner to [message /r/BotBouncer](https://www.reddit.com/message/compose?to=/r/${CONTROL_SUBREDDIT}&subject=Ban%20dispute%20for%20/u/{account}%20on%20/r/{subreddit}&message=bot%20classification%20appeal).\n\nIf this account is a bot that you wish to allow, remember to [allowlist](/r/BotBouncer/wiki/index) it before you unban it."
+                    },
+                    "addModmailIfNotBannedYet": {
+                        "type": "boolean",
+                        "label": "Add a private moderator note if a user listed on /r/BotBouncer sends a modmail but isn't currently banned",
+                        "helpText": "If this is turned on, when a user that is listed on /r/BotBouncer sends a message to modmail, if they aren't currently banned, the app will add a private moderator note to the conversation.",
+                        "defaultValue": false
+                    }
+                }
+            },
+            "group_ActionsSummary": {
+                "type": "group",
+                "label": "Actions Summary",
+                "fields": {
+                    "dailyDigest": {
+                        "type": "boolean",
+                        "label": "Send a summary of actions taken by Bot Bouncer, if any occur",
+                        "helpText": "If enabled, you will receive a daily message with a summary of actions taken by Bot Bouncer in the previous 24 hours, if any.",
+                        "defaultValue": false
+                    },
+                    "dailyDigestNewMessageEachDay": {
+                        "type": "boolean",
+                        "label": "Create a new Modmail conversation for each summary",
+                        "helpText": "If enabled, a new modmail conversation will be created for each summary message. If disabled, the bot will reply to the previous summary message when sending a new summary.",
+                        "defaultValue": true
+                    },
+                    "dailyDigestFrequency": {
+                        "type": "select",
+                        "label": "Frequency of summary messages",
+                        "helpText": "Choose how often you would like to receive the summary messages",
+                        "options": [
+                            { "label": "Daily", "value": "daily" },
+                            { "label": "Weekly", "value": "weekly" }
+                        ],
+                        "defaultValue": "daily"
+                    },
+                    "dailyDigestAsModNotification": {
+                        "type": "boolean",
+                        "label": "Send summary to the 'Mod Notifications' section of modmail",
+                        "helpText": "If set, the daily digest will be sent to the 'Mod Notifications' section of modmail, otherwise it will go into the main inbox.",
+                        "defaultValue": false
+                    },
+                    "dailyDigestIncludeReported": {
+                        "type": "boolean",
+                        "label": "Include details of accounts reported to Bot Bouncer",
+                        "defaultValue": true
+                    },
+                    "dailyDigestIncludeBanned": {
+                        "type": "boolean",
+                        "label": "Include details of accounts banned by Bot Bouncer",
+                        "defaultValue": true
+                    },
+                    "dailyDigestIncludeUnbanned": {
+                        "type": "boolean",
+                        "label": "Include details of accounts unbanned by Bot Bouncer",
+                        "defaultValue": true
+                    }
+                }
+            },
+            "group_UpgradeNotifications": {
+                "type": "group",
+                "label": "Upgrade Notifications",
+                "fields": {
+                    "upgradeNotifier": {
+                        "type": "boolean",
+                        "label": "Enable upgrade notifications",
+                        "helpText": "If enabled, you will receive notifications about available upgrades for Bot Bouncer.",
+                        "defaultValue": true
+                    }
+                }
+            }
+        },
+        "global": {
+            "openAIKey": {
+                "type": "string",
+                "label": "OpenAI API Key",
+                "isSecret": true
+            },
+            "openAIEvaluationKey": {
+                "type": "string",
+                "label": "OpenAI Evaluation API Key",
+                "isSecret": true
+            },
+            "openAIAdminKey": {
+                "type": "string",
+                "label": "OpenAI Admin API Key",
+                "isSecret": true
+            },
+            "openAIProjectId": {
+                "type": "string",
+                "label": "OpenAI Project ID",
+                "isSecret": true
+            },
+            "disableClientChecks": {
+                "type": "boolean",
+                "label": "Disable client post and comment checks",
+                "helpText": "If enabled, Bot Bouncer will not check posts and comments in client subreddits.",
+                "defaultValue": false
+            }
+        }
+    },
+    "scheduler": {
+        "tasks": {
+            "accountReview": {
+                "endpoint": "/internal/tasks/account-review"
+            },
+            "asyncWikiUpdate": {
+                "endpoint": "/internal/tasks/async-wiki-update"
+            },
+            "autoAccountRecovery": {
+                "endpoint": "/internal/tasks/auto-account-recovery"
+            },
+            "bioStatsUpdate": {
+                "endpoint": "/internal/tasks/bio-stats-update"
+            },
+            "bioStatsGenerateReport": {
+                "endpoint": "/internal/tasks/bio-stats-generate-report"
+            },
+            "checkPermissionQueueItems": {
+                "endpoint": "/internal/tasks/check-permission-queue-items"
+            },
+            "classificationReversals": {
+                "endpoint": "/internal/tasks/classification-reversals"
+            },
+            "cleanupJob": {
+                "endpoint": "/internal/tasks/cleanup-job"
+            },
+            "clientSubAnnouncements": {
+                "endpoint": "/internal/tasks/client-sub-announcements"
+            },
+            "conditionalStatsUpdate": {
+                "endpoint": "/internal/tasks/conditional-stats-update"
+            },
+            "continueDataExtract": {
+                "endpoint": "/internal/tasks/continue-data-extract"
+            },
+            "createSummaries": {
+                "endpoint": "/internal/tasks/create-summaries-for-pending-users"
+            },
+            "definedHandlesStatisticsInitialiser": {
+                "endpoint": "/internal/tasks/defined-handles-statistics-initialiser"
+            },
+            "definedHandlesStatistics": {
+                "endpoint": "/internal/tasks/defined-handles-statistics"
+            },
+            "definedHandlesPostStore": {
+                "endpoint": "/internal/tasks/defined-handles-post-store"
+            },
+            "deleteRecordsForRemovedUsers": {
+                "endpoint": "/internal/tasks/delete-records-for-removed-users"
+            },
+            "evaluateKarmaFarmingSubs": {
+                "endpoint": "/internal/tasks/evaluate-karma-farming-subs"
+            },
+            "evaluateUser": {
+                "endpoint": "/internal/tasks/evaluate-user"
+            },
+            "evaluatorAccuracyStatisticsInitialiser": {
+                "endpoint": "/internal/tasks/evaluator-accuracy-statistics-initialiser"
+            },
+            "evaluatorAccuracyStatistics": {
+                "endpoint": "/internal/tasks/evaluator-accuracy-statistics"
+            },
+            "evaluatorReDoSChecker": {
+                "endpoint": "/internal/tasks/evaluator-redos-checker"
+            },
+            "externalSubmissionsQueue": {
+                "endpoint": "/internal/tasks/external-submissions-queue"
+            },
+            "flaggedUsersRechecks": {
+                "endpoint": "/internal/tasks/flagged-user-rechecks"
+            },
+            "handleClassificationChanges": {
+                "endpoint": "/internal/tasks/handle-classification-changes"
+            },
+            "handleConfigWikiChange": {
+                "endpoint": "/internal/tasks/handle-config-wiki-change"
+            },
+            "mainStatisticsUpdate": {
+                "endpoint": "/internal/tasks/main-statistics-update"
+            },
+            "modmailArchiver": {
+                "endpoint": "/internal/tasks/modmail-archiver"
+            },
+            "notifyModTeamOnDemod": {
+                "endpoint": "/internal/tasks/notify-mod-team-on-demod"
+            },
+            "observerSubMinutelyJob": {
+                "endpoint": "/internal/tasks/observer-sub-minutely-job"
+            },
+            "openAISummary": {
+                "endpoint": "/internal/tasks/openai-summary-gather"
+            },
+            "openAISummaryLookup": {
+                "endpoint": "/internal/tasks/openai-summary-lookup"
+            },
+            "openAIUpdateTokenStatsMessage": {
+                "endpoint": "/internal/tasks/openai-update-token-stats-message"
+            },
+            "pendingUserFinder": {
+                "endpoint": "/internal/tasks/pending-user-finder"
+            },
+            "pendingUserReevaluation": {
+                "endpoint": "/internal/tasks/pending-user-reevaluation"
+            },
+            "perform5MinutelyJobs": {
+                "endpoint": "/internal/tasks/perform-5-minutely-jobs"
+            },
+            "performMinutelyJobs": {
+                "endpoint": "/internal/tasks/perform-minutely-jobs"
+            },
+            "perform6HourlyJobs": {
+                "endpoint": "/internal/tasks/perform-6-hourly-jobs"
+            },
+            "perform6HourlyJobsPart2": {
+                "endpoint": "/internal/tasks/perform-6-hourly-jobs-part2"
+            },
+            "permissionCheckEnqueue": {
+                "endpoint": "/internal/tasks/permission-check-enqueue"
+            },
+            "postCreationQueueReversals": {
+                "endpoint": "/internal/tasks/post-creation-queue-reversals"
+            },
+            "processDelayedMessages": {
+                "endpoint": "/internal/tasks/process-delayed-messages"
+            },
+            "queueKarmaFarmingSubs": {
+                "endpoint": "/internal/tasks/queue-karma-farming-subs"
+            },
+            "queueReclassificationChanges": {
+                "endpoint": "/internal/tasks/queue-reclassification-changes"
+            },
+            "rapidJob": {
+                "endpoint": "/internal/tasks/rapid-job"
+            },
+            "removeUsersFromModqueueAfterBan": {
+                "endpoint": "/internal/tasks/remove-users-from-modqueue-after-ban"
+            },
+            "sendDailyDigest": {
+                "endpoint": "/internal/tasks/send-daily-digest"
+            },
+            "startDataExtract": {
+                "endpoint": "/internal/tasks/start-data-extract"
+            },
+            "updateEvaluatorVariables": {
+                "endpoint": "/internal/tasks/update-evaluator-variables"
+            },
+            "upgradeNotifier": {
+                "endpoint": "/internal/tasks/upgrade-notifier"
+            },
+            "uptimeAndMessageCheck": {
+                "endpoint": "/internal/tasks/uptime-monitor"
+            }
+        }
+    },
+    "triggers": {
+        "onAppInstall": "/internal/triggers/on-app-install",
+        "onAppUpgrade": "/internal/triggers/on-app-upgrade",
+        "onCommentCreate": "/internal/triggers/on-comment-create",
+        "onCommentUpdate": "/internal/triggers/on-comment-update",
+        "onModAction": "/internal/triggers/on-mod-action",
+        "onModMail": "/internal/triggers/on-modmail",
+        "onPostCreate": "/internal/triggers/on-post-create",
+        "onPostDelete": "/internal/triggers/on-post-delete",
+        "onPostFlairUpdate": "/internal/triggers/on-post-flair-update",
+        "onPostUpdate": "/internal/triggers/on-post-update"
+    },
+    "menu": {
+        "items": [
+            {
+                "forUserType": "moderator",
+                "location": "post",
+                "label": "Report User to Bot Bouncer",
+                "description": "Creates a report on /r/BotBouncer",
+                "endpoint": "/internal/menu/report-user"
+            },
+            {
+                "forUserType": "moderator",
+                "location": "comment",
+                "label": "Report User to Bot Bouncer",
+                "description": "Creates a report on /r/BotBouncer",
+                "endpoint": "/internal/menu/report-user"
+            }
         ]
+    },
+    "forms": {
+        "clientSubReportUser": "/internal/forms/client-sub-report-user",
+        "clientSubQueryUser": "/internal/forms/client-sub-query-user",
+        "controlSubForm": "/internal/forms/control-sub-form",
+        "controlSubQuerySubmissionForm": "/internal/forms/control-sub-query-submission-form",
+        "showCurrentEvaluationForm": "/internal/forms/show-current-evaluation-form"
     }
 }

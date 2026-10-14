@@ -1,0 +1,187 @@
+import { redis, settings, TaskRequest } from "@devvit/web/server";
+import { addDays, addMinutes, endOfDay, format, startOfDay, subDays } from "date-fns";
+import { AppSetting, expireKeyAt, getControlSubSettings, sendMessageToWebhook, updateWebhookMessage } from "../..";
+import OpenAI from "openai";
+import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
+import { UpdateTokenStatsMessageData } from "../../../tasks";
+import pluralize from "pluralize";
+
+interface OpenAIUsageResponse {
+    object: string;
+    data: {
+        object: string;
+        end_time: number;
+        end_time_iso: string;
+        results: {
+            object: string;
+            project_id: string | null;
+            num_model_requests: number;
+            user_id: string | null;
+            api_key_id: string | null;
+            model: string | null;
+            batch: string | null;
+            service_tier: string | null;
+            input_tokens: number;
+            output_tokens: number;
+            input_cached_tokens: number;
+            input_uncached_tokens: number;
+            input_text_tokens: number;
+            output_text_tokens: number;
+            input_cached_text_tokens: number;
+            input_audio_tokens: number;
+            input_cached_audio_tokens: number;
+            output_audio_tokens: number;
+            input_image_tokens: number;
+            input_cached_image_tokens: number;
+            output_image_tokens: number;
+        }[];
+        start_time: number;
+        start_time_iso: string;
+    }[];
+    has_more: boolean;
+    next_page: string | null;
+}
+
+function formatNumber (num: number): string {
+    if (num >= 1_000_000_000) {
+        return `${(num / 1_000_000_000).toFixed(2)}B`;
+    } else if (num >= 1_000_000) {
+        return `${(num / 1_000_000).toFixed(2)}M`;
+    } else if (num >= 1_000) {
+        return `${(num / 1_000).toFixed(2)}K`;
+    } else {
+        return num.toString();
+    }
+}
+
+const CURRENT_MESSAGE_ID_KEY = "openAIUsageMessageId";
+const BASE_MESSAGE_KEY = "openAIUsageOriginalMessage";
+
+export async function gatherTokenStatistics () {
+    const messageLastSentKey = "openAIUsageMessageLastSent";
+    const lastSent = await redis.get(messageLastSentKey);
+    if (lastSent === format(new Date(), "yyyy-MM-dd")) {
+        return;
+    }
+
+    const appSettings = await settings.getAll();
+    const apiKey = appSettings[AppSetting.OpenAIAdminKey] as string | undefined;
+
+    if (!apiKey) {
+        console.error("OpenAI Stats: Admin API key not set. Skipping token statistics gathering.");
+        return;
+    }
+
+    const projectId = appSettings[AppSetting.OpenAIProjectId] as string | undefined;
+
+    const params = new URLSearchParams();
+    params.append("start_time", (startOfDay(subDays(new Date(), 1)).getTime() / 1000).toString());
+    params.append("end_time", (startOfDay(new Date()).getTime() / 1000).toString());
+    if (projectId) {
+        params.append("project_ids", projectId);
+    }
+
+    const response = await fetch(`https://api.openai.com/v1/organization/usage/completions?${params.toString()}`, {
+        method: "GET",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${apiKey}`,
+        },
+    });
+
+    const responseJson = await response.json() as OpenAIUsageResponse;
+
+    const yesterdayUsage = responseJson.data.find(entry => entry.end_time_iso.startsWith(format(startOfDay(new Date()), "yyyy-MM-dd")));
+
+    if (!yesterdayUsage) {
+        console.error("OpenAI Stats: No usage data found for yesterday.");
+        return;
+    }
+
+    const message = `OpenAI Usage for ${format(subDays(new Date(), 1), "yyyy-MM-dd")}:\n` +
+        `- Total Tokens: ${formatNumber(yesterdayUsage.results.reduce((sum, result) => sum + result.input_tokens + result.output_tokens, 0))}\n` +
+        `- Input Tokens: ${formatNumber(yesterdayUsage.results.reduce((sum, result) => sum + result.input_tokens, 0))}\n` +
+        `- Output Tokens: ${formatNumber(yesterdayUsage.results.reduce((sum, result) => sum + result.output_tokens, 0))}\n` +
+        `- Cached Tokens Saved: ${formatNumber(yesterdayUsage.results.reduce((sum, result) => sum + result.input_cached_tokens, 0))}`;
+
+    console.log(message);
+
+    const controlSubSettings = await getControlSubSettings();
+    const webhookUrl = controlSubSettings.openAINotificationsWebhook;
+
+    if (webhookUrl) {
+        const messageId = await sendMessageToWebhook(webhookUrl, message);
+        if (!messageId) {
+            console.error("OpenAI Stats: Failed to send usage message to webhook.");
+            return;
+        }
+
+        await redis.set(messageLastSentKey, format(new Date(), "yyyy-MM-dd"));
+        await redis.set(CURRENT_MESSAGE_ID_KEY, messageId, { expiration: endOfDay(new Date()) });
+        await redis.set(BASE_MESSAGE_KEY, message, { expiration: endOfDay(new Date()) });
+    }
+}
+
+function getTokenStatsKey (date = new Date()): string {
+    return `openAITokensToday:${format(date, "yyyy-MM-dd")}`;
+}
+
+function getOpenAICallCountKey (date = new Date()): string {
+    return `openAICallCountToday:${format(date, "yyyy-MM-dd")}`;
+}
+
+export async function storeTokenStatsForResponse (response: OpenAI.Responses.Response) {
+    if (!response.usage) {
+        return;
+    }
+
+    try {
+        await redis.incrBy(getTokenStatsKey(), response.usage.total_tokens);
+        await redis.incrBy(getOpenAICallCountKey(), 1);
+        const expiryDateForKeys = startOfDay(addDays(new Date(), 1));
+        await Promise.all([
+            expireKeyAt(getTokenStatsKey(), expiryDateForKeys),
+            expireKeyAt(getOpenAICallCountKey(), expiryDateForKeys),
+        ]);
+    } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error("Error storing token stats:", message);
+    }
+}
+
+export async function updateTokenStatsMessage (event: TaskRequest<UpdateTokenStatsMessageData | undefined>) {
+    const jobGuid = event.data?.jobGuid;
+    if (jobGuid && await hasTriggerBeenHandled(`job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+        console.warn(`Update Token Stats Message: Job with guid ${jobGuid} has already been handled, skipping.`);
+        return;
+    }
+
+    const messageId = await redis.get(CURRENT_MESSAGE_ID_KEY);
+    const baseMessage = await redis.get(BASE_MESSAGE_KEY);
+
+    if (!messageId || !baseMessage) {
+        return;
+    }
+
+    const controlSubSettings = await getControlSubSettings();
+    const webhookUrl = controlSubSettings.openAINotificationsWebhook;
+
+    if (!webhookUrl) {
+        return;
+    }
+
+    const todaysTokens = await redis.get(getTokenStatsKey());
+    const todaysCallCount = await redis.get(getOpenAICallCountKey());
+    if (!todaysTokens || !todaysCallCount) {
+        return;
+    }
+
+    const todaysTokensValue = parseInt(todaysTokens, 10);
+    const todaysCallCountValue = parseInt(todaysCallCount, 10);
+    const updatedMessage = `${baseMessage}\n\nCumulative tokens used today: ${formatNumber(todaysTokensValue)} from ${todaysCallCountValue.toLocaleString()} ${pluralize("request", todaysCallCountValue)}.`;
+
+    const updated = await updateWebhookMessage(webhookUrl, messageId, updatedMessage);
+    if (!updated) {
+        console.error("OpenAI Stats: Failed to update usage message on webhook.");
+    }
+}
