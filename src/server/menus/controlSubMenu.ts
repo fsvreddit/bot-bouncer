@@ -1,6 +1,6 @@
 import { Comment, context, Post, reddit } from "@devvit/web/server";
 import { FormField, isT1, T1, T3, type MenuItemRequest, type UiResponse } from "@devvit/web/shared";
-import { HitReason } from "@fsvreddit/bot-bouncer-evaluation";
+import { HitReason } from "@fsvreddit/bot-bouncer-types";
 import { ControlSubAction, FormName, getAccountInitialEvaluationResults, getUsernameFromUrl, getUserStatus, normaliseHitReason } from "../core";
 import { getPostOrCommentById } from "@fsvreddit/fsv-devvit-web-helpers";
 import { UserStatus } from "@fsvreddit/bot-bouncer-types";

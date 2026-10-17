@@ -166,7 +166,7 @@ export async function addExternalSubmissionToPostCreationQueue (item: ExternalSu
         ];
 
         if (item.targetId) {
-            const target = await getPostOrCommentById(item.targetId as T1 | T3);
+            const target = await getPostOrCommentById(item.targetId);
             body.push({ p: `User was reported via [this ${isT3(target.id) ? "post" : "comment"}](${target.permalink})` });
         }
 
@@ -407,7 +407,7 @@ export async function getSubredditsFromExternalSubmissions (externalSubmissions:
         }
 
         if (!itemAdded && submission.targetId) {
-            const target = await getPostOrCommentById(submission.targetId as T1 | T3);
+            const target = await getPostOrCommentById(submission.targetId);
             subreddits.add(target.subredditName);
         }
     }

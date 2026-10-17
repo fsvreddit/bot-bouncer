@@ -3,7 +3,7 @@ import { getEvaluatorVariables } from ".";
 import { ALL_RELEVANT_EVALUTORS, ControlSubredditJob, decodedText, encodedText, expireKeyAt, getControlSubSettings } from "..";
 import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import { addMinutes, addSeconds } from "date-fns";
-import { EvaluatorRegex } from "@fsvreddit/bot-bouncer-evaluation";
+import { EvaluatorRegex } from "@fsvreddit/bot-bouncer-types";
 import { isSafe } from "redos-detector";
 import json2md from "json2md";
 import { RedosCheckerJobData } from "../../tasks";

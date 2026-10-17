@@ -1,5 +1,5 @@
 import { context, ModeratorPermission, reddit, redis } from "@devvit/web/server";
-import { HitReason, HitReasonDetailed } from "@fsvreddit/bot-bouncer-evaluation";
+import { HitReason, HitReasonDetailed } from "@fsvreddit/bot-bouncer-types";
 import { addDays, addHours, formatDuration, intervalToDuration } from "date-fns";
 import { deflate, inflate } from "pako";
 import { getControlSubSettings } from "./controlSubSettings";

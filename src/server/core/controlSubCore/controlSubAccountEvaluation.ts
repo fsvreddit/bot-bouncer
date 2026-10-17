@@ -1,11 +1,11 @@
 import { Comment, context, Post, reddit, redis, scheduler, settings, SubredditInfo, TaskRequest } from "@devvit/web/server";
 import { JsonValue, T1, T3 } from "@devvit/web/shared";
-import { EvaluateBotGroupAdvancedSubmitters, getSocialLinksWithCache, HitReason, HitReasonDetailed, UserEvaluatorBase } from "@fsvreddit/bot-bouncer-evaluation";
+import { EvaluateBotGroupAdvancedSubmitters, getSocialLinksWithCache, UserEvaluatorBase } from "@fsvreddit/bot-bouncer-evaluation";
 import { getPostOrCommentById, getUserExtended, hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import { accountIsBotBouncerApp, ALL_RELEVANT_EVALUTORS, AppSetting, conditionallyCompressString, conditionallyDecompressString, CONTROL_SUBREDDIT, ControlSubredditJob, getControlSubSettings, getUserStatus, normaliseHitReason, normaliseHitReasons, PostFlairTemplate } from "..";
 import { addMinutes, addSeconds, addWeeks, subMonths } from "date-fns";
 import _ from "lodash";
-import { UserStatus } from "@fsvreddit/bot-bouncer-types";
+import { HitReason, HitReasonDetailed, UserStatus } from "@fsvreddit/bot-bouncer-types";
 import { EvaluateUserJobData, OpenAISummaryGatherData } from "../../tasks";
 import { getEvaluatorVariables } from "../userEvaluation";
 import { createUserSummary } from "./userSummary";
@@ -28,7 +28,7 @@ interface EvaluateUserAccountOptions {
     variables: Record<string, JsonValue>;
     history?: (Post | Comment)[];
     throwOnError?: boolean;
-    targetId?: string;
+    targetId?: T1 | T3;
 }
 
 export async function evaluateUserAccount (options: EvaluateUserAccountOptions, silent = false): Promise<EvaluationResult[]> {
@@ -73,7 +73,7 @@ export async function evaluateUserAccount (options: EvaluateUserAccountOptions, 
         if (!silent) {
             console.log(`Evaluator: Adding target item ${options.targetId} to evaluation for ${options.username}`);
         }
-        userItems.unshift(await getPostOrCommentById(options.targetId as T1 | T3));
+        userItems.unshift(await getPostOrCommentById(options.targetId));
     }
 
     const socialLinks = await getSocialLinksWithCache(user.username);

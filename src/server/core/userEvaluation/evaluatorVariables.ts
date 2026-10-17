@@ -4,10 +4,11 @@ import _ from "lodash";
 import { ALL_RELEVANT_EVALUTORS, compressData, CONTROL_SUBREDDIT, ControlSubredditJob, getControlSubSettings, normaliseHitReason, sendMessageToWebhook } from "..";
 import { getUserExtended, hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import { addMinutes, addSeconds } from "date-fns";
-import { EvaluateBotGroupAdvanced, EvaluateBotGroupAdvancedSubmitters, ValidationIssue, yamlToVariables } from "@fsvreddit/bot-bouncer-evaluation";
+import { EvaluateBotGroupAdvanced, EvaluateBotGroupAdvancedSubmitters, yamlToVariables } from "@fsvreddit/bot-bouncer-evaluation";
 import json2md from "json2md";
 import { checkNonexistentSubs } from ".";
 import { UpdateEvaluatorVariablesFromWikiEventData } from "../../tasks";
+import { ValidationIssue } from "@fsvreddit/bot-bouncer-types";
 
 const EVALUATOR_VARIABLES_KEY = "evaluatorVariablesHash";
 const EVALUATOR_VARIABLES_YAML_PAGE_ROOT = "evaluator-config";
