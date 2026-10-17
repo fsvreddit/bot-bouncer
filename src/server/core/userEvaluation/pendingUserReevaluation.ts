@@ -2,7 +2,7 @@ import { reddit, redis, scheduler, TaskRequest } from "@devvit/web/server";
 import { JsonValue } from "@devvit/web/shared";
 import { UserStatus } from "@fsvreddit/bot-bouncer-types";
 import { CONTROL_SUBREDDIT, evaluateUserAccount, getAccountInitialEvaluationResults, getFullDataStore, getUserStatus, PostFlairTemplate, storeAccountInitialEvaluationResults } from "..";
-import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
+import { hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import { addMinutes, addSeconds } from "date-fns";
 import { getEvaluatorVariables } from "./evaluatorVariables";
 import pluralize from "pluralize";
@@ -64,7 +64,7 @@ async function processPendingUser (username: string, evaluatorVariables: Record<
 }
 
 export async function processPendingUserReevaluationQueue (event: TaskRequest<PendingUserReevaluationJobData>) {
-    if (await hasTriggerBeenHandled(`job:${event.data.jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+    if (await hasEventBeenHandled(`job:${event.data.jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
         console.warn(`Pending User Reevaluation: Job ${event.data.jobGuid} has already been handled. Skipping.`);
         return;
     }

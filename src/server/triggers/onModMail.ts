@@ -1,6 +1,6 @@
 import { context, ConversationData, GetConversationResponse, MessageData, reddit } from "@devvit/web/server";
 import { OnModMailRequest, TriggerResponse } from "@devvit/web/shared";
-import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
+import { hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import type { Context } from "hono";
 import { CONTROL_SUBREDDIT, handleClientSubredditModmail, ModmailMessage } from "../core";
 import { handleControlSubredditModmail } from "../core/controlSubCore/modmail";
@@ -58,7 +58,7 @@ export const onModMail = async (c: Context): Promise<Response> => {
         return c.json<TriggerResponse>({ message: "Invalid message data" }, 400);
     }
 
-    if (await hasTriggerBeenHandled(normaliseMessageId(event.messageId))) {
+    if (await hasEventBeenHandled(normaliseMessageId(event.messageId))) {
         return c.json<TriggerResponse>({ message: "Trigger already handled" }, 200);
     }
 

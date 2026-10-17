@@ -1,7 +1,7 @@
 import { context, reddit, redis, scheduler, TaskRequest } from "@devvit/web/server";
 import { getEvaluatorVariables } from ".";
 import { ALL_RELEVANT_EVALUTORS, ControlSubredditJob, decodedText, encodedText, expireKeyAt, getControlSubSettings } from "..";
-import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
+import { hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import { addMinutes, addSeconds } from "date-fns";
 import { EvaluatorRegex } from "@fsvreddit/bot-bouncer-types";
 import { isSafe } from "redos-detector";
@@ -29,7 +29,7 @@ async function queueRedosCheckEntries () {
 
 export async function redosChecker (event: TaskRequest<RedosCheckerJobData | undefined>) {
     const jobGuid = event.data?.jobGuid;
-    if (jobGuid && await hasTriggerBeenHandled(`job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+    if (jobGuid && await hasEventBeenHandled(`job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
         console.warn(`ReDoS Checker: Job with guid ${jobGuid} has already been handled, skipping.`);
         return;
     }

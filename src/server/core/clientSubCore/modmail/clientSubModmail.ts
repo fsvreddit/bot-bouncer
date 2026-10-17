@@ -1,7 +1,8 @@
 import { context, reddit, settings } from "@devvit/web/server";
-import { UserStatus } from "@fsvreddit/bot-bouncer-types";
 import { T3 } from "@devvit/web/shared";
-import { AppSetting, CONFIGURATION_DEFAULTS, getUserStatus, isBanned, ModmailMessage, wasUserBannedByApp } from "../..";
+import { isBanned } from "@fsvreddit/fsv-devvit-web-helpers";
+import { UserStatus } from "@fsvreddit/bot-bouncer-types";
+import { AppSetting, CONFIGURATION_DEFAULTS, getUserStatus, ModmailMessage, wasUserBannedByApp } from "../..";
 import json2md from "json2md";
 
 export async function handleClientSubredditModmail (modmail: ModmailMessage) {

@@ -1,7 +1,7 @@
 import { reddit, redis, scheduler, TaskRequest } from "@devvit/web/server";
 import { UserStatus } from "@fsvreddit/bot-bouncer-types";
 import { CONTROL_SUBREDDIT, ControlSubredditJob, getControlSubSettings, getUserStatus, UserDetails } from "..";
-import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
+import { hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import pluralize from "pluralize";
 import { addMinutes, addSeconds } from "date-fns";
 import { RecoveredAccountsData } from "../../tasks";
@@ -82,7 +82,7 @@ export async function checkPotentiallyRecoveredAccounts (event: TaskRequest<Reco
         console.log(`Recovered Accounts: Starting job. Checking ${recoveredAccountsToCheck.length} ${pluralize("account", recoveredAccountsToCheck.length)} for recovery.`);
     }
 
-    if (await hasTriggerBeenHandled(`job:${event.data.jobGuid}`)) {
+    if (await hasEventBeenHandled(`job:${event.data.jobGuid}`)) {
         console.log(`Recovered Accounts: Job ${event.data.jobGuid} has already been handled. Skipping this run.`);
         return;
     }

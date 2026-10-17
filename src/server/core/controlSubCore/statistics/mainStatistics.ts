@@ -1,5 +1,5 @@
 import { context, reddit, redis, TaskRequest, WikiPage } from "@devvit/web/server";
-import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
+import { hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import { addMinutes } from "date-fns";
 import { AGGREGATE_STORE } from "../..";
 import json2md from "json2md";
@@ -11,7 +11,7 @@ export async function updateMainStatisticsPage (event: TaskRequest<UpdateMainSta
     // await correctAggregateData(entries, context);
 
     const jobGuid = event.data?.jobGuid;
-    if (jobGuid && await hasTriggerBeenHandled(`job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+    if (jobGuid && await hasEventBeenHandled(`job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
         console.warn(`Update Main Statistics Page: Job with guid ${jobGuid} has already been handled, skipping.`);
         return;
     }

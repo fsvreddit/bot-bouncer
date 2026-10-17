@@ -15,7 +15,7 @@ vi.mock("@devvit/web/server", () => ({
 vi.mock("@fsvreddit/fsv-devvit-web-helpers", () => ({
     getUserExtended: vi.fn(),
     getUserSocialLinks: vi.fn(),
-    hasTriggerBeenHandled: vi.fn(),
+    hasEventBeenHandled: vi.fn(),
 }));
 import { shouldStoreClassificationEvent } from "./dataStore.js";
 import type { UserDetails } from "./dataStore.js";

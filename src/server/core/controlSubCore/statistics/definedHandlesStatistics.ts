@@ -3,7 +3,7 @@ import { addMinutes, addSeconds, format, subMonths } from "date-fns";
 import { BIO_TEXT_STORE, ControlSubredditJob, DISPLAY_NAME_STORE, expireKeyAt, getDataStoreFiltered, USER_DEFINED_HANDLES_POSTS } from "../..";
 import { UserStatus } from "@fsvreddit/bot-bouncer-types";
 import { FLAGS_TO_EXCLUDE_FROM_STATS, userIsBanned } from "./statsHelpers";
-import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
+import { hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import json2md from "json2md";
 import { getEvaluatorVariable } from "../../userEvaluation";
 import { parse } from "regjsparser";
@@ -89,7 +89,7 @@ export async function definedHandlesStatsInitializer (event: TaskRequest<Defined
 
 export async function gatherDefinedHandlesStats (event: TaskRequest<DefinedHandlesStatsJobData | undefined>) {
     const jobGuid = event.data?.jobGuid;
-    if (jobGuid && await hasTriggerBeenHandled(`job:${jobGuid}`, { expiration: addMinutes(new Date(), 1) })) {
+    if (jobGuid && await hasEventBeenHandled(`job:${jobGuid}`, { expiration: addMinutes(new Date(), 1) })) {
         console.error(`Defined Handles: Duplicate job with GUID ${jobGuid}!`);
         return;
     }
@@ -355,7 +355,7 @@ export async function storeDefinedHandlesDataJob (event: TaskRequest<StoreDefine
     }
 
     const jobGuid = event.data?.jobGuid;
-    if (jobGuid && await hasTriggerBeenHandled(`job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+    if (jobGuid && await hasEventBeenHandled(`job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
         console.warn(`Store Defined Handles Data: Job with guid ${jobGuid} has already been handled, skipping.`);
         return;
     }

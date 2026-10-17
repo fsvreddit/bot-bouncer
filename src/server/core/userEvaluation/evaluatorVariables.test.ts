@@ -14,7 +14,7 @@ vi.mock("@devvit/web/server", () => ({
 
 vi.mock("@fsvreddit/fsv-devvit-web-helpers", () => ({
     getUserExtended: vi.fn(),
-    hasTriggerBeenHandled: vi.fn(),
+    hasEventBeenHandled: vi.fn(),
 }));
 
 import { yamlToVariables } from "@fsvreddit/bot-bouncer-evaluation";

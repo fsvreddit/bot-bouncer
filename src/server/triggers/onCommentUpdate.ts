@@ -2,7 +2,7 @@ import { context } from "@devvit/web/server";
 import { OnCommentUpdateRequest, TriggerResponse } from "@devvit/web/shared";
 import { Context } from "hono";
 import { CONTROL_SUBREDDIT, handleClientCommentUpdate } from "../core";
-import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
+import { hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 
 export const onCommentUpdate = async (c: Context): Promise<Response> => {
     const event = await c.req.json<OnCommentUpdateRequest>();
@@ -15,7 +15,7 @@ export const onCommentUpdate = async (c: Context): Promise<Response> => {
         return c.json<TriggerResponse>({ message: "CommentUpdate event should not be handled for the control subreddit" }, 400);
     }
 
-    if (await hasTriggerBeenHandled(`CommentUpdate:${event.comment.id}`)) {
+    if (await hasEventBeenHandled(`CommentUpdate:${event.comment.id}`)) {
         return c.json<TriggerResponse>({ message: "CommentUpdate event already handled" }, 200);
     }
 

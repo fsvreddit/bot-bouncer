@@ -28,7 +28,7 @@ vi.mock("@devvit/web/server", () => ({
 vi.mock("@fsvreddit/fsv-devvit-web-helpers", () => ({
     getPostOrCommentById: vi.fn(),
     getUserOrUndefined: vi.fn(),
-    hasTriggerBeenHandled: vi.fn(),
+    hasEventBeenHandled: vi.fn(),
 }));
 
 vi.mock("../cleanup.js", () => ({

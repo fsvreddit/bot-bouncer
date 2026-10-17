@@ -1,7 +1,7 @@
 /* eslint-disable @stylistic/quote-props */
 import { context, reddit, redis, scheduler, TaskRequest, UserSocialLink, WikiPage } from "@devvit/web/server";
 import { UserStatus } from "@fsvreddit/bot-bouncer-types";
-import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
+import { hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import { ALL_POTENTIAL_USER_PREFIXES, BIO_TEXT_STORE, ControlSubredditJob, DISPLAY_NAME_STORE, expireKeyAt, getAccountInitialEvaluationResults, getDataStoreFiltered, hMGetAsRecord, ModmailMessage, normaliseHitReason, setCleanupForUser, SOCIAL_LINKS_STORE, UserDetails } from "../..";
 import { UserFlag } from "../../types";
 import Ajv, { JSONSchemaType } from "ajv";
@@ -342,7 +342,7 @@ export async function continueDataExtract (event: TaskRequest<DataExtractJobData
     const conversationId = event.data.conversationId;
     const request = JSON.parse(event.data.request) as ModmailDataExtract;
 
-    if (await hasTriggerBeenHandled(`job:${event.data.jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+    if (await hasEventBeenHandled(`job:${event.data.jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
         console.warn(`Data Extract: Job with guid ${event.data.jobGuid} has already been handled, skipping.`);
         return;
     }

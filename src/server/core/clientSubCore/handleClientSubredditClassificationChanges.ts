@@ -1,9 +1,9 @@
 import { Comment, context, Post, reddit, redis, scheduler, settings, SettingsValues, TaskRequest } from "@devvit/web/server";
-import { ActionType, AppSetting, ClientSubredditJob, CONFIGURATION_DEFAULTS, expireKeyAt, getControlSubSettings, getRecentlyChangedUsers, getUserStatus, hasPermissions, isBanned, isContributor, isModeratorWithCache, isUserInTempDeclineStore, postIdToShortLink, recordBanForSummary, recordUnbanForSummary, removeRecordOfBanForSummary, setCleanupForUser, UserDetails } from "..";
+import { ActionType, AppSetting, ClientSubredditJob, CONFIGURATION_DEFAULTS, expireKeyAt, getControlSubSettings, getRecentlyChangedUsers, getUserStatus, isModeratorWithCache, isUserInTempDeclineStore, postIdToShortLink, recordBanForSummary, recordUnbanForSummary, removeRecordOfBanForSummary, setCleanupForUser, UserDetails } from "..";
 import { ControlSubSettings, UserStatus } from "@fsvreddit/bot-bouncer-types";
 import { T1, T3 } from "@devvit/web/shared";
 import pluralize from "pluralize";
-import { getPostOrCommentById, getUserOrUndefined, hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
+import { getPostOrCommentById, getUserOrUndefined, hasPermissions, hasEventBeenHandled, isBanned, isContributor } from "@fsvreddit/fsv-devvit-web-helpers";
 import { addDays, addMinutes, addSeconds, formatDate, subDays, subMinutes, subWeeks } from "date-fns";
 import _ from "lodash";
 import { HandleClassificationChangesData } from "../../tasks";
@@ -400,7 +400,7 @@ export async function handleClassificationChanges (event: TaskRequest<HandleClas
     }
 
     const jobGuid = event.data.jobGuid;
-    if (await hasTriggerBeenHandled(`job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+    if (await hasEventBeenHandled(`job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
         console.warn(`Classification Update: Job with guid ${jobGuid} has already been handled, skipping.`);
         return;
     }

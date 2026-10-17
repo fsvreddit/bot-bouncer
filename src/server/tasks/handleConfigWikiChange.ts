@@ -1,5 +1,5 @@
 import { redis, TaskRequest, TaskResponse } from "@devvit/web/server";
-import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
+import { hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import { ConfigWikiPage, validateControlSubConfigChange } from "../core";
 import { addMinutes } from "date-fns";
 import { validateAndSaveAppealConfig } from "../core/controlSubCore/modmail";
@@ -19,7 +19,7 @@ export const handleConfigWikiChangeJob = async (c: Context): Promise<Response> =
     const redisKey = `configWikiQueued:${configWikiPage}`;
 
     const jobGuid = event.data.jobGuid;
-    if (jobGuid && await hasTriggerBeenHandled(`job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+    if (jobGuid && await hasEventBeenHandled(`job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
         console.warn(`handleConfigWikiChange: Job with guid ${jobGuid} has already been handled, skipping.`);
         return c.json<TaskResponse>({ message: "Job has already been handled, skipping." }, 200);
     }

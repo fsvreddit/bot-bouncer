@@ -2,7 +2,7 @@ import { reddit, redis, scheduler, TaskRequest } from "@devvit/web/server";
 import { addMinutes, addSeconds } from "date-fns";
 import json2md from "json2md";
 import { DelayedMessageJobData } from "../../../tasks";
-import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
+import { hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import { ControlSubredditJob } from "../..";
 
 interface DelayedMessageOptions {
@@ -48,7 +48,7 @@ export async function sendMessageOnDelay (params: DelayedMessageOptions) {
 
 export async function processDelayedMessages (event: TaskRequest<DelayedMessageJobData>) {
     const jobGuid = event.data.jobGuid;
-    if (jobGuid && await hasTriggerBeenHandled(`job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+    if (jobGuid && await hasEventBeenHandled(`job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
         console.warn(`Process Delayed Messages: Job with guid ${jobGuid} has already been handled, skipping.`);
         return;
     }

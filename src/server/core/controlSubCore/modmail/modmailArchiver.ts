@@ -1,5 +1,5 @@
 import { GetConversationResponse, reddit, redis, scheduler, TaskRequest } from "@devvit/web/server";
-import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
+import { hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import { CONFIGURATION_DEFAULTS, ControlSubredditJob, ModmailMessage } from "../..";
 import { addMinutes, addSeconds } from "date-fns";
 import { deleteKeyForAppeal, isActiveAppeal } from ".";
@@ -21,7 +21,7 @@ export async function addConversationToModmailArchiverQueue (modmail: ModmailMes
 }
 
 export async function handleModmailArchiver (event: TaskRequest<ModmailArchiverJobData>) {
-    if (await hasTriggerBeenHandled(`job:${event.data.jobGuid}`)) {
+    if (await hasEventBeenHandled(`job:${event.data.jobGuid}`)) {
         console.warn(`Modmail Archiver: Skipping job ${event.data.jobGuid} because it has already been handled.`);
         return;
     }

@@ -1,6 +1,6 @@
 import { Comment, context, Post, reddit, redis, scheduler, TaskRequest } from "@devvit/web/server";
 import { T3 } from "@devvit/web/shared";
-import { getUserExtended, hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
+import { getUserExtended, hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import { addDays, addHours, addMinutes, addSeconds, addWeeks, subDays, subMinutes, subSeconds } from "date-fns";
 import { CONTROL_SUBREDDIT, PostFlairTemplate } from "./constants";
 import { getControlSubSettings } from "./controlSubSettings";
@@ -98,7 +98,7 @@ export async function cleanupDeletedAccounts (event: TaskRequest<CleanupJobData>
     }
 
     const jobGuid = event.data.jobGuid;
-    if (jobGuid && await hasTriggerBeenHandled(`job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+    if (jobGuid && await hasEventBeenHandled(`job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
         console.warn(`Cleanup: Job with guid ${jobGuid} has already been handled, skipping.`);
         return;
     }

@@ -2,7 +2,7 @@ import { redis, scheduler, TaskRequest } from "@devvit/web/server";
 import { updateBioStatistics, updateDisplayNameStatistics, updateSocialLinksStatistics, updateUsernameStatistics } from ".";
 import { getEvaluatorVariables } from "../../userEvaluation";
 import { FLAGS_TO_EXCLUDE_FROM_STATS, StatsUserEntry } from "./statsHelpers";
-import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
+import { hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import { addDays, addMinutes, addSeconds, subMonths } from "date-fns";
 import { ALL_POTENTIAL_USER_PREFIXES, ControlSubredditJob, getFullDataStore } from "../..";
 import { JsonValue } from "@devvit/web/shared";
@@ -51,7 +51,7 @@ const STATUS_UPDATE_CONFIGS: ConditionalStatsUpdateConfig[] = [
 
 export async function conditionalStatsUpdate (event: TaskRequest<ConditionalStatsUpdateJobData | undefined>) {
     const jobGuid = event.data?.jobGuid;
-    if (jobGuid && await hasTriggerBeenHandled(`job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+    if (jobGuid && await hasEventBeenHandled(`job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
         console.warn(`Conditional Stats Update: Job with guid ${jobGuid} has already been handled, skipping.`);
         return;
     }

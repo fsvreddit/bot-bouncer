@@ -1,14 +1,13 @@
 import { context, reddit, redis, scheduler } from "@devvit/web/server";
-import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
+import { hasEventBeenHandled, isModerator } from "@fsvreddit/fsv-devvit-web-helpers";
 import { addSeconds, isSameDay } from "date-fns";
 import { APP_ACCOUNT_ID, CONTROL_SUBREDDIT } from "./constants";
 import { addClientSubredditJobs, addControlSubredditJobs, checkJobsAreApplicable } from "./schedulerJobs";
-import { isModerator } from "./utility";
 import json2md from "json2md";
 import { storeRecordOfContentCreationGracePeriod } from "./clientSubCore";
 
 export async function handleInstallTasks () {
-    if (await hasTriggerBeenHandled("installOrUpgrade", { expiration: addSeconds(new Date(), 10) })) {
+    if (await hasEventBeenHandled("installOrUpgrade", { expiration: addSeconds(new Date(), 10) })) {
         return;
     }
 

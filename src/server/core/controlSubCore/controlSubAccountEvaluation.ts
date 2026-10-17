@@ -1,7 +1,7 @@
 import { Comment, context, Post, reddit, redis, scheduler, settings, SubredditInfo, TaskRequest } from "@devvit/web/server";
 import { JsonValue, T1, T3 } from "@devvit/web/shared";
 import { EvaluateBotGroupAdvancedSubmitters, getSocialLinksWithCache, UserEvaluatorBase } from "@fsvreddit/bot-bouncer-evaluation";
-import { getPostOrCommentById, getUserExtended, hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
+import { getPostOrCommentById, getUserExtended, hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import { accountIsBotBouncerApp, ALL_RELEVANT_EVALUTORS, AppSetting, conditionallyCompressString, conditionallyDecompressString, CONTROL_SUBREDDIT, ControlSubredditJob, getControlSubSettings, getUserStatus, normaliseHitReason, normaliseHitReasons, PostFlairTemplate } from "..";
 import { addMinutes, addSeconds, addWeeks, subMonths } from "date-fns";
 import _ from "lodash";
@@ -158,7 +158,7 @@ export async function handleControlSubAccountEvaluation (request: TaskRequest<Ev
         return;
     }
 
-    if (await hasTriggerBeenHandled(`job:${request.data.jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+    if (await hasEventBeenHandled(`job:${request.data.jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
         console.warn(`Control Sub Account Evaluation: Job with guid ${request.data.jobGuid} has already been handled, skipping.`);
         return;
     }

@@ -1,6 +1,6 @@
 import { context, reddit, redis, scheduler, TaskRequest } from "@devvit/web/server";
 import { T3 } from "@devvit/web/shared";
-import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
+import { hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import { addDays, addMinutes, addSeconds, format, subDays, subWeeks } from "date-fns";
 import json2md from "json2md";
 import { getFullDataStore } from "../../dataStore";
@@ -17,7 +17,7 @@ const PENDING_USERS_TO_ALERT_KEY = "pendingUsersToAlert";
 
 export async function pendingUserFinder (event: TaskRequest<PendingUserFinderJobData | undefined>) {
     const jobGuid = event.data?.jobGuid;
-    if (jobGuid && await hasTriggerBeenHandled(`job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+    if (jobGuid && await hasEventBeenHandled(`job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
         console.warn(`Pending User Finder: Job with guid ${jobGuid} has already been handled, skipping.`);
         return;
     }
@@ -111,7 +111,7 @@ export async function pendingUserFinder (event: TaskRequest<PendingUserFinderJob
 }
 
 export async function createSummariesForPendingUsers (event: TaskRequest<CreateSummariesForPendingUsersJobData>) {
-    if (await hasTriggerBeenHandled(`job:${event.data.jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+    if (await hasEventBeenHandled(`job:${event.data.jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
         console.warn(`Create Summaries for Pending Users: Job with guid ${event.data.jobGuid} has already been handled, skipping.`);
         return;
     }

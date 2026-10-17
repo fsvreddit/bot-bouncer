@@ -1,6 +1,6 @@
 import { context, reddit, redis, scheduler } from "@devvit/web/server";
 import { OnModActionRequest, T3, TriggerResponse } from "@devvit/web/shared";
-import { getExtendedDevvit, hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
+import { getExtendedDevvit, hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import { addDays, addMinutes, addSeconds, subMinutes } from "date-fns";
 import { Context } from "hono";
 import { accountIsBotBouncerApp, APP_ACCOUNT_ID, clearAppPermissionsCache, ClientSubredditJob, ConfigWikiPage, CONTROL_SUBREDDIT, ControlSubredditJob, getControlSubSettings, getInstallDate, handleExternalSubmissionsPageUpdate, INTERNAL_BOT, isModeratorWithCache, recordWhitelistUnban, removeCachedBanStatus, removeRecordOfBan, sendMessageToWebhook } from "../core";
@@ -11,7 +11,7 @@ import { handleObserverSubsWikiPageCopy } from "../core/controlSubCore/statistic
 export const onModAction = async (c: Context): Promise<Response> => {
     const event = await c.req.json<OnModActionRequest>();
 
-    if (await hasTriggerBeenHandled(`ModAction:${event.action}:${event.moderator?.name}:${event.actionedAt}`, { expiration: addMinutes(new Date(), 10) })) {
+    if (await hasEventBeenHandled(`ModAction:${event.action}:${event.moderator?.name}:${event.actionedAt}`, { expiration: addMinutes(new Date(), 10) })) {
         return c.json<TriggerResponse>({ message: "Trigger has already been handled." }, 200);
     }
 

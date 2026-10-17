@@ -1,5 +1,5 @@
 import { context, reddit, redis, TaskRequest, TaskResponse } from "@devvit/web/server";
-import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
+import { hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import { addMinutes } from "date-fns";
 import { Context } from "hono";
 import { getControlSubSettings } from "../core";
@@ -20,7 +20,7 @@ export const handleNotifyModTeamOnDemodJob = async (c: Context): Promise<Respons
     }
 
     const jobGuid = event.data.jobGuid;
-    if (jobGuid && await hasTriggerBeenHandled(`job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+    if (jobGuid && await hasEventBeenHandled(`job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
         console.warn(`notifyModTeamOnDemod: Job with guid ${jobGuid} has already been handled, skipping.`);
         return c.json<TaskResponse>({ message: "Job has already been handled, skipping." }, 200);
     }

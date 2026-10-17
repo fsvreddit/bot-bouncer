@@ -3,7 +3,7 @@ import { addHours, addMinutes, addSeconds, format, subWeeks } from "date-fns";
 import json2md from "json2md";
 import { StatsUserEntry, userIsBanned } from "./statsHelpers";
 import { BIO_TEXT_STORE, ControlSubredditJob, decodedText, encodedText, expireKeyAt, hGetAllChunked, hMGetAsRecord, hSetChunked, zRangeAsRecord } from "../..";
-import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
+import { hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import { getEvaluatorVariable, getRedisSubstitionValue, setRedisSubstititionValue } from "../../userEvaluation";
 import escapeStringRegexp from "escape-string-regexp";
 import { BioStatsJobData } from "../../../tasks";
@@ -87,7 +87,7 @@ function sha1hash (input: string): string {
 
 export async function updateBioStatisticsJob (event: TaskRequest<BioStatsJobData>) {
     const jobGuid = event.data.jobGuid as string | undefined;
-    if (jobGuid && await hasTriggerBeenHandled(`job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+    if (jobGuid && await hasEventBeenHandled(`job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
         console.warn(`Update Bio Statistics Job: Job with guid ${jobGuid} has already been handled, skipping.`);
         return;
     }

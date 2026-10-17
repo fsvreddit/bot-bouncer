@@ -1,6 +1,6 @@
 import { context, reddit, redis, scheduler, TaskRequest } from "@devvit/web/server";
 import { T3 } from "@devvit/web/shared";
-import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
+import { hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import { UserStatus } from "@fsvreddit/bot-bouncer-types";
 import { addDays, addMinutes, addSeconds } from "date-fns";
 import { AsyncSubmission, CLEANUP_LOG_KEY, CONTROL_SUBREDDIT, ControlSubredditJob, deleteAccountInitialEvaluationResults, deleteUserStatus, getAccountInitialEvaluationResults, getUserStatus, ModmailMessage, normaliseHitReason, PostFlairTemplate, updateAggregate } from "../..";
@@ -84,7 +84,7 @@ async function reverseExtract (message: ModmailMessage) {
 
 export async function classificationReversalsJob (event: TaskRequest<ClassificationReversalsJobData>) {
     const jobGuid = event.data.jobGuid as string | undefined;
-    if (jobGuid && await hasTriggerBeenHandled(`job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+    if (jobGuid && await hasEventBeenHandled(`job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
         console.warn(`Classification Reversals: Job with guid ${jobGuid} has already been handled, skipping.`);
         return;
     }
@@ -219,7 +219,7 @@ const SUBMISSION_DETAILS = "submissionDetails";
 
 export async function reversePostCreationQueue (event: TaskRequest<ReversePostCreationQueueData>) {
     const jobGuid = event.data.jobGuid as string | undefined;
-    if (jobGuid && await hasTriggerBeenHandled(`job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+    if (jobGuid && await hasEventBeenHandled(`job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
         console.warn(`Post Creation Queue Reversals: Job with guid ${jobGuid} has already been handled, skipping.`);
         return;
     }
@@ -328,7 +328,7 @@ export async function reversePostCreationQueue (event: TaskRequest<ReversePostCr
 
 export async function deleteRecordsForRemovedUsers (event: TaskRequest<DeleteRecordsForRemovedUsersData | undefined>) {
     const jobGuid = event.data?.jobGuid;
-    if (jobGuid && await hasTriggerBeenHandled(`job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+    if (jobGuid && await hasEventBeenHandled(`job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
         console.warn(`Delete Records: Job with guid ${jobGuid} has already been handled, skipping.`);
         return;
     }

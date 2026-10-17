@@ -1,5 +1,5 @@
 import { context, reddit, redis, scheduler, TaskRequest } from "@devvit/web/server";
-import { getUserOrUndefined, hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
+import { getUserOrUndefined, hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import { CONTROL_SUBREDDIT, ControlSubredditJob, getControlSubSettings, getUsernameFromUrl } from "../..";
 import { addDays, addMinutes, addSeconds } from "date-fns";
 import json2md from "json2md";
@@ -41,7 +41,7 @@ export async function checkAccountsForReview (event: TaskRequest<AccountReviewJo
     }
 
     const jobGuid = event.data.jobGuid;
-    if (jobGuid && await hasTriggerBeenHandled(`job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+    if (jobGuid && await hasEventBeenHandled(`job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
         console.warn(`Account Review: Job with guid ${jobGuid} has already been handled, skipping.`);
         return;
     }

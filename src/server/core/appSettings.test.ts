@@ -15,7 +15,7 @@ vi.mock("@devvit/web/server", () => ({
 
 vi.mock("@fsvreddit/fsv-devvit-web-helpers", () => ({
     getExtendedDevvit: vi.fn(),
-    hasTriggerBeenHandled: vi.fn(),
+    hasEventBeenHandled: vi.fn(),
 }));
 
 import { assert, describe, it } from "vitest";

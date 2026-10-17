@@ -2,7 +2,7 @@ import { context, reddit } from "@devvit/web/server";
 import type { OnPostDeleteRequest, T3, TriggerResponse } from "@devvit/web/shared";
 import type { Context } from "hono";
 import { CONTROL_SUBREDDIT } from "../core";
-import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
+import { hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import pluralize from "pluralize";
 
 export const onPostDelete = async (c: Context): Promise<Response> => {
@@ -17,7 +17,7 @@ export const onPostDelete = async (c: Context): Promise<Response> => {
         return c.json<TriggerResponse>({ message: "Not deleted by user" }, 200);
     }
 
-    if (await hasTriggerBeenHandled(`PostDelete:${request.postId}:${request.deletedAt}`)) {
+    if (await hasEventBeenHandled(`PostDelete:${request.postId}:${request.deletedAt}`)) {
         return c.json<TriggerResponse>({ message: "Trigger already handled" }, 200);
     }
 

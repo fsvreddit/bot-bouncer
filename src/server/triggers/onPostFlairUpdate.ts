@@ -2,7 +2,7 @@ import type { Context } from "hono";
 import { context, reddit, redis } from "@devvit/web/server";
 import { OnPostFlairUpdateRequest, T3, TriggerResponse } from "@devvit/web/shared";
 import { CONTROL_SUBREDDIT, FLAIR_MAPPINGS, getUsernameFromUrl, getUserStatus, queueSendFeedback, setUserStatus, statusToFlair, UserDetails, writeUserStatus } from "../core";
-import { fixPostTriggerEvent, hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
+import { fixPostTriggerEvent, hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import { UserStatus } from "@fsvreddit/bot-bouncer-types";
 import { addHours, addSeconds } from "date-fns";
 import { addToReversalsQueue, submitAccountForReview } from "../core/controlSubCore/modmail";
@@ -27,7 +27,7 @@ export const onPostFlairUpdate = async (c: Context): Promise<Response> => {
         return c.json<TriggerResponse>({ message: "No post flair" }, 200);
     }
 
-    if (await hasTriggerBeenHandled(`PostFlairUpdate:${request.post.id}:${postFlair}`, { expiration: addSeconds(new Date(), 10) })) {
+    if (await hasEventBeenHandled(`PostFlairUpdate:${request.post.id}:${postFlair}`, { expiration: addSeconds(new Date(), 10) })) {
         return c.json<TriggerResponse>({ message: "Trigger already handled" }, 200);
     }
 

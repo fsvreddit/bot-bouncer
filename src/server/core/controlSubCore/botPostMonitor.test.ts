@@ -14,7 +14,7 @@ vi.mock("@devvit/web/server", () => ({
 
 vi.mock("@fsvreddit/fsv-devvit-web-helpers", () => ({
     getUserExtended: vi.fn(),
-    hasTriggerBeenHandled: vi.fn(),
+    hasEventBeenHandled: vi.fn(),
 }));
 import { BOT_POST_MONITOR_DEFAULT_THRESHOLD_MINUTES, BotPostRecord, getBotPostFreshness, getBotPostMonitorThresholdMinutes } from "./botPostMonitor.js";
 

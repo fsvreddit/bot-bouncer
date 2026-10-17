@@ -1,5 +1,5 @@
 import { context, reddit, redis, scheduler, settings, TaskRequest, UserSocialLink } from "@devvit/web/server";
-import { getUserExtended, hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
+import { getUserExtended, hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import { EvaluateBioTextDefinedHandles, EvaluateBotGroupAdvanced, EvaluateBotGroupAdvancedInternal, EvaluatePostTitleDefinedHandles, EvaluateSocialLinks } from "@fsvreddit/bot-bouncer-evaluation";
 import { addMinutes, addSeconds } from "date-fns";
 import { AppSetting, ControlSubredditJob, getControlSubSettings, getUserStatus, UserFlag } from "..";
@@ -19,7 +19,7 @@ export async function addUserToFlaggedRechecksQueue (username: string): Promise<
 
 export async function checkUserFlaggedRechecksQueue (event: TaskRequest<FlaggedRechecksQueueJobData>): Promise<void> {
     const jobGuid = event.data.jobGuid;
-    if (await hasTriggerBeenHandled(`job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+    if (await hasEventBeenHandled(`job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
         console.warn(`FlaggedRechecks: Job with guid ${jobGuid} has already been handled, skipping.`);
         return;
     }

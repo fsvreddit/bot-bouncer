@@ -2,7 +2,7 @@ import { context, reddit, redis, scheduler, TaskRequest } from "@devvit/web/serv
 import { JsonValue } from "@devvit/web/shared";
 import _ from "lodash";
 import { ALL_RELEVANT_EVALUTORS, compressData, CONTROL_SUBREDDIT, ControlSubredditJob, getControlSubSettings, normaliseHitReason, sendMessageToWebhook } from "..";
-import { getUserExtended, hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
+import { getUserExtended, hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import { addMinutes, addSeconds } from "date-fns";
 import { EvaluateBotGroupAdvanced, EvaluateBotGroupAdvancedSubmitters, yamlToVariables } from "@fsvreddit/bot-bouncer-evaluation";
 import json2md from "json2md";
@@ -82,7 +82,7 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: TaskReques
         throw new Error("Evaluator Variables: This job should only be run in the control subreddit.");
     }
 
-    if (await hasTriggerBeenHandled(`job:${event.data.jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+    if (await hasEventBeenHandled(`job:${event.data.jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
         console.warn(`Evaluator Variables: Job with guid ${event.data.jobGuid} has already been handled, skipping.`);
         return;
     }

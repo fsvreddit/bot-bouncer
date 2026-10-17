@@ -3,7 +3,7 @@ import { isT3 } from "@devvit/web/shared";
 import { ExternalSubmission, UserStatus } from "@fsvreddit/bot-bouncer-types";
 import { addUserToTempDeclineStore, AsyncSubmission, CONTROL_SUBREDDIT, ControlSubredditJob, evaluateUserAccount, expireKeyAt, getControlSubSettings, getUserStatus, INTERNAL_BOT, isUserAlreadyQueued, PostCreationQueueResult, promotePositionInQueue, queueKarmaFarmingAccounts, queuePostCreation, storeAccountInitialEvaluationResults, userIsTrustedSubmitter } from ".";
 import { addDays, addMinutes, addSeconds, addWeeks } from "date-fns";
-import { getPostOrCommentById, getUserExtendedFromUser, getUserOrUndefined, hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
+import { getPostOrCommentById, getUserExtendedFromUser, getUserOrUndefined, hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import json2md from "json2md";
 import pluralize from "pluralize";
 import { getEvaluatorVariables } from "./userEvaluation";
@@ -303,7 +303,7 @@ export async function processExternalSubmissionsQueue (event: TaskRequest<Extern
     }
     await redis.set(runRecentlyKey, Date.now().toString(), { expiration: addMinutes(new Date(), 1) });
 
-    if (await hasTriggerBeenHandled(`job:${event.data.jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+    if (await hasEventBeenHandled(`job:${event.data.jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
         console.log(`External Submissions: Job ${event.data.jobGuid} has already been handled, skipping.`);
         return;
     }

@@ -1,5 +1,5 @@
 import { Comment, context, Post, redis } from "@devvit/web/server";
-import { isModerator } from "../..";
+import { isModerator } from "@fsvreddit/fsv-devvit-web-helpers";
 import { addWeeks } from "date-fns";
 import _ from "lodash";
 

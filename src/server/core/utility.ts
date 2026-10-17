@@ -1,4 +1,5 @@
-import { context, ModeratorPermission, reddit, redis } from "@devvit/web/server";
+import { context, redis } from "@devvit/web/server";
+import { isBanned, isModerator } from "@fsvreddit/fsv-devvit-web-helpers";
 import { HitReason, HitReasonDetailed } from "@fsvreddit/bot-bouncer-types";
 import { addDays, addHours, formatDuration, intervalToDuration } from "date-fns";
 import { deflate, inflate } from "pako";
@@ -13,46 +14,6 @@ export function getUsernameFromUrl (url: string) {
 
     const [, username] = matches;
     return username;
-}
-
-export async function isModerator (subredditName: string, username: string): Promise<boolean> {
-    const modList = await reddit.getModerators({
-        subredditName,
-        username,
-    }).all();
-
-    return modList.length > 0;
-}
-
-export async function isBanned (subredditName: string, username: string): Promise<boolean> {
-    const banList = await reddit.getBannedUsers({
-        subredditName,
-        username,
-    }).all();
-
-    return banList.length > 0;
-}
-
-export async function isContributor (subredditName: string, username: string): Promise<boolean> {
-    const contributorList = await reddit.getApprovedUsers({
-        subredditName,
-        username,
-    }).all();
-
-    return contributorList.length > 0;
-}
-
-export async function hasPermissions (opts: {
-    subredditName: string;
-    username: string;
-    requiredPerms: ModeratorPermission[];
-}): Promise<boolean> {
-    const user = await reddit.getUserByUsername(opts.username);
-    const permissions = await user?.getModPermissionsForSubreddit(opts.subredditName);
-    if (!permissions) {
-        return false;
-    }
-    return permissions.includes("all") || opts.requiredPerms.every(perm => permissions.includes(perm));
 }
 
 export async function isModeratorWithCache (username: string, subreddit?: string): Promise<boolean> {

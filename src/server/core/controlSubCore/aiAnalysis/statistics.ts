@@ -2,7 +2,7 @@ import { redis, settings, TaskRequest } from "@devvit/web/server";
 import { addDays, addMinutes, endOfDay, format, startOfDay, subDays } from "date-fns";
 import { AppSetting, expireKeyAt, getControlSubSettings, sendMessageToWebhook, updateWebhookMessage } from "../..";
 import OpenAI from "openai";
-import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
+import { hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import { UpdateTokenStatsMessageData } from "../../../tasks";
 import pluralize from "pluralize";
 
@@ -151,7 +151,7 @@ export async function storeTokenStatsForResponse (response: OpenAI.Responses.Res
 
 export async function updateTokenStatsMessage (event: TaskRequest<UpdateTokenStatsMessageData | undefined>) {
     const jobGuid = event.data?.jobGuid;
-    if (jobGuid && await hasTriggerBeenHandled(`job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+    if (jobGuid && await hasEventBeenHandled(`job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
         console.warn(`Update Token Stats Message: Job with guid ${jobGuid} has already been handled, skipping.`);
         return;
     }

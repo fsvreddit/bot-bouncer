@@ -17,7 +17,7 @@ vi.mock("@fsvreddit/fsv-devvit-web-helpers", () => ({
     getUserExtended: vi.fn(),
     getUserExtendedFromUser: vi.fn(),
     getUserOrUndefined: vi.fn(),
-    hasTriggerBeenHandled: vi.fn(),
+    hasEventBeenHandled: vi.fn(),
 }));
 import { resolveExternalSubmissionInitialStatus } from "./externalSubmissions.js";
 import { INTERNAL_BOT } from "./constants.js";

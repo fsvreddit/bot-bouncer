@@ -1,7 +1,7 @@
 import { Comment, context, Post, reddit, redis, settings, UserSocialLink } from "@devvit/web/server";
 import { isT3, JsonValue, OnCommentCreateRequest, OnCommentUpdateRequest, OnPostCreateRequest, OnPostUpdateRequest, T1, T3 } from "@devvit/web/shared";
-import { fixCommentTriggerEvent, fixPostTriggerEvent, getPostOrCommentById, getUserExtended, getUserOrUndefined } from "@fsvreddit/fsv-devvit-web-helpers";
-import { ActionType, addExternalSubmissionFromClientSub, addUserToModqueueRemovalStore, ALL_RELEVANT_EVALUTORS, AppSetting, CONFIGURATION_DEFAULTS, CONTROL_SUBREDDIT, expireKeyAt, getControlSubSettings, getUserStatus, isBanned, isContributor, isModeratorWithCache, isUserWhitelisted, recordBan, recordBanForSummary, recordUserContentCreation, UserDetails } from "..";
+import { fixCommentTriggerEvent, fixPostTriggerEvent, getPostOrCommentById, getUserExtended, getUserOrUndefined, isBanned, isContributor } from "@fsvreddit/fsv-devvit-web-helpers";
+import { ActionType, addExternalSubmissionFromClientSub, addUserToModqueueRemovalStore, ALL_RELEVANT_EVALUTORS, AppSetting, CONFIGURATION_DEFAULTS, CONTROL_SUBREDDIT, expireKeyAt, getControlSubSettings, getUserStatus, isModeratorWithCache, isUserWhitelisted, recordBan, recordBanForSummary, recordUserContentCreation, UserDetails } from "..";
 import { getEvaluatorVariables } from "../userEvaluation";
 import { UserStatus } from "@fsvreddit/bot-bouncer-types";
 import { addDays, formatDate } from "date-fns";

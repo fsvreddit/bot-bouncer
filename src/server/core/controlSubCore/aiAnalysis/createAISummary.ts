@@ -2,7 +2,7 @@ import { context, reddit, redis, scheduler, TaskRequest } from "@devvit/web/serv
 import { T3 } from "@devvit/web/shared";
 import { CONTROL_SUBREDDIT, ControlSubredditJob, getControlSubSettings } from "../..";
 import { addDays, addMinutes, differenceInDays } from "date-fns";
-import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
+import { hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import { getPromptData, PromptData } from "./common";
 import json2md from "json2md";
 import { getUserInfoForOpenAI } from "./gatherUserDetailsForOpenAI";
@@ -40,7 +40,7 @@ export async function generateOpenAISummary (event: TaskRequest<OpenAISummaryGat
     }
 
     const jobGuid = event.data.jobGuid;
-    if (jobGuid && await hasTriggerBeenHandled(`job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+    if (jobGuid && await hasEventBeenHandled(`job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
         console.warn(`AI Summary: Job with guid ${jobGuid} has already been handled, skipping.`);
         return;
     }
@@ -182,7 +182,7 @@ export async function openAISummaryLookupAndRespond (event: TaskRequest<OpenAISu
     }
 
     const jobGuid = event.data.jobGuid as string | undefined;
-    if (jobGuid && await hasTriggerBeenHandled(`job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+    if (jobGuid && await hasEventBeenHandled(`job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
         console.warn(`OpenAI Summary Lookup: Job with guid ${jobGuid} has already been handled, skipping.`);
         return;
     }

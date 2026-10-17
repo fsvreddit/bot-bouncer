@@ -3,7 +3,7 @@ import { getEvaluatorVariables } from "../userEvaluation";
 import { addMinutes, addSeconds, differenceInMinutes, subMinutes, subWeeks } from "date-fns";
 import { JsonValue } from "@devvit/web/shared";
 import { AsyncSubmission, CONTROL_SUBREDDIT, ControlSubredditJob, evaluateUserAccount, getAllKnownUsers, getControlSubSettings, getUserStatus, isUserAlreadyQueued, PostCreationQueueResult, promotePositionInQueue, queuePostCreation, storeAccountInitialEvaluationResults, UserDetails, userHasContinuousNSFWHistory } from "..";
-import { getUserExtended, hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
+import { getUserExtended, hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import { UserStatus } from "@fsvreddit/bot-bouncer-types";
 import json2md from "json2md";
 import pluralize from "pluralize";
@@ -220,13 +220,13 @@ async function rebalanceCohorts () {
 
 export async function evaluateKarmaFarmingSubs (event: TaskRequest<EvaluateKarmaFarmingSubsEventData>) {
     const jobGuid = event.data.jobGuid;
-    if (jobGuid && await hasTriggerBeenHandled(`job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+    if (jobGuid && await hasEventBeenHandled(`job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
         console.warn(`Karma Farming Subs: Job with guid ${jobGuid} has already been handled, skipping.`);
         return;
     }
 
     if (event.data.firstRun && !event.data.cohort) {
-        if (await hasTriggerBeenHandled(`job:${ControlSubredditJob.EvaluateKarmaFarmingSubs}`, { expiration: addSeconds(new Date(), 5) })) {
+        if (await hasEventBeenHandled(`job:${ControlSubredditJob.EvaluateKarmaFarmingSubs}`, { expiration: addSeconds(new Date(), 5) })) {
             console.warn(`Karma Farming Subs: First run for job ${ControlSubredditJob.EvaluateKarmaFarmingSubs} has already been handled, skipping.`);
             return;
         }

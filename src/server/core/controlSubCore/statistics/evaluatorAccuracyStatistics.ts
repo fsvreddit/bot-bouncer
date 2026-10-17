@@ -2,7 +2,7 @@ import { reddit, redis, scheduler, TaskRequest } from "@devvit/web/server";
 import { EvaluationResult, UserStatus } from "@fsvreddit/bot-bouncer-types";
 import { ALL_POTENTIAL_USER_PREFIXES, ALL_RELEVANT_EVALUTORS, CONTROL_SUBREDDIT, ControlSubredditJob, getAccountInitialEvaluationResults, getDataStoreFiltered, hGetAllChunked, normaliseHitReason } from "../..";
 import { addMinutes, addSeconds, format, subDays } from "date-fns";
-import { hasTriggerBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
+import { hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import { FLAGS_TO_EXCLUDE_FROM_STATS } from "./statsHelpers";
 import json2md from "json2md";
 import { getEvaluatorVariables } from "../../userEvaluation";
@@ -40,7 +40,7 @@ export async function initialiseEvaluatorAccuracyStatistics (event: TaskRequest<
         return;
     }
 
-    if (await hasTriggerBeenHandled(`job:${event.data.jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+    if (await hasEventBeenHandled(`job:${event.data.jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
         console.warn(`Evaluator Accuracy Statistics: Initialiser job with guid ${event.data.jobGuid} has already been handled, skipping.`);
         return;
     }
@@ -97,7 +97,7 @@ export async function initialiseEvaluatorAccuracyStatistics (event: TaskRequest<
 
 export async function buildEvaluatorAccuracyStatistics (event: TaskRequest<BuildEvaluatorAccuracyStatisticsJobData | undefined>) {
     const jobGuid = event.data?.jobGuid;
-    if (jobGuid && await hasTriggerBeenHandled(`job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+    if (jobGuid && await hasEventBeenHandled(`job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
         console.warn(`Evaluator Accuracy Statistics: Job with guid ${jobGuid} has already been handled, skipping.`);
         return;
     }
