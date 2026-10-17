@@ -5,7 +5,7 @@ import { checkUserFlaggedRechecksQueue } from "../core/userEvaluation";
 
 export type FlaggedRechecksQueueJobData = {
     firstRun: boolean;
-    jobGuid?: string;
+    jobGuid: string;
 };
 
 export const handleFlaggedUserRechecksJob = async (c: Context): Promise<Response> => {

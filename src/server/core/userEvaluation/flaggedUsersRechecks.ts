@@ -19,7 +19,7 @@ export async function addUserToFlaggedRechecksQueue (username: string): Promise<
 
 export async function checkUserFlaggedRechecksQueue (event: TaskRequest<FlaggedRechecksQueueJobData>): Promise<void> {
     const jobGuid = event.data.jobGuid;
-    if (jobGuid && await hasTriggerBeenHandled(`job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+    if (await hasTriggerBeenHandled(`job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
         console.warn(`FlaggedRechecks: Job with guid ${jobGuid} has already been handled, skipping.`);
         return;
     }
