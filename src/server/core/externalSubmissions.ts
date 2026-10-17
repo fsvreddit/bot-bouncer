@@ -1,0 +1,416 @@
+import { context, reddit, redis, scheduler, TaskRequest, User, WikiPage } from "@devvit/web/server";
+import { isT3 } from "@devvit/web/shared";
+import { ExternalSubmission, UserStatus } from "@fsvreddit/bot-bouncer-types";
+import { addUserToTempDeclineStore, AsyncSubmission, CONTROL_SUBREDDIT, ControlSubredditJob, evaluateUserAccount, expireKeyAt, getControlSubSettings, getUserStatus, INTERNAL_BOT, isUserAlreadyQueued, PostCreationQueueResult, promotePositionInQueue, queueKarmaFarmingAccounts, queuePostCreation, storeAccountInitialEvaluationResults, userIsTrustedSubmitter } from ".";
+import { addDays, addMinutes, addSeconds, addWeeks } from "date-fns";
+import { getPostOrCommentById, getUserExtendedFromUser, getUserOrUndefined, hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
+import json2md from "json2md";
+import pluralize from "pluralize";
+import { getEvaluatorVariables } from "./userEvaluation";
+import { ExternalSubmissionQueueData } from "../tasks";
+
+const WIKI_PAGE = "externalsubmissions";
+
+const EXTERNAL_SUBMISSION_QUEUE_KEY = "externalSubmissionQueue";
+
+function getExternalSubmissionDataKey (username: string): string {
+    return `externalSubmissionData:${username}`;
+}
+
+const ALLOWED_EXTERNAL_INITIAL_STATUSES = new Set<UserStatus>([
+    UserStatus.Pending,
+    UserStatus.Banned,
+    UserStatus.Organic,
+    UserStatus.Service,
+]);
+
+export function resolveExternalSubmissionInitialStatus (
+    item: Pick<ExternalSubmission, "submitter" | "initialStatus">,
+    submitterIsTrusted: boolean,
+): UserStatus {
+    const initialStatusWasSupplied = item.initialStatus !== undefined;
+    const requestedInitialStatus = item.initialStatus && ALLOWED_EXTERNAL_INITIAL_STATUSES.has(item.initialStatus)
+        ? item.initialStatus
+        : undefined;
+
+    // Automatic/internal submissions may set an initial status as part of evaluator processing.
+    if (!item.submitter || item.submitter === INTERNAL_BOT) {
+        return requestedInitialStatus ?? UserStatus.Pending;
+    }
+
+    // Never trust an externally supplied status from an ordinary submitter.
+    if (!submitterIsTrusted) {
+        return UserStatus.Pending;
+    }
+
+    // Malformed or unsupported explicit statuses fail closed to manual review.
+    if (initialStatusWasSupplied && !requestedInitialStatus) {
+        return UserStatus.Pending;
+    }
+
+    // Preserve the existing trusted-submitter default of banning when no status was supplied.
+    return requestedInitialStatus ?? UserStatus.Banned;
+}
+
+export async function addExternalSubmissionFromClientSub (data: ExternalSubmission) {
+    if (context.subredditName === CONTROL_SUBREDDIT) {
+        throw new Error("This function must be called from a client subreddit, not the control subreddit.");
+    }
+
+    const alreadyInQueue = await redis.global.zScore(EXTERNAL_SUBMISSION_QUEUE_KEY, data.username);
+    if (await redis.global.zScore(EXTERNAL_SUBMISSION_QUEUE_KEY, data.username)) {
+        console.log(`External Submissions: User ${data.username} is already in the external submissions queue.`);
+        return;
+    }
+
+    if (alreadyInQueue) {
+        console.log(`External Submissions: User ${data.username} is already in the external submissions queue.`);
+    } else {
+        await redis.global.zAdd(EXTERNAL_SUBMISSION_QUEUE_KEY, { member: data.username, score: new Date().getTime() });
+        await redis.global.set(getExternalSubmissionDataKey(data.username), JSON.stringify(data), { expiration: addDays(new Date(), 7) });
+        console.log(`External Submissions: Added external submission for ${data.username} to the queue.`);
+    }
+
+    if (data.targetId) {
+        const redisKey = `userContextItems:${data.username}`;
+        await redis.hSet(redisKey, { [data.targetId]: data.targetId });
+        await expireKeyAt(redisKey, addWeeks(new Date(), 2));
+    }
+}
+
+export async function addExternalSubmissionToPostCreationQueue (item: ExternalSubmission, immediate: boolean): Promise<boolean> {
+    if (context.subredditName !== CONTROL_SUBREDDIT) {
+        throw new Error("This function can only be called from the control subreddit.");
+    }
+
+    const currentStatus = await getUserStatus(item.username);
+    if (currentStatus) {
+        console.log(`External Submissions: User ${item.username} already has a status of ${currentStatus.userStatus}.`);
+        if (!item.submitter) {
+            // Submitted automatically, but in the database already.
+            // Need to send back initial status.
+            await addUserToTempDeclineStore(item.username);
+        }
+        return false;
+    }
+
+    const alreadyQueued = await isUserAlreadyQueued(item.username);
+    if (alreadyQueued) {
+        console.log(`External Submissions: User ${item.username} is already in the queue.`);
+        if (immediate) {
+            await promotePositionInQueue(item.username);
+            console.log(`External Submissions: Promoted ${item.username} in the queue due to immediate flag.`);
+        }
+        return false;
+    }
+
+    let user: User | undefined;
+    try {
+        user = await getUserOrUndefined(item.username);
+    } catch {
+        console.log(`External Submissions: Error fetching data for ${item.username}, skipping.`);
+        return false;
+    }
+
+    if (!user) {
+        console.log(`External Submissions: User ${item.username} is deleted or shadowbanned, skipping.`);
+        return false;
+    }
+
+    if (!item.submitter || item.submitter === INTERNAL_BOT) {
+        // Automatic submission. Check if any evaluators match.
+        const variables = await getEvaluatorVariables();
+        const evaluationResults = await evaluateUserAccount({
+            username: item.username,
+            variables,
+            targetId: item.targetId,
+        });
+
+        if (item.submitter === INTERNAL_BOT) {
+            if (item.evaluationResults) {
+                item.evaluationResults.push(...evaluationResults);
+            } else {
+                item.evaluationResults = evaluationResults;
+            }
+        } else if (evaluationResults.length === 0) {
+            console.log(`External Submissions: No evaluators matched for ${item.username}.`);
+            await addUserToTempDeclineStore(item.username);
+            return false;
+        } else if (evaluationResults.some(result => result.canAutoBan && result.metThreshold)) {
+            console.log(`External Submissions: User ${item.username} met the auto-ban criteria.`);
+            item.evaluationResults = evaluationResults;
+            item.initialStatus = UserStatus.Banned;
+        }
+    }
+
+    const submitterIsTrusted = item.submitter && item.submitter !== INTERNAL_BOT
+        ? await userIsTrustedSubmitter(item.submitter)
+        : false;
+    const initialStatus = resolveExternalSubmissionInitialStatus(item, submitterIsTrusted);
+
+    if (item.submitter && item.submitter !== INTERNAL_BOT && !submitterIsTrusted && item.initialStatus && item.initialStatus !== UserStatus.Pending) {
+        console.warn(`External Submissions: Ignoring unauthorized initial status ${item.initialStatus} from ${item.submitter} for ${item.username}.`);
+    }
+
+    let commentToAdd: string | undefined;
+
+    if (item.proactive) {
+        commentToAdd = json2md([
+            { p: "This user was detected automatically through proactive bot hunting activity." },
+            { p: `*I am a bot, and this action was performed automatically. Please [contact the moderators of this subreddit](/message/compose/?to=/r/${CONTROL_SUBREDDIT}) if you have any questions or concerns.*` },
+        ]);
+    } else if (item.reportContext) {
+        const body: json2md.DataObject[] = [
+            { p: "The submitter added the following context for this submission:" },
+            { blockquote: item.reportContext },
+        ];
+
+        if (item.targetId) {
+            const target = await getPostOrCommentById(item.targetId);
+            body.push({ p: `User was reported via [this ${isT3(target.id) ? "post" : "comment"}](${target.permalink})` });
+        }
+
+        body.push({ p: `*I am a bot, and this action was performed automatically. Please [contact the moderators of this subreddit](/message/compose/?to=/r/${CONTROL_SUBREDDIT}) if you have any questions or concerns.*` });
+        commentToAdd = json2md(body);
+    }
+
+    const submission: AsyncSubmission = {
+        user: await getUserExtendedFromUser(user),
+        submitter: item.submitter,
+        details: {
+            userStatus: initialStatus,
+            lastUpdate: new Date().getTime(),
+            submitter: item.submitter,
+            operator: context.appSlug,
+            trackingPostId: "",
+            reportedAt: new Date().getTime(),
+        },
+        immediate,
+        commentToAdd,
+        removeComment: item.publicContext === false,
+        reportContext: item.reportContext,
+        evaluatorsChecked: item.evaluationResults !== undefined && item.evaluationResults.length > 0,
+    };
+
+    const [result] = await queuePostCreation([submission]);
+    if (result === PostCreationQueueResult.Queued) {
+        let message = `External Submissions: Queued post creation for ${item.username}`;
+        if (item.submitter) {
+            message += ` submitted by ${item.submitter}`;
+        }
+        if (item.subreddit) {
+            message += ` from /r/${item.subreddit}`;
+        }
+        console.log(message);
+
+        if (item.sendFeedback) {
+            await redis.set(`sendFeedback:${item.username}`, "true", { expiration: addDays(new Date(), 7) });
+        }
+
+        if (item.evaluationResults) {
+            await storeAccountInitialEvaluationResults(item.username, item.evaluationResults);
+        }
+    } else {
+        console.log(`External Submissions: Post not queued for ${item.username} due to ${result}`);
+    }
+
+    return true;
+}
+
+export async function handleExternalSubmissionsPageUpdate () {
+    if (context.subredditName !== CONTROL_SUBREDDIT) {
+        const controlSubSettings = await getControlSubSettings();
+        if (!context.subredditName || !controlSubSettings.observerSubreddits?.includes(context.subredditName)) {
+            return;
+        }
+    }
+
+    const externalSubmissionLock = "externalSubmissionLock";
+    const isLocked = await redis.exists(externalSubmissionLock);
+    if (isLocked) {
+        console.log("External Submissions: Already processing, skipping this run.");
+        return;
+    }
+
+    await redis.set(externalSubmissionLock, "true", { expiration: addMinutes(new Date(), 1) });
+
+    let wikiPage: WikiPage | undefined;
+    try {
+        wikiPage = await reddit.getWikiPage(context.subredditName, WIKI_PAGE, {});
+    } catch {
+        //
+    }
+
+    const currentSubmissionList = JSON.parse(wikiPage?.content ?? "[]") as ExternalSubmission[];
+
+    if (currentSubmissionList.length === 0) {
+        await redis.del(externalSubmissionLock);
+        return;
+    }
+
+    const immediate = currentSubmissionList.length === 1;
+
+    const results = await Promise.all(currentSubmissionList.map(async (item) => {
+        const alreadyQueued = await redis.global.zScore(EXTERNAL_SUBMISSION_QUEUE_KEY, item.username);
+        if (alreadyQueued) {
+            return false;
+        }
+
+        const currentStatus = await getUserStatus(item.username);
+        if (currentStatus) {
+            console.log(`External Submissions: User ${item.username} already has a status of ${currentStatus.userStatus}, skipping.`);
+            return false;
+        }
+
+        item.immediate = immediate;
+
+        await redis.global.set(getExternalSubmissionDataKey(item.username), JSON.stringify(item), { expiration: addDays(new Date(), 7) });
+        await redis.global.zAdd(EXTERNAL_SUBMISSION_QUEUE_KEY, { score: new Date().getTime(), member: item.username });
+        return true;
+    }));
+
+    const enqueued = results.filter(r => r).length;
+
+    console.log(`External Submissions: Enqueued ${enqueued} external ${pluralize("submission", enqueued)} for processing.`);
+
+    // Resave.
+    await reddit.updateWikiPage({
+        subredditName: context.subredditName,
+        page: WIKI_PAGE,
+        content: JSON.stringify([]),
+        reason: "Cleared the external submission list",
+    });
+
+    await redis.del(externalSubmissionLock);
+
+    await processAccountsToCheckFromObserverSubreddit();
+}
+
+export async function processExternalSubmissionsQueue (event: TaskRequest<ExternalSubmissionQueueData>) {
+    if (context.subredditName !== CONTROL_SUBREDDIT) {
+        throw new Error("This function can only be called from the control subreddit.");
+    }
+
+    const executionLimit = addSeconds(new Date(), 15);
+    const submissionQueue = await redis.global.zRange(EXTERNAL_SUBMISSION_QUEUE_KEY, 0, -1);
+    if (submissionQueue.length === 0) {
+        return;
+    }
+
+    const runRecentlyKey = "externalSubmissionQueueRunRecently";
+    if (event.data.firstRun && await redis.exists(runRecentlyKey)) {
+        return;
+    }
+    await redis.set(runRecentlyKey, Date.now().toString(), { expiration: addMinutes(new Date(), 1) });
+
+    if (await hasEventBeenHandled(`job:${event.data.jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+        console.log(`External Submissions: Job ${event.data.jobGuid} has already been handled, skipping.`);
+        return;
+    }
+
+    // Process each submission in the queue.
+    let processed = 0;
+    while (submissionQueue.length > 0 && new Date() < executionLimit) {
+        const username = submissionQueue.shift()?.member;
+        if (!username) {
+            break;
+        }
+
+        const keyForUser = `externalSubmissionAttempt:${username}`;
+        const attemptCount = await redis.incrBy(keyForUser, 1);
+        if (attemptCount === 1) {
+            await redis.expire(keyForUser, 60 * 60); // Expire after 1 hour
+        } else if (attemptCount > 3) {
+            console.log(`External Submissions: User ${username} has failed processing too many times, skipping and removing from queue.`);
+            await redis.global.zRem(EXTERNAL_SUBMISSION_QUEUE_KEY, [username]);
+            await redis.del(keyForUser);
+            continue;
+        }
+
+        const submissionDataRaw = await redis.global.get(getExternalSubmissionDataKey(username));
+        if (!submissionDataRaw) {
+            console.error(`External Submissions: No data found for ${username}, skipping.`);
+            await redis.global.zRem(EXTERNAL_SUBMISSION_QUEUE_KEY, [username]);
+            continue;
+        }
+
+        const submissionData = JSON.parse(submissionDataRaw) as ExternalSubmission;
+        const postSubmitted = await addExternalSubmissionToPostCreationQueue(submissionData, submissionData.immediate ?? submissionData.submitter === undefined);
+        await redis.global.del(getExternalSubmissionDataKey(username));
+        if (postSubmitted) {
+            processed++;
+        }
+
+        await redis.global.zRem(EXTERNAL_SUBMISSION_QUEUE_KEY, [username]);
+    }
+
+    console.log(`External Submissions: Processed ${processed} external ${pluralize("submission", processed)} from the queue.`);
+
+    if (submissionQueue.length > 0) {
+        await scheduler.runJob<ExternalSubmissionQueueData>({
+            name: ControlSubredditJob.ExternalSubmissionsQueue,
+            data: { firstRun: false, jobGuid: crypto.randomUUID() },
+            runAt: addSeconds(new Date(), 1),
+        });
+    } else {
+        await redis.del(runRecentlyKey);
+    }
+}
+
+export async function processAccountsToCheckFromObserverSubreddit () {
+    if (context.subredditName === CONTROL_SUBREDDIT) {
+        return;
+    }
+
+    const controlSubSettings = await getControlSubSettings();
+    if (!controlSubSettings.observerSubreddits?.includes(context.subredditName)) {
+        return;
+    }
+
+    const accountsToCheckPageName = "accountstocheck";
+    let accountsToCheckWikiPage: WikiPage | undefined;
+    try {
+        accountsToCheckWikiPage = await reddit.getWikiPage(context.subredditName, accountsToCheckPageName, {});
+    } catch {
+        console.log(`External Submissions: No accounts to check page found in /r/${context.subredditName}, skipping.`);
+        return;
+    }
+
+    const accountsToCheck = JSON.parse(accountsToCheckWikiPage.content) as string[];
+    if (accountsToCheck.length === 0) {
+        return;
+    }
+
+    await queueKarmaFarmingAccounts(accountsToCheck);
+    await reddit.updateWikiPage({
+        subredditName: context.subredditName,
+        page: accountsToCheckPageName,
+        content: "[]",
+        reason: "Cleared the accounts to check list after processing.",
+    });
+
+    console.log(`External Submissions: Queued ${accountsToCheck.length} ${pluralize("account", accountsToCheck.length)} from /r/${context.subredditName} for evaluation.`);
+}
+
+export async function getSubredditsFromExternalSubmissions (externalSubmissions: ExternalSubmission[]): Promise<string[]> {
+    const subreddits = new Set<string>();
+
+    for (const submission of externalSubmissions) {
+        let itemAdded = false;
+        if (submission.reportContext) {
+            const regex = /^Automatically reported via a \[(?:post|comment)\].+ on \/r\/([A-Za-z_-]{3,21})$/;
+            const match = regex.exec(submission.reportContext);
+            if (match?.[1]) {
+                subreddits.add(match[1]);
+                itemAdded = true;
+            }
+        }
+
+        if (!itemAdded && submission.targetId) {
+            const target = await getPostOrCommentById(submission.targetId);
+            subreddits.add(target.subredditName);
+        }
+    }
+
+    return Array.from(subreddits);
+}

@@ -1,0 +1,56 @@
+import { context, reddit, WikiPage } from "@devvit/web/server";
+import { eachDayOfInterval, endOfDay, format, isSameDay, startOfDay, subDays } from "date-fns";
+import { UserDetails } from "../../dataStore";
+import json2md from "json2md";
+
+export async function createTimeOfSubmissionStatistics (allEntries: UserDetails[]) {
+    const endRange = startOfDay(new Date());
+    const startRange = subDays(endRange, 28);
+
+    const allDates = allEntries
+        .map(item => item.reportedAt)
+        .filter(date => date && new Date(date) >= startRange && new Date(date) < endRange)
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        .map(date => new Date(date!));
+
+    const days = eachDayOfInterval({ start: startRange, end: endOfDay(subDays(endRange, 1)) });
+
+    const wikiContent: json2md.DataObject[] = [];
+    wikiContent.push({ h1: "Time of submission statistics" });
+    wikiContent.push({ p: "Here are the statistics for new submissions covering the last four weeks." });
+
+    const dayTableRows = days.reverse()
+        .map((day) => {
+            const submissionInDay = allDates.filter(date => isSameDay(day, date)).length;
+            return [format(day, "yyyy-MM-dd (EEEE)"), submissionInDay.toLocaleString()];
+        });
+    wikiContent.push({ table: { headers: ["Date", "Number of submissions"], rows: dayTableRows } });
+
+    wikiContent.push({ p: "This page updates once a day at midnight UTC, and may update more frequently." });
+
+    const pageName = "statistics/time-of-submission";
+
+    let wikiPage: WikiPage | undefined;
+    const subredditName = context.subredditName;
+    try {
+        wikiPage = await reddit.getWikiPage(subredditName, pageName, {});
+    } catch {
+        // Ignore error
+    }
+
+    await reddit.updateWikiPage({
+        subredditName,
+        page: pageName,
+        content: json2md(wikiContent),
+    });
+
+    if (!wikiPage) {
+        await reddit.updateWikiPageSettings({
+            listed: true,
+            page: pageName,
+            subredditName,
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-assignment
+            permLevel: 2, // MODS_ONLY
+        });
+    }
+}
