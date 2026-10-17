@@ -1,5 +1,5 @@
 import { context, reddit, redis, scheduler, TaskRequest, User, WikiPage } from "@devvit/web/server";
-import { isT3, T1, T3 } from "@devvit/web/shared";
+import { isT3 } from "@devvit/web/shared";
 import { ExternalSubmission, UserStatus } from "@fsvreddit/bot-bouncer-types";
 import { addUserToTempDeclineStore, AsyncSubmission, CONTROL_SUBREDDIT, ControlSubredditJob, evaluateUserAccount, expireKeyAt, getControlSubSettings, getUserStatus, INTERNAL_BOT, isUserAlreadyQueued, PostCreationQueueResult, promotePositionInQueue, queueKarmaFarmingAccounts, queuePostCreation, storeAccountInitialEvaluationResults, userIsTrustedSubmitter } from ".";
 import { addDays, addMinutes, addSeconds, addWeeks } from "date-fns";
