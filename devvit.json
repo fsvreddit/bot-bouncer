@@ -1,7 +1,7 @@
 {
     "$schema": "https://developers.reddit.com/schema/config-file.v1.json",
     "name": "bot-bouncer",
-        "permissions": {
+    "permissions": {
         "http": {
             "domains": [
                 "api.openai.com",

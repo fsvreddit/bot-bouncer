@@ -400,7 +400,7 @@ export async function handleClassificationChanges (event: TaskRequest<HandleClas
     }
 
     const jobGuid = event.data.jobGuid;
-    if (jobGuid && await hasTriggerBeenHandled(`job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+    if (await hasTriggerBeenHandled(`job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
         console.warn(`Classification Update: Job with guid ${jobGuid} has already been handled, skipping.`);
         return;
     }

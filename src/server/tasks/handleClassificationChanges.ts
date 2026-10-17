@@ -4,7 +4,7 @@ import { handleClassificationChanges } from "../core";
 
 export type HandleClassificationChangesData = {
     firstRun: boolean;
-    jobGuid?: string;
+    jobGuid: string;
 };
 
 export const handleClassificationChangesJob = async (c: Context): Promise<Response> => {
