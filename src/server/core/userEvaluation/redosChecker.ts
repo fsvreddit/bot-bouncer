@@ -2,7 +2,7 @@ import { context, reddit, redis, scheduler, TaskRequest } from "@devvit/web/serv
 import { getEvaluatorVariables } from ".";
 import { ALL_RELEVANT_EVALUTORS, ControlSubredditJob, decodedText, encodedText, expireKeyAt, getControlSubSettings } from "..";
 import { hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
-import { addHours, addMinutes, addSeconds } from "date-fns";
+import { addHours, addMinutes, addSeconds, addWeeks } from "date-fns";
 import { EvaluatorRegex } from "@fsvreddit/bot-bouncer-types";
 import { checkSync } from "recheck";
 import json2md from "json2md";
@@ -27,6 +27,26 @@ async function queueRedosCheckEntries () {
     }
 
     console.log(`ReDoS Checker: Queued ${entriesAdded.toLocaleString()} regex entries for checking.`);
+}
+
+function getKnownSafeRegexRedisKey (entry: string): string {
+    return `knownSafeRegex:${entry}`;
+}
+
+async function isKnownSafeRegex (entry: string): Promise<boolean> {
+    const redisKey = getKnownSafeRegexRedisKey(entry);
+    const exists = await redis.exists(redisKey).then(result => result === 1);
+
+    if (exists) {
+        await expireKeyAt(redisKey, addWeeks(new Date(), 1));
+    }
+
+    return exists;
+}
+
+async function markRegexAsKnownSafe (entry: string) {
+    const redisKey = getKnownSafeRegexRedisKey(entry);
+    await redis.set(redisKey, "true", { expiration: addWeeks(new Date(), 1) });
 }
 
 export async function redosChecker (event: TaskRequest<RedosCheckerJobData | undefined>) {
@@ -73,7 +93,7 @@ export async function redosChecker (event: TaskRequest<RedosCheckerJobData | und
 
     await redis.set(inProgressKey, "true", { expiration: addSeconds(new Date(), 60) });
     const batchNumber = event.data?.batchNumber ?? 1;
-    const batchSize = 50;
+    const batchSize = 5000;
     console.log(`ReDoS Checker: Starting batch #${batchNumber}...`);
 
     const runLimit = addSeconds(new Date(), 10);
@@ -89,6 +109,11 @@ export async function redosChecker (event: TaskRequest<RedosCheckerJobData | und
         const entry = redosQueue.shift();
         if (!entry) {
             break;
+        }
+
+        if (await isKnownSafeRegex(entry)) {
+            processed.push(entry);
+            continue;
         }
 
         const regexEntry = JSON.parse(decodedText(entry)) as EvaluatorRegex;
@@ -109,8 +134,10 @@ export async function redosChecker (event: TaskRequest<RedosCheckerJobData | und
 
             if (safeResult.status === "vulnerable") {
                 await redis.zAdd(REDOS_HITS_KEY, ({ member: entry, score: Date.now() }));
-
-                // TODO: Notify via webhook
+            } else {
+                if (safeResult.status === "safe") {
+                    await markRegexAsKnownSafe(entry);
+                }
             }
         } catch (error) {
             console.error(`ReDoS Checker: Error checking regex /${regexEntry.regex}/${regexEntry.flags ?? ""}:`, error);
