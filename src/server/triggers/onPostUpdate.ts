@@ -12,7 +12,7 @@ export const onPostUpdate = async (c: Context): Promise<Response> => {
     }
 
     if (context.subredditName === CONTROL_SUBREDDIT) {
-        return c.json<TriggerResponse>({ message: "PostUpdate event should not be handled for the control subreddit" }, 400);
+        return c.json<TriggerResponse>({ message: "PostUpdate event should not be handled for the control subreddit" }, 200);
     }
 
     if (await hasEventBeenHandled(`PostUpdate:${event.post.id}`)) {
