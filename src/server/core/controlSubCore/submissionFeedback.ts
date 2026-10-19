@@ -131,7 +131,7 @@ async function sendFeedbackViaModmail (username: string, submitter: string, oper
             if (failureCount >= 3) {
                 await redis.del(modmailKeyForUser, modmailFailureKey);
             } else if (failureCount === 1) {
-                await expireKeyAt(modmailFailureKey, addWeeks(new Date(), 1));
+                await expireKeyAt(modmailFailureKey, addWeeks(new Date(), 4));
             }
         }
     }
