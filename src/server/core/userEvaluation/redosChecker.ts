@@ -240,7 +240,7 @@ async function finaliseReDosReport () {
     if (redosHits.length > 0 || redosUnknown.length > 0) {
         const controlSubSettings = await getControlSubSettings();
         if (controlSubSettings.monitoringWebhook) {
-            const message = `ReDoS Detections Report:\n- Vulnerable: ${redosHits.length}\n- Unknown: ${redosUnknown.length}. View the full report [here](<https://www.reddit.com/r/BotBouncer/wiki/statistics/redos-detections>)`;
+            const message = `ReDoS Detections Report:\n- Vulnerable: ${redosHits.length}\n- Unknown: ${redosUnknown.length}.\n\nView the full report [here](<https://www.reddit.com/r/BotBouncer/wiki/statistics/redos-detections>)`;
             await sendMessageToWebhook(controlSubSettings.monitoringWebhook, message);
         }
     }
