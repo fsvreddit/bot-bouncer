@@ -13,6 +13,7 @@
     "type-check": "tsc --build"
   },
   "dependencies": {
+    "@devvit/server": "0.14.8",
     "@devvit/start": "0.14.8",
     "@devvit/web": "0.14.8",
     "@fsvreddit/bot-bouncer-evaluation": "^0.8.1",
@@ -32,7 +33,6 @@
     "pluralize": "^8.0.0",
     "redos-detector": "^6.1.2",
     "regjsparser": "^0.13.0",
-    "semver": "^7.7.1",
     "yaml": "^2.8.1"
   },
   "devDependencies": {
@@ -42,7 +42,6 @@
     "@types/markdown-escape": "^1.1.3",
     "@types/node": "^26.2.0",
     "@types/pluralize": "^0.0.33",
-    "@types/semver": "^7.5.8",
     "devvit": "0.14.8",
     "eslint": "^10.0.2",
     "typescript": "5.8.3",
