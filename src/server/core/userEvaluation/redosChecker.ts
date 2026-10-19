@@ -1,6 +1,6 @@
 import { context, reddit, redis, scheduler, TaskRequest } from "@devvit/web/server";
 import { getEvaluatorVariables } from ".";
-import { ALL_RELEVANT_EVALUTORS, ControlSubredditJob, decodedText, encodedText, expireKeyAt, getControlSubSettings } from "..";
+import { ALL_RELEVANT_EVALUTORS, ControlSubredditJob, decodedText, encodedText, expireKeyAt, getControlSubSettings, sendMessageToWebhook } from "..";
 import { hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import { addHours, addMinutes, addSeconds, addWeeks } from "date-fns";
 import { EvaluatorRegex } from "@fsvreddit/bot-bouncer-types";
@@ -236,6 +236,14 @@ async function finaliseReDosReport () {
         content: json2md(wikiContent),
         reason: "Updating ReDoS Detections Report",
     });
+
+    if (redosHits.length > 0 || redosUnknown.length > 0) {
+        const controlSubSettings = await getControlSubSettings();
+        if (controlSubSettings.monitoringWebhook) {
+            const message = `ReDoS Detections Report:\n- Vulnerable: ${redosHits.length}\n- Unknown: ${redosUnknown.length}. View the full report [here](<https://www.reddit.com/r/BotBouncer/wiki/statistics/redos-detections>)`;
+            await sendMessageToWebhook(controlSubSettings.monitoringWebhook, message);
+        }
+    }
 
     await redis.del(REDOS_QUEUE_KEY, REDOS_HITS_KEY, REDOS_UNKNOWN_KEY);
 }
