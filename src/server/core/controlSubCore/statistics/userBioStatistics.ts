@@ -102,15 +102,13 @@ export async function updateBioStatisticsJob (event: TaskRequest<BioStatsJobData
     if (Object.keys(queueItems).length === 0) {
         console.log("Bio Stats: No users in queue, generating report");
 
-        const jobData: BioStatsJobData = {
-            statsId,
-            jobGuid: crypto.randomUUID(),
-        };
-
-        await scheduler.runJob({
+        await scheduler.runJob<BioStatsJobData>({
             name: ControlSubredditJob.BioStatsGenerateReport,
             runAt: addSeconds(new Date(), 2),
-            data: jobData,
+            data: {
+                statsId,
+                jobGuid: crypto.randomUUID(),
+            },
         });
         return;
     }
@@ -197,16 +195,14 @@ export async function updateBioStatisticsJob (event: TaskRequest<BioStatsJobData
 
     console.log(`Bio Stats: Processed ${processed.length} users, stored bios for ${biosStored} users, batch ${batch} complete.`);
 
-    const jobData: BioStatsJobData = {
-        statsId,
-        batch: batch + 1,
-        jobGuid: crypto.randomUUID(),
-    };
-
     await scheduler.runJob<BioStatsJobData>({
         name: ControlSubredditJob.BioStatsUpdate,
         runAt: addSeconds(new Date(), 1),
-        data: jobData,
+        data: {
+            statsId,
+            batch: batch + 1,
+            jobGuid: crypto.randomUUID(),
+        },
     });
 }
 

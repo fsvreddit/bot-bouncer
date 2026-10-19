@@ -48,6 +48,11 @@ If an account was banned by Bot Bouncer on a sub but successfully appeals via r/
 
 # Latest Changes
 
+## v1.36.0 (coming soon)
+
+* Fixed an issue that prevents submission feedback from being sent after 1000 feedback messages have been delivered
+* Rewrite app to use Devvit Web framework
+
 ## v1.35.0
 
 * Content removals now consistently use "remove" rather than a mix of "remove" and "spam"
