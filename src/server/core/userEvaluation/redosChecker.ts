@@ -10,6 +10,7 @@ import { RedosCheckerJobData } from "../../tasks";
 
 const REDOS_QUEUE_KEY = "evaluatorRedosQueue";
 const REDOS_HITS_KEY = "evaluatorRedosHits";
+const REDOS_UNKNOWN_KEY = "evaluatorRedosUnknown";
 
 process.env.RECHECK_SYNC_BACKEND ??= "pure";
 
@@ -70,7 +71,7 @@ export async function redosChecker (event: TaskRequest<RedosCheckerJobData | und
             return;
         }
 
-        await redis.del(REDOS_QUEUE_KEY, REDOS_HITS_KEY);
+        await redis.del(REDOS_QUEUE_KEY, REDOS_HITS_KEY, REDOS_UNKNOWN_KEY);
 
         await queueRedosCheckEntries();
         await scheduler.runJob<RedosCheckerJobData>({
@@ -135,10 +136,10 @@ export async function redosChecker (event: TaskRequest<RedosCheckerJobData | und
 
             if (safeResult.status === "vulnerable") {
                 await redis.zAdd(REDOS_HITS_KEY, ({ member: entry, score: Date.now() }));
-            } else {
-                if (safeResult.status === "safe") {
-                    await markRegexAsKnownSafe(entry);
-                }
+            } else if (safeResult.status === "unknown") {
+                await redis.zAdd(REDOS_UNKNOWN_KEY, ({ member: entry, score: Date.now() }));
+            } else { // Safe
+                await markRegexAsKnownSafe(entry);
             }
         } catch (error) {
             console.error(`ReDoS Checker: Error checking regex /${regexEntry.regex}/${regexEntry.flags ?? ""}:`, error);
@@ -179,12 +180,14 @@ export async function redosChecker (event: TaskRequest<RedosCheckerJobData | und
 
 async function finaliseReDosReport () {
     const redosHits = await redis.zRange(REDOS_HITS_KEY, 0, -1).then(entries => entries.map(entry => JSON.parse(decodedText(entry.member)) as EvaluatorRegex));
+    const redosUnknown = await redis.zRange(REDOS_UNKNOWN_KEY, 0, -1).then(entries => entries.map(entry => JSON.parse(decodedText(entry.member)) as EvaluatorRegex));
 
     const wikiPageName = "statistics/redos-detections";
 
     const wikiContent: json2md.DataObject[] = [
         { h1: "ReDoS Detections Report" },
         { p: `This report lists all regular expressions used by evaluators that have been identified as potentially vulnerable to Regular Expression Denial of Service (ReDoS) attacks. A total of ${redosHits.length.toLocaleString()} vulnerable regex patterns were detected.` },
+        { p: `Additionally, there are ${redosUnknown.length.toLocaleString()} regex patterns with unknown safety status.` },
     ];
 
     if (redosHits.length > 0) {
@@ -207,6 +210,26 @@ async function finaliseReDosReport () {
         wikiContent.push({ p: "No ReDoS vulnerabilities were detected in the evaluator regex patterns." });
     }
 
+    if (redosUnknown.length > 0) {
+        const tableRows = redosUnknown.map((hit) => {
+            const regex = hit.regex.length > 100 ? hit.regex.slice(0, 100) + "…" : hit.regex;
+            return [
+                hit.evaluatorName,
+                hit.subName ?? "",
+                `\`${regex.replaceAll("|", "¦")}\``,
+            ];
+        });
+
+        wikiContent.push({
+            table: {
+                headers: ["Evaluator Name", "Subreddit", "Regex Pattern"],
+                rows: tableRows,
+            },
+        });
+    } else {
+        wikiContent.push({ p: "No regex patterns with unknown safety status were detected." });
+    }
+
     await reddit.updateWikiPage({
         subredditName: context.subredditName,
         page: wikiPageName,
@@ -214,5 +237,5 @@ async function finaliseReDosReport () {
         reason: "Updating ReDoS Detections Report",
     });
 
-    await redis.del(REDOS_QUEUE_KEY, REDOS_HITS_KEY);
+    await redis.del(REDOS_QUEUE_KEY, REDOS_HITS_KEY, REDOS_UNKNOWN_KEY);
 }
