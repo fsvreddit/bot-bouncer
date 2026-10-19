@@ -1,8 +1,8 @@
 import { context, reddit, redis } from "@devvit/web/server";
 import { T1 } from "@devvit/web/shared";
 import { UserStatus } from "@fsvreddit/bot-bouncer-types";
-import { CONTROL_SUBREDDIT, getUserStatus } from "..";
-import { addMinutes } from "date-fns";
+import { CONTROL_SUBREDDIT, expireKeyAt, getUserStatus } from "..";
+import { addMinutes, addWeeks } from "date-fns";
 import json2md from "json2md";
 
 const FEEDBACK_QUEUE = "FeedbackQueue";
@@ -90,7 +90,7 @@ async function sendFeedbackViaModmail (username: string, submitter: string, oper
     }
 
     message.push({ p: "*This is an automated message, but replies will be read.*" });
-    const modmailFailureKey = `modmailFailureCount:${username}`;
+    const modmailFailureKey = `modmailFailureCount:${submitter}`;
 
     try {
         if (existingModmailId) {
@@ -130,6 +130,8 @@ async function sendFeedbackViaModmail (username: string, submitter: string, oper
             const failureCount = await redis.incrBy(modmailFailureKey, 1);
             if (failureCount >= 3) {
                 await redis.del(modmailKeyForUser, modmailFailureKey);
+            } else if (failureCount === 1) {
+                await expireKeyAt(modmailFailureKey, addWeeks(new Date(), 1));
             }
         }
     }
