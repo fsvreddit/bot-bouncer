@@ -4,7 +4,7 @@ import { ALL_POTENTIAL_USER_PREFIXES, CONTROL_SUBREDDIT, ControlSubredditJob, ge
 import { addMinutes, subMonths } from "date-fns";
 import { analyseBioText } from "../core/controlSubCore/similarBioTextFinder";
 import { hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
-import { DefinedHandlesStatsInitializerJobData, EvaluatorAccuracyInitialiserData, PendingUserFinderJobData, UpdateMainStatisticsPageJobData } from ".";
+import { DefinedHandlesStatsInitializerJobData, DeleteRecordsForRemovedUsersData, EvaluatorAccuracyInitialiserData, PendingUserFinderJobData, UpdateMainStatisticsPageJobData } from ".";
 import { createTimeOfSubmissionStatistics, FLAGS_TO_EXCLUDE_FROM_STATS, StatsUserEntry, updateBioStatistics, updateDisplayNameStatistics, updateSocialLinksStatistics, updateSubmitterStatistics, updateUsernameStatistics } from "../core/controlSubCore/statistics";
 
 export type SixHourlyJobData = {
@@ -36,7 +36,7 @@ export const handleSixHourlyJob = async (c: Context): Promise<Response> => {
             data: { jobGuid: crypto.randomUUID() },
         }),
 
-        scheduler.runJob({
+        scheduler.runJob<DeleteRecordsForRemovedUsersData>({
             name: ControlSubredditJob.DeleteRecordsForRemovedUsers,
             runAt: addMinutes(new Date(), 2),
             data: { jobGuid: crypto.randomUUID() },

@@ -9,7 +9,7 @@ import { getUserInfoForOpenAI } from "./gatherUserDetailsForOpenAI";
 import pluralize from "pluralize";
 import { callOpenAI } from "./openAI";
 import OpenAI from "openai";
-import { OpenAISummaryGatherData, OpenAISummaryLookupAndRespondData } from "../../../tasks";
+import { OpenAISummaryGatherData, OpenAISummaryLookupAndRespondData, UpdateTokenStatsMessageData } from "../../../tasks";
 
 export async function createResponse (opts: { conversationId?: string; postId?: T3; output: string }) {
     const { conversationId, postId, output } = opts;
@@ -228,7 +228,7 @@ export async function openAISummaryLookupAndRespond (event: TaskRequest<OpenAISu
 
     console.log(`AI Summary: Finished generating OpenAI summary about user ${username}`);
 
-    await scheduler.runJob({
+    await scheduler.runJob<UpdateTokenStatsMessageData>({
         name: ControlSubredditJob.OpenAIUpdateTokenStatsMessage,
         runAt: new Date(),
         data: { jobGuid: crypto.randomUUID() },

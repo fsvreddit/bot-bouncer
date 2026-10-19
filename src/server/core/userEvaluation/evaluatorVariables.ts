@@ -7,7 +7,7 @@ import { addMinutes, addSeconds } from "date-fns";
 import { EvaluateBotGroupAdvanced, EvaluateBotGroupAdvancedSubmitters, yamlToVariables } from "@fsvreddit/bot-bouncer-evaluation";
 import json2md from "json2md";
 import { checkNonexistentSubs } from ".";
-import { UpdateEvaluatorVariablesFromWikiEventData } from "../../tasks";
+import { ConditionalStatsUpdateJobData, RedosCheckerJobData, UpdateEvaluatorVariablesFromWikiEventData } from "../../tasks";
 import { ValidationIssue } from "@fsvreddit/bot-bouncer-types";
 
 const EVALUATOR_VARIABLES_KEY = "evaluatorVariablesHash";
@@ -255,13 +255,13 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: TaskReques
         }
     }
 
-    await scheduler.runJob({
+    await scheduler.runJob<ConditionalStatsUpdateJobData>({
         name: ControlSubredditJob.ConditionalStatsUpdate,
         runAt: addSeconds(new Date(), 10),
         data: { jobGuid: crypto.randomUUID() },
     });
 
-    await scheduler.runJob({
+    await scheduler.runJob<RedosCheckerJobData>({
         name: ControlSubredditJob.EvaluatorReDoSChecker,
         runAt: addSeconds(new Date(), 5),
         data: {

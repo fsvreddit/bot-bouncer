@@ -5,7 +5,7 @@ import { CONTROL_SUBREDDIT } from "./constants";
 import { UpgradeNotifierData } from "@fsvreddit/fsv-devvit-web-helpers";
 import { AppSetting } from "./appSettings";
 import { ClientSubredditJob, ControlSubredditJob, handleExternalSubmissionsPageUpdate, ObserverSubredditJob, UniversalJob } from ".";
-import { EvaluateKarmaFarmingSubsEventData, UpdateEvaluatorVariablesFromWikiEventData } from "../tasks";
+import { CleanupJobData, EvaluateKarmaFarmingSubsEventData, UpdateEvaluatorVariablesFromWikiEventData } from "../tasks";
 import { forceEvaluatorVariablesRefresh } from "./userEvaluation";
 
 export { UniversalJob, ControlSubredditJob, ClientSubredditJob, ObserverSubredditJob } from "./schedulerJobNames.js";
@@ -66,7 +66,7 @@ export async function addControlSubredditJobs () {
             runAt: addSeconds(new Date(), 10),
         }),
 
-        scheduler.runJob({
+        scheduler.runJob<CleanupJobData>({
             name: UniversalJob.Cleanup,
             cron: "* * * * *",
             data: { firstRun: true },
@@ -123,7 +123,7 @@ export async function addClientSubredditJobs () {
     });
 
     randomMinute = Math.floor(Math.random() * 60);
-    await scheduler.runJob({
+    await scheduler.runJob<CleanupJobData>({
         name: UniversalJob.Cleanup,
         cron: `${randomMinute} 0/2 * * *`, // Every two hours
         data: { firstRun: true },

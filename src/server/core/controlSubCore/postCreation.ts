@@ -11,6 +11,7 @@ import { getControlSubSettings } from "../controlSubSettings";
 import { formatTimeSince, isBannedWithCache, sendMessageToWebhook, updateWebhookMessage } from "../utility";
 import pluralize from "pluralize";
 import { queueSendFeedback, recordBotPostCreated } from ".";
+import { EvaluateUserJobData, StoreDefinedHandlesDataJobData } from "../../tasks";
 
 export const statusToFlair: Record<UserStatus, PostFlairTemplate> = {
     [UserStatus.Pending]: PostFlairTemplate.Pending,
@@ -152,7 +153,7 @@ async function createNewSubmission (submission: AsyncSubmission) {
     ];
 
     if (submission.details.userStatus === UserStatus.Pending || !submission.evaluatorsChecked) {
-        promises.push(scheduler.runJob({
+        promises.push(scheduler.runJob<EvaluateUserJobData>({
             name: ControlSubredditJob.EvaluateUser,
             runAt: addSeconds(new Date(), 5),
             data: {
@@ -170,7 +171,7 @@ async function createNewSubmission (submission: AsyncSubmission) {
     }
 
     if (submission.details.userStatus === UserStatus.Banned) {
-        promises.push(scheduler.runJob({
+        promises.push(scheduler.runJob<StoreDefinedHandlesDataJobData>({
             name: ControlSubredditJob.DefinedHandlesPostStore,
             runAt: addSeconds(new Date(), 1),
             data: { username: submission.user.username, jobGuid: crypto.randomUUID() },

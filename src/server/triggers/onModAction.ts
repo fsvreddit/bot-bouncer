@@ -4,7 +4,7 @@ import { getExtendedDevvit, hasEventBeenHandled } from "@fsvreddit/fsv-devvit-we
 import { addDays, addMinutes, addSeconds, subMinutes } from "date-fns";
 import { Context } from "hono";
 import { accountIsBotBouncerApp, APP_ACCOUNT_ID, clearAppPermissionsCache, ClientSubredditJob, ConfigWikiPage, CONTROL_SUBREDDIT, ControlSubredditJob, getControlSubSettings, getInstallDate, handleExternalSubmissionsPageUpdate, INTERNAL_BOT, isModeratorWithCache, recordWhitelistUnban, removeCachedBanStatus, removeRecordOfBan, sendMessageToWebhook } from "../core";
-import { HandleConfigWikiChangeRequestData, UpdateEvaluatorVariablesFromWikiEventData } from "../tasks";
+import { HandleConfigWikiChangeRequestData, NotifyModTeamOnDemodRequestData, UpdateEvaluatorVariablesFromWikiEventData } from "../tasks";
 import { SixHourlyJobData } from "../tasks/handleSixHourlyJobs";
 import { handleObserverSubsWikiPageCopy } from "../core/controlSubCore/statistics";
 
@@ -60,7 +60,7 @@ async function handleModActionClientSub (event: OnModActionRequest) {
     if (event.action === "removemoderator" && event.targetUser?.name === context.appSlug) {
         // Bot Bouncer has been demodded - notify the mod team after one minute.
         // This delay allows for intentional uninstalls to proceed without the notification.
-        await scheduler.runJob({
+        await scheduler.runJob<NotifyModTeamOnDemodRequestData>({
             name: ClientSubredditJob.NotifyModTeamOnDemod,
             runAt: addMinutes(new Date(), 1),
             data: {

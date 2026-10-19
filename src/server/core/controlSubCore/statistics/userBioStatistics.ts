@@ -315,7 +315,7 @@ export async function generateBioStatisticsReport (event: TaskRequest<BioStatsJo
     };
 
     console.log(`Bio Stats: Queueing wiki update job for biotext stats`);
-    await scheduler.runJob({
+    await scheduler.runJob<UpdateWikiPageOptions>({
         name: ControlSubredditJob.AsyncWikiUpdate,
         data: wikiUpdateData,
         runAt: new Date(),

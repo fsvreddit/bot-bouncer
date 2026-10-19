@@ -63,7 +63,7 @@ async function reverseExtract (message: ModmailMessage) {
 
     const users = JSON.parse(reversibleData) as string[];
 
-    await scheduler.runJob({
+    await scheduler.runJob<ClassificationReversalsJobData>({
         name: ControlSubredditJob.ClassificationReversals,
         runAt: addSeconds(new Date(), 10),
         data: {
@@ -238,7 +238,7 @@ export async function reversePostCreationQueue (event: TaskRequest<ReversePostCr
     if (event.data.firstRun) {
         console.log("Evaluator Reversals: Starting post creation queue reversals job.");
         const submissionQueue = await redis.zRange(SUBMISSION_QUEUE, 0, -1);
-        await scheduler.runJob({
+        await scheduler.runJob<ReversePostCreationQueueData>({
             name: ControlSubredditJob.PostCreationQueueReversals,
             runAt: new Date(),
             data: {
@@ -311,7 +311,7 @@ export async function reversePostCreationQueue (event: TaskRequest<ReversePostCr
         reversedTotal++;
     }
 
-    await scheduler.runJob({
+    await scheduler.runJob<ReversePostCreationQueueData>({
         name: ControlSubredditJob.PostCreationQueueReversals,
         runAt: addSeconds(new Date(), 5),
         data: {

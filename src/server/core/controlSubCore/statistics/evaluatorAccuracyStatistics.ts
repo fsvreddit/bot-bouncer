@@ -157,10 +157,10 @@ export async function buildEvaluatorAccuracyStatistics (event: TaskRequest<Build
         if (processedItems.length > 0) {
             await redis.hDel(ACCURACY_QUEUE, processedItems);
         }
-        await scheduler.runJob({
+        await scheduler.runJob<BuildEvaluatorAccuracyStatisticsJobData>({
             name: ControlSubredditJob.EvaluatorAccuracyStatistics,
             runAt: addSeconds(new Date(), 2),
-            data: { firstRun: false, jobGuid: crypto.randomUUID() },
+            data: { jobGuid: crypto.randomUUID() },
         });
         return;
     }
