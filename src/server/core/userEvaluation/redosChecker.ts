@@ -202,7 +202,7 @@ async function finaliseReDosReport () {
 
         wikiContent.push({
             table: {
-                headers: ["Evaluator Name", "Subreddit", "Regex Pattern"],
+                headers: ["Evaluator Name", "Subgroup", "Regex Pattern"],
                 rows: tableRows,
             },
         });
@@ -222,7 +222,7 @@ async function finaliseReDosReport () {
 
         wikiContent.push({
             table: {
-                headers: ["Evaluator Name", "Subreddit", "Regex Pattern"],
+                headers: ["Evaluator Name", "Subgroup", "Regex Pattern"],
                 rows: tableRows,
             },
         });
