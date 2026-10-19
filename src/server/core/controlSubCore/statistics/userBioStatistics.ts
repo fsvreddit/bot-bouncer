@@ -72,9 +72,14 @@ export async function updateBioStatistics (allEntries: StatsUserEntry[]) {
     });
 }
 
-function anyRegexMatches (text: string, regexes: string[]): boolean {
+function anyRegexMatches (text: string, regexes: RegExp[]): boolean {
     for (const regex of regexes) {
-        if (new RegExp(regex, "u").test(text)) {
+        const start = Date.now();
+        const matched = regex.test(text);
+        if (Date.now() - start > 100) {
+            console.warn(`Regex test took longer than 100ms for text: ${text}, regex: ${regex.source}`);
+        }
+        if (matched) {
             return true;
         }
     }
@@ -118,8 +123,8 @@ export async function updateBioStatisticsJob (event: TaskRequest<BioStatsJobData
 
     const runLimit = addSeconds(new Date(), 10);
 
-    const configuredBioRegexes = await getEvaluatorVariable<string[]>("biotext:bantext") ?? [];
-    const entriesToAllowlist = await getEvaluatorVariable<string[]>("biotext:entriesToAllowlist") ?? [];
+    const configuredBioRegexes = (await getEvaluatorVariable<string[]>("biotext:bantext") ?? []).map(entry => new RegExp(entry, "u"));
+    const entriesToAllowlist = (await getEvaluatorVariable<string[]>("biotext:entriesToAllowlist") ?? []).map(entry => new RegExp(entry, "u"));
 
     const userBios = await hMGetAsRecord(redis, BIO_TEXT_STORE, queueItems.map(item => item.member));
 
@@ -146,7 +151,7 @@ export async function updateBioStatisticsJob (event: TaskRequest<BioStatsJobData
             continue;
         }
 
-        if (entriesToAllowlist.some(entry => new RegExp(entry, "u").test(bioText))) {
+        if (entriesToAllowlist.some(regex => regex.test(bioText))) {
             processed.push(username);
             continue;
         }
