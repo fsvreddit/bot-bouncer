@@ -130,6 +130,7 @@ export async function redosChecker (event: TaskRequest<RedosCheckerJobData | und
         try {
             const safeResult = checkSync(regex.source, "u", {
                 maxAttackStringSize: 10000,
+                timeout: 5000,
             });
 
             if (safeResult.status === "vulnerable") {
