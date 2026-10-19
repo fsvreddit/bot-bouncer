@@ -2,14 +2,16 @@ import { context, reddit, redis, scheduler, TaskRequest } from "@devvit/web/serv
 import { getEvaluatorVariables } from ".";
 import { ALL_RELEVANT_EVALUTORS, ControlSubredditJob, decodedText, encodedText, expireKeyAt, getControlSubSettings } from "..";
 import { hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
-import { addMinutes, addSeconds } from "date-fns";
+import { addHours, addMinutes, addSeconds } from "date-fns";
 import { EvaluatorRegex } from "@fsvreddit/bot-bouncer-types";
-import { isSafe } from "redos-detector";
+import { checkSync } from "recheck";
 import json2md from "json2md";
 import { RedosCheckerJobData } from "../../tasks";
 
 const REDOS_QUEUE_KEY = "evaluatorRedosQueue";
 const REDOS_HITS_KEY = "evaluatorRedosHits";
+
+process.env.RECHECK_SYNC_BACKEND ??= "pure";
 
 async function queueRedosCheckEntries () {
     const evaluatorVariables = await getEvaluatorVariables();
@@ -21,7 +23,7 @@ async function queueRedosCheckEntries () {
             continue;
         }
         entriesAdded += await redis.zAdd(REDOS_QUEUE_KEY, ...evaluatorRegexes.map(regex => ({ member: encodedText(JSON.stringify(regex)), score: Date.now() })));
-        await expireKeyAt(REDOS_QUEUE_KEY, addMinutes(new Date(), 30));
+        await expireKeyAt(REDOS_QUEUE_KEY, addHours(new Date(), 1));
     }
 
     console.log(`ReDoS Checker: Queued ${entriesAdded.toLocaleString()} regex entries for checking.`);
@@ -101,8 +103,11 @@ export async function redosChecker (event: TaskRequest<RedosCheckerJobData | und
         }
 
         try {
-            const safeResult = isSafe(regex, { maxScore: 500, timeout: 500 });
-            if (!safeResult.safe) {
+            const safeResult = checkSync(regex.source, "u", {
+                maxAttackStringSize: 10000,
+            });
+
+            if (safeResult.status === "vulnerable") {
                 await redis.zAdd(REDOS_HITS_KEY, ({ member: entry, score: Date.now() }));
 
                 // TODO: Notify via webhook

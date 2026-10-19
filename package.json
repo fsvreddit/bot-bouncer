@@ -31,7 +31,7 @@
     "openai": "^7.4.0",
     "pako": "^3.0.0",
     "pluralize": "^8.0.0",
-    "redos-detector": "^6.1.2",
+    "recheck": "^4.5.0",
     "regjsparser": "^0.13.0",
     "yaml": "^2.8.1"
   },
