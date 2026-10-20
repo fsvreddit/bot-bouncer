@@ -7,6 +7,7 @@ import { EvaluatorRegex, EvaluatorRegexFoundIn } from "@fsvreddit/bot-bouncer-ty
 import { checkSync, Diagnostics } from "recheck";
 import json2md from "json2md";
 import { RedosCheckerJobData } from "../../tasks";
+import pluralize from "pluralize";
 
 const REDOS_QUEUE_KEY = "evaluatorRedosQueue";
 const REDOS_HITS_KEY = "evaluatorRedosHits";
@@ -225,6 +226,15 @@ export async function redosChecker (event: TaskRequest<RedosCheckerJobData | und
     }
 }
 
+function getRedosRow (hit: EvaluatorRegex): string[] {
+    const regex = hit.regex.length > 100 ? hit.regex.slice(0, 100) + "…" : hit.regex;
+    return [
+        hit.evaluatorName,
+        hit.subName ?? "",
+        `\`${regex.replaceAll("|", "¦")}\``,
+    ];
+}
+
 async function finaliseReDosReport () {
     const redosHits = await redis.zRange(REDOS_HITS_KEY, 0, -1).then(entries => entries.map(entry => JSON.parse(decodedText(entry.member)) as EvaluatorRegex));
     const redosUnknown = await redis.zRange(REDOS_UNKNOWN_KEY, 0, -1).then(entries => entries.map(entry => JSON.parse(decodedText(entry.member)) as EvaluatorRegex));
@@ -233,24 +243,15 @@ async function finaliseReDosReport () {
 
     const wikiContent: json2md.DataObject[] = [
         { h1: "ReDoS Detections Report" },
-        { p: `This report lists all regular expressions used by evaluators that have been identified as potentially vulnerable to Regular Expression Denial of Service (ReDoS) attacks. A total of ${redosHits.length.toLocaleString()} vulnerable regex patterns were detected.` },
-        { p: `Additionally, there are ${redosUnknown.length.toLocaleString()} regex patterns with unknown safety status.` },
+        { p: `This report lists all regular expressions used by evaluators that have been identified as potentially vulnerable to Regular Expression Denial of Service (ReDoS) attacks. A total of ${redosHits.length.toLocaleString()} vulnerable regex ${pluralize("pattern", redosHits.length)} were detected.` },
+        { p: `Additionally, there are ${redosUnknown.length.toLocaleString()} regex ${pluralize("pattern", redosUnknown.length)} with unknown safety status.` },
     ];
 
     if (redosHits.length > 0) {
-        const tableRows = redosHits.map((hit) => {
-            const regex = hit.regex.length > 100 ? hit.regex.slice(0, 100) + "…" : hit.regex;
-            return [
-                hit.evaluatorName,
-                hit.subName ?? "",
-                `\`${regex.replaceAll("|", "¦")}\``,
-            ];
-        });
-
         wikiContent.push({
             table: {
                 headers: ["Evaluator Name", "Subgroup", "Regex Pattern"],
-                rows: tableRows,
+                rows: redosHits.map(getRedosRow),
             },
         });
     } else {
@@ -258,19 +259,10 @@ async function finaliseReDosReport () {
     }
 
     if (redosUnknown.length > 0) {
-        const tableRows = redosUnknown.map((hit) => {
-            const regex = hit.regex.length > 100 ? hit.regex.slice(0, 100) + "…" : hit.regex;
-            return [
-                hit.evaluatorName,
-                hit.subName ?? "",
-                `\`${regex.replaceAll("|", "¦")}\``,
-            ];
-        });
-
         wikiContent.push({
             table: {
                 headers: ["Evaluator Name", "Subgroup", "Regex Pattern"],
-                rows: tableRows,
+                rows: redosUnknown.map(getRedosRow),
             },
         });
     } else {
