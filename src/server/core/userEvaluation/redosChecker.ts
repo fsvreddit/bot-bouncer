@@ -42,11 +42,19 @@ async function getCachedSafetyResult (entry: string): Promise<Diagnostics | unde
     const redisKey = getSafeRegexCacheKey(entry);
     const cachedResult = await redis.get(redisKey);
 
-    if (cachedResult) {
-        await expireKeyAt(redisKey, getFuzzedCacheTime());
+    if (!cachedResult) {
+        return;
     }
 
-    return cachedResult ? JSON.parse(cachedResult) as Diagnostics : undefined;
+    const safeResult = JSON.parse(cachedResult) as Diagnostics;
+    if (safeResult.status !== "unknown") {
+        await expireKeyAt(redisKey, getFuzzedCacheTime());
+    } else {
+        await redis.del(redisKey);
+        return;
+    }
+
+    return safeResult;
 }
 
 async function storeCachedSafetyResult (entry: string, result: Diagnostics) {
@@ -170,7 +178,9 @@ export async function redosChecker (event: TaskRequest<RedosCheckerJobData | und
                     timeout: 5000,
                 });
 
-                await storeCachedSafetyResult(entry, safeResult);
+                if (safeResult.status !== "unknown") {
+                    await storeCachedSafetyResult(entry, safeResult);
+                }
             }
 
             if (safeResult.status === "vulnerable") {
