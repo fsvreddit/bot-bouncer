@@ -25,8 +25,8 @@ export async function userIsTrustedSubmitter (username: string): Promise<boolean
             return false;
         },
         {
-            key: `userIsTrustedSubmitter:${username}`,
-            ttl: 60 * 1000,
+            key: `userIsATrustedSubmitter:${username}`,
+            ttl: 120,
         },
     );
 }
