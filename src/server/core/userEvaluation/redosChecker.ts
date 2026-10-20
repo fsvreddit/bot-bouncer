@@ -35,7 +35,7 @@ function getSafeRegexCacheKey (entry: string): string {
 }
 
 function getFuzzedCacheTime (): Date {
-    return addMinutes(addWeeks(new Date(), 1), Math.random() * 60 * 24);
+    return addMinutes(addWeeks(new Date(), 1), Math.random() * 60 * 24 * 7);
 }
 
 async function getCachedSafetyResult (entry: string): Promise<Diagnostics | undefined> {
