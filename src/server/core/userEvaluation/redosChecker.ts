@@ -47,12 +47,12 @@ async function getCachedSafetyResult (entry: string): Promise<Diagnostics | unde
     }
 
     const safeResult = JSON.parse(cachedResult) as Diagnostics;
-    if (safeResult.status !== "unknown") {
-        await expireKeyAt(redisKey, getFuzzedCacheTime());
-    } else {
+    if (safeResult.status === "unknown") {
         await redis.del(redisKey);
         return;
     }
+
+    await expireKeyAt(redisKey, getFuzzedCacheTime());
 
     return safeResult;
 }
