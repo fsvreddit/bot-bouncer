@@ -13,10 +13,10 @@
     "type-check": "tsc --build"
   },
   "dependencies": {
-    "@devvit/server": "0.14.8",
-    "@devvit/start": "0.14.8",
-    "@devvit/web": "0.14.8",
-    "@fsvreddit/bot-bouncer-evaluation": "^0.8.1",
+    "@devvit/server": "0.15.0",
+    "@devvit/start": "0.15.0",
+    "@devvit/web": "0.15.0",
+    "@fsvreddit/bot-bouncer-evaluation": "^0.8.3",
     "@fsvreddit/bot-bouncer-types": "^1.0.3",
     "@fsvreddit/fsv-devvit-web-helpers": "^0.2.4",
     "@hono/node-server": "^2.1.4",
@@ -42,7 +42,7 @@
     "@types/markdown-escape": "^1.1.3",
     "@types/node": "^26.2.0",
     "@types/pluralize": "^0.0.33",
-    "devvit": "0.14.8",
+    "devvit": "0.15.0",
     "eslint": "^10.0.2",
     "typescript": "5.8.3",
     "vite": "^8.0.0",

@@ -3,8 +3,8 @@ import { getEvaluatorVariables } from ".";
 import { ALL_RELEVANT_EVALUTORS, ControlSubredditJob, decodedText, encodedText, expireKeyAt, getControlSubSettings, sendMessageToWebhook } from "..";
 import { hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import { addHours, addMinutes, addSeconds, addWeeks } from "date-fns";
-import { EvaluatorRegex } from "@fsvreddit/bot-bouncer-types";
-import { checkSync } from "recheck";
+import { EvaluatorRegex, EvaluatorRegexFoundIn } from "@fsvreddit/bot-bouncer-types";
+import { checkSync, Diagnostics } from "recheck";
 import json2md from "json2md";
 import { RedosCheckerJobData } from "../../tasks";
 
@@ -30,24 +30,28 @@ async function queueRedosCheckEntries () {
     console.log(`ReDoS Checker: Queued ${entriesAdded.toLocaleString()} regex entries for checking.`);
 }
 
-function getKnownSafeRegexRedisKey (entry: string): string {
-    return `knownSafeRegex:${entry}`;
+function getSafeRegexCacheKey (entry: string): string {
+    return `safeRegexResult:${entry}`;
 }
 
-async function isKnownSafeRegex (entry: string): Promise<boolean> {
-    const redisKey = getKnownSafeRegexRedisKey(entry);
-    const exists = await redis.exists(redisKey).then(result => result === 1);
+function getFuzzedCacheTime (): Date {
+    return addMinutes(addWeeks(new Date(), 1), Math.random() * 60 * 24);
+}
 
-    if (exists) {
-        await expireKeyAt(redisKey, addWeeks(new Date(), 1));
+async function getCachedSafetyResult (entry: string): Promise<Diagnostics | undefined> {
+    const redisKey = getSafeRegexCacheKey(entry);
+    const cachedResult = await redis.get(redisKey);
+
+    if (cachedResult) {
+        await expireKeyAt(redisKey, getFuzzedCacheTime());
     }
 
-    return exists;
+    return cachedResult ? JSON.parse(cachedResult) as Diagnostics : undefined;
 }
 
-async function markRegexAsKnownSafe (entry: string) {
-    const redisKey = getKnownSafeRegexRedisKey(entry);
-    await redis.set(redisKey, "true", { expiration: addWeeks(new Date(), 1) });
+async function storeCachedSafetyResult (entry: string, result: Diagnostics) {
+    const redisKey = getSafeRegexCacheKey(entry);
+    await redis.set(redisKey, JSON.stringify(result), { expiration: getFuzzedCacheTime() });
 }
 
 export async function redosChecker (event: TaskRequest<RedosCheckerJobData | undefined>) {
@@ -112,7 +116,7 @@ export async function redosChecker (event: TaskRequest<RedosCheckerJobData | und
             break;
         }
 
-        if (await isKnownSafeRegex(entry)) {
+        if (await getCachedSafetyResult(entry)) {
             processed.push(entry);
             continue;
         }
@@ -129,17 +133,50 @@ export async function redosChecker (event: TaskRequest<RedosCheckerJobData | und
         }
 
         try {
-            const safeResult = checkSync(regex.source, "u", {
-                maxAttackStringSize: 10000,
-                timeout: 5000,
-            });
+            let safeResult = await getCachedSafetyResult(entry);
+
+            if (!safeResult) {
+                let maxAttackStringSize: number;
+
+                switch (regexEntry.foundIn) {
+                    case EvaluatorRegexFoundIn.Body:
+                        maxAttackStringSize = 10000;
+                        break;
+                    case EvaluatorRegexFoundIn.Title:
+                        maxAttackStringSize = 300;
+                        break;
+                    case EvaluatorRegexFoundIn.Image:
+                        maxAttackStringSize = 100;
+                        break;
+                    case EvaluatorRegexFoundIn.Username:
+                        maxAttackStringSize = 16;
+                        break;
+                    case EvaluatorRegexFoundIn.Bio:
+                        maxAttackStringSize = 300;
+                        break;
+                    case EvaluatorRegexFoundIn.DisplayName:
+                        maxAttackStringSize = 100;
+                        break;
+                    case EvaluatorRegexFoundIn.Url:
+                        maxAttackStringSize = 100;
+                        break;
+                    default:
+                        maxAttackStringSize = 10000;
+                        break;
+                }
+
+                safeResult = checkSync(regex.source, regexEntry.flags ?? "", {
+                    maxAttackStringSize,
+                    timeout: 5000,
+                });
+
+                await storeCachedSafetyResult(entry, safeResult);
+            }
 
             if (safeResult.status === "vulnerable") {
                 await redis.zAdd(REDOS_HITS_KEY, ({ member: entry, score: Date.now() }));
             } else if (safeResult.status === "unknown") {
                 await redis.zAdd(REDOS_UNKNOWN_KEY, ({ member: entry, score: Date.now() }));
-            } else { // Safe
-                await markRegexAsKnownSafe(entry);
             }
         } catch (error) {
             console.error(`ReDoS Checker: Error checking regex /${regexEntry.regex}/${regexEntry.flags ?? ""}:`, error);
