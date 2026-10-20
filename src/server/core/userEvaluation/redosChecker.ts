@@ -107,7 +107,7 @@ export async function redosChecker (event: TaskRequest<RedosCheckerJobData | und
 
     await redis.set(inProgressKey, "true", { expiration: addSeconds(new Date(), 60) });
     const batchNumber = event.data?.batchNumber ?? 1;
-    const batchSize = 5000;
+    const batchSize = 1000;
     console.log(`ReDoS Checker: Starting batch #${batchNumber}...`);
 
     const runLimit = addSeconds(new Date(), 10);
