@@ -101,7 +101,7 @@ export const onPostFlairUpdate = async (c: Context): Promise<Response> => {
     }
 
     if (!Object.values(UserStatus).includes(postFlair)) {
-        return c.json<TriggerResponse>({ message: `Invalid flair on ${request.post.id}` }, 400);
+        return c.json<TriggerResponse>({ message: `Invalid flair on ${request.post.id}` }, 200);
     }
 
     const currentStatus = await getUserStatus(username);
