@@ -12,10 +12,16 @@ export const handleUptimeMonitor = async (c: Context): Promise<Response> => {
     }
 
     const settings = await getControlSubSettings();
-    await Promise.all([
+
+    const result = await Promise.allSettled([
         checkUptime(settings),
         checkMessages(settings),
     ]);
+
+    const failedPromises = result.filter(r => r.status === "rejected");
+    if (failedPromises.length > 0) {
+        console.error("Uptime: Some tasks failed:", JSON.stringify(failedPromises, null, 2));
+    }
 
     return c.json<TaskResponse>({ message: "Uptime and message check completed" }, 200);
 };
