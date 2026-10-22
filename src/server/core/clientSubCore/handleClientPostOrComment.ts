@@ -395,7 +395,7 @@ async function checkAndReportPotentialBot (username: string, target: Post | OnCo
     }
 
     if (!isLikelyBot) {
-        console.log(`Bot check: ${username} doesn't match any bot styles.`);
+        console.log(`Bot check: ${username} doesn't match any bot styles, checked ${userItems?.length} items.`);
         return;
     }
 
