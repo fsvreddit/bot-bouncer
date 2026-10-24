@@ -3,7 +3,6 @@ import { isT1, isT3, T3 } from "@devvit/web/shared";
 import { UserStatus } from "@fsvreddit/bot-bouncer-types";
 import { UserFlag } from "./types";
 import { hGetAllChunked } from "./redisHelpers";
-import _ from "lodash";
 import { CONTROL_SUBREDDIT } from "./constants";
 import { addDays, addHours, addMinutes, subDays, subHours } from "date-fns";
 import { getUsernameFromUrl } from "./utility";
@@ -13,6 +12,7 @@ import pluralize from "pluralize";
 import { deleteAccountInitialEvaluationResults } from ".";
 import { storeClassificationEvent } from "./controlSubCore/statistics";
 import { deleteAppealRecordsForUser, removeUserFromReversalsQueue } from "./controlSubCore/modmail";
+import { compact, fromPairs, uniq } from "lodash-es";
 
 const TEMP_DECLINE_STORE = "TempDeclineStore";
 const RECENT_CHANGES_STORE = "RecentChangesStore";
@@ -67,7 +67,7 @@ interface DataStoreExtractFilter {
 export async function getDataStoreFiltered (prefix: string, filter?: DataStoreExtractFilter): Promise<Record<string, UserDetails>> {
     const data = await hGetAllChunked(redis.global as RedisClient, getStoreKey(prefix), 5000);
     if (!filter) {
-        return _.fromPairs(Object.entries(data).map(([key, value]) => [key, JSON.parse(value) as UserDetails]));
+        return fromPairs(Object.entries(data).map(([key, value]) => [key, JSON.parse(value) as UserDetails]));
     }
 
     const sinceTime = filter.since ? filter.since.getTime() : undefined;
@@ -118,7 +118,7 @@ export async function getFullDataStore (filter?: DataStoreExtractFilter): Promis
 export async function getAllKnownUsers (): Promise<string[]> {
     const users = await Promise.all(ALL_POTENTIAL_USER_PREFIXES.map(prefix => redis.global.hKeys(getStoreKey(prefix))));
 
-    return _.uniq([...users.flat()]);
+    return uniq([...users.flat()]);
 }
 
 export async function getUserStatus (username: string) {
@@ -214,7 +214,7 @@ export async function setUserStatus (username: string, details: UserDetails) {
 
         await setCleanupForUser(username, overrideDate);
 
-        const submittersAndMods = _.uniq(_.compact([details.submitter, details.operator]));
+        const submittersAndMods = uniq(compact([details.submitter, details.operator]));
         await setCleanupForSubmittersAndMods(submittersAndMods);
 
         if (details.userStatus !== currentStatus?.userStatus) {

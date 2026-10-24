@@ -9,7 +9,7 @@ import { getEvaluatorVariable } from "../../userEvaluation";
 import { parse } from "regjsparser";
 import { DefinedHandlesStatsInitializerJobData, DefinedHandlesStatsJobData, StoreDefinedHandlesDataJobData } from "../../../tasks";
 import pluralize from "pluralize";
-import _ from "lodash";
+import { fromPairs } from "lodash-es";
 
 const DEFINED_HANDLES_QUEUE = "definedHandlesQueue";
 const DEFINED_HANDLES_DATA = "definedHandlesData";
@@ -124,7 +124,7 @@ export async function gatherDefinedHandlesStats (event: TaskRequest<DefinedHandl
         }
     } else {
         const existingDefinedHandlesData = await redis.hGetAll(DEFINED_HANDLES_DATA);
-        existingDefinedHandles = _.fromPairs(Object.entries(existingDefinedHandlesData).map(([handle, data]) => ([handle, JSON.parse(data) as DefinedHandleData])));
+        existingDefinedHandles = fromPairs(Object.entries(existingDefinedHandlesData).map(([handle, data]) => ([handle, JSON.parse(data) as DefinedHandleData])));
     }
 
     const userBioTextData = await redis.hMGet(BIO_TEXT_STORE, queuedHandles.map(handle => handle.member));
@@ -193,7 +193,7 @@ export async function gatherDefinedHandlesStats (event: TaskRequest<DefinedHandl
     }
 
     await redis.zRem(DEFINED_HANDLES_QUEUE, processedUsers);
-    await redis.hSet(DEFINED_HANDLES_DATA, _.fromPairs(Object.entries(existingDefinedHandles).map(([handle, data]) => ([handle, JSON.stringify(data)]))));
+    await redis.hSet(DEFINED_HANDLES_DATA, fromPairs(Object.entries(existingDefinedHandles).map(([handle, data]) => ([handle, JSON.stringify(data)]))));
     await expireKeyAt(DEFINED_HANDLES_DATA, addMinutes(new Date(), 30));
 
     const remainingHandles = await redis.zCard(DEFINED_HANDLES_QUEUE);

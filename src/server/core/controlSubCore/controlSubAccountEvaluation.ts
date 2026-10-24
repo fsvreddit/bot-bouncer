@@ -4,12 +4,12 @@ import { EvaluateBotGroupAdvancedSubmitters, getSocialLinksWithCache, UserEvalua
 import { getPostOrCommentById, getUserExtended, hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import { accountIsBotBouncerApp, ALL_RELEVANT_EVALUTORS, AppSetting, conditionallyCompressString, conditionallyDecompressString, CONTROL_SUBREDDIT, ControlSubredditJob, getControlSubSettings, getUserStatus, normaliseHitReason, normaliseHitReasons, PostFlairTemplate } from "..";
 import { addMinutes, addSeconds, addWeeks, subMonths } from "date-fns";
-import _ from "lodash";
 import { HitReason, HitReasonDetailed, UserStatus } from "@fsvreddit/bot-bouncer-types";
 import { EvaluateUserJobData, OpenAISummaryGatherData } from "../../tasks";
 import { getEvaluatorVariables } from "../userEvaluation";
 import { createUserSummary } from "./userSummary";
 import { getSubmitterSuccessRate } from "./statistics";
+import { compact, uniq } from "lodash-es";
 
 export interface EvaluatorStats {
     hitCount: number;
@@ -79,7 +79,7 @@ export async function evaluateUserAccount (options: EvaluateUserAccountOptions, 
     const socialLinks = await getSocialLinksWithCache(user.username);
     const openAIEvaluationKey = await settings.get<string>(AppSetting.OpenAIEvaluationKey);
 
-    await Promise.all(_.compact(matchedEvaluators).map(async (evaluator) => {
+    await Promise.all(compact(matchedEvaluators).map(async (evaluator) => {
         if (evaluator.needsOpenAiKey && openAIEvaluationKey) {
             evaluator.setOpenAiKey(openAIEvaluationKey);
         }
@@ -361,7 +361,7 @@ export async function userHasContinuousNSFWHistory (username: string): Promise<b
             continue;
         }
 
-        for (const subreddit of _.uniq(postsInMonth.map(post => post.subredditName))) {
+        for (const subreddit of uniq(postsInMonth.map(post => post.subredditName))) {
             subNSFW[subreddit] ??= await subIsNSFW(subreddit);
             if (subNSFW[subreddit]) {
                 continue;

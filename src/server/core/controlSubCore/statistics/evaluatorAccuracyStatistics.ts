@@ -7,7 +7,7 @@ import { FLAGS_TO_EXCLUDE_FROM_STATS } from "./statsHelpers";
 import json2md from "json2md";
 import { getEvaluatorVariables } from "../../userEvaluation";
 import { BuildEvaluatorAccuracyStatisticsJobData, EvaluatorAccuracyInitialiserData } from "../../../tasks";
-import _ from "lodash";
+import { fromPairs, toPairs } from "lodash-es";
 
 const ACCURACY_QUEUE = "evaluatorAccuracyQueue";
 const ACCURACY_STORE = "evaluatorAccuracyStore";
@@ -76,7 +76,7 @@ export async function initialiseEvaluatorAccuracyStatistics (event: TaskRequest<
             return [username, JSON.stringify(itemToQueue)];
         });
 
-        await redis.hSet(ACCURACY_QUEUE, _.fromPairs(recordsToQueue));
+        await redis.hSet(ACCURACY_QUEUE, fromPairs(recordsToQueue));
     }
 
     if (prefixes.length > 0) {
@@ -108,7 +108,7 @@ export async function buildEvaluatorAccuracyStatistics (event: TaskRequest<Build
 
     const existingResults = await redis.hGetAll(ACCURACY_STORE);
 
-    const data = _.toPairs(await hGetAllChunked(redis, ACCURACY_QUEUE, 10000));
+    const data = toPairs(await hGetAllChunked(redis, ACCURACY_QUEUE, 10000));
     while (data.length > 0 && new Date() < runLimit) {
         const record = data.shift();
         if (!record) {
@@ -171,7 +171,7 @@ export async function buildEvaluatorAccuracyStatistics (event: TaskRequest<Build
     output.push({ p: "This page shows the accuracy of the Bot Bouncer evaluation system based on initial evaluations in the last two weeks, taking into account appeals." });
 
     // eslint-disable-next-line @stylistic/function-paren-newline
-    const evaluatorAccuracyStats: Record<string, EvaluationAccuracyResult> = _.fromPairs(
+    const evaluatorAccuracyStats: Record<string, EvaluationAccuracyResult> = fromPairs(
         Object.entries(existingResults).map(([key, value]) => {
             const data = JSON.parse(value) as EvaluationAccuracyResult;
             return [key, {
@@ -220,7 +220,7 @@ export async function buildEvaluatorAccuracyStatistics (event: TaskRequest<Build
     const tableRows: string[][] = [];
     const headers: string[] = ["Bot Name", "Hit Reason", "Last Seen", "Total Count", "Banned Count", "Accuracy (%)", "Example Banned Accounts", "Unbanned Accounts"];
 
-    for (const [key, data] of _.toPairs(evaluatorAccuracyStats).sort((a, b) => a > b ? 1 : -1)) {
+    for (const [key, data] of toPairs(evaluatorAccuracyStats).sort((a, b) => a > b ? 1 : -1)) {
         const [botName, hitReason] = key.split("~");
         tableRows.push([
             // eslint-disable-next-line @typescript-eslint/no-non-null-assertion

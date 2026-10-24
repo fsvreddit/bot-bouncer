@@ -1,6 +1,5 @@
 import { context, reddit, redis, scheduler, TaskRequest } from "@devvit/web/server";
 import { JsonValue } from "@devvit/web/shared";
-import _ from "lodash";
 import { ALL_RELEVANT_EVALUTORS, compressData, CONTROL_SUBREDDIT, ControlSubredditJob, getControlSubSettings, normaliseHitReason, sendMessageToWebhook } from "..";
 import { getUserExtended, hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import { addMinutes, addSeconds } from "date-fns";
@@ -9,6 +8,7 @@ import json2md from "json2md";
 import { checkNonexistentSubs } from ".";
 import { ConditionalStatsUpdateJobData, RedosCheckerJobData, UpdateEvaluatorVariablesFromWikiEventData } from "../../tasks";
 import { ValidationIssue } from "@fsvreddit/bot-bouncer-types";
+import { fromPairs, uniq } from "lodash-es";
 
 const EVALUATOR_VARIABLES_KEY = "evaluatorVariablesHash";
 const EVALUATOR_VARIABLES_YAML_PAGE_ROOT = "evaluator-config";
@@ -31,7 +31,7 @@ export async function getRedisSubstitionValue<T> (variableName: string): Promise
 
 async function getExtraSubstititionValues (): Promise<Record<string, string | string[]>> {
     const extraVariables = await redis.hGetAll(EXTRA_VARIABLES_KEY);
-    return _.fromPairs(Object.entries(extraVariables).map(([key, value]) => [`redis:${key}`, JSON.parse(value)]));
+    return fromPairs(Object.entries(extraVariables).map(([key, value]) => [`redis:${key}`, JSON.parse(value)]));
 }
 
 export async function getEvaluatorVariables (): Promise<Record<string, JsonValue>> {
@@ -52,7 +52,7 @@ export async function getEvaluatorVariables (): Promise<Record<string, JsonValue
         }
     }
 
-    return _.fromPairs(Object.entries(allVariables).map(([key, value]) => [key, JSON.parse(value)]));
+    return fromPairs(Object.entries(allVariables).map(([key, value]) => [key, JSON.parse(value)]));
 }
 
 export async function forceEvaluatorVariablesRefresh () {
@@ -208,7 +208,7 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: TaskReques
         }
     }
 
-    for (const module of _.uniq(Object.keys(variables).map(key => key.split(":")[0]))) {
+    for (const module of uniq(Object.keys(variables).map(key => key.split(":")[0]))) {
         if (module === "generic" || module === "substitutions" || module === "errors") {
             continue;
         }
@@ -218,7 +218,7 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: TaskReques
         }
     }
 
-    const converted = _.fromPairs(Object.entries(variables).map(([key, value]) => [key, JSON.stringify(value)]));
+    const converted = fromPairs(Object.entries(variables).map(([key, value]) => [key, JSON.stringify(value)]));
 
     const existingVariables = await redis.global.hGetAll(EVALUATOR_VARIABLES_KEY);
     const keysToRemove = Object.keys(existingVariables).filter(key => !(key in converted));
@@ -228,7 +228,7 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: TaskReques
         await redis.global.hDel(EVALUATOR_VARIABLES_KEY, keysToRemove);
     }
 
-    const newRevisions = _.fromPairs(pages.map(page => [page.name, page.revisionId]));
+    const newRevisions = fromPairs(pages.map(page => [page.name, page.revisionId]));
     await redis.hSet(EVALUATOR_VARIABLES_LAST_REVISIONS_KEY, newRevisions);
 
     const variablesCount = Object.keys(converted).length;
@@ -293,7 +293,7 @@ export async function invalidEvaluatorVariableCondition (variables: Record<strin
         }
         const value = variables[key];
         if (Array.isArray(value)) {
-            const distinctTypes = _.uniq(value.map(item => typeof item));
+            const distinctTypes = uniq(value.map(item => typeof item));
             if (distinctTypes.length > 1) {
                 results.push({ severity: "error", message: `Inconsistent types for ${key} which may be a result of an undoubled single quote: ${distinctTypes.join(", ")}` });
             }

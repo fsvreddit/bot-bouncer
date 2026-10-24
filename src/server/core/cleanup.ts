@@ -9,11 +9,11 @@ import { UserStatus } from "@fsvreddit/bot-bouncer-types";
 import { UserFlag } from "./types";
 import { formatTimeSince } from "./utility";
 import { UniversalJob } from "./schedulerJobs";
-import _ from "lodash";
 import { CleanupJobData } from "../tasks";
 import { addUserToRecoveredRechecksQueue } from "./controlSubCore";
 import { submitAccountForReview } from "./controlSubCore/modmail";
 import { removeRecordOfBan, removeWhitelistUnban } from "./clientSubCore";
+import { max } from "lodash-es";
 
 export const CLEANUP_LOG_KEY = "CleanupLog";
 const SUB_OR_MOD_LOG_KEY = "SubOrModLog";
@@ -375,5 +375,5 @@ async function getLatestContentDate (username: string): Promise<number | undefin
         return;
     }
 
-    return _.max(content.map(content => content.createdAt.getTime()));
+    return max(content.map(content => content.createdAt.getTime()));
 }

@@ -8,7 +8,7 @@ import { UserStatus } from "@fsvreddit/bot-bouncer-types";
 import json2md from "json2md";
 import pluralize from "pluralize";
 import { EvaluateKarmaFarmingSubsEventData } from "../../tasks";
-import _ from "lodash";
+import { compact, uniq } from "lodash-es";
 
 export const CHECK_DATE_KEY = "KarmaFarmingSubsCheckDates";
 
@@ -31,7 +31,7 @@ async function getAccountsFromSub (subredditName: string, since: Date): Promise<
 
     return {
         subredditName,
-        accounts: _.uniq(posts.filter(post => post.createdAt > since && post.authorName !== "[deleted]").map(post => post.authorName)),
+        accounts: uniq(posts.filter(post => post.createdAt > since && post.authorName !== "[deleted]").map(post => post.authorName)),
     };
 }
 
@@ -49,7 +49,7 @@ async function getDistinctAccounts (): Promise<string[]> {
     const variables = await getEvaluatorVariables();
     const karmaFarmingSubs = variables["generic:karmafarminglinksubs"] as string[] | undefined ?? [];
     const karmaFarmingSubsNSFW = variables["generic:karmafarminglinksubsnsfw"] as string[] | undefined ?? [];
-    const uniqueSubs = _.uniq([...karmaFarmingSubs, ...karmaFarmingSubsNSFW]);
+    const uniqueSubs = uniq([...karmaFarmingSubs, ...karmaFarmingSubsNSFW]);
 
     // Remove check dates older than a week.
     await redis.zRemRangeByScore(CHECK_DATE_KEY, 0, subWeeks(new Date(), 1).getTime());
@@ -82,13 +82,13 @@ async function getDistinctAccounts (): Promise<string[]> {
     console.log(`Karma Farming Subs: Total subs in KF list: ${uniqueSubs.length}`);
 
     const promises = Object.entries(subsToCheck).map(([sub, date]) => getAccountsFromSub(sub, date));
-    const accountsToCheck = _.compact(await Promise.all(promises));
+    const accountsToCheck = compact(await Promise.all(promises));
 
     if (accountsToCheck.length > 0) {
         await redis.zAdd(CHECK_DATE_KEY, ...accountsToCheck.map(item => ({ member: item.subredditName, score: new Date().getTime() })));
     }
 
-    return _.uniq(accountsToCheck.map(item => item.accounts).flat());
+    return uniq(accountsToCheck.map(item => item.accounts).flat());
 }
 
 async function evaluateAndHandleUser (username: string, variables: Record<string, JsonValue>) {

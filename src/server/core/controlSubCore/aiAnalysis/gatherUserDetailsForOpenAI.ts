@@ -5,7 +5,7 @@ import { CONTROL_SUBREDDIT } from "../../constants";
 import { evaluateUserAccount, getAccountInitialEvaluationResults } from "..";
 import { normaliseHitReason } from "../..";
 import { getEvaluatorVariables } from "../../userEvaluation";
-import _ from "lodash";
+import { uniq } from "lodash-es";
 
 interface PostInfo {
     title: string;
@@ -29,7 +29,7 @@ export async function getUserInfoForOpenAI (username: string) {
         }).all();
 
         const postInfoMap: Record<string, PostInfo> = {};
-        const uniqueCommentPosts = _.uniq(history.filter(item => "postId" in item).map(comment => comment.postId));
+        const uniqueCommentPosts = uniq(history.filter(item => "postId" in item).map(comment => comment.postId));
 
         await Promise.all(uniqueCommentPosts.map(async (postId) => {
             let post: Post;

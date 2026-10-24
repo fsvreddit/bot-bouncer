@@ -3,8 +3,8 @@ import { ControlSubSettings, UserStatus } from "@fsvreddit/bot-bouncer-types";
 import { StatsUserEntry } from "./statsHelpers";
 import { subMonths } from "date-fns";
 import { getControlSubSettings, UserFlag } from "../..";
-import _ from "lodash";
 import json2md from "json2md";
+import { uniq } from "lodash-es";
 
 export interface SubmitterStatistic {
     submitter: string;
@@ -96,7 +96,7 @@ export async function updateSubmitterStatistics (allStatuses: StatsUserEntry[]) 
         }
     }
 
-    const distinctUsers = _.uniq([...Object.keys(organicStatuses), ...Object.keys(bannedStatuses)]);
+    const distinctUsers = uniq([...Object.keys(organicStatuses), ...Object.keys(bannedStatuses)]);
     const submitterStatistics: SubmitterStatistic[] = [];
     const successRatesToStore: ZMember[] = [];
     const controlSubSettings = await getControlSubSettings();

@@ -1,5 +1,5 @@
 import { JsonObject } from "@devvit/web/shared";
-import _ from "lodash";
+import { compact } from "lodash-es";
 
 interface SummaryExtra {
     type: "post" | "comment";
@@ -26,5 +26,5 @@ export function getSummaryExtras (evaluatorConfig: Record<string, unknown>): Sum
             };
         });
 
-    return _.compact(extras);
+    return compact(extras);
 }

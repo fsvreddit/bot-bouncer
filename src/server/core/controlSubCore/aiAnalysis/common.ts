@@ -1,8 +1,8 @@
 import { reddit, redis } from "@devvit/web/server";
 import Ajv, { JSONSchemaType } from "ajv";
-import _ from "lodash";
 import { parseAllDocuments } from "yaml";
 import { CONTROL_SUBREDDIT } from "../..";
+import { compact } from "lodash-es";
 
 export interface PromptData {
     model: string;
@@ -37,7 +37,7 @@ export async function getPromptData (wikiPageName: string): Promise<PromptData> 
     }
 
     const wikiPage = await reddit.getWikiPage(CONTROL_SUBREDDIT, wikiPageName, {});
-    const content = _.compact(parseAllDocuments(wikiPage.content).map(doc => doc.toJSON() as PromptData));
+    const content = compact(parseAllDocuments(wikiPage.content).map(doc => doc.toJSON() as PromptData));
 
     if (content.length === 0) {
         throw new Error("No valid prompt data found in wiki page");

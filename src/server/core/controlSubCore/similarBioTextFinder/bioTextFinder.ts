@@ -2,7 +2,6 @@ import { context, Post, reddit, redis } from "@devvit/web/server";
 import { JsonValue } from "@devvit/web/shared";
 import { getUserExtended } from "@fsvreddit/fsv-devvit-web-helpers";
 import { addDays, addHours } from "date-fns";
-import _ from "lodash";
 import { getEvaluatorVariables } from "../../userEvaluation";
 import { SequenceMatcher } from "./difflib";
 import { getSubstitutedText } from "./substitutions";
@@ -10,6 +9,7 @@ import json2md from "json2md";
 import { AsyncSubmission, evaluateUserAccount, getUserStatus, PostCreationQueueResult, queuePostCreation } from "../..";
 import { UserStatus } from "@fsvreddit/bot-bouncer-types";
 import pluralize from "pluralize";
+import { compact, uniq } from "lodash-es";
 
 interface UserBioText {
     username: string;
@@ -49,12 +49,12 @@ async function getDistinctUsersFromSubreddit (subredditName: string): Promise<st
         return [];
     }
 
-    return _.uniq(posts.map(post => post.authorName));
+    return uniq(posts.map(post => post.authorName));
 }
 
 async function getDistinctUsersFromSubreddits (subredditNames: string[]): Promise<string[]> {
     const userSets = await Promise.all(subredditNames.map(subredditName => getDistinctUsersFromSubreddit(subredditName)));
-    return _.uniq(userSets.flat());
+    return uniq(userSets.flat());
 }
 
 function bioTextAlreadyBanned (bioText: string, variables: Record<string, JsonValue>): boolean {
@@ -86,7 +86,7 @@ export async function analyseBioText () {
 
     const users = await getDistinctUsersFromSubreddits(subreddits);
 
-    let bioTextResults = _.compact(await Promise.all(users.map(username => getBioTextForUser(username))));
+    let bioTextResults = compact(await Promise.all(users.map(username => getBioTextForUser(username))));
     const results: Record<string, UserBioText[]> = {};
 
     let bestMatch: Match | undefined = undefined;
@@ -222,7 +222,7 @@ export async function addAllUsersFromModmail (conversationId: string, submitter:
 
     console.log(`Added ${queuedCount} users to the queue following !addall command in modmail.`);
     if (results.some(result => result !== PostCreationQueueResult.Queued)) {
-        console.error(`Some users were not added to the queue following !addall command in modmail. Reasons: ${_.uniq(results).join(", ")}`);
+        console.error(`Some users were not added to the queue following !addall command in modmail. Reasons: ${uniq(results).join(", ")}`);
     }
 
     await reddit.modMail.reply({

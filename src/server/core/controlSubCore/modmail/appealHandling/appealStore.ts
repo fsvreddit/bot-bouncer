@@ -2,7 +2,7 @@ import { redis } from "@devvit/web/server";
 import { ModmailMessage } from "../../..";
 import json2md from "json2md";
 import { compareDesc, format } from "date-fns";
-import _ from "lodash";
+import { compact } from "lodash-es";
 
 function getAppealHashKeyForUser (username: string): string {
     return `appealRecords~${username}`;
@@ -42,7 +42,7 @@ export async function deleteAppealRecordsForUser (username: string) {
 export async function getAppealTextForUser (username: string, triggerConversationId: string): Promise<json2md.DataObject[] | undefined> {
     const appealRecordsForUser = await redis.hGetAll(getAppealHashKeyForUser(username));
 
-    const appealRecords = _.compact(Object.values(appealRecordsForUser).map((value) => {
+    const appealRecords = compact(Object.values(appealRecordsForUser).map((value) => {
         const parsedRecord = JSON.parse(value) as AppealEntry;
         if (parsedRecord.conversationId === normalisedConversationId(triggerConversationId)) {
             return;

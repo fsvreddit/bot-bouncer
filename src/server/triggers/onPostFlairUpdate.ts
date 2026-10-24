@@ -6,7 +6,7 @@ import { fixPostTriggerEvent, hasEventBeenHandled } from "@fsvreddit/fsv-devvit-
 import { UserStatus } from "@fsvreddit/bot-bouncer-types";
 import { addHours, addSeconds } from "date-fns";
 import { addToReversalsQueue, submitAccountForReview } from "../core/controlSubCore/modmail";
-import _ from "lodash";
+import { uniq } from "lodash-es";
 
 export const onPostFlairUpdate = async (c: Context): Promise<Response> => {
     let request = await c.req.json<OnPostFlairUpdateRequest>();
@@ -57,7 +57,7 @@ export const onPostFlairUpdate = async (c: Context): Promise<Response> => {
         if (currentStatus) {
             const flags = currentStatus.flags ?? [];
             flags.push(mapping.flagToSet);
-            currentStatus.flags = _.uniq(flags);
+            currentStatus.flags = uniq(flags);
             await writeUserStatus(username, currentStatus);
         }
 

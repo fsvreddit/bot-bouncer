@@ -7,9 +7,9 @@ import { UserFlag } from "../../types";
 import Ajv, { JSONSchemaType } from "ajv";
 import json2md from "json2md";
 import { addHours, addMinutes, addSeconds, format, subDays } from "date-fns";
-import _ from "lodash";
 import pluralize from "pluralize";
 import { DataExtractJobData } from "../../../tasks";
+import { chunk, fromPairs } from "lodash-es";
 
 interface ModmailDataExtract {
     status?: UserStatus[];
@@ -282,8 +282,8 @@ export async function startDataExtract (event: TaskRequest<DataExtractJobData>) 
                 return true; // Keep the entry if it passes all filters
             });
 
-        await Promise.all(_.chunk(filteredData, 10000).map(async (dataChunk) => {
-            const dataToStore = _.fromPairs(dataChunk.map(entry => [entry.username, JSON.stringify(entry.data)]));
+        await Promise.all(chunk(filteredData, 10000).map(async (dataChunk) => {
+            const dataToStore = fromPairs(dataChunk.map(entry => [entry.username, JSON.stringify(entry.data)]));
             await redis.hSet(getExtractTempStoreKey(event.data.extractId), dataToStore);
             await redis.zAdd(getExtractTempQueueKey(event.data.extractId), ...dataChunk.map(entry => ({ score: 0, member: entry.username })));
         }));
@@ -368,7 +368,7 @@ export async function continueDataExtract (event: TaskRequest<DataExtractJobData
     const dataMapped = Object.entries(rawData)
         .map(([username, data]) => ({ username, data: JSON.parse(data) as UserDetailsWithBioAndSocialLinks }));
 
-    const data = _.fromPairs(dataMapped.map(entry => [entry.username, entry.data]));
+    const data = fromPairs(dataMapped.map(entry => [entry.username, entry.data]));
 
     console.log(`Data Extract: Processing batch of ${processingQueue.length} entries.`);
 
@@ -510,7 +510,7 @@ export async function continueDataExtract (event: TaskRequest<DataExtractJobData
 
     const actualEntriesToRewrite = Array.from(entriesToRewrite).filter(username => !entriesToRemove.has(username));
     if (actualEntriesToRewrite.length > 0) {
-        const rewrittenData = _.fromPairs(actualEntriesToRewrite.map(username => [username, JSON.stringify(data[username])]));
+        const rewrittenData = fromPairs(actualEntriesToRewrite.map(username => [username, JSON.stringify(data[username])]));
         await redis.hSet(getExtractTempStoreKey(extractId), rewrittenData);
     }
 

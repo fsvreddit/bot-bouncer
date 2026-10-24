@@ -1,7 +1,7 @@
 import { Comment, context, Post, redis } from "@devvit/web/server";
 import { isModerator } from "@fsvreddit/fsv-devvit-web-helpers";
 import { addWeeks } from "date-fns";
-import _ from "lodash";
+import { uniq } from "lodash-es";
 
 async function isAppModOfSub (subredditName: string): Promise<boolean> {
     if (subredditName === context.subredditName) {
@@ -23,7 +23,7 @@ async function isAppModOfSub (subredditName: string): Promise<boolean> {
 
 export async function isUserPotentiallyBlockingBot (history: (Post | Comment)[]): Promise<boolean | undefined> {
     const relevantHistory = history.filter(item => !item.stickied && item.subredditName !== `u_${item.authorName}`);
-    const distinctSubreddits = _.uniq(relevantHistory.map(item => item.subredditName));
+    const distinctSubreddits = uniq(relevantHistory.map(item => item.subredditName));
     if (distinctSubreddits.length < 5) {
         return;
     }

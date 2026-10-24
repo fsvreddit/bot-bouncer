@@ -9,8 +9,8 @@ import { StatsUserEntry } from "./statsHelpers";
 import { CONTROL_SUBREDDIT, ControlSubredditJob, getUsernameFromUrl } from "../..";
 import pluralize from "pluralize";
 import { regenerateSummary } from "../userSummary";
-import _ from "lodash";
 import { CreateSummariesForPendingUsersJobData, PendingUserFinderJobData } from "../../../tasks";
+import { compact } from "lodash-es";
 
 const PENDING_USER_WIKI_PAGE = "pending-users";
 const PENDING_USERS_TO_ALERT_KEY = "pendingUsersToAlert";
@@ -39,7 +39,7 @@ export async function pendingUserFinder (event: TaskRequest<PendingUserFinderJob
         subreddit: context.subredditName,
         limit: 1000,
         type: "post",
-    }).all().then(posts => new Set(_.compact(posts.map(post => getUsernameFromUrl(post.url)))));
+    }).all().then(posts => new Set(compact(posts.map(post => getUsernameFromUrl(post.url)))));
 
     const pendingUsersNotInQueue = pendingUsers.filter(user => !usersInModQueue.has(user.username));
 

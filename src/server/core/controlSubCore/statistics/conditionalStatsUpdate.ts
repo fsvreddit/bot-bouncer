@@ -7,7 +7,7 @@ import { addDays, addMinutes, addSeconds, subMonths } from "date-fns";
 import { ALL_POTENTIAL_USER_PREFIXES, ControlSubredditJob, getFullDataStore } from "../..";
 import { JsonValue } from "@devvit/web/shared";
 import { ConditionalStatsUpdateJobData, DefinedHandlesStatsInitializerJobData } from "../../../tasks";
-import _ from "lodash";
+import { compact } from "lodash-es";
 
 interface ConditionalStatsUpdateConfig {
     statName: string;
@@ -58,7 +58,7 @@ export async function conditionalStatsUpdate (event: TaskRequest<ConditionalStat
 
     const evaluatorVariables = await getEvaluatorVariables();
 
-    const configsToUpdate = _.compact(await Promise.all(STATUS_UPDATE_CONFIGS.map(async (config) => {
+    const configsToUpdate = compact(await Promise.all(STATUS_UPDATE_CONFIGS.map(async (config) => {
         const shouldUpdate = await shouldUpdateStatistic(config, evaluatorVariables);
         return shouldUpdate ? config : undefined;
     })));

@@ -2,9 +2,9 @@ import { context, reddit, redis, UserSocialLink } from "@devvit/web/server";
 import { format, subMonths } from "date-fns";
 import { SOCIAL_LINKS_STORE, UserDetails } from "../..";
 import { StatsUserEntry, userIsBanned } from "./statsHelpers";
-import _ from "lodash";
 import { getEvaluatorVariable, getRedisSubstitionValue, setRedisSubstititionValue } from "../../userEvaluation";
 import json2md from "json2md";
+import { chunk, max, min, uniq } from "lodash-es";
 
 export function cleanLink (input: string): string {
     if (!input.includes("onlyfans.com") && !input.includes("fansly.com") && !input.includes("fans.ly") && !input.includes("snapchat.com") && !input.includes("fanvue.com")) {
@@ -70,7 +70,7 @@ export async function updateSocialLinksStatistics (allEntries: StatsUserEntry[])
 
     const recentData: typeof recentDataInit = [];
 
-    const chunks = _.chunk(recentDataInit, 5000);
+    const chunks = chunk(recentDataInit, 5000);
     for (const chunk of chunks) {
         const socialLinks = await redis.hMGet(SOCIAL_LINKS_STORE, chunk.map(item => item.username));
         for (let i = 0; i < chunk.length; i++) {
@@ -79,7 +79,7 @@ export async function updateSocialLinksStatistics (allEntries: StatsUserEntry[])
                 const socialLinksData = JSON.parse(socialLinksEntry) as UserSocialLink[];
                 if (socialLinksData.length > 0) {
                     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-                    chunk[i]!.data.socialLinks = _.uniq(socialLinksData.map(link => cleanLink(link.outboundUrl)));
+                    chunk[i]!.data.socialLinks = uniq(socialLinksData.map(link => cleanLink(link.outboundUrl)));
                     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
                     recentData.push(chunk[i]!);
                 }
@@ -106,8 +106,8 @@ export async function updateSocialLinksStatistics (allEntries: StatsUserEntry[])
                 socialLinksCounts[link] = {
                     hits: existingEntry.hits + 1,
                     coveredByEvaluator: existingEntry.coveredByEvaluator,
-                    firstSeen: item.data.reportedAt ? _.min([existingEntry.firstSeen, new Date(item.data.reportedAt)]) ?? existingEntry.firstSeen : existingEntry.firstSeen,
-                    lastSeen: item.data.reportedAt ? _.max([existingEntry.lastSeen, new Date(item.data.reportedAt)]) ?? existingEntry.lastSeen : existingEntry.lastSeen,
+                    firstSeen: item.data.reportedAt ? min([existingEntry.firstSeen, new Date(item.data.reportedAt)]) ?? existingEntry.firstSeen : existingEntry.firstSeen,
+                    lastSeen: item.data.reportedAt ? max([existingEntry.lastSeen, new Date(item.data.reportedAt)]) ?? existingEntry.lastSeen : existingEntry.lastSeen,
                     usernames: [...existingEntry.usernames, item.username],
                 };
             } else {
@@ -149,7 +149,7 @@ export async function updateSocialLinksStatistics (allEntries: StatsUserEntry[])
                 record.value.hits.toLocaleString(),
                 record.value.firstSeen ? format(record.value.firstSeen, "MMM dd") : "",
                 record.value.lastSeen ? format(record.value.lastSeen, "MMM dd") : "",
-                _.uniq(record.value.usernames).map(username => `/u/${username}`).slice(-5).join(", "),
+                uniq(record.value.usernames).map(username => `/u/${username}`).slice(-5).join(", "),
             ];
 
             if (record.value.coveredByEvaluator) {

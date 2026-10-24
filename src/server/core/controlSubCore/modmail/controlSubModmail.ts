@@ -19,10 +19,10 @@ import { addAllUsersFromModmail } from "../similarBioTextFinder";
 import { OpenAISummaryGatherData } from "../../../tasks";
 import { markAppealAsHandledByMod } from "../statistics";
 import { handleAskAI } from "../aiAnalysis";
-import _ from "lodash";
+import { uniq } from "lodash-es";
 
 export function getPossibleSetStatusValues (): string[] {
-    return _.uniq([...FLAIR_MAPPINGS.map(entry => entry.postFlair), ...Object.values(UserStatus)]);
+    return uniq([...FLAIR_MAPPINGS.map(entry => entry.postFlair), ...Object.values(UserStatus)]);
 }
 
 export async function handleControlSubredditModmail (modmail: ModmailMessage) {

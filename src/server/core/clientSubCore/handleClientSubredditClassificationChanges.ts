@@ -5,8 +5,8 @@ import { T1, T3 } from "@devvit/web/shared";
 import pluralize from "pluralize";
 import { getPostOrCommentById, getUserOrUndefined, hasPermissions, hasEventBeenHandled, isBanned, isContributor } from "@fsvreddit/fsv-devvit-web-helpers";
 import { addDays, addMinutes, addSeconds, formatDate, subDays, subMinutes, subWeeks } from "date-fns";
-import _ from "lodash";
 import { HandleClassificationChangesData } from "../../tasks";
+import { fromPairs } from "lodash-es";
 
 const UNBAN_WHITELIST = "UnbanWhitelist";
 const BAN_STORE = "BanStore";
@@ -267,12 +267,12 @@ async function handleSetBanned (username: string, subredditName: string, setting
 
         const reinstatableContent = removableContent.filter(item => item.userReportReasons.length === 0);
         if (reinstatableContent.length > 0) {
-            await redis.hSet(`removedItems:${username}`, _.fromPairs(reinstatableContent.map(item => ([item.id, item.id]))));
+            await redis.hSet(`removedItems:${username}`, fromPairs(reinstatableContent.map(item => ([item.id, item.id]))));
             // Expire key after 14 days
             await expireKeyAt(`removedItems:${username}`, addDays(new Date(), 14));
 
             if (settings[AppSetting.LockContentWhenRemoving]) {
-                await redis.hSet(`lockedItems:${username}`, _.fromPairs(reinstatableContent.map(item => ([item.id, item.id]))));
+                await redis.hSet(`lockedItems:${username}`, fromPairs(reinstatableContent.map(item => ([item.id, item.id]))));
                 await expireKeyAt(`lockedItems:${username}`, addDays(new Date(), 14));
             }
         }

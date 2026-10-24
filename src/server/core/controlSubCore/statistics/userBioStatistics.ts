@@ -8,7 +8,7 @@ import { getEvaluatorVariable, getRedisSubstitionValue, setRedisSubstititionValu
 import escapeStringRegexp from "escape-string-regexp";
 import { BioStatsJobData } from "../../../tasks";
 import { createHash } from "node:crypto";
-import _ from "lodash";
+import { chunk } from "lodash-es";
 
 const BIO_STATS_UPDATE_IN_PROGRESS = "BioTextStatsUpdateInProgressKey";
 
@@ -57,7 +57,7 @@ export async function updateBioStatistics (allEntries: StatsUserEntry[]) {
 
     await clearDownTemporaryKeys(statsId);
 
-    const chunkedData = _.chunk(recentData, 20000);
+    const chunkedData = chunk(recentData, 20000);
 
     await Promise.all(chunkedData.map(entries => redis.zAdd(getBioQueueKey(statsId), ...entries.map(item => ({ member: item.username, score: item.data.reportedAt ?? 0 })))));
     await expireKeyAt(getBioQueueKey(statsId), addHours(new Date(), 1));

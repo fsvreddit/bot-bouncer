@@ -4,7 +4,7 @@ import { addMinutes } from "date-fns";
 import { AGGREGATE_STORE } from "../..";
 import json2md from "json2md";
 import { UpdateMainStatisticsPageJobData } from "../../../tasks";
-import _ from "lodash";
+import { sum } from "lodash-es";
 
 export async function updateMainStatisticsPage (event: TaskRequest<UpdateMainStatisticsPageJobData | undefined>) {
     // TODO: Safe, performant implementation of correctAggregateStore
@@ -25,7 +25,7 @@ export async function updateMainStatisticsPage (event: TaskRequest<UpdateMainSta
 
     wikiContent.push({ ul: results.map(item => `**${item.member}**: ${item.score.toLocaleString()}`) });
 
-    wikiContent.push({ p: `**Total accounts processed**: ${_.sum(results.map(item => item.score)).toLocaleString()}` });
+    wikiContent.push({ p: `**Total accounts processed**: ${sum(results.map(item => item.score)).toLocaleString()}` });
     wikiContent.push({ p: "These statistics update every 6 hours, and may update more frequently." });
 
     const wikiPageName = "statistics";

@@ -9,11 +9,11 @@ import json2md from "json2md";
 import { addMinutes, addSeconds, addWeeks, differenceInMonths, format, getYear, subDays } from "date-fns";
 import { UserStatus } from "@fsvreddit/bot-bouncer-types";
 import { getUserExtended, getUserSocialLinks } from "@fsvreddit/fsv-devvit-web-helpers";
-import _ from "lodash";
 import { getEvaluatorVariables } from "../../../userEvaluation";
 import { FLAIR_MAPPINGS } from "../../../constants";
 import { sendMessageOnDelay } from "../delayedSend";
 import { recordAppealHandled } from "../../statistics";
+import { compact, countBy, uniq } from "lodash-es";
 
 const APPEAL_CONFIG_WIKI_PAGE = "appeal-config";
 const APPEAL_CONFIG_REDIS_KEY = "AppealConfig";
@@ -96,7 +96,7 @@ const appealConfigSchema: JSONSchemaType<AppealConfig[]> = {
             "~modNoteTextRegex": { type: "array", items: { type: "string" }, nullable: true },
             hasMoreThanOneCommentOnPost: { type: "boolean", nullable: true },
             hasNSFWPosts: { type: "boolean", nullable: true },
-            setStatus: { type: "string", enum: _.uniq([...FLAIR_MAPPINGS.map(entry => entry.postFlair), ...Object.values(UserStatus)]), nullable: true },
+            setStatus: { type: "string", enum: uniq([...FLAIR_MAPPINGS.map(entry => entry.postFlair), ...Object.values(UserStatus)]), nullable: true },
             privateReply: { type: "string", nullable: true },
             reply: { type: "string", nullable: true },
             replyDelay: {
@@ -334,7 +334,7 @@ export async function validateAndSaveAppealConfig (username: string): Promise<vo
 
     const documents = parseAllDocuments(pageToParse);
 
-    const parsedConfigs = _.compact(documents.map(doc => doc.toJSON() as AppealConfig)).filter(item => item.name !== "substitutions");
+    const parsedConfigs = compact(documents.map(doc => doc.toJSON() as AppealConfig)).filter(item => item.name !== "substitutions");
 
     const ajv = new Ajv({
         coerceTypes: "array",
@@ -705,7 +705,7 @@ export async function getMatchedAppealConfig (username: string, userDetails: Use
             }
 
             if (config.hasMoreThanOneCommentOnPost !== undefined) {
-                const commentsPerPost = _.countBy(history.filter(item => "postId" in item).map(comment => comment.postId));
+                const commentsPerPost = countBy(history.filter(item => "postId" in item).map(comment => comment.postId));
                 const hasMoreThanOneCommentOnPost = Object.values(commentsPerPost).some(count => count > 1);
 
                 if (config.hasMoreThanOneCommentOnPost !== hasMoreThanOneCommentOnPost) {

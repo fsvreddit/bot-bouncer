@@ -6,7 +6,7 @@ import pluralize from "pluralize";
 import { addMinutes, addSeconds } from "date-fns";
 import { RecoveredAccountsData } from "../../tasks";
 import { CompiledAppealConfig, getAppealConfig, getMatchedAppealConfig } from "./modmail";
-import _ from "lodash";
+import { chunk } from "lodash-es";
 
 const RECOVERED_RECHECKS_QUEUE_KEY = "recoveredRechecksQueue";
 const RECOVERED_RECHECKS_RECOVERED_KEY = "recoveredRechecksRecovered";
@@ -98,7 +98,7 @@ export async function checkPotentiallyRecoveredAccounts (event: TaskRequest<Reco
     const runLimit = addSeconds(new Date(), 15);
     let processed = 0;
 
-    const chunks = _.chunk(recoveredAccountsToCheck, 10);
+    const chunks = chunk(recoveredAccountsToCheck, 10);
 
     while (chunks.flat().length > 0 && new Date() < runLimit) {
         const firstChunk = chunks.shift();
