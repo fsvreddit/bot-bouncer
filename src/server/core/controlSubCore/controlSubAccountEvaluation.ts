@@ -311,6 +311,20 @@ export async function getAccountInitialEvaluationResults (username: string): Pro
     return JSON.parse(conditionallyDecompressString(results)) as EvaluationResult[];
 }
 
+export async function getAccountInitialEvaluationResultsMulti (usernames: string[]): Promise<Record<string, EvaluationResult[]>> {
+    const results: Record<string, EvaluationResult[]> = {};
+    const records = await redis.mGet(usernames.map(getEvaluationResultsKey));
+    for (let i = 0; i < usernames.length; i++) {
+        const username = usernames[i];
+        const record = records[i];
+        if (username && record) {
+            results[username] = JSON.parse(conditionallyDecompressString(record)) as EvaluationResult[];
+        }
+    }
+
+    return results;
+}
+
 export async function deleteAccountInitialEvaluationResults (username: string) {
     await redis.del(getEvaluationResultsKey(username));
 }

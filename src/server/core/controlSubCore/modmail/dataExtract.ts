@@ -2,7 +2,7 @@
 import { context, reddit, redis, scheduler, TaskRequest, UserSocialLink, WikiPage } from "@devvit/web/server";
 import { UserStatus } from "@fsvreddit/bot-bouncer-types";
 import { hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
-import { ALL_POTENTIAL_USER_PREFIXES, BIO_TEXT_STORE, ControlSubredditJob, DISPLAY_NAME_STORE, expireKeyAt, getAccountInitialEvaluationResults, getDataStoreFiltered, hMGetAsRecord, ModmailMessage, normaliseHitReason, setCleanupForUser, SOCIAL_LINKS_STORE, UserDetails } from "../..";
+import { ALL_POTENTIAL_USER_PREFIXES, BIO_TEXT_STORE, ControlSubredditJob, DISPLAY_NAME_STORE, expireKeyAt, getAccountInitialEvaluationResultsMulti, getDataStoreFiltered, hMGetAsRecord, ModmailMessage, normaliseHitReason, setCleanupForUser, SOCIAL_LINKS_STORE, UserDetails } from "../..";
 import { UserFlag } from "../../types";
 import Ajv, { JSONSchemaType } from "ajv";
 import json2md from "json2md";
@@ -438,17 +438,18 @@ export async function continueDataExtract (event: TaskRequest<DataExtractJobData
     }
 
     if (request.evaluator || request.hitReason || request.hitReasonRegex || request.hitDetail || request.hitDetailRegex) {
-        await Promise.all(processingQueue.map(async (username) => {
-            const results = await getAccountInitialEvaluationResults(username);
-            if (results.length === 0) {
+        const evaluationResults = await getAccountInitialEvaluationResultsMulti(processingQueue);
+        for (const username of processingQueue) {
+            const results = evaluationResults[username];
+            if (!results || results.length === 0) {
                 entriesToRemove.add(username);
-                return;
+                continue;
             }
 
             // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
             if (request.evaluator && !results.some(result => result.botName.toLowerCase().includes(request.evaluator!.toLowerCase()))) {
                 entriesToRemove.add(username);
-                return;
+                continue;
             }
 
             if (request.hitReason && !results.some((result) => {
@@ -460,7 +461,7 @@ export async function continueDataExtract (event: TaskRequest<DataExtractJobData
                 return normaliseHitReason(result.hitReason).reason.toLowerCase().includes(request.hitReason!.toLowerCase());
             })) {
                 entriesToRemove.add(username);
-                return;
+                continue;
             }
 
             if (request.hitReasonRegex && !results.some((result) => {
@@ -473,7 +474,7 @@ export async function continueDataExtract (event: TaskRequest<DataExtractJobData
                 return regex.test(normaliseHitReason(result.hitReason).reason);
             })) {
                 entriesToRemove.add(username);
-                return;
+                continue;
             }
 
             if (request.hitDetail && !results.some((result) => {
@@ -485,7 +486,7 @@ export async function continueDataExtract (event: TaskRequest<DataExtractJobData
                 return result.hitReason.details.some(detail => detail.value.toLowerCase().includes(request.hitDetail!.toLowerCase()));
             })) {
                 entriesToRemove.add(username);
-                return;
+                continue;
             }
 
             if (request.hitDetailRegex && !results.some((result) => {
@@ -498,9 +499,9 @@ export async function continueDataExtract (event: TaskRequest<DataExtractJobData
                 return result.hitReason.details.some(detail => regex.test(detail.value));
             })) {
                 entriesToRemove.add(username);
-                return;
+                continue;
             }
-        }));
+        }
     }
 
     if (entriesToRemove.size > 0) {
