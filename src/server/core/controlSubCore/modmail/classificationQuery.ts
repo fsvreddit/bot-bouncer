@@ -1,5 +1,5 @@
 import { context, reddit, redis } from "@devvit/web/server";
-import { CONTROL_SUBREDDIT } from "../..";
+import { CONTROL_SUBREDDIT, isModeratorWithCache } from "../..";
 import json2md from "json2md";
 import { setOverrideForSetStatusCommand } from ".";
 import { getSummaryForUser } from "../userSummary";
@@ -46,26 +46,37 @@ export async function handleClassificationQueryQueue () {
         { blockquote: queryData.message.trim() },
     ];
 
+    const userIsBotBouncerMod = await isModeratorWithCache(queryData.submittingUser, CONTROL_SUBREDDIT);
     const subject = `Your classification status query about /u/${queryData.username}`;
 
-    const conversationResponse = await reddit.modMail.createConversation({
-        subredditName: CONTROL_SUBREDDIT,
-        subject,
-        to: queryData.submittingUser,
-        body: json2md(message),
-    });
+    let conversationId: string | undefined;
+    if (userIsBotBouncerMod) {
+        conversationId = await reddit.modMail.createModInboxConversation({
+            subredditId: context.subredditId,
+            subject,
+            bodyMarkdown: json2md(message),
+        });
+    } else {
+        const conversationResponse = await reddit.modMail.createConversation({
+            subredditName: CONTROL_SUBREDDIT,
+            subject,
+            to: queryData.submittingUser,
+            body: json2md(message),
+        });
+        conversationId = conversationResponse.conversation.id;
+    }
 
-    if (conversationResponse.conversation.id) {
-        await setOverrideForSetStatusCommand(conversationResponse.conversation.id, queryData.username);
+    if (conversationId) {
+        await setOverrideForSetStatusCommand(conversationId, queryData.username);
 
         const userSummary = await getSummaryForUser(queryData.username, "modmail");
 
         await reddit.modMail.reply({
-            conversationId: conversationResponse.conversation.id,
+            conversationId,
             body: json2md(userSummary),
             isInternal: true,
         });
     }
 
-    console.log(`Classification Queries: Handled classification query for /u/${queryData.username} from /u/${queryData.submittingUser}, conversation ID: ${conversationResponse.conversation.id}`);
+    console.log(`Classification Queries: Handled classification query for /u/${queryData.username} from /u/${queryData.submittingUser}, conversation ID: ${conversationId}`);
 }
