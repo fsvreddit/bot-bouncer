@@ -1,7 +1,7 @@
-import { reddit, redis, scheduler, TaskRequest } from "@devvit/web/server";
+import { context, reddit, redis, scheduler, TaskRequest } from "@devvit/web/server";
 import { JsonValue } from "@devvit/web/shared";
 import { UserStatus } from "@fsvreddit/bot-bouncer-types";
-import { CONTROL_SUBREDDIT, evaluateUserAccount, getAccountInitialEvaluationResults, getFullDataStore, getUserStatus, PostFlairTemplate, storeAccountInitialEvaluationResults } from "..";
+import { CONTROL_SUBREDDIT, evaluateUserAccount, getAccountInitialEvaluationResults, getFullDataStore, getUserStatus, PostFlairTemplate, setUserStatus, storeAccountInitialEvaluationResults, UserDetails } from "..";
 import { hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import { addMinutes, addSeconds } from "date-fns";
 import { getEvaluatorVariables } from "./evaluatorVariables";
@@ -27,6 +27,20 @@ async function processPendingUser (username: string, evaluatorVariables: Record<
     const userStatus = await getUserStatus(username);
     if (userStatus?.userStatus !== UserStatus.Pending || userStatus.trackingPostId === "") {
         return;
+    }
+
+    const trackingPost = await reddit.getPostById(userStatus.trackingPostId);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-assignment
+    if (trackingPost.flair?.text && Object.values(UserStatus).includes(trackingPost.flair.text as UserStatus) && !await redis.exists(`postFlairUpdateLock~${username}`)) {
+        const newUserStatus: UserDetails = {
+            ...userStatus,
+            operator: context.appSlug,
+            lastUpdate: Date.now(),
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-assignment
+            userStatus: trackingPost.flair.text as UserStatus,
+        };
+        await setUserStatus(username, newUserStatus);
+        await trackingPost.approve();
     }
 
     const initialEvaluationResults = await getAccountInitialEvaluationResults(username);

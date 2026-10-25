@@ -49,6 +49,7 @@ export enum ControlSubredditJob {
     ModmailArchiver = "modmailArchiver",
     ExternalSubmissionsQueue = "externalSubmissionsQueue",
     PendingUserReevaluation = "pendingUserReevaluation",
+    UnprocessedSubmissionsHandler = "unprocessedSubmissionsHandler",
 }
 
 /**

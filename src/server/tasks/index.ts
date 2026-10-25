@@ -33,3 +33,4 @@ export * from "./handlePendingUserStats.js";
 export * from "./handleBioTextStats.js";
 export * from "./handleRedosChecker.js";
 export * from "./handleExternalSubmissionsQueue.js";
+export * from "./handleUnprocessedSubmissions.js";

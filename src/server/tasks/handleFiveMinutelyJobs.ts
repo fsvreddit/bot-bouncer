@@ -1,7 +1,7 @@
 import { context, scheduler, TaskResponse } from "@devvit/web/server";
 import type { Context } from "hono";
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "../core";
-import { AccountReviewJobData, CheckPermissionQueueItemJobData, FlaggedRechecksQueueJobData, ModmailArchiverJobData, PendingUserReevaluationJobData, RecoveredAccountsData } from ".";
+import { AccountReviewJobData, CheckPermissionQueueItemJobData, FlaggedRechecksQueueJobData, ModmailArchiverJobData, PendingUserReevaluationJobData, RecoveredAccountsData, UnprocessedSubmissionsJobData } from ".";
 import { addSeconds } from "date-fns";
 import { processHighlightedModmailQueue } from "../core/controlSubCore/modmail";
 import { gatherTokenStatistics } from "../core/controlSubCore/aiAnalysis";
@@ -55,6 +55,14 @@ export const handleFiveMinutelyJob = async (c: Context): Promise<Response> => {
             jobGuid: crypto.randomUUID(),
         },
         runAt: addSeconds(new Date(), 30),
+    });
+
+    await scheduler.runJob<UnprocessedSubmissionsJobData>({
+        name: ControlSubredditJob.UnprocessedSubmissionsHandler,
+        data: {
+            jobGuid: crypto.randomUUID(),
+        },
+        runAt: addSeconds(new Date(), 15),
     });
 
     await Promise.allSettled([

@@ -4,7 +4,7 @@ import { OnPostFlairUpdateRequest, T3, TriggerResponse } from "@devvit/web/share
 import { CONTROL_SUBREDDIT, FLAIR_MAPPINGS, getUsernameFromUrl, getUserStatus, queueSendFeedback, setUserStatus, statusToFlair, UserDetails, writeUserStatus } from "../core";
 import { fixPostTriggerEvent, hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import { UserStatus } from "@fsvreddit/bot-bouncer-types";
-import { addHours, addSeconds } from "date-fns";
+import { addHours, addMinutes, addSeconds } from "date-fns";
 import { addToReversalsQueue, submitAccountForReview } from "../core/controlSubCore/modmail";
 import { uniq } from "lodash-es";
 
@@ -49,6 +49,8 @@ export const onPostFlairUpdate = async (c: Context): Promise<Response> => {
     if (!username) {
         return c.json<TriggerResponse>({ message: "Username not found in post URL" }, 200);
     }
+
+    await redis.set(`postFlairUpdateLock~${username}`, Date.now().toString(), { expiration: addMinutes(new Date(), 1) });
 
     // Handle post flair mappings here.
     const mapping = FLAIR_MAPPINGS.find(m => m.postFlair === postFlair as string);

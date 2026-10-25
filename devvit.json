@@ -334,6 +334,9 @@
             "startDataExtract": {
                 "endpoint": "/internal/tasks/start-data-extract"
             },
+            "unprocessedSubmissionsHandler": {
+                "endpoint": "/internal/tasks/unprocessed-submissions-handler"
+            },
             "updateEvaluatorVariables": {
                 "endpoint": "/internal/tasks/update-evaluator-variables"
             },
