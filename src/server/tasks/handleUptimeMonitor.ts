@@ -18,9 +18,16 @@ export const handleUptimeMonitor = async (c: Context): Promise<Response> => {
         checkMessages(settings),
     ]);
 
-    const failedPromises = result.filter(r => r.status === "rejected");
-    if (failedPromises.length > 0) {
-        console.error("Uptime: Some tasks failed:", JSON.stringify(failedPromises, null, 2));
+    const failed: string[] = [];
+    if (result[0].status === "rejected") {
+        failed.push("checkUptime");
+    }
+    if (result[1].status === "rejected") {
+        failed.push("checkMessages");
+    }
+
+    if (failed.length > 0) {
+        console.error(`Uptime: The following tasks failed: ${failed.join(", ")}`);
     }
 
     return c.json<TaskResponse>({ message: "Uptime and message check completed" }, 200);
