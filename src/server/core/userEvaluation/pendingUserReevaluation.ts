@@ -31,7 +31,7 @@ async function processPendingUser (username: string, evaluatorVariables: Record<
 
     const trackingPost = await reddit.getPostById(userStatus.trackingPostId);
     // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-assignment
-    if (trackingPost.flair?.text && Object.values(UserStatus).includes(trackingPost.flair.text as UserStatus) && !await redis.exists(`postFlairUpdateLock~${username}`)) {
+    if (trackingPost.flair?.text && trackingPost.flair.text !== "pending" && Object.values(UserStatus).includes(trackingPost.flair.text as UserStatus) && !await redis.exists(`postFlairUpdateLock~${username}`)) {
         const newUserStatus: UserDetails = {
             ...userStatus,
             operator: context.appSlug,
