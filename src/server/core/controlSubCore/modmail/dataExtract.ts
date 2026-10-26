@@ -85,6 +85,10 @@ function getExtractTempQueueKey (extractId: string) {
     return `ModmailDataExtractQueue~${extractId}`;
 }
 
+function getExtractDefinitionKey (extractId: string) {
+    return `ModmailDataExtractDefinition~${extractId}`;
+}
+
 export async function dataExtract (message: ModmailMessage, conversationId: string) {
     if (!message.bodyMarkdown.startsWith("!extract {")) {
         return;
@@ -199,7 +203,7 @@ export async function dataExtract (message: ModmailMessage, conversationId: stri
         }
     }
 
-    const extractId = Date.now().toString();
+    const extractId = crypto.randomUUID();
 
     console.log("Data Extract: Queuing data extract continuation job.");
 
@@ -344,12 +348,9 @@ export async function continueDataExtract (event: TaskRequest<DataExtractJobData
     const conversationId = event.data.conversationId;
     const request = JSON.parse(event.data.request) as ModmailDataExtract;
 
-    const eventDataForRecovery = {
-        ...event.data,
-        jobGuid: "",
-    };
+    await redis.set(getExtractDefinitionKey(extractId), JSON.stringify(event.data), { expiration: addHours(new Date(), 1) });
 
-    await redis.zAdd(IN_PROGRESS_EXTRACTS_KEY, { member: JSON.stringify(eventDataForRecovery), score: addMinutes(new Date(), 3).getTime() });
+    await redis.zAdd(IN_PROGRESS_EXTRACTS_KEY, { member: extractId, score: addMinutes(new Date(), 3).getTime() });
 
     if (await hasEventBeenHandled(`job:${event.data.jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
         console.warn(`Data Extract: Job with guid ${event.data.jobGuid} has already been handled, skipping.`);
@@ -357,7 +358,7 @@ export async function continueDataExtract (event: TaskRequest<DataExtractJobData
     }
 
     if (!request.bioRegex && !request.displayNameRegex && !request.socialLinkStartsWith && !request.evaluator && !request.hitReason && !request.hitReasonRegex && !request.socialLinkUrlRegex && !request.socialLinkTitleRegex && !request.hitDetail && !request.hitDetailRegex) {
-        await redis.zRem(IN_PROGRESS_EXTRACTS_KEY, [JSON.stringify(eventDataForRecovery)]);
+        await redis.zRem(IN_PROGRESS_EXTRACTS_KEY, [extractId]);
         await createDataExtract(extractId, request, conversationId);
         return;
     }
@@ -370,6 +371,7 @@ export async function continueDataExtract (event: TaskRequest<DataExtractJobData
 
     if (processingQueue.length === 0) {
         console.log("Data Extract: No more entries to process, finalizing extract.");
+        await redis.zRem(IN_PROGRESS_EXTRACTS_KEY, [extractId]);
         await createDataExtract(extractId, request, conversationId);
         return;
     }
@@ -380,7 +382,7 @@ export async function continueDataExtract (event: TaskRequest<DataExtractJobData
 
     const data = fromPairs(dataMapped.map(entry => [entry.username, entry.data]));
 
-    console.log(`Data Extract: Processing batch of ${processingQueue.length} entries.`);
+    console.log(`Data Extract: Processing batch of ${processingQueue.length} entries, extract ID ${extractId}`);
 
     if (request.bioRegex) {
         const regex = new RegExp(request.bioRegex);
@@ -746,15 +748,26 @@ async function createDataExtract (
 export async function resumeStuckExtracts () {
     const inProgressExtracts = await redis.zRange(IN_PROGRESS_EXTRACTS_KEY, 0, Date.now(), { by: "score" });
 
+    if (inProgressExtracts.length > 0) {
+        console.log(`Data Extracts: Found in-progress extracts: ${inProgressExtracts.map(entry => entry.member).join(", ")}`);
+    }
+
     const firstInProgressExtract = inProgressExtracts.shift();
     if (!firstInProgressExtract) {
         return;
     }
 
-    const extractData = JSON.parse(firstInProgressExtract.member) as DataExtractJobData;
+    const extractJobData = await redis.get(getExtractDefinitionKey(firstInProgressExtract.member));
+    if (!extractJobData) {
+        await redis.zRem(IN_PROGRESS_EXTRACTS_KEY, [firstInProgressExtract.member]);
+        console.log(`Data Extracts: Removed in-progress extract entry with missing job data: ${firstInProgressExtract.member}`);
+        return;
+    }
+
+    const extractData = JSON.parse(extractJobData) as DataExtractJobData;
     extractData.jobGuid = crypto.randomUUID();
 
-    console.log(`Data Extracts: Resuming stuck extract for conversationId: ${extractData.conversationId}`);
+    console.log(`Data Extracts: Resuming stuck extract for extract ID: ${extractData.extractId}`);
 
     await scheduler.runJob<DataExtractJobData>({
         name: ControlSubredditJob.ContinueDataExtract,
@@ -766,6 +779,6 @@ export async function resumeStuckExtracts () {
 
     await reddit.modMail.reply({
         conversationId: extractData.conversationId,
-        body: `Sorry - your data extract is taking longer than expected due to platform instability. It has been resumed and will continue processing. ${remainingEntries} users remain to process.`,
+        body: `Sorry - your data extract is taking longer than expected due to platform instability. It has been resumed and will continue processing. ${remainingEntries.toLocaleString()} users remain to process.`,
     });
 }
