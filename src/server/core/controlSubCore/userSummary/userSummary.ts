@@ -161,17 +161,24 @@ function cleanedBio (bio: string, bannedDomains: string[]): string {
 }
 
 function getCommonEntriesForContent (items: Post[] | Comment[]): string[] {
+    if (items.length === 0) {
+        return [];
+    }
+
+    // Sort by date descending
+    const sortedItems = items.slice().sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    const kind = isT3(items[0]!.id) ? "post" : "comment";
+    const kind = isT3(sortedItems[0]!.id) ? "post" : "comment";
 
     const bullets: string[] = [];
-    if (items.length > 2) {
-        bullets.push(`Min time between ${kind}s: ${timeBetween(items, "min")}`);
-        bullets.push(`10th percentile time between ${kind}s: ${timeBetween(items, "10th")}`);
-        bullets.push(`Max time between ${kind}s: ${timeBetween(items, "max")}`);
-        bullets.push(`Average time between ${kind}s: ${averageInterval(items, "mean")} (median: ${averageInterval(items, "median")})`);
-    } else if (items.length === 2) {
-        bullets.push(`Time between ${kind}s: ${timeBetween(items, "min")}`);
+    if (sortedItems.length > 2) {
+        bullets.push(`Min time between ${kind}s: ${timeBetween(sortedItems, "min")}`);
+        bullets.push(`10th percentile time between ${kind}s: ${timeBetween(sortedItems, "10th")}`);
+        bullets.push(`Max time between ${kind}s: ${timeBetween(sortedItems, "max")}`);
+        bullets.push(`Average time between ${kind}s: ${averageInterval(sortedItems, "mean")} (median: ${averageInterval(sortedItems, "median")})`);
+    } else if (sortedItems.length === 2) {
+        bullets.push(`Time between ${kind}s: ${timeBetween(sortedItems, "min")}`);
     }
 
     return bullets;
@@ -462,11 +469,7 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
         summary.push({ h2: "Posts" });
         summary.push({ p: `User has ${userPosts.length} ${pluralize("post", userPosts.length)}` });
 
-        const nonStickied = userPosts
-            .filter(post => !post.stickied)
-            .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-
-        const bullets = getCommonEntriesForContent(nonStickied);
+        const bullets = getCommonEntriesForContent(userPosts);
 
         const editedPostPercentage = Math.round(100 * userPosts.filter(post => post.edited).length / userPosts.length);
         if (editedPostPercentage > 0) {
