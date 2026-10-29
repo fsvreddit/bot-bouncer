@@ -233,7 +233,12 @@ export async function cleanupDeletedAccounts (event: TaskRequest<CleanupJobData>
                         flags: newFlags.length > 0 ? newFlags : undefined,
                     };
                     await writeUserStatus(username, newStatus);
-                    await submitAccountForReview(currentStatus.trackingPostId, context.appSlug, 0, "User was flagged as a potential future adult content creator and now has NSFW content");
+                    await submitAccountForReview({
+                        duration: 0,
+                        postId: currentStatus.trackingPostId as T3,
+                        reviewReason: "User was flagged as a potential future adult content creator and now has NSFW content",
+                        reviewRequestedBy: context.appSlug,
+                    });
                 } else {
                     overrideCleanupDate = addDays(new Date(), 3);
                 }
