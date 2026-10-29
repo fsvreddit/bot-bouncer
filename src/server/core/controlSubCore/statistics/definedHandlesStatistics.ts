@@ -96,7 +96,7 @@ export async function gatherDefinedHandlesStats (event: TaskRequest<DefinedHandl
         return;
     }
 
-    const queuedHandles = await redis.zRange(DEFINED_HANDLES_QUEUE, 0, 4999);
+    const queuedHandles = await redis.zRange(DEFINED_HANDLES_QUEUE, 0, 2999);
 
     if (queuedHandles.length === 0) {
         console.log("Defined Handles: No defined handles found in the queue.");
