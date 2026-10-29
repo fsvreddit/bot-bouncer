@@ -373,6 +373,11 @@ export async function resumeStuckDefinedHandlesJob () {
         return;
     }
 
+    if (await redis.exists(DEFINED_HANDLES_QUEUE, DEFINED_HANDLES_DATA) === 0) {
+        console.log("Defined Handles: No items in the queue or data to process.");
+        return;
+    }
+
     const inProgressTime = new Date(parseInt(inProgressVal, 10));
     if (inProgressTime < subMinutes(new Date(), 2)) {
         console.warn("Defined Handles: Resuming stuck job.");
