@@ -64,7 +64,7 @@ export async function definedHandlesStatsInitializer (event: TaskRequest<Defined
             .map(([username, value]) => ({ member: username, score: value.reportedAt ?? 0 } satisfies ZMember));
 
         await redis.zAdd(DEFINED_HANDLES_QUEUE, ...filterdData);
-        await expireKeyAt(DEFINED_HANDLES_QUEUE, addMinutes(new Date(), 30));
+        await expireKeyAt(DEFINED_HANDLES_QUEUE, addHours(new Date(), 2));
     }
 
     if (prefixes.length > 0) {
@@ -374,7 +374,7 @@ export async function resumeStuckDefinedHandlesJob () {
     }
 
     const inProgressTime = new Date(parseInt(inProgressVal, 10));
-    if (inProgressTime < subMinutes(new Date(), 5)) {
+    if (inProgressTime < subMinutes(new Date(), 2)) {
         console.warn("Resuming stuck defined handles job.");
 
         await scheduler.runJob<DefinedHandlesStatsJobData>({
