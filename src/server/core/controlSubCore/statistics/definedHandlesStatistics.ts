@@ -34,10 +34,10 @@ const DEFINED_HANDLES_LOOKBACK_MONTHS = 6;
 
 export async function definedHandlesStatsInitializer (event: TaskRequest<DefinedHandlesStatsInitializerJobData>) {
     if (event.data.firstRun && await redis.exists(definedHandlesRecentlyRunKey)) {
-        console.log("Defined handles statistics job ran recently; skipping this run.");
+        console.log("Defined Handles: Job ran recently; skipping this run.");
         return;
     }
-    await redis.set(definedHandlesRecentlyRunKey, "1", { expiration: addMinutes(new Date(), 2) });
+    await redis.set(definedHandlesRecentlyRunKey, "1", { expiration: addMinutes(new Date(), 10) });
 
     console.log("Defined Handles: Starting initializer job for defined handles statistics.");
     if (event.data.firstRun) {
@@ -99,14 +99,14 @@ export async function gatherDefinedHandlesStats (event: TaskRequest<DefinedHandl
     const queuedHandles = await redis.zRange(DEFINED_HANDLES_QUEUE, 0, 4999);
 
     if (queuedHandles.length === 0) {
-        console.log("No defined handles found in the queue.");
+        console.log("Defined Handles: No defined handles found in the queue.");
         await redis.del(DEFINED_HANDLES_IN_PROGRESS_KEY);
         await buildDefinedHandlesWikiPage();
         await redis.del(DEFINED_HANDLES_QUEUE, DEFINED_HANDLES_DATA);
         return;
     }
 
-    await redis.set(definedHandlesRecentlyRunKey, "1", { expiration: addMinutes(new Date(), 2) });
+    await redis.set(definedHandlesRecentlyRunKey, "1", { expiration: addMinutes(new Date(), 10) });
     await redis.set(DEFINED_HANDLES_IN_PROGRESS_KEY, Date.now().toString(), { expiration: addHours(new Date(), 1) });
 
     const runLimit = addSeconds(new Date(), 15);
@@ -162,7 +162,7 @@ export async function gatherDefinedHandlesStats (event: TaskRequest<DefinedHandl
     while (queuedHandles.length > 0 && new Date() < runLimit) {
         const firstItem = queuedHandles.shift();
         if (!firstItem) {
-            console.log("No more items in the queue to process.");
+            console.log("Defined Handles: No more items in the queue to process.");
             break;
         }
 
@@ -375,12 +375,14 @@ export async function resumeStuckDefinedHandlesJob () {
 
     const inProgressTime = new Date(parseInt(inProgressVal, 10));
     if (inProgressTime < subMinutes(new Date(), 2)) {
-        console.warn("Resuming stuck defined handles job.");
+        console.warn("Defined Handles: Resuming stuck job.");
 
         await scheduler.runJob<DefinedHandlesStatsJobData>({
             name: ControlSubredditJob.DefinedHandlesStatistics,
             runAt: addSeconds(new Date(), 5),
             data: { firstRun: false, jobGuid: crypto.randomUUID() },
         });
+
+        await expireKeyAt(DEFINED_HANDLES_QUEUE, addHours(new Date(), 2));
     }
 }
