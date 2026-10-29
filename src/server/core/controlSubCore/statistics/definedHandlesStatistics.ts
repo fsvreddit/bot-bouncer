@@ -1,5 +1,5 @@
 import { context, Post, reddit, redis, scheduler, TaskRequest, ZMember } from "@devvit/web/server";
-import { addMinutes, addSeconds, format, subMonths } from "date-fns";
+import { addHours, addMinutes, addSeconds, format, subMinutes, subMonths } from "date-fns";
 import { BIO_TEXT_STORE, ControlSubredditJob, DISPLAY_NAME_STORE, expireKeyAt, getDataStoreFiltered, USER_DEFINED_HANDLES_POSTS } from "../..";
 import { UserStatus } from "@fsvreddit/bot-bouncer-types";
 import { FLAGS_TO_EXCLUDE_FROM_STATS, userIsBanned } from "./statsHelpers";
@@ -87,6 +87,8 @@ export async function definedHandlesStatsInitializer (event: TaskRequest<Defined
     }
 }
 
+const DEFINED_HANDLES_IN_PROGRESS_KEY = "DefinedHandlesInProgress";
+
 export async function gatherDefinedHandlesStats (event: TaskRequest<DefinedHandlesStatsJobData | undefined>) {
     const jobGuid = event.data?.jobGuid;
     if (jobGuid && await hasEventBeenHandled(`job:${jobGuid}`, { expiration: addMinutes(new Date(), 1) })) {
@@ -98,12 +100,14 @@ export async function gatherDefinedHandlesStats (event: TaskRequest<DefinedHandl
 
     if (queuedHandles.length === 0) {
         console.log("No defined handles found in the queue.");
+        await redis.del(DEFINED_HANDLES_IN_PROGRESS_KEY);
         await buildDefinedHandlesWikiPage();
         await redis.del(DEFINED_HANDLES_QUEUE, DEFINED_HANDLES_DATA);
         return;
     }
 
     await redis.set(definedHandlesRecentlyRunKey, "1", { expiration: addMinutes(new Date(), 2) });
+    await redis.set(DEFINED_HANDLES_IN_PROGRESS_KEY, Date.now().toString(), { expiration: addHours(new Date(), 1) });
 
     const runLimit = addSeconds(new Date(), 15);
     let processedCount = 0;
@@ -361,4 +365,22 @@ export async function storeDefinedHandlesDataJob (event: TaskRequest<StoreDefine
     }
 
     await storeDefinedHandlesData(username);
+}
+
+export async function resumeStuckDefinedHandlesJob () {
+    const inProgressVal = await redis.get(DEFINED_HANDLES_IN_PROGRESS_KEY);
+    if (!inProgressVal) {
+        return;
+    }
+
+    const inProgressTime = new Date(parseInt(inProgressVal, 10));
+    if (inProgressTime < subMinutes(new Date(), 5)) {
+        console.warn("Resuming stuck defined handles job.");
+
+        await scheduler.runJob<DefinedHandlesStatsJobData>({
+            name: ControlSubredditJob.DefinedHandlesStatistics,
+            runAt: addSeconds(new Date(), 5),
+            data: { firstRun: false, jobGuid: crypto.randomUUID() },
+        });
+    }
 }

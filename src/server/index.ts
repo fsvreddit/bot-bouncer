@@ -8,6 +8,7 @@ import { handleUpgradeNotifier } from "@fsvreddit/fsv-devvit-web-helpers";
 import { handleModQueueRemovalJob } from "./tasks/handleModQueueRemoval";
 import { handlePostAndCommentMenu } from "./menus";
 import { handleControlSubForm, handleControlSubQuerySubmissionForm, handleQueryForm, handleReportForm, handleShowCurrentEvaluationResultsForm } from "./forms";
+import { handleGetEvaluatorVariables, handleGetRecentContentForUser, handleGetUserDetails, handlePostAccountForReview, handlePostExternalSubmissions } from "./api";
 
 const application = new Hono();
 
@@ -89,6 +90,13 @@ application.post("/internal/forms/client-sub-query-user", handleQueryForm);
 application.post("/internal/forms/control-sub-form", handleControlSubForm);
 application.post("/internal/forms/control-sub-query-submission-form", handleControlSubQuerySubmissionForm);
 application.post("/internal/forms/show-current-evaluation-form", handleShowCurrentEvaluationResultsForm);
+
+// External endpoints
+application.post("/external/external-submission", handlePostExternalSubmissions);
+application.post("/external/user-details", handleGetUserDetails);
+application.post("/external/evaluator-variables", handleGetEvaluatorVariables);
+application.post("/external/account-for-review", handlePostAccountForReview);
+application.post("/external/recent-content-for-user", handleGetRecentContentForUser);
 
 const server = createServer(getRequestListener(application.fetch));
 server.on("error", (err) => {

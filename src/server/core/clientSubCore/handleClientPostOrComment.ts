@@ -1,7 +1,7 @@
 import { Comment, context, Post, reddit, redis, settings, UserSocialLink } from "@devvit/web/server";
 import { isT3, JsonValue, OnCommentCreateRequest, OnCommentUpdateRequest, OnPostCreateRequest, OnPostUpdateRequest, T1, T3 } from "@devvit/web/shared";
 import { fixCommentTriggerEvent, fixPostTriggerEvent, getPostOrCommentById, getUserExtended, getUserOrUndefined, isBanned, isContributor } from "@fsvreddit/fsv-devvit-web-helpers";
-import { ActionType, addExternalSubmissionFromClientSub, addUserToModqueueRemovalStore, ALL_RELEVANT_EVALUTORS, AppSetting, CONFIGURATION_DEFAULTS, CONTROL_SUBREDDIT, expireKeyAt, getControlSubSettings, getUserStatus, isModeratorWithCache, isUserWhitelisted, recordBan, recordBanForSummary, recordUserContentCreation, UserDetails } from "..";
+import { ActionType, addExternalSubmissionFromExternal, addUserToModqueueRemovalStore, ALL_RELEVANT_EVALUTORS, AppSetting, CONFIGURATION_DEFAULTS, CONTROL_SUBREDDIT, expireKeyAt, getControlSubSettings, getUserStatus, isModeratorWithCache, isUserWhitelisted, recordBan, recordBanForSummary, recordUserContentCreation, UserDetails } from "..";
 import { getEvaluatorVariables } from "../userEvaluation";
 import { UserStatus } from "@fsvreddit/bot-bouncer-types";
 import { addDays, formatDate } from "date-fns";
@@ -415,7 +415,7 @@ async function checkAndReportPotentialBot (username: string, target: Post | OnCo
     const targetItem = await getPostOrCommentById(targetId as T1 | T3);
     const reportContext = `Automatically reported via a [${isT3(targetItem.id) ? "post" : "comment"}](${targetItem.permalink}) on /r/${targetItem.subredditName}`;
 
-    await addExternalSubmissionFromClientSub({
+    await addExternalSubmissionFromExternal({
         username: user.username,
         subreddit: context.subredditName,
         submitter: currentUser?.username,

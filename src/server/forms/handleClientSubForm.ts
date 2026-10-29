@@ -2,7 +2,7 @@ import { context, reddit, settings } from "@devvit/web/server";
 import { UiResponse } from "@devvit/web/shared";
 import { getPostOrCommentById, getUserOrUndefined } from "@fsvreddit/fsv-devvit-web-helpers";
 import type { Context } from "hono";
-import { addExternalSubmissionFromClientSub, AppSetting, CONTROL_SUBREDDIT, getControlSubSettings, recordReportForSummary, setAlreadyReported, setUserFeedbackPreference } from "../core";
+import { addExternalSubmissionFromExternal, AppSetting, CONTROL_SUBREDDIT, getControlSubSettings, recordReportForSummary, setAlreadyReported, setUserFeedbackPreference } from "../core";
 import { subMonths } from "date-fns";
 import { addClassificationQueryToQueue } from "../core/controlSubCore/modmail/classificationQuery";
 
@@ -55,7 +55,7 @@ export const handleReportForm = async (c: Context): Promise<Response> => {
     const removeReportedContent = await settings.get<boolean>(AppSetting.RemoveReportedContentOnReport);
 
     await Promise.all([
-        addExternalSubmissionFromClientSub({
+        addExternalSubmissionFromExternal({
             username: target.authorName,
             subreddit: context.subredditName,
             submitter: currentUser?.username,

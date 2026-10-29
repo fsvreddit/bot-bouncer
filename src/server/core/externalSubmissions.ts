@@ -52,7 +52,7 @@ export function resolveExternalSubmissionInitialStatus (
     return requestedInitialStatus ?? UserStatus.Banned;
 }
 
-export async function addExternalSubmissionFromClientSub (data: ExternalSubmission) {
+export async function addExternalSubmissionFromExternal (data: ExternalSubmission) {
     if (context.subredditName === CONTROL_SUBREDDIT) {
         throw new Error("This function must be called from a client subreddit, not the control subreddit.");
     }

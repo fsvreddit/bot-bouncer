@@ -13,26 +13,33 @@ function accountReviewKey (postId: string): string {
     return `accountReview:${postId}`;
 }
 
+export interface AccountReviewRequest {
+    postId: T3;
+    reviewRequestedBy?: string;
+    duration: number;
+    reviewReason?: string;
+}
+
 interface AccountReviewData {
     reviewRequestedBy?: string;
     reviewRequestedAt: number;
     reviewReason?: string;
 }
 
-export async function submitAccountForReview (postId: string, requestedBy: string, duration: number, reason: string | undefined) {
+export async function submitAccountForReview (opts: AccountReviewRequest) {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
         throw new Error("Account reviews can only be submitted from the control subreddit.");
     }
 
     const reviewData: AccountReviewData = {
-        reviewRequestedBy: requestedBy,
+        reviewRequestedBy: opts.reviewRequestedBy,
         reviewRequestedAt: Date.now(),
-        reviewReason: reason,
+        reviewReason: opts.reviewReason,
     };
 
-    await redis.set(accountReviewKey(postId), JSON.stringify(reviewData), { expiration: addDays(new Date(), duration + 1) });
-    await redis.zAdd(ACCOUNT_REVIEW_QUEUE, { member: postId, score: addDays(new Date(), duration).getTime() });
-    console.log(`Account Review: Submitted post ${postId} for review by ${requestedBy} in ${duration} ${pluralize("day", duration)}.`);
+    await redis.set(accountReviewKey(opts.postId), JSON.stringify(reviewData), { expiration: addDays(new Date(), opts.duration + 1) });
+    await redis.zAdd(ACCOUNT_REVIEW_QUEUE, { member: opts.postId, score: addDays(new Date(), opts.duration).getTime() });
+    console.log(`Account Review: Submitted post ${opts.postId} for review by ${opts.reviewRequestedBy} in ${opts.duration} ${pluralize("day", opts.duration)}.`);
 }
 
 export async function checkAccountsForReview (event: TaskRequest<AccountReviewJobData>) {

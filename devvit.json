@@ -18,7 +18,29 @@
     },
     "server": {
         "dir": "dist/server",
-        "entry": "index.cjs"
+        "entry": "index.cjs",
+        "externalEndpoints": {
+            "externalSubmissions": {
+                "endpoint": "/external/external-submission",
+                "scopes": ["install"]
+            },
+            "getRecentContentForUser": {
+                "endpoint": "/external/recent-content-for-user",
+                "scopes": ["install"]
+            },
+            "getUserDetails": {
+                "endpoint": "/external/user-details",
+                "scopes": ["install"]
+            },
+            "getEvaluatorVariables": {
+                "endpoint": "/external/evaluator-variables",
+                "scopes": ["install"]
+            },
+            "postAccountForReview": {
+                "endpoint": "/external/account-for-review",
+                "scopes": ["install"]
+            }
+        }
     },
     "settings": {
         "subreddit": {
