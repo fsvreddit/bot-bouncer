@@ -98,7 +98,12 @@ export const onPostFlairUpdate = async (c: Context): Promise<Response> => {
             flairTemplateId: statusToFlair[status],
         });
 
-        await submitAccountForReview(request.post.id, request.author.name, reviewPeriod, undefined);
+        await submitAccountForReview({
+            postId: request.post.id as T3,
+            duration: reviewPeriod,
+            reviewRequestedBy: request.author.name,
+        });
+
         return c.json<TriggerResponse>({ message: "Flair update with review period processed" }, 200);
     }
 
