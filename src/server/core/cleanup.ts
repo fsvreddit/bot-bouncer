@@ -4,7 +4,7 @@ import { getUserExtended, hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-
 import { addDays, addMinutes, addSeconds, addWeeks, subDays, subMinutes, subSeconds } from "date-fns";
 import { CONTROL_SUBREDDIT, PostFlairTemplate } from "./constants";
 import { getControlSubSettings } from "./controlSubSettings";
-import { deleteUserStatus, getUserStatus, removeRecordOfSubmitterOrMod, updateAggregate, writeUserStatus } from "./dataStore";
+import { deleteUserStatus, getUserStatus, removeRecordOfSubmitterOrMod, setUserStatusAndFlair, updateAggregate, writeUserStatus } from "./dataStore";
 import { UserStatus } from "@fsvreddit/bot-bouncer-types";
 import { UserFlag } from "./types";
 import { formatTimeSince, getPostFlairUpdateIgnoreKey } from "./utility";
@@ -172,7 +172,7 @@ export async function cleanupDeletedAccounts (event: TaskRequest<CleanupJobData>
             continue;
         }
 
-        let newFlair: PostFlairTemplate | undefined;
+        let newStatus: UserStatus | UserFlag | undefined;
 
         if (currentUserStatus === UserActiveStatus.Active) {
             activeCount++;
@@ -189,16 +189,16 @@ export async function cleanupDeletedAccounts (event: TaskRequest<CleanupJobData>
                 // User's last status was purged or retired, but user is now active again. Restore last status or Pending.
                 switch (currentStatus.lastStatus) {
                     case UserStatus.Banned:
-                        newFlair = PostFlairTemplate.Banned;
+                        newStatus = UserStatus.Banned;
                         break;
                     case UserStatus.Organic:
-                        newFlair = PostFlairTemplate.Organic;
+                        newStatus = UserStatus.Organic;
                         break;
                     case UserStatus.Service:
-                        newFlair = PostFlairTemplate.Service;
+                        newStatus = UserStatus.Service;
                         break;
                     default:
-                        newFlair = PostFlairTemplate.Pending;
+                        newStatus = UserStatus.Pending;
                         break;
                 }
             }
@@ -207,12 +207,12 @@ export async function cleanupDeletedAccounts (event: TaskRequest<CleanupJobData>
                 // Check for recent activity to potentially change status from Inactive to Pending.
                 const latestContent = await getLatestContentDate(username);
                 if (latestContent && new Date(latestContent) > subDays(new Date(), 14) && new Date(latestContent) > new Date(currentStatus.lastUpdate)) {
-                    newFlair = PostFlairTemplate.Pending;
+                    newStatus = UserStatus.Pending;
                 }
                 overrideCleanupDate = addWeeks(new Date(), 1);
             }
 
-            if (!newFlair && controlSubSettings.autoAccountRecoveryEnabled) {
+            if (!newStatus && controlSubSettings.autoAccountRecoveryEnabled) {
                 await addUserToRecoveredRechecksQueue(username, currentStatus);
             }
 
@@ -252,11 +252,11 @@ export async function cleanupDeletedAccounts (event: TaskRequest<CleanupJobData>
             // User's current status is Suspended or Shadowbanned.
             if (currentStatus.userStatus === UserStatus.Pending) {
                 // Users who are currently pending but where the user is suspended or shadowbanned should be set to Retired.
-                newFlair = PostFlairTemplate.Retired;
+                newStatus = UserStatus.Retired;
             } else if (currentStatus.userStatus !== UserStatus.Purged && currentStatus.userStatus !== UserStatus.Retired) {
                 // User is active in the DB, but currently suspended or shadowbanned.
                 // Change the post flair to Purged.
-                newFlair = PostFlairTemplate.Purged;
+                newStatus = UserStatus.Purged;
             }
 
             // Recheck suspended users every day for the first week
@@ -267,11 +267,12 @@ export async function cleanupDeletedAccounts (event: TaskRequest<CleanupJobData>
 
         await setCleanupForUser(username, overrideCleanupDate);
 
-        if (newFlair && currentStatus.trackingPostId !== "") {
-            await reddit.setPostFlair({
-                postId: currentStatus.trackingPostId,
-                subredditName: CONTROL_SUBREDDIT,
-                flairTemplateId: newFlair,
+        if (newStatus && currentStatus.trackingPostId !== "") {
+            await setUserStatusAndFlair({
+                username,
+                operator: context.appSlug,
+                newStatusOrFlag: newStatus,
+                currentDetails: currentStatus,
             });
         }
     }

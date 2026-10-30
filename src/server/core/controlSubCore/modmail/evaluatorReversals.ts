@@ -3,7 +3,7 @@ import { T3 } from "@devvit/web/shared";
 import { hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import { UserStatus } from "@fsvreddit/bot-bouncer-types";
 import { addDays, addMinutes, addSeconds } from "date-fns";
-import { AsyncSubmission, CLEANUP_LOG_KEY, CONTROL_SUBREDDIT, ControlSubredditJob, deleteAccountInitialEvaluationResults, deleteUserStatus, getAccountInitialEvaluationResults, getUserStatus, ModmailMessage, normaliseHitReason, PostFlairTemplate, updateAggregate } from "../..";
+import { AsyncSubmission, CLEANUP_LOG_KEY, CONTROL_SUBREDDIT, ControlSubredditJob, deleteAccountInitialEvaluationResults, deleteUserStatus, getAccountInitialEvaluationResults, getUserStatus, ModmailMessage, normaliseHitReason, setUserStatusAndFlair, updateAggregate } from "../..";
 import pluralize from "pluralize";
 import Ajv, { JSONSchemaType } from "ajv";
 import json2md from "json2md";
@@ -121,11 +121,13 @@ export async function classificationReversalsJob (event: TaskRequest<Classificat
         }
 
         if (userStatus.trackingPostId) {
-            await reddit.setPostFlair({
-                subredditName: CONTROL_SUBREDDIT,
-                postId: userStatus.trackingPostId,
-                flairTemplateId: PostFlairTemplate.Organic,
+            await setUserStatusAndFlair({
+                username,
+                operator: context.appSlug,
+                newStatusOrFlag: UserStatus.Organic,
+                currentDetails: userStatus,
             });
+
             await addToReversalsQueue(username, 7);
 
             reversedTotal++;

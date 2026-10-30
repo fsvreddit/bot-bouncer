@@ -2,7 +2,7 @@ import { Comment, context, Post, reddit, redis, scheduler, settings, SubredditIn
 import { JsonValue, T1, T3 } from "@devvit/web/shared";
 import { EvaluateBotGroupAdvancedSubmitters, getSocialLinksWithCache, UserEvaluatorBase } from "@fsvreddit/bot-bouncer-evaluation";
 import { getPostOrCommentById, getUserExtended, hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
-import { accountIsBotBouncerApp, ALL_RELEVANT_EVALUTORS, AppSetting, conditionallyCompressString, conditionallyDecompressString, CONTROL_SUBREDDIT, ControlSubredditJob, getControlSubSettings, getUserStatus, normaliseHitReason, normaliseHitReasons, PostFlairTemplate } from "..";
+import { accountIsBotBouncerApp, ALL_RELEVANT_EVALUTORS, AppSetting, conditionallyCompressString, conditionallyDecompressString, CONTROL_SUBREDDIT, ControlSubredditJob, getControlSubSettings, getUserStatus, normaliseHitReason, normaliseHitReasons, setUserStatusAndFlair } from "..";
 import { addMinutes, addSeconds, addWeeks, subMonths } from "date-fns";
 import { HitReason, HitReasonDetailed, UserStatus } from "@fsvreddit/bot-bouncer-types";
 import { EvaluateUserJobData, OpenAISummaryGatherData } from "../../tasks";
@@ -198,11 +198,14 @@ export async function handleControlSubAccountEvaluation (request: TaskRequest<Ev
                 const isABot = await evaluator.evaluate(user);
                 if (isABot) {
                     console.log(`Evaluator: ${username} was submitted by ${currentStatus.submitter} and matches a group`);
-                    await reddit.setPostFlair({
-                        subredditName: CONTROL_SUBREDDIT,
-                        postId,
-                        flairTemplateId: PostFlairTemplate.Banned,
+
+                    await setUserStatusAndFlair({
+                        username,
+                        operator: context.appSlug,
+                        newStatusOrFlag: UserStatus.Banned,
+                        currentDetails: currentStatus,
                     });
+
                     return;
                 }
             }
@@ -255,10 +258,11 @@ export async function handleControlSubAccountEvaluation (request: TaskRequest<Ev
         return;
     }
 
-    await reddit.setPostFlair({
-        subredditName: CONTROL_SUBREDDIT,
-        postId,
-        flairTemplateId: PostFlairTemplate.Banned,
+    await setUserStatusAndFlair({
+        username,
+        operator: context.appSlug,
+        newStatusOrFlag: UserStatus.Banned,
+        currentDetails: currentStatus,
     });
 
     console.log(`Evaluator: Post flair changed for ${username}`);

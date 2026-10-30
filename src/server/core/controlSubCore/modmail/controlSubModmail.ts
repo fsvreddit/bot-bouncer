@@ -1,10 +1,10 @@
 import { context, reddit, redis, scheduler } from "@devvit/web/server";
 import { isT1, isT3 } from "@devvit/web/shared";
 import { UserStatus } from "@fsvreddit/bot-bouncer-types";
-import { accountIsBotBouncerApp, CHECK_DATE_KEY, CONFIGURATION_DEFAULTS, CONTROL_SUBREDDIT, ControlSubredditJob, FLAIR_MAPPINGS, getControlSubSettings, getPostFlairUpdateIgnoreKey, getUserStatus, INTERNAL_BOT, isModeratorWithCache, ModmailMessage, setUserStatus, statusOrFlagToStatusAndFlags, statusToFlair, UserDetails, UserFlag } from "../..";
+import { accountIsBotBouncerApp, CHECK_DATE_KEY, CONFIGURATION_DEFAULTS, ControlSubredditJob, FLAIR_MAPPINGS, getControlSubSettings, getUserStatus, INTERNAL_BOT, isModeratorWithCache, ModmailMessage, setUserStatusAndFlair, statusOrFlagToStatusAndFlags, UserDetails, UserFlag } from "../..";
 import { count } from "@wordpress/wordcount";
 import { AppealOutcomeType, clearRespondToFurtherMessagesFlag, getAppealConfig, getMatchedAppealConfig, getRespondToFurtherMessagesFlag, handleAppeal, storeAppealRecordsForUser } from "./appealHandling";
-import { addDays, addHours, addMinutes, addSeconds, addWeeks, format, subMinutes } from "date-fns";
+import { addDays, addSeconds, addWeeks, format, subMinutes } from "date-fns";
 import json2md from "json2md";
 import { getUserExtended, getUserOrUndefined } from "@fsvreddit/fsv-devvit-web-helpers";
 import { getSummaryForUser } from "../userSummary";
@@ -181,49 +181,27 @@ export async function handleControlSubredditModmail (modmail: ModmailMessage) {
 
             const currentStatus = await getUserStatus(username);
             if (currentStatus && isT3(currentStatus.trackingPostId) && currentStatus.userStatus !== newStatus) {
-                await redis.set(`userStatusOverrideValue~${username}`, modmail.messageAuthor, { expiration: addHours(new Date(), 2) });
+                const results = await setUserStatusAndFlair({
+                    username,
+                    operator: modmail.messageAuthor,
+                    currentDetails: currentStatus,
+                    newStatusOrFlag: newStatus,
+                });
 
                 const { status: newStatusValue, flags: newFlags } = statusOrFlagToStatusAndFlags(newStatus);
 
-                const newFlairTemplate = statusToFlair[newStatusValue];
-                let newFlairText: string | undefined;
-                // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-                if (!newFlairTemplate) {
-                    newFlairText = newStatusValue;
-                }
-
-                const statusToSet: UserDetails = {
-                    ...currentStatus,
-                    userStatus: newStatusValue,
-                    flags: newFlags,
-                    operator: modmail.messageAuthor,
-                    lastUpdate: Date.now(),
-                    lastStatus: undefined,
-                };
-
-                const results = await Promise.allSettled([
-                    redis.set(getPostFlairUpdateIgnoreKey(currentStatus.trackingPostId), "true", { expiration: addMinutes(new Date(), 1) }),
-                    setUserStatus(username, statusToSet),
-                    reddit.setPostFlair({
-                        postId: currentStatus.trackingPostId,
-                        flairTemplateId: newFlairTemplate,
-                        text: newFlairText,
-                        subredditName: CONTROL_SUBREDDIT,
-                    }),
-                ]);
-
                 let responseForModmail: string;
-                if (results.every(result => result.status === "fulfilled")) {
+                if (results.flairSet && results.statusSet) {
                     responseForModmail = `Successfully updated status and flair for ${username}. New status: ${newStatusValue}.`;
                     if (newFlags) {
                         responseForModmail += ` New flags set: ${newFlags.join(", ")}`;
                     }
                 } else {
                     responseForModmail = `Errors occurred when updating status and flair for ${username}.`;
-                    if (results[1].status === "rejected") {
+                    if (!results.statusSet) {
                         responseForModmail += ` Could not write user status to Redis.`;
                     }
-                    if (results[2].status === "rejected") {
+                    if (!results.flairSet) {
                         responseForModmail += ` Could not set post flair on the user's tracking post.`;
                     }
                 }

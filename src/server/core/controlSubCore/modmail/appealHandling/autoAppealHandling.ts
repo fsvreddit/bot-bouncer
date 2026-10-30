@@ -1,7 +1,7 @@
 /* eslint-disable @stylistic/quote-props */
 import { Comment, context, ModNote, Post, reddit, redis, UserSocialLink } from "@devvit/web/server";
 import Ajv, { JSONSchemaType } from "ajv";
-import { BIO_TEXT_STORE, CONTROL_SUBREDDIT, evaluateUserAccount, EvaluationResult, getAccountInitialEvaluationResults, getControlSubSettings, ModmailMessage, normaliseHitReason, sendMessageToWebhook, SOCIAL_LINKS_STORE, statusToFlair, UserDetails } from "../../..";
+import { BIO_TEXT_STORE, CONTROL_SUBREDDIT, evaluateUserAccount, EvaluationResult, getAccountInitialEvaluationResults, getControlSubSettings, ModmailMessage, normaliseHitReason, sendMessageToWebhook, setUserStatusAndFlair, SOCIAL_LINKS_STORE, UserDetails } from "../../..";
 import { UserFlag } from "../../../types";
 import { AppealConfigWithCompiledRegexes, AppealRegexConfig, compileAppealConfigs, CompiledAppealRegexes, getAppealConfigRegexIssues } from "./appealConfigRegex";
 import { parseAllDocuments } from "yaml";
@@ -10,10 +10,9 @@ import { addMinutes, addSeconds, addWeeks, differenceInMonths, format, getYear, 
 import { UserStatus } from "@fsvreddit/bot-bouncer-types";
 import { getUserExtended, getUserSocialLinks } from "@fsvreddit/fsv-devvit-web-helpers";
 import { getEvaluatorVariables } from "../../../userEvaluation";
-import { FLAIR_MAPPINGS } from "../../../constants";
 import { sendMessageOnDelay } from "../delayedSend";
 import { recordAppealHandled } from "../../statistics";
-import { compact, countBy, uniq } from "lodash-es";
+import { compact, countBy } from "lodash-es";
 
 const APPEAL_CONFIG_WIKI_PAGE = "appeal-config";
 const APPEAL_CONFIG_REDIS_KEY = "AppealConfig";
@@ -32,7 +31,7 @@ interface AppealConfig extends AppealRegexConfig {
     "~flags"?: UserFlag[];
     hasMoreThanOneCommentOnPost?: boolean;
     hasNSFWPosts?: boolean;
-    setStatus?: string;
+    setStatus?: UserStatus | UserFlag;
     privateReply?: string;
     reply?: string;
     replyDelay?: {
@@ -96,7 +95,7 @@ const appealConfigSchema: JSONSchemaType<AppealConfig[]> = {
             "~modNoteTextRegex": { type: "array", items: { type: "string" }, nullable: true },
             hasMoreThanOneCommentOnPost: { type: "boolean", nullable: true },
             hasNSFWPosts: { type: "boolean", nullable: true },
-            setStatus: { type: "string", enum: uniq([...FLAIR_MAPPINGS.map(entry => entry.postFlair), ...Object.values(UserStatus)]), nullable: true },
+            setStatus: { type: "string", enum: [...Object.values(UserStatus), ...Object.values(UserFlag)], nullable: true },
             privateReply: { type: "string", nullable: true },
             reply: { type: "string", nullable: true },
             replyDelay: {
@@ -121,7 +120,7 @@ const appealConfigSchema: JSONSchemaType<AppealConfig[]> = {
 
 interface AppealOutcome {
     name: string;
-    newStatus?: string;
+    newStatus?: UserStatus | UserFlag;
     privateReply?: string;
     reply?: string;
     replyDelay?: {
@@ -846,14 +845,11 @@ export async function handleAppeal (modmail: ModmailMessage, userDetails: UserDe
     }
 
     if (appealOutcome.newStatus && userDetails.trackingPostId) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-assignment
-        const flairTemplateId = Object.values(UserStatus).includes(appealOutcome.newStatus as UserStatus) ? statusToFlair[appealOutcome.newStatus as UserStatus] : undefined;
-        const flairText = flairTemplateId === undefined ? appealOutcome.newStatus : undefined;
-        await reddit.setPostFlair({
-            postId: userDetails.trackingPostId,
-            flairTemplateId,
-            text: flairText,
-            subredditName: CONTROL_SUBREDDIT,
+        await setUserStatusAndFlair({
+            username,
+            newStatusOrFlag: appealOutcome.newStatus,
+            operator: context.appSlug,
+            currentDetails: userDetails,
         });
 
         appealOutcomeType = isAppealGrantStatus(appealOutcome.newStatus) ? AppealOutcomeType.AppealGranted : AppealOutcomeType.StatusChanged;

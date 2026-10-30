@@ -1,6 +1,6 @@
-import { reddit, redis, scheduler, TaskRequest } from "@devvit/web/server";
+import { context, redis, scheduler, TaskRequest } from "@devvit/web/server";
 import { UserStatus } from "@fsvreddit/bot-bouncer-types";
-import { CONTROL_SUBREDDIT, ControlSubredditJob, getControlSubSettings, getUserStatus, UserDetails } from "..";
+import { ControlSubredditJob, getControlSubSettings, getUserStatus, setUserStatusAndFlair, UserDetails, UserFlag } from "..";
 import { hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import pluralize from "pluralize";
 import { addMinutes, addSeconds } from "date-fns";
@@ -44,10 +44,11 @@ async function checkAndHandleAccountIsRecovered (username: string, appealConfigs
     if (matchingAppealConfig?.setStatus === "recovered") {
         console.log(`Recovered Accounts: 😁 User ${username} has been identified as recovered: ${matchingAppealConfig.name}`);
         if (userDetails.trackingPostId !== "") {
-            await reddit.setPostFlair({
-                subredditName: CONTROL_SUBREDDIT,
-                postId: userDetails.trackingPostId,
-                text: "recovered",
+            await setUserStatusAndFlair({
+                username,
+                operator: context.appSlug,
+                newStatusOrFlag: UserFlag.HackedAndRecovered,
+                currentDetails: userDetails,
             });
             const newCount = await redis.incrBy(RECOVERED_RECHECKS_RECOVERED_KEY, 1);
             console.log(`Recovered Accounts: User ${username} has been marked as recovered. ${newCount} accounts handled now.`);

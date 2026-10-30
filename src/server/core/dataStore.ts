@@ -5,11 +5,11 @@ import { UserFlag } from "./types";
 import { hGetAllChunked } from "./redisHelpers";
 import { CONTROL_SUBREDDIT } from "./constants";
 import { addDays, addHours, addMinutes, subDays, subHours } from "date-fns";
-import { getUsernameFromUrl } from "./utility";
+import { getPostFlairUpdateIgnoreKey, getUsernameFromUrl, statusOrFlagToStatusAndFlags } from "./utility";
 import { getUserExtended, getUserSocialLinks } from "@fsvreddit/fsv-devvit-web-helpers";
 import { setCleanupForSubmittersAndMods, setCleanupForUser } from "./cleanup";
 import pluralize from "pluralize";
-import { deleteAccountInitialEvaluationResults } from ".";
+import { deleteAccountInitialEvaluationResults, statusToFlair } from ".";
 import { storeClassificationEvent } from "./controlSubCore/statistics";
 import { deleteAppealRecordsForUser, removeUserFromReversalsQueue } from "./controlSubCore/modmail";
 import { compact, fromPairs, uniq } from "lodash-es";
@@ -365,4 +365,51 @@ export async function isUserInTempDeclineStore (username: string): Promise<boole
 
 export async function getRecentlyChangedUsers (since: Date, now: Date): Promise<ZMember[]> {
     return await redis.global.zRange(RECENT_CHANGES_STORE, since.getTime(), now.getTime(), { by: "score" });
+}
+
+export async function setUserStatusAndFlair (opts: {
+    username: string;
+    operator: string;
+    currentDetails?: UserDetails;
+    newStatusOrFlag: UserStatus | UserFlag;
+}): Promise<{ statusSet: boolean; flairSet: boolean }> {
+    const currentStatus = opts.currentDetails ?? await getUserStatus(opts.username);
+
+    if (!currentStatus || !isT3(currentStatus.trackingPostId)) {
+        return { statusSet: false, flairSet: false };
+    }
+
+    const { status: newStatusValue, flags: newFlags } = statusOrFlagToStatusAndFlags(opts.newStatusOrFlag);
+
+    const newFlairTemplate = statusToFlair[newStatusValue];
+    let newFlairText: string | undefined;
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    if (!newFlairTemplate) {
+        newFlairText = newStatusValue;
+    }
+
+    const statusToSet: UserDetails = {
+        ...currentStatus,
+        userStatus: newStatusValue,
+        flags: newFlags,
+        operator: opts.operator,
+        lastUpdate: Date.now(),
+        lastStatus: undefined,
+    };
+
+    const results = await Promise.allSettled([
+        redis.set(getPostFlairUpdateIgnoreKey(currentStatus.trackingPostId), "true", { expiration: addMinutes(new Date(), 1) }),
+        setUserStatus(opts.username, statusToSet),
+        reddit.setPostFlair({
+            postId: currentStatus.trackingPostId,
+            flairTemplateId: newFlairTemplate,
+            text: newFlairText,
+            subredditName: CONTROL_SUBREDDIT,
+        }),
+    ]);
+
+    return {
+        statusSet: results[1].status === "fulfilled",
+        flairSet: results[2].status === "fulfilled",
+    };
 }

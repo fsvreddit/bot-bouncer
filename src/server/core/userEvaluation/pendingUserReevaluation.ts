@@ -1,7 +1,7 @@
 import { context, reddit, redis, scheduler, TaskRequest } from "@devvit/web/server";
 import { JsonValue } from "@devvit/web/shared";
 import { UserStatus } from "@fsvreddit/bot-bouncer-types";
-import { CONTROL_SUBREDDIT, evaluateUserAccount, getAccountInitialEvaluationResults, getFullDataStore, getUserStatus, PostFlairTemplate, setUserStatus, storeAccountInitialEvaluationResults, UserDetails } from "..";
+import { evaluateUserAccount, getAccountInitialEvaluationResults, getFullDataStore, getUserStatus, setUserStatus, setUserStatusAndFlair, storeAccountInitialEvaluationResults, UserDetails } from "..";
 import { hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import { addMinutes, addSeconds } from "date-fns";
 import { getEvaluatorVariables } from "./evaluatorVariables";
@@ -70,10 +70,12 @@ async function processPendingUser (username: string, evaluatorVariables: Record<
 
     await storeAccountInitialEvaluationResults(username, evaluationResults);
     console.log(`Pending User Reevaluation: User ${username} has been re-evaluated and flagged for banning.`);
-    await reddit.setPostFlair({
-        postId: userStatus.trackingPostId,
-        flairTemplateId: PostFlairTemplate.Banned,
-        subredditName: CONTROL_SUBREDDIT,
+
+    await setUserStatusAndFlair({
+        username,
+        newStatusOrFlag: UserStatus.Banned,
+        currentDetails: userStatus,
+        operator: context.appSlug,
     });
 }
 
