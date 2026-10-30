@@ -196,7 +196,10 @@ export async function gatherDefinedHandlesStats (event: TaskRequest<DefinedHandl
         processedUsers.push(username);
     }
 
-    await redis.zRem(DEFINED_HANDLES_QUEUE, processedUsers);
+    if (processedUsers.length > 0) {
+        await redis.zRem(DEFINED_HANDLES_QUEUE, processedUsers);
+    }
+
     await redis.hSet(DEFINED_HANDLES_DATA, fromPairs(Object.entries(existingDefinedHandles).map(([handle, data]) => ([handle, JSON.stringify(data)]))));
     await expireKeyAt(DEFINED_HANDLES_DATA, addMinutes(new Date(), 30));
 
