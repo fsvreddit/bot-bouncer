@@ -201,7 +201,7 @@ export async function gatherDefinedHandlesStats (event: TaskRequest<DefinedHandl
     await expireKeyAt(DEFINED_HANDLES_DATA, addMinutes(new Date(), 30));
 
     const remainingHandles = await redis.zCard(DEFINED_HANDLES_QUEUE);
-    console.log(`Processed ${processedCount} defined handles. Remaining in queue: ${remainingHandles}.`);
+    console.log(`Defined Handles: Processed ${processedCount} handles. Remaining in queue: ${remainingHandles}.`);
 
     await scheduler.runJob<DefinedHandlesStatsJobData>({
         name: ControlSubredditJob.DefinedHandlesStatistics,
