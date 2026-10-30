@@ -1,10 +1,10 @@
 import type { Context } from "hono";
 import { context, reddit, redis } from "@devvit/web/server";
 import { OnPostFlairUpdateRequest, T3, TriggerResponse } from "@devvit/web/shared";
-import { CONTROL_SUBREDDIT, FLAIR_MAPPINGS, getPostFlairUpdateIgnoreKey, getUsernameFromUrl, getUserStatus, queueSendFeedback, setUserStatus, setUserStatusAndFlair, statusToFlair, UserDetails, UserFlag } from "../core";
+import { CONTROL_SUBREDDIT, FLAIR_MAPPINGS, getPostFlairUpdateIgnoreKey, getUsernameFromUrl, getUserStatus, queueSendFeedback, setUserStatus, setUserStatusAndFlair, UserDetails, UserFlag } from "../core";
 import { fixPostTriggerEvent, hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import { UserStatus } from "@fsvreddit/bot-bouncer-types";
-import { addHours, addMinutes, addSeconds } from "date-fns";
+import { addMinutes, addSeconds } from "date-fns";
 import { addToReversalsQueue, submitAccountForReview } from "../core/controlSubCore/modmail";
 
 export const onPostFlairUpdate = async (c: Context): Promise<Response> => {
@@ -67,6 +67,11 @@ export const onPostFlairUpdate = async (c: Context): Promise<Response> => {
             await addToReversalsQueue(username, mapping.removeFromDatabaseAfterDays);
         }
 
+        const post = await reddit.getPostById(request.post.id as T3);
+        if (post.numberOfReports > 0) {
+            await post.approve();
+        }
+
         return c.json<TriggerResponse>({ message: "Flair mapped successfully" }, 200);
     }
 
@@ -78,13 +83,17 @@ export const onPostFlairUpdate = async (c: Context): Promise<Response> => {
         const status = match[1] as UserStatus;
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         const reviewPeriod = parseInt(match[2]!, 10);
-        await redis.set(`userStatusOverrideValue~${username}`, request.author.name, { expiration: addHours(new Date(), 1) });
 
-        await reddit.setPostFlair({
-            postId: request.post.id as T3,
-            subredditName: CONTROL_SUBREDDIT,
-            flairTemplateId: statusToFlair[status],
+        await setUserStatusAndFlair({
+            username,
+            operator: request.author.name,
+            newStatusOrFlag: status,
         });
+
+        const post = await reddit.getPostById(request.post.id as T3);
+        if (post.numberOfReports > 0) {
+            await post.approve();
+        }
 
         await submitAccountForReview({
             postId: request.post.id as T3,
