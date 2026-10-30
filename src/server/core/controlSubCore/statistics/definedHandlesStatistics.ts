@@ -1,4 +1,4 @@
-import { context, Post, reddit, redis, scheduler, TaskRequest, ZMember } from "@devvit/web/server";
+import { context, Post, reddit, redis, scheduler, TaskRequest, UpdateWikiPageOptions, ZMember } from "@devvit/web/server";
 import { addHours, addMinutes, addSeconds, format, subMinutes, subMonths } from "date-fns";
 import { BIO_TEXT_STORE, ControlSubredditJob, DISPLAY_NAME_STORE, expireKeyAt, getDataStoreFiltered, USER_DEFINED_HANDLES_POSTS } from "../..";
 import { UserStatus } from "@fsvreddit/bot-bouncer-types";
@@ -290,10 +290,14 @@ async function buildDefinedHandlesWikiPage () {
     wikiContent.push({ p: "Existing defined handles, sorted:" });
     wikiContent.push({ p: `\`${existingDefinedHandles.map(entry => entry.handle).join("|")}\`` });
 
-    await reddit.updateWikiPage({
-        subredditName: context.subredditName,
-        page: "statistics/definedhandles",
-        content: json2md(wikiContent),
+    await scheduler.runJob<UpdateWikiPageOptions>({
+        name: ControlSubredditJob.AsyncWikiUpdate,
+        runAt: new Date(),
+        data: {
+            subredditName: context.subredditName,
+            page: "statistics/definedhandles",
+            content: json2md(wikiContent),
+        },
     });
 
     await redis.del(definedHandlesRecentlyRunKey, DEFINED_HANDLES_DATA, DEFINED_HANDLES_QUEUE);
