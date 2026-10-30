@@ -1,7 +1,7 @@
 import { context, reddit, redis, scheduler } from "@devvit/web/server";
 import { isT1, isT3 } from "@devvit/web/shared";
 import { UserStatus } from "@fsvreddit/bot-bouncer-types";
-import { accountIsBotBouncerApp, CHECK_DATE_KEY, CONFIGURATION_DEFAULTS, CONTROL_SUBREDDIT, ControlSubredditJob, FLAIR_MAPPINGS, getControlSubSettings, getPostFlairUpdateIgnoreKey, getUserStatus, INTERNAL_BOT, isModeratorWithCache, ModmailMessage, setUserStatus, statusToFlair, UserDetails, UserFlag } from "../..";
+import { accountIsBotBouncerApp, CHECK_DATE_KEY, CONFIGURATION_DEFAULTS, CONTROL_SUBREDDIT, ControlSubredditJob, FLAIR_MAPPINGS, getControlSubSettings, getPostFlairUpdateIgnoreKey, getUserStatus, INTERNAL_BOT, isModeratorWithCache, ModmailMessage, setUserStatus, statusOrFlagToStatusAndFlags, statusToFlair, UserDetails, UserFlag } from "../..";
 import { count } from "@wordpress/wordcount";
 import { AppealOutcomeType, clearRespondToFurtherMessagesFlag, getAppealConfig, getMatchedAppealConfig, getRespondToFurtherMessagesFlag, handleAppeal, storeAppealRecordsForUser } from "./appealHandling";
 import { addDays, addHours, addMinutes, addSeconds, addWeeks, format, subMinutes } from "date-fns";
@@ -273,20 +273,6 @@ export async function handleControlSubredditModmail (modmail: ModmailMessage) {
                 isInternal: true,
             });
         }
-    }
-}
-
-function statusOrFlagToStatusAndFlags (statusOrFlag: UserStatus | UserFlag): { status: UserStatus; flags: UserFlag[] | undefined } {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-assignment
-    if (Object.values(UserStatus).includes(statusOrFlag as UserStatus)) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-assignment
-        return { status: statusOrFlag as UserStatus, flags: undefined };
-    } else {
-        return {
-            status: statusOrFlag === UserFlag.Locked ? UserStatus.Banned : UserStatus.Organic,
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-assignment
-            flags: [statusOrFlag as UserFlag],
-        };
     }
 }
 

@@ -1,9 +1,10 @@
 import { context, redis } from "@devvit/web/server";
 import { isBanned, isModerator } from "@fsvreddit/fsv-devvit-web-helpers";
-import { HitReason, HitReasonDetailed } from "@fsvreddit/bot-bouncer-types";
+import { HitReason, HitReasonDetailed, UserStatus } from "@fsvreddit/bot-bouncer-types";
 import { addDays, addHours, formatDuration, intervalToDuration } from "date-fns";
 import { deflate, inflate } from "pako";
 import { getControlSubSettings } from "./controlSubSettings";
+import { UserFlag } from ".";
 
 export function getUsernameFromUrl (url: string) {
     const urlRegex = /reddit\.com\/u(?:ser)?\/([\w_-]+)\/?(?:[?/].+)?$/i;
@@ -241,4 +242,18 @@ export function getHitReasonText (hitReasonInput?: HitReason): string | undefine
 
 export function getPostFlairUpdateIgnoreKey (postId: string): string {
     return `postFlairUpdateIgnore:${postId}`;
+}
+
+export function statusOrFlagToStatusAndFlags (statusOrFlag: UserStatus | UserFlag): { status: UserStatus; flags: UserFlag[] | undefined } {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-assignment
+    if (Object.values(UserStatus).includes(statusOrFlag as UserStatus)) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-assignment
+        return { status: statusOrFlag as UserStatus, flags: undefined };
+    } else {
+        return {
+            status: statusOrFlag === UserFlag.Locked ? UserStatus.Banned : UserStatus.Organic,
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-assignment
+            flags: [statusOrFlag as UserFlag],
+        };
+    }
 }
