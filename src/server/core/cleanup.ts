@@ -1,13 +1,13 @@
 import { Comment, context, Post, reddit, redis, scheduler, TaskRequest } from "@devvit/web/server";
 import { T3 } from "@devvit/web/shared";
 import { getUserExtended, hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
-import { addDays, addHours, addMinutes, addSeconds, addWeeks, subDays, subMinutes, subSeconds } from "date-fns";
+import { addDays, addMinutes, addSeconds, addWeeks, subDays, subMinutes, subSeconds } from "date-fns";
 import { CONTROL_SUBREDDIT, PostFlairTemplate } from "./constants";
 import { getControlSubSettings } from "./controlSubSettings";
 import { deleteUserStatus, getUserStatus, removeRecordOfSubmitterOrMod, updateAggregate, writeUserStatus } from "./dataStore";
 import { UserStatus } from "@fsvreddit/bot-bouncer-types";
 import { UserFlag } from "./types";
-import { formatTimeSince } from "./utility";
+import { formatTimeSince, getPostFlairUpdateIgnoreKey } from "./utility";
 import { UniversalJob } from "./schedulerJobs";
 import { CleanupJobData } from "../tasks";
 import { addUserToRecoveredRechecksQueue } from "./controlSubCore";
@@ -340,7 +340,7 @@ async function handleDeletedAccountControlSub (username: string) {
                 console.log(`Cleanup: Post deleted for ${username}. Now deleted ${deletedPosts} posts.`);
 
                 if (status.userStatus !== newStatus) {
-                    await redis.set(`ignoreflairchangeForPost:${post.id}`, "true", { expiration: addHours(new Date(), 1) });
+                    await redis.set(getPostFlairUpdateIgnoreKey(post.id), "true", { expiration: addMinutes(new Date(), 1) });
 
                     await reddit.setPostFlair({
                         postId: post.id,

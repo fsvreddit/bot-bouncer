@@ -238,3 +238,7 @@ export function getHitReasonText (hitReasonInput?: HitReason): string | undefine
 
     return hitReasonText;
 }
+
+export function getPostFlairUpdateIgnoreKey (postId: string): string {
+    return `postFlairUpdateIgnore:${postId}`;
+}

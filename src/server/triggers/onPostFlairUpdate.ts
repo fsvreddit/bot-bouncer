@@ -1,7 +1,7 @@
 import type { Context } from "hono";
 import { context, reddit, redis } from "@devvit/web/server";
 import { OnPostFlairUpdateRequest, T3, TriggerResponse } from "@devvit/web/shared";
-import { CONTROL_SUBREDDIT, FLAIR_MAPPINGS, getUsernameFromUrl, getUserStatus, queueSendFeedback, setUserStatus, statusToFlair, UserDetails, writeUserStatus } from "../core";
+import { CONTROL_SUBREDDIT, FLAIR_MAPPINGS, getPostFlairUpdateIgnoreKey, getUsernameFromUrl, getUserStatus, queueSendFeedback, setUserStatus, statusToFlair, UserDetails, writeUserStatus } from "../core";
 import { fixPostTriggerEvent, hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import { UserStatus } from "@fsvreddit/bot-bouncer-types";
 import { addHours, addMinutes, addSeconds } from "date-fns";
@@ -27,6 +27,10 @@ export const onPostFlairUpdate = async (c: Context): Promise<Response> => {
         return c.json<TriggerResponse>({ message: "No post flair" }, 200);
     }
 
+    if (await redis.exists(getPostFlairUpdateIgnoreKey(request.post.id))) {
+        return c.json<TriggerResponse>({ message: "Ignored flair change for post" }, 200);
+    }
+
     if (await hasEventBeenHandled(`PostFlairUpdate:${request.post.id}:${postFlair}`, { expiration: addSeconds(new Date(), 10) })) {
         return c.json<TriggerResponse>({ message: "Trigger already handled" }, 200);
     }
@@ -38,11 +42,6 @@ export const onPostFlairUpdate = async (c: Context): Promise<Response> => {
 
     if (request.post.authorId !== appUser.id) {
         return c.json<TriggerResponse>({ message: "Post author is not the app user" }, 200);
-    }
-
-    const ignoreCheck = await redis.exists(`ignoreflairchangeForPost:${request.post.id}`);
-    if (ignoreCheck) {
-        return c.json<TriggerResponse>({ message: "Ignored flair change for post" }, 200);
     }
 
     const username = getUsernameFromUrl(request.post.url);

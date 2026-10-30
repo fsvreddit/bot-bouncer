@@ -1,10 +1,10 @@
 import { context, reddit, redis, scheduler } from "@devvit/web/server";
 import { isT1, isT3 } from "@devvit/web/shared";
 import { UserStatus } from "@fsvreddit/bot-bouncer-types";
-import { accountIsBotBouncerApp, CHECK_DATE_KEY, CONFIGURATION_DEFAULTS, CONTROL_SUBREDDIT, ControlSubredditJob, FLAIR_MAPPINGS, getControlSubSettings, getUserStatus, INTERNAL_BOT, isModeratorWithCache, ModmailMessage, statusToFlair, UserDetails } from "../..";
+import { accountIsBotBouncerApp, CHECK_DATE_KEY, CONFIGURATION_DEFAULTS, CONTROL_SUBREDDIT, ControlSubredditJob, FLAIR_MAPPINGS, getControlSubSettings, getPostFlairUpdateIgnoreKey, getUserStatus, INTERNAL_BOT, isModeratorWithCache, ModmailMessage, setUserStatus, statusToFlair, UserDetails, UserFlag } from "../..";
 import { count } from "@wordpress/wordcount";
 import { AppealOutcomeType, clearRespondToFurtherMessagesFlag, getAppealConfig, getMatchedAppealConfig, getRespondToFurtherMessagesFlag, handleAppeal, storeAppealRecordsForUser } from "./appealHandling";
-import { addDays, addHours, addSeconds, addWeeks, format, subMinutes } from "date-fns";
+import { addDays, addHours, addMinutes, addSeconds, addWeeks, format, subMinutes } from "date-fns";
 import json2md from "json2md";
 import { getUserExtended, getUserOrUndefined } from "@fsvreddit/fsv-devvit-web-helpers";
 import { getSummaryForUser } from "../userSummary";
@@ -175,7 +175,7 @@ export async function handleControlSubredditModmail (modmail: ModmailMessage) {
         const statusChangeMatch = statusChangeRegex.exec(modmail.bodyMarkdown);
         if (statusChangeMatch?.length === 2) {
             // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-assignment
-            const newStatus = statusChangeMatch[1] as UserStatus;
+            const newStatus = statusChangeMatch[1] as UserStatus | UserFlag;
 
             const username = await getOverrideForSetStatusCommand(modmail.conversationId) ?? modmail.participant;
 
@@ -183,22 +183,54 @@ export async function handleControlSubredditModmail (modmail: ModmailMessage) {
             if (currentStatus && isT3(currentStatus.trackingPostId) && currentStatus.userStatus !== newStatus) {
                 await redis.set(`userStatusOverrideValue~${username}`, modmail.messageAuthor, { expiration: addHours(new Date(), 2) });
 
-                const newFlairTemplate = statusToFlair[newStatus];
+                const { status: newStatusValue, flags: newFlags } = statusOrFlagToStatusAndFlags(newStatus);
+
+                const newFlairTemplate = statusToFlair[newStatusValue];
                 let newFlairText: string | undefined;
                 // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
                 if (!newFlairTemplate) {
-                    newFlairText = newStatus;
+                    newFlairText = newStatusValue;
                 }
-                await reddit.setPostFlair({
-                    postId: currentStatus.trackingPostId,
-                    flairTemplateId: newFlairTemplate,
-                    text: newFlairText,
-                    subredditName: CONTROL_SUBREDDIT,
-                });
+
+                const statusToSet: UserDetails = {
+                    ...currentStatus,
+                    userStatus: newStatusValue,
+                    flags: newFlags,
+                    operator: modmail.messageAuthor,
+                    lastUpdate: Date.now(),
+                    lastStatus: undefined,
+                };
+
+                const results = await Promise.allSettled([
+                    redis.set(getPostFlairUpdateIgnoreKey(currentStatus.trackingPostId), "true", { expiration: addMinutes(new Date(), 1) }),
+                    setUserStatus(username, statusToSet),
+                    reddit.setPostFlair({
+                        postId: currentStatus.trackingPostId,
+                        flairTemplateId: newFlairTemplate,
+                        text: newFlairText,
+                        subredditName: CONTROL_SUBREDDIT,
+                    }),
+                ]);
+
+                let responseForModmail: string;
+                if (results.every(result => result.status === "fulfilled")) {
+                    responseForModmail = `Successfully updated status and flair for ${username}. New status: ${newStatusValue}.`;
+                    if (newFlags) {
+                        responseForModmail += ` New flags set: ${newFlags.join(", ")}`;
+                    }
+                } else {
+                    responseForModmail = `Errors occurred when updating status and flair for ${username}.`;
+                    if (results[1].status === "rejected") {
+                        responseForModmail += ` Could not write user status to Redis.`;
+                    }
+                    if (results[2].status === "rejected") {
+                        responseForModmail += ` Could not set post flair on the user's tracking post.`;
+                    }
+                }
 
                 await reddit.modMail.reply({
                     conversationId: modmail.conversationId,
-                    body: `User status for ${username} changed to ${newStatus}.`,
+                    body: responseForModmail,
                     isInternal: true,
                 });
             } else {
@@ -239,6 +271,20 @@ export async function handleControlSubredditModmail (modmail: ModmailMessage) {
                 isInternal: true,
             });
         }
+    }
+}
+
+function statusOrFlagToStatusAndFlags (statusOrFlag: UserStatus | UserFlag): { status: UserStatus; flags: UserFlag[] | undefined } {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-assignment
+    if (Object.values(UserStatus).includes(statusOrFlag as UserStatus)) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-assignment
+        return { status: statusOrFlag as UserStatus, flags: undefined };
+    } else {
+        return {
+            status: statusOrFlag === UserFlag.Locked ? UserStatus.Banned : UserStatus.Organic,
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-assignment
+            flags: [statusOrFlag as UserFlag],
+        };
     }
 }
 

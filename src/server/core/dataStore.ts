@@ -225,11 +225,16 @@ export async function setUserStatus (username: string, details: UserDetails) {
         }
     }
 
+    let noteText = `Status changed to ${details.userStatus} by ${details.operator}.`;
+    if (details.flags && details.flags.length > 0) {
+        noteText += ` Flags set: ${details.flags.join(", ")}.`;
+    }
+
     if (context.subredditName === CONTROL_SUBREDDIT && currentStatus?.userStatus !== details.userStatus && details.userStatus !== UserStatus.Pending) {
         await addModNote({
             subreddit: context.subredditName,
             user: username,
-            note: `Status changed to ${details.userStatus} by ${details.operator}.`,
+            note: noteText,
         });
     }
 
