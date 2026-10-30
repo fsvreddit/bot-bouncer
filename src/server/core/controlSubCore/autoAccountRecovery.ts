@@ -21,7 +21,7 @@ export async function addUserToRecoveredRechecksQueue (username: string, userDet
 
 async function getHackedAppealConfigs (): Promise<CompiledAppealConfig[]> {
     const appealConfigs = await getAppealConfig();
-    return appealConfigs.filter(config => config.isHackedAppealConfig && config.setStatus === "recovered");
+    return appealConfigs.filter(config => config.isHackedAppealConfig && config.setStatus === UserFlag.HackedAndRecovered);
 }
 
 async function checkAndHandleAccountIsRecovered (username: string, appealConfigs: CompiledAppealConfig[]) {
@@ -41,7 +41,7 @@ async function checkAndHandleAccountIsRecovered (username: string, appealConfigs
         return;
     }
 
-    if (matchingAppealConfig?.setStatus === "recovered") {
+    if (matchingAppealConfig?.setStatus === UserFlag.HackedAndRecovered) {
         console.log(`Recovered Accounts: 😁 User ${username} has been identified as recovered: ${matchingAppealConfig.name}`);
         if (userDetails.trackingPostId !== "") {
             await setUserStatusAndFlair({

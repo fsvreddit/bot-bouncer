@@ -1,12 +1,11 @@
 import type { Context } from "hono";
 import { context, reddit, redis } from "@devvit/web/server";
 import { OnPostFlairUpdateRequest, T3, TriggerResponse } from "@devvit/web/shared";
-import { CONTROL_SUBREDDIT, FLAIR_MAPPINGS, getPostFlairUpdateIgnoreKey, getUsernameFromUrl, getUserStatus, queueSendFeedback, setUserStatus, statusToFlair, UserDetails, writeUserStatus } from "../core";
+import { CONTROL_SUBREDDIT, FLAIR_MAPPINGS, getPostFlairUpdateIgnoreKey, getUsernameFromUrl, getUserStatus, queueSendFeedback, setUserStatus, setUserStatusAndFlair, statusToFlair, UserDetails, UserFlag } from "../core";
 import { fixPostTriggerEvent, hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import { UserStatus } from "@fsvreddit/bot-bouncer-types";
 import { addHours, addMinutes, addSeconds } from "date-fns";
 import { addToReversalsQueue, submitAccountForReview } from "../core/controlSubCore/modmail";
-import { uniq } from "lodash-es";
 
 export const onPostFlairUpdate = async (c: Context): Promise<Response> => {
     let request = await c.req.json<OnPostFlairUpdateRequest>();
@@ -22,7 +21,7 @@ export const onPostFlairUpdate = async (c: Context): Promise<Response> => {
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-assignment
-    const postFlair = request.post.linkFlair?.text as UserStatus | undefined;
+    const postFlair = request.post.linkFlair?.text as UserStatus | UserFlag | undefined;
     if (!postFlair) {
         return c.json<TriggerResponse>({ message: "No post flair" }, 200);
     }
@@ -51,32 +50,22 @@ export const onPostFlairUpdate = async (c: Context): Promise<Response> => {
 
     await redis.set(`postFlairUpdateLock~${username}`, Date.now().toString(), { expiration: addMinutes(new Date(), 1) });
 
-    // Handle post flair mappings here.
-    const mapping = FLAIR_MAPPINGS.find(m => m.postFlair === postFlair as string);
-    if (mapping) {
+    // Handle post flair mappings here.    const mapping = FLAIR_MAPPINGS.find(m => m.postFlair === postFlair as string);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-assignment
+    if (Object.values(UserFlag).includes(postFlair as UserFlag)) {
         const currentStatus = await getUserStatus(username);
-        if (currentStatus) {
-            const flags = currentStatus.flags ?? [];
-            flags.push(mapping.flagToSet);
-            currentStatus.flags = uniq(flags);
-            await writeUserStatus(username, currentStatus);
-        }
 
-        if (request.author.name !== context.appSlug) {
-            await redis.set(`userStatusOverrideValue~${username}`, request.author.name, { expiration: addHours(new Date(), 1) });
-        }
-
-        await reddit.setPostFlair({
-            postId: request.post.id as T3,
-            subredditName: CONTROL_SUBREDDIT,
-            flairTemplateId: mapping.destinationFlair,
+        await setUserStatusAndFlair({
+            username,
+            operator: request.author.name,
+            currentDetails: currentStatus,
+            newStatusOrFlag: postFlair,
         });
 
-        if (mapping.removeFromDatabaseAfterDays && mapping.removeFromDatabaseAfterDays > 0) {
+        const mapping = FLAIR_MAPPINGS.find(m => m.postFlair === postFlair as string);
+        if (mapping?.removeFromDatabaseAfterDays && mapping.removeFromDatabaseAfterDays > 0) {
             await addToReversalsQueue(username, mapping.removeFromDatabaseAfterDays);
         }
-
-        console.log(`Flair Update: Mapped flair ${postFlair} to flag ${mapping.flagToSet} for user ${username}, new status ${mapping.destinationFlair}.`);
 
         return c.json<TriggerResponse>({ message: "Flair mapped successfully" }, 200);
     }
@@ -106,7 +95,8 @@ export const onPostFlairUpdate = async (c: Context): Promise<Response> => {
         return c.json<TriggerResponse>({ message: "Flair update with review period processed" }, 200);
     }
 
-    if (!Object.values(UserStatus).includes(postFlair)) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-assignment
+    if (!Object.values(UserStatus).includes(postFlair as UserStatus)) {
         return c.json<TriggerResponse>({ message: `Invalid flair on ${request.post.id}` }, 200);
     }
 
@@ -123,13 +113,15 @@ export const onPostFlairUpdate = async (c: Context): Promise<Response> => {
     if (currentStatus) {
         newStatus = { ...currentStatus };
         newStatus.trackingPostId = request.post.id as T3;
-        newStatus.userStatus = postFlair;
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-assignment
+        newStatus.userStatus = postFlair as UserStatus;
         newStatus.operator = operator;
         newStatus.lastUpdate = new Date().getTime();
     } else {
         newStatus = {
             trackingPostId: request.post.id as T3,
-            userStatus: postFlair,
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-assignment
+            userStatus: postFlair as UserStatus,
             lastUpdate: new Date().getTime(),
             operator,
         };
