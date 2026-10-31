@@ -14,7 +14,14 @@ async function isAppModOfSub (subredditName: string): Promise<boolean> {
         return JSON.parse(isMod) as boolean;
     }
 
-    const isModOfSub = await isModerator(subredditName, context.appSlug);
+    let isModOfSub: boolean;
+    try {
+        isModOfSub = await isModerator(subredditName, context.appSlug);
+    } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error(`Failed to check if app is mod of subreddit ${subredditName}: ${message}`);
+        return false;
+    }
 
     await redis.set(redisKey, JSON.stringify(isModOfSub), { expiration: addWeeks(new Date(), 1) });
 
