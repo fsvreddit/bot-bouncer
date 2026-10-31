@@ -1,6 +1,6 @@
 import { context, reddit, redis, UserSocialLink } from "@devvit/web/server";
 import { format, subMonths } from "date-fns";
-import { SOCIAL_LINKS_STORE, UserDetails } from "../..";
+import { domainFromUrl, SOCIAL_LINKS_STORE, UserDetails } from "../..";
 import { StatsUserEntry, userIsBanned } from "./statsHelpers";
 import { getEvaluatorVariable, getRedisSubstitionValue, setRedisSubstititionValue } from "../../userEvaluation";
 import json2md from "json2md";
@@ -90,7 +90,9 @@ export async function updateSocialLinksStatistics (allEntries: StatsUserEntry[])
     const configuredLinks = await getEvaluatorVariable<string[]>("sociallinks:badlinks") ?? [];
     const ignoredLinks = await getEvaluatorVariable<string[]>("sociallinks:ignored") ?? [];
 
-    const socialLinksCounts: Record<string, SocialLinksEntry> = {};
+    const socialLinksCounts = new Map<string, SocialLinksEntry>();
+    const domainCounts = new Map<string, number>();
+
     for (const item of recentData) {
         if (!item.data.socialLinks) {
             continue;
@@ -101,42 +103,47 @@ export async function updateSocialLinksStatistics (allEntries: StatsUserEntry[])
                 continue;
             }
 
-            const existingEntry = socialLinksCounts[link];
+            const domain = domainFromUrl(link);
+            if (domain) {
+                domainCounts.set(domain, (domainCounts.get(domain) ?? 0) + 1);
+            }
+
+            const existingEntry = socialLinksCounts.get(link);
             if (existingEntry) {
-                socialLinksCounts[link] = {
+                socialLinksCounts.set(link, {
                     hits: existingEntry.hits + 1,
                     coveredByEvaluator: existingEntry.coveredByEvaluator,
                     firstSeen: item.data.reportedAt ? min([existingEntry.firstSeen, new Date(item.data.reportedAt)]) ?? existingEntry.firstSeen : existingEntry.firstSeen,
                     lastSeen: item.data.reportedAt ? max([existingEntry.lastSeen, new Date(item.data.reportedAt)]) ?? existingEntry.lastSeen : existingEntry.lastSeen,
                     usernames: [...existingEntry.usernames, item.username],
-                };
+                });
             } else {
-                socialLinksCounts[link] = {
+                socialLinksCounts.set(link, {
                     hits: 1,
                     coveredByEvaluator: configuredLinks.some(configuredLink => link.startsWith(configuredLink)),
                     firstSeen: item.data.reportedAt ? new Date(item.data.reportedAt) : undefined,
                     lastSeen: item.data.reportedAt ? new Date(item.data.reportedAt) : undefined,
                     usernames: [item.username],
-                };
+                });
             }
         }
     }
 
     const bareDomainRegex = /^https?:\/\/\w+\.\w+\\?$/;
 
-    const records = Object.entries(socialLinksCounts)
+    const records = Array.from(socialLinksCounts.entries())
         .map(([link, value]) => ({ link, value }))
-        .filter(item => item.value.hits > 1 && !bareDomainRegex.test(item.link))
+        .filter(item => item.value.hits > 2 && !bareDomainRegex.test(item.link))
         .sort((a, b) => a.link > b.link ? 1 : -1)
         .sort((a, b) => b.value.hits - a.value.hits);
 
     const wikiContent: json2md.DataObject[] = [
-        { p: "This page lists social links seen on more than one user, where it has been seen on a newly banned user in the last three months" },
+        { p: "This page lists social links seen on more than two users, where it has been seen on a newly banned user in the last three months" },
         { p: "Note: OnlyFans links have been cleaned to remove share codes and trial invites." },
     ];
 
     if (records.length === 0) {
-        wikiContent.push({ p: "No social links found more than once with a hit in the last three months." });
+        wikiContent.push({ p: "No social links found more than twice with a hit in the last three months." });
     } else {
         const coveredByEvaluatorRows: string[][] = [];
         const notCoveredByEvaluatorRows: string[][] = [];
@@ -173,6 +180,14 @@ export async function updateSocialLinksStatistics (allEntries: StatsUserEntry[])
         } else {
             wikiContent.push({ p: "None!" });
         }
+    }
+
+    if (domainCounts.size > 0) {
+        wikiContent.push({ hr: {} });
+        wikiContent.push({ p: "Domain counts for social links seen on users with any status:" });
+        const domainHeaders = ["Domain", "Count"];
+        const domainRows = Array.from(domainCounts.entries()).map(([domain, count]) => [domain, count.toLocaleString()]);
+        wikiContent.push({ table: { headers: domainHeaders, rows: domainRows } });
     }
 
     if (configuredLinks.length > 0) {
