@@ -5,7 +5,7 @@ import { UserFlag } from "./types";
 import { hGetAllChunked } from "./redisHelpers";
 import { CONTROL_SUBREDDIT } from "./constants";
 import { addDays, addHours, addMinutes, subDays, subHours } from "date-fns";
-import { getPostFlairUpdateIgnoreKey, getUsernameFromUrl, statusOrFlagToStatusAndFlags } from "./utility";
+import { getUsernameFromUrl, statusOrFlagToStatusAndFlags } from "./utility";
 import { getUserExtended, getUserSocialLinks } from "@fsvreddit/fsv-devvit-web-helpers";
 import { setCleanupForSubmittersAndMods, setCleanupForUser } from "./cleanup";
 import pluralize from "pluralize";
@@ -398,7 +398,6 @@ export async function setUserStatusAndFlair (opts: {
     };
 
     const results = await Promise.allSettled([
-        redis.set(getPostFlairUpdateIgnoreKey(currentStatus.trackingPostId), "true", { expiration: addMinutes(new Date(), 1) }),
         setUserStatus(opts.username, statusToSet),
         reddit.setPostFlair({
             postId: currentStatus.trackingPostId,
@@ -409,8 +408,8 @@ export async function setUserStatusAndFlair (opts: {
     ]);
 
     const returnValue = {
-        statusSet: results[1].status === "fulfilled",
-        flairSet: results[2].status === "fulfilled",
+        statusSet: results[0].status === "fulfilled",
+        flairSet: results[1].status === "fulfilled",
     };
 
     if (returnValue.statusSet && returnValue.flairSet) {

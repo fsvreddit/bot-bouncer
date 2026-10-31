@@ -240,10 +240,6 @@ export function getHitReasonText (hitReasonInput?: HitReason): string | undefine
     return hitReasonText;
 }
 
-export function getPostFlairUpdateIgnoreKey (postId: string): string {
-    return `postFlairUpdateIgnore:${postId}`;
-}
-
 export function statusOrFlagToStatusAndFlags (statusOrFlag: UserStatus | UserFlag): { status: UserStatus; flags: UserFlag[] | undefined } {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-assignment
     if (Object.values(UserStatus).includes(statusOrFlag as UserStatus)) {

@@ -1,7 +1,7 @@
 import type { Context } from "hono";
 import { context, reddit, redis } from "@devvit/web/server";
 import { OnPostFlairUpdateRequest, T3, TriggerResponse } from "@devvit/web/shared";
-import { CONTROL_SUBREDDIT, FLAIR_MAPPINGS, getPostFlairUpdateIgnoreKey, getUsernameFromUrl, getUserStatus, queueSendFeedback, setUserStatus, setUserStatusAndFlair, UserDetails, UserFlag } from "../core";
+import { CONTROL_SUBREDDIT, FLAIR_MAPPINGS, getUsernameFromUrl, getUserStatus, queueSendFeedback, setUserStatus, setUserStatusAndFlair, UserDetails, UserFlag } from "../core";
 import { fixPostTriggerEvent, hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import { UserStatus } from "@fsvreddit/bot-bouncer-types";
 import { addMinutes, addSeconds } from "date-fns";
@@ -20,14 +20,14 @@ export const onPostFlairUpdate = async (c: Context): Promise<Response> => {
         return c.json({ message: "Invalid request" }, 200);
     }
 
+    if (request.author.name === context.appSlug) {
+        return c.json<TriggerResponse>({ message: "Author is the app user" }, 200);
+    }
+
     // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-assignment
     const postFlair = request.post.linkFlair?.text as UserStatus | UserFlag | undefined;
     if (!postFlair) {
         return c.json<TriggerResponse>({ message: "No post flair" }, 200);
-    }
-
-    if (await redis.exists(getPostFlairUpdateIgnoreKey(request.post.id))) {
-        return c.json<TriggerResponse>({ message: "Ignored flair change for post" }, 200);
     }
 
     if (await hasEventBeenHandled(`PostFlairUpdate:${request.post.id}:${postFlair}`, { expiration: addSeconds(new Date(), 10) })) {

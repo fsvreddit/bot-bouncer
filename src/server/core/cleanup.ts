@@ -7,7 +7,7 @@ import { getControlSubSettings } from "./controlSubSettings";
 import { deleteUserStatus, getUserStatus, removeRecordOfSubmitterOrMod, setUserStatusAndFlair, updateAggregate, writeUserStatus } from "./dataStore";
 import { UserStatus } from "@fsvreddit/bot-bouncer-types";
 import { UserFlag } from "./types";
-import { formatTimeSince, getPostFlairUpdateIgnoreKey } from "./utility";
+import { formatTimeSince } from "./utility";
 import { UniversalJob } from "./schedulerJobs";
 import { CleanupJobData } from "../tasks";
 import { addUserToRecoveredRechecksQueue } from "./controlSubCore";
@@ -341,8 +341,6 @@ async function handleDeletedAccountControlSub (username: string) {
                 console.log(`Cleanup: Post deleted for ${username}. Now deleted ${deletedPosts} posts.`);
 
                 if (status.userStatus !== newStatus) {
-                    await redis.set(getPostFlairUpdateIgnoreKey(post.id), "true", { expiration: addMinutes(new Date(), 1) });
-
                     await reddit.setPostFlair({
                         postId: post.id,
                         subredditName: CONTROL_SUBREDDIT,
