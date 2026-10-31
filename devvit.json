@@ -353,6 +353,9 @@
             "sendDailyDigest": {
                 "endpoint": "/internal/tasks/send-daily-digest"
             },
+            "socialLinksStatistics": {
+                "endpoint": "/internal/tasks/social-links-statistics"
+            },
             "startDataExtract": {
                 "endpoint": "/internal/tasks/start-data-extract"
             },

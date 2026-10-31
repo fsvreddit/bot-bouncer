@@ -1,10 +1,12 @@
-import { context, reddit, redis, UserSocialLink } from "@devvit/web/server";
-import { format, subMonths } from "date-fns";
-import { domainFromUrl, SOCIAL_LINKS_STORE, UserDetails } from "../..";
-import { StatsUserEntry, userIsBanned } from "./statsHelpers";
+import { context, redis, scheduler, TaskRequest, UpdateWikiPageOptions, UserSocialLink } from "@devvit/web/server";
+import { addHours, addMinutes, addSeconds, format, subMonths } from "date-fns";
+import { ALL_POTENTIAL_USER_PREFIXES, ControlSubredditJob, domainFromUrl, expireKeyAt, getDataStoreFiltered, hGetAllChunked, hMGetAsRecord, hSetChunked, SOCIAL_LINKS_STORE, zRangeAsRecord } from "../..";
+import { FLAGS_TO_EXCLUDE_FROM_STATS, userIsBanned } from "./statsHelpers";
 import { getEvaluatorVariable, getRedisSubstitionValue, setRedisSubstititionValue } from "../../userEvaluation";
 import json2md from "json2md";
-import { chunk, max, min, uniq } from "lodash-es";
+import { uniq } from "lodash-es";
+import { SocialLinksStatisticsJobData } from "../../../tasks";
+import { UserStatus } from "@fsvreddit/bot-bouncer-types";
 
 export function cleanLink (input: string): string {
     if (!input.includes("onlyfans.com") && !input.includes("fansly.com") && !input.includes("fans.ly") && !input.includes("snapchat.com") && !input.includes("fanvue.com")) {
@@ -51,88 +53,218 @@ export function cleanLink (input: string): string {
     return newString;
 }
 
-type UserDetailsWithSocialLink = UserDetails & { socialLinks?: string[] };
-
 interface SocialLinksEntry {
     hits: number;
     coveredByEvaluator: boolean;
-    firstSeen?: Date;
-    lastSeen?: Date;
+    firstSeen?: number;
+    lastSeen?: number;
     usernames: string[];
 }
 
-export async function updateSocialLinksStatistics (allEntries: StatsUserEntry[]) {
-    const recentDataInit = allEntries
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
-        .map(item => ({ username: item.username, data: item.data as UserDetailsWithSocialLink }))
-        .filter(item => item.data.reportedAt && new Date(item.data.reportedAt) >= subMonths(new Date(), 3))
-        .filter(item => userIsBanned(item.data));
+interface SocialLinksQueueEntry {
+    username: string;
+    reportedAt: number;
+}
 
-    const recentData: typeof recentDataInit = [];
+const SOCIAL_LINKS_USER_QUEUE = "SocialLinksUserQueue";
+const SOCIAL_LINKS_STATS_STORE = "SocialLinksStatsStore";
+const SOCIAL_LINKS_DOMAIN_COUNTS_STORE = "SocialLinksCountsStore";
+const IN_PROGRESS_KEY = "SocialLinksInProgress";
 
-    const chunks = chunk(recentDataInit, 5000);
-    for (const chunk of chunks) {
-        const socialLinks = await redis.hMGet(SOCIAL_LINKS_STORE, chunk.map(item => item.username));
-        for (let i = 0; i < chunk.length; i++) {
-            const socialLinksEntry = socialLinks[i];
-            if (socialLinksEntry) {
-                const socialLinksData = JSON.parse(socialLinksEntry) as UserSocialLink[];
-                if (socialLinksData.length > 0) {
-                    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-                    chunk[i]!.data.socialLinks = uniq(socialLinksData.map(link => cleanLink(link.outboundUrl)));
-                    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-                    recentData.push(chunk[i]!);
-                }
-            }
-        }
+export async function socialLinksStatisticsJobRunner () {
+    if (await redis.exists(IN_PROGRESS_KEY)) {
+        console.log("Social Links: Job already in progress, skipping.");
+        return;
     }
+
+    await redis.set(IN_PROGRESS_KEY, Date.now().toString(), { expiration: addMinutes(new Date(), 1) });
+    await redis.del(SOCIAL_LINKS_USER_QUEUE, SOCIAL_LINKS_STATS_STORE);
+
+    await scheduler.runJob<SocialLinksStatisticsJobData>({
+        name: ControlSubredditJob.SocialLinksStatistics,
+        runAt: new Date(),
+        data: {
+            jobGuid: crypto.randomUUID(),
+            phase: "initialise",
+            prefixes: ALL_POTENTIAL_USER_PREFIXES,
+        },
+    });
+}
+
+export async function handleSocialLinksStatisticsInitialise (request: TaskRequest<SocialLinksStatisticsJobData>) {
+    const runLimit = addSeconds(new Date(), 15);
+    if (!request.data.prefixes) {
+        throw new Error("No prefixes provided for Social Links initialisation");
+    }
+    console.log(`Social Links: Initialising with ${request.data.prefixes.length} prefixes`);
+
+    await redis.set(IN_PROGRESS_KEY, Date.now().toString(), { expiration: addMinutes(new Date(), 1) });
+
+    while (request.data.prefixes.length > 0 && new Date() < runLimit) {
+        const prefix = request.data.prefixes.shift();
+        if (!prefix) {
+            break;
+        }
+
+        const dataForPrefix = await getDataStoreFiltered(prefix, {
+            since: subMonths(new Date(), 3),
+            statuses: [UserStatus.Banned, UserStatus.Purged],
+            omitFlags: FLAGS_TO_EXCLUDE_FROM_STATS,
+        });
+
+        const allEntries = Object.entries(dataForPrefix)
+            .filter(([, value]) => userIsBanned(value) && value.reportedAt)
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+            .map(([key, value]) => ({ username: key, reportedAt: value.reportedAt! } satisfies SocialLinksQueueEntry));
+
+        if (allEntries.length === 0) {
+            continue;
+        }
+
+        await redis.zAdd(SOCIAL_LINKS_USER_QUEUE, ...allEntries.map(item => ({ member: JSON.stringify(item), score: item.reportedAt })));
+        await expireKeyAt(SOCIAL_LINKS_USER_QUEUE, addHours(new Date(), 1));
+    }
+
+    if (request.data.prefixes.length > 0) {
+        await scheduler.runJob<SocialLinksStatisticsJobData>({
+            name: ControlSubredditJob.SocialLinksStatistics,
+            runAt: new Date(),
+            data: {
+                jobGuid: crypto.randomUUID(),
+                phase: "initialise",
+                prefixes: request.data.prefixes,
+            },
+        });
+    } else {
+        await scheduler.runJob<SocialLinksStatisticsJobData>({
+            name: ControlSubredditJob.SocialLinksStatistics,
+            runAt: new Date(),
+            data: {
+                jobGuid: crypto.randomUUID(),
+                phase: "process",
+            },
+        });
+    }
+}
+
+export async function handleSocialLinksStatisticsProcess () {
+    console.log("Social Links: Handling process phase");
+
+    await redis.set(IN_PROGRESS_KEY, Date.now().toString(), { expiration: addMinutes(new Date(), 1) });
+
+    const processQueue = await redis.zRange(SOCIAL_LINKS_USER_QUEUE, 0, 39999)
+        .then(items => items.map(item => JSON.parse(item.member) as SocialLinksQueueEntry));
+
+    if (processQueue.length === 0) {
+        console.log("Social Links: No entries to process, finalising statistics");
+
+        await scheduler.runJob<SocialLinksStatisticsJobData>({
+            name: ControlSubredditJob.SocialLinksStatistics,
+            runAt: new Date(),
+            data: {
+                jobGuid: crypto.randomUUID(),
+                phase: "finalise",
+            },
+        });
+
+        return;
+    }
+
+    const runLimit = addSeconds(new Date(), 15);
+
+    const socialLinks = await hMGetAsRecord(redis, SOCIAL_LINKS_STORE, processQueue.map(item => item.username));
+    const existingStatsStore = await hGetAllChunked(redis, SOCIAL_LINKS_STATS_STORE);
+
+    const filteredQueue = processQueue.filter(item => socialLinks[item.username]);
+    const entriesToRemove = processQueue.filter(item => !socialLinks[item.username]);
+
+    console.log(`Social Links: Processing ${filteredQueue.length} entries, ${entriesToRemove.length} have no link`);
 
     const configuredLinks = await getEvaluatorVariable<string[]>("sociallinks:badlinks") ?? [];
     const ignoredLinks = await getEvaluatorVariable<string[]>("sociallinks:ignored") ?? [];
 
-    const socialLinksCounts = new Map<string, SocialLinksEntry>();
-    const domainCounts = new Map<string, number>();
+    const linkCounts = new Map<string, number>();
 
-    for (const item of recentData) {
-        if (!item.data.socialLinks) {
+    while (filteredQueue.length > 0 && new Date() < runLimit) {
+        const firstEntry = processQueue.shift();
+        if (!firstEntry) {
+            break;
+        }
+
+        const userSocialLinkData = socialLinks[firstEntry.username];
+        if (!userSocialLinkData) {
+            entriesToRemove.push(firstEntry);
             continue;
         }
 
-        for (const link of item.data.socialLinks) {
+        const userSocialLinks = JSON.parse(userSocialLinkData) as UserSocialLink[];
+
+        for (const link of userSocialLinks.map(link => cleanLink(link.outboundUrl))) {
             if (ignoredLinks.some(ignoredLink => new RegExp(ignoredLink).test(link))) {
                 continue;
             }
 
-            const domain = domainFromUrl(link);
-            if (domain) {
-                domainCounts.set(domain, (domainCounts.get(domain) ?? 0) + 1);
+            try {
+                const domain = domainFromUrl(link);
+                if (domain) {
+                    linkCounts.set(domain, (linkCounts.get(domain) ?? 0) + 1);
+                }
+            } catch {
+                console.error(`Social Links: Failed to process link ${link}`);
             }
 
-            const existingEntry = socialLinksCounts.get(link);
+            const existingEntry = existingStatsStore[link];
             if (existingEntry) {
-                socialLinksCounts.set(link, {
-                    hits: existingEntry.hits + 1,
-                    coveredByEvaluator: existingEntry.coveredByEvaluator,
-                    firstSeen: item.data.reportedAt ? min([existingEntry.firstSeen, new Date(item.data.reportedAt)]) ?? existingEntry.firstSeen : existingEntry.firstSeen,
-                    lastSeen: item.data.reportedAt ? max([existingEntry.lastSeen, new Date(item.data.reportedAt)]) ?? existingEntry.lastSeen : existingEntry.lastSeen,
-                    usernames: [...existingEntry.usernames, item.username],
-                });
+                const existingEntryParsed = JSON.parse(existingEntry) as SocialLinksEntry;
+                existingEntryParsed.hits += 1;
+                existingEntryParsed.firstSeen = existingEntryParsed.firstSeen ? Math.min(existingEntryParsed.firstSeen, firstEntry.reportedAt) : firstEntry.reportedAt;
+                existingEntryParsed.lastSeen = existingEntryParsed.lastSeen ? Math.max(existingEntryParsed.lastSeen, firstEntry.reportedAt) : firstEntry.reportedAt;
+                existingEntryParsed.usernames = [...existingEntryParsed.usernames, firstEntry.username];
+                existingStatsStore[link] = JSON.stringify(existingEntryParsed);
             } else {
-                socialLinksCounts.set(link, {
+                const newEntry: SocialLinksEntry = {
                     hits: 1,
                     coveredByEvaluator: configuredLinks.some(configuredLink => link.startsWith(configuredLink)),
-                    firstSeen: item.data.reportedAt ? new Date(item.data.reportedAt) : undefined,
-                    lastSeen: item.data.reportedAt ? new Date(item.data.reportedAt) : undefined,
-                    usernames: [item.username],
-                });
+                    firstSeen: firstEntry.reportedAt,
+                    lastSeen: firstEntry.reportedAt,
+                    usernames: [firstEntry.username],
+                };
+                existingStatsStore[link] = JSON.stringify(newEntry);
             }
         }
+
+        entriesToRemove.push(firstEntry);
     }
+
+    if (entriesToRemove.length > 0) {
+        await redis.zRem(SOCIAL_LINKS_USER_QUEUE, entriesToRemove.map(entry => JSON.stringify(entry)));
+    }
+
+    await hSetChunked(redis, SOCIAL_LINKS_STATS_STORE, existingStatsStore);
+    for (const [domain, count] of linkCounts.entries()) {
+        await redis.zIncrBy(SOCIAL_LINKS_DOMAIN_COUNTS_STORE, domain, count);
+    }
+
+    await scheduler.runJob<SocialLinksStatisticsJobData>({
+        name: ControlSubredditJob.SocialLinksStatistics,
+        runAt: addSeconds(new Date(), 2),
+        data: {
+            jobGuid: crypto.randomUUID(),
+            phase: "process",
+        },
+    });
+}
+
+export async function handleSocialLinksStatisticsFinalise () {
+    console.log("Social Links: Finalising statistics");
+
+    const storedRecords = await hGetAllChunked(redis, SOCIAL_LINKS_STATS_STORE);
+    const domainCounts = await zRangeAsRecord(redis, SOCIAL_LINKS_DOMAIN_COUNTS_STORE, 0, -1);
 
     const bareDomainRegex = /^https?:\/\/\w+\.\w+\\?$/;
 
-    const records = Array.from(socialLinksCounts.entries())
-        .map(([link, value]) => ({ link, value }))
+    const records = Array.from(Object.entries(storedRecords)
+        .map(([link, value]) => ({ link, value: JSON.parse(value) as SocialLinksEntry })))
         .filter(item => item.value.hits > 2 && !bareDomainRegex.test(item.link))
         .sort((a, b) => a.link > b.link ? 1 : -1)
         .sort((a, b) => b.value.hits - a.value.hits);
@@ -182,14 +314,15 @@ export async function updateSocialLinksStatistics (allEntries: StatsUserEntry[])
         }
     }
 
-    if (domainCounts.size > 0) {
+    if (Object.keys(domainCounts).length > 0) {
         wikiContent.push({ hr: {} });
         wikiContent.push({ p: "Domain counts for social links seen on users with any status:" });
         const domainHeaders = ["Domain", "Count"];
-        const domainRows = Array.from(domainCounts.entries()).map(([domain, count]) => [domain, count.toLocaleString()]);
+        const domainRows = Object.entries(domainCounts).map(([domain, count]) => [domain, count.toLocaleString()]);
         wikiContent.push({ table: { headers: domainHeaders, rows: domainRows } });
     }
 
+    const configuredLinks = await getEvaluatorVariable<string[]>("sociallinks:badlinks") ?? [];
     if (configuredLinks.length > 0) {
         const bullets: string[] = [];
         for (const link of configuredLinks) {
@@ -207,10 +340,14 @@ export async function updateSocialLinksStatistics (allEntries: StatsUserEntry[])
 
     const wikiPageName = "statistics/social-links";
 
-    await reddit.updateWikiPage({
-        subredditName: context.subredditName,
-        page: wikiPageName,
-        content: json2md(wikiContent),
+    await scheduler.runJob<UpdateWikiPageOptions>({
+        name: ControlSubredditJob.AsyncWikiUpdate,
+        runAt: addSeconds(new Date(), 1),
+        data: {
+            subredditName: context.subredditName,
+            page: wikiPageName,
+            content: json2md(wikiContent),
+        },
     });
 
     const domainOnlyUrlRegex = /^https?:\/\/[^/]+\/?$/;
@@ -223,4 +360,5 @@ export async function updateSocialLinksStatistics (allEntries: StatsUserEntry[])
 
     await setRedisSubstititionValue("sociallinks", newSubstitionValue);
     console.log(`Updated social links substitution value with ${newSubstitionValue.length} entries`);
+    await redis.del(IN_PROGRESS_KEY);
 }

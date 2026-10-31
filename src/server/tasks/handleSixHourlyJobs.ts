@@ -5,7 +5,7 @@ import { addMinutes, subMonths } from "date-fns";
 import { analyseBioText } from "../core/controlSubCore/similarBioTextFinder";
 import { hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import { DefinedHandlesStatsInitializerJobData, DeleteRecordsForRemovedUsersData, EvaluatorAccuracyInitialiserData, PendingUserFinderJobData, UpdateMainStatisticsPageJobData } from ".";
-import { createTimeOfSubmissionStatistics, FLAGS_TO_EXCLUDE_FROM_STATS, StatsUserEntry, updateBioStatistics, updateDisplayNameStatistics, updateSocialLinksStatistics, updateSubmitterStatistics, updateUsernameStatistics } from "../core/controlSubCore/statistics";
+import { createTimeOfSubmissionStatistics, FLAGS_TO_EXCLUDE_FROM_STATS, socialLinksStatisticsJobRunner, StatsUserEntry, updateBioStatistics, updateDisplayNameStatistics, updateSubmitterStatistics, updateUsernameStatistics } from "../core/controlSubCore/statistics";
 
 export type SixHourlyJobData = {
     jobGuid?: string;
@@ -112,7 +112,7 @@ export const handleSixHourlyJobPart2 = async (c: Context): Promise<Response> => 
     await Promise.all([
         updateUsernameStatistics(allEntries),
         updateDisplayNameStatistics(allEntries),
-        updateSocialLinksStatistics(allEntries),
+        socialLinksStatisticsJobRunner(),
         updateBioStatistics(allEntries),
         updateSubmitterStatistics(allEntries),
     ]);

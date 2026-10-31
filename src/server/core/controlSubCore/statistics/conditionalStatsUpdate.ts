@@ -1,5 +1,5 @@
 import { redis, scheduler, TaskRequest } from "@devvit/web/server";
-import { updateBioStatistics, updateDisplayNameStatistics, updateSocialLinksStatistics, updateUsernameStatistics } from ".";
+import { socialLinksStatisticsJobRunner, updateBioStatistics, updateDisplayNameStatistics, updateUsernameStatistics } from ".";
 import { getEvaluatorVariables } from "../../userEvaluation";
 import { FLAGS_TO_EXCLUDE_FROM_STATS, StatsUserEntry } from "./statsHelpers";
 import { hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
@@ -32,8 +32,8 @@ const STATUS_UPDATE_CONFIGS: ConditionalStatsUpdateConfig[] = [
     {
         statName: "socialLinks",
         variableKeys: ["sociallinks:badlinks", "sociallinks:ignored"],
-        lookbackMonths: 3,
-        updateFunction: updateSocialLinksStatistics,
+        lookbackMonths: 0,
+        updateFunction: socialLinksStatisticsJobRunner,
     },
     {
         statName: "bioText",
