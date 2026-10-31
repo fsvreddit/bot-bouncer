@@ -274,6 +274,11 @@ export async function cleanupDeletedAccounts (event: TaskRequest<CleanupJobData>
                 newStatusOrFlag: newStatus,
                 currentDetails: currentStatus,
             });
+
+            const trackingPost = await reddit.getPostById(currentStatus.trackingPostId);
+            if (trackingPost.numberOfReports > 0) {
+                await trackingPost.approve();
+            }
         }
     }
 
