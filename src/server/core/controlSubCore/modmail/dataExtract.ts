@@ -365,7 +365,7 @@ export async function continueDataExtract (event: TaskRequest<DataExtractJobData
 
     const entriesToRemove = new Set<string>();
     const entriesToRewrite = new Set<string>();
-    const batchSize = 3000;
+    const batchSize = 5000;
     const processingQueueData = await redis.zRange(getExtractTempQueueKey(extractId), 0, batchSize - 1);
     const processingQueue = processingQueueData.map(entry => entry.member);
 
