@@ -2,7 +2,7 @@ import { context, reddit, redis, scheduler } from "@devvit/web/server";
 import { hasEventBeenHandled, isModerator } from "@fsvreddit/fsv-devvit-web-helpers";
 import { addSeconds, isSameDay } from "date-fns";
 import { APP_ACCOUNT_ID, CONTROL_SUBREDDIT } from "./constants";
-import { addClientSubredditJobs, addControlSubredditJobs, checkJobsAreApplicable } from "./schedulerJobs";
+import { addClientSubredditJobs, addControlSubredditJobs, checkJobsAreApplicable, ClientSubredditJob, ControlSubredditJob, UniversalJob } from "./schedulerJobs";
 import json2md from "json2md";
 import { storeRecordOfContentCreationGracePeriod } from "./clientSubCore";
 import { socialLinksStatisticsJobRunner } from "./controlSubCore/statistics";
@@ -12,9 +12,16 @@ export async function handleInstallTasks () {
         return;
     }
 
-    const currentJobs = await scheduler.listJobs();
-    await Promise.all(currentJobs.map(job => scheduler.cancelJob(job.id)));
-    console.log(`App Install: Cancelled ${currentJobs.length} existing jobs.`);
+    const allPossibleJobs = [
+        ...Object.values(ControlSubredditJob),
+        ...Object.values(ClientSubredditJob),
+        ...Object.values(UniversalJob),
+    ] as string[];
+
+    // Cancel cron jobs, and any job not in the list of all possible jobs
+    const jobsToCancel = await scheduler.listJobs().then(jobs => jobs.filter(job => "cron" in job || !allPossibleJobs.includes(job.name)));
+    await Promise.all(jobsToCancel.map(job => scheduler.cancelJob(job.id)));
+    console.log(`App Install: Cancelled ${jobsToCancel.length} existing cron or nonexistent jobs.`);
 
     if (context.subredditName === CONTROL_SUBREDDIT) {
         await addControlSubredditJobs();

@@ -4,7 +4,7 @@ import { getEvaluatorVariables } from "../../userEvaluation";
 import { FLAGS_TO_EXCLUDE_FROM_STATS, StatsUserEntry } from "./statsHelpers";
 import { hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import { addDays, addMinutes, addSeconds, subMonths } from "date-fns";
-import { ALL_POTENTIAL_USER_PREFIXES, ControlSubredditJob, getFullDataStore } from "../..";
+import { ALL_POTENTIAL_USER_PREFIXES, ControlSubredditJob, getFullDataStore, UserDetails } from "../..";
 import { JsonValue } from "@devvit/web/shared";
 import { ConditionalStatsUpdateJobData, DefinedHandlesStatsInitializerJobData } from "../../../tasks";
 import { compact } from "lodash-es";
@@ -70,12 +70,17 @@ export async function conditionalStatsUpdate (event: TaskRequest<ConditionalStat
 
     console.log(`Conditional Stats Update: Preparing to update statistics for ${configsToUpdate.map(c => c.statName).join(", ")}.`);
 
-    const allData = await getFullDataStore({
-        since: subMonths(new Date(), Math.max(...configsToUpdate.map(c => c.lookbackMonths))),
-        omitFlags: FLAGS_TO_EXCLUDE_FROM_STATS,
-    });
-
-    console.log(`Conditional Stats Update: Retrieved ${Object.keys(allData).length} user entries from the data store.`);
+    const lookbackMonths = Math.max(...configsToUpdate.map(c => c.lookbackMonths));
+    let allData: Record<string, UserDetails>;
+    if (lookbackMonths > 0) {
+        allData = await getFullDataStore({
+            since: subMonths(new Date(), lookbackMonths),
+            omitFlags: FLAGS_TO_EXCLUDE_FROM_STATS,
+        });
+        console.log(`Conditional Stats Update: Retrieved ${Object.keys(allData).length} user entries from the data store.`);
+    } else {
+        allData = {};
+    }
 
     const allEntries = Object.entries(allData)
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
