@@ -54,6 +54,16 @@ export const onModMail = async (c: Context): Promise<Response> => {
 
     const currentMessage = messagesInConversation.find(message => message.id && normaliseMessageId(event.messageId) === normaliseMessageId(message.id));
 
+    const firstParticipantReplyMessage = messagesInConversation.find(message => message.id
+        && firstMessage.id
+        && normaliseMessageId(message.id) !== normaliseMessageId(firstMessage.id)
+        && message.author?.name === conversationResponse.conversation?.participant?.name);
+
+    const isFirstParticipantReply = !isFirstMessage
+        && currentMessage?.id !== undefined
+        && firstParticipantReplyMessage?.id !== undefined
+        && normaliseMessageId(currentMessage.id) === normaliseMessageId(firstParticipantReplyMessage.id);
+
     if (!currentMessage?.author?.name || !conversationResponse.conversation.subject || !currentMessage.bodyMarkdown) {
         return c.json<TriggerResponse>({ message: "Invalid message data" }, 400);
     }
@@ -72,9 +82,12 @@ export const onModMail = async (c: Context): Promise<Response> => {
         bodyMarkdown: currentMessage.bodyMarkdown,
         firstMessageBodyMarkdown: firstMessage.bodyMarkdown,
         isFirstMessage,
+        isFirstParticipantReply,
         isInternal: currentMessage.isInternal ?? false,
         isHighlighted: conversationResponse.conversation.isHighlighted,
     };
+
+    console.log(JSON.stringify(modmail, null, 2));
 
     if (context.subredditName === CONTROL_SUBREDDIT) {
         await handleControlSubredditModmail(modmail);

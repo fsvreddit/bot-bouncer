@@ -2,22 +2,15 @@ import { context, reddit, settings } from "@devvit/web/server";
 import { T3 } from "@devvit/web/shared";
 import { isBanned } from "@fsvreddit/fsv-devvit-web-helpers";
 import { UserStatus } from "@fsvreddit/bot-bouncer-types";
-import { AppSetting, CONFIGURATION_DEFAULTS, getUserStatus, ModmailMessage, wasUserBannedByApp } from "../..";
+import { AppSetting, getUserStatus, ModmailMessage, wasUserBannedByApp } from "../..";
 import json2md from "json2md";
 
 export async function handleClientSubredditModmail (modmail: ModmailMessage) {
-    if (!modmail.isFirstMessage) {
+    if (!modmail.isFirstParticipantReply || !modmail.participant) {
         return;
     }
 
     const username = modmail.participant;
-    if (!username) {
-        return;
-    }
-
-    if (modmail.messageAuthor !== modmail.participant) {
-        return;
-    }
 
     const currentStatus = await getUserStatus(username);
 
@@ -25,13 +18,13 @@ export async function handleClientSubredditModmail (modmail: ModmailMessage) {
         return;
     }
 
-    const subredditName = context.subredditName;
+    const appSettings = await settings.getAll();
 
-    const userIsBanned = await isBanned(subredditName, username);
+    const userIsBanned = await isBanned(context.subredditName, username);
     if (!userIsBanned) {
-        if (await settings.get<boolean>(AppSetting.AddModmailIfNotBannedYet)) {
+        if (appSettings[AppSetting.AddModmailIfNotBannedYet]) {
             const message: json2md.DataObject[] = [
-                { p: `For info: User /u/${username} is currently listed on /r/${subredditName} as a bot or botlike account, but they aren't currently banned on /r/${subredditName}.` },
+                { p: `For info: User /u/${username} is currently listed on /r/${context.subredditName} as a bot or botlike account, but they aren't currently banned on /r/${context.subredditName}.` },
                 { p: `*I am a bot, and this action was performed automatically. To turn off this notification in the future, please adjust your settings.*` },
             ];
 
@@ -51,14 +44,32 @@ export async function handleClientSubredditModmail (modmail: ModmailMessage) {
 
     const post = await reddit.getPostById(currentStatus.trackingPostId as T3);
 
-    const message = CONFIGURATION_DEFAULTS.noteClient
-        .replaceAll("{link}", post.permalink)
-        .replaceAll("{subreddit}", subredditName)
-        .replaceAll("{account}", username);
+    const messageTemplate = appSettings[AppSetting.ModmailNote] as string | undefined;
+    if (messageTemplate) {
+        const message = messageTemplate
+            .replaceAll("{link}", post.permalink)
+            .replaceAll("{subreddit}", context.subredditName)
+            .replaceAll("{account}", username);
 
-    await reddit.modMail.reply({
-        body: message,
-        conversationId: modmail.conversationId,
-        isInternal: true,
-    });
+        await reddit.modMail.reply({
+            body: message,
+            conversationId: modmail.conversationId,
+            isInternal: true,
+        });
+    }
+
+    if (appSettings[AppSetting.RespondToFirstUserReply] && appSettings[AppSetting.RespondToFirstUserReplyMessage]) {
+        const messageTemplate = appSettings[AppSetting.RespondToFirstUserReplyMessage] as string;
+
+        const message = messageTemplate
+            .replaceAll("{link}", post.permalink)
+            .replaceAll("{subreddit}", context.subredditName)
+            .replaceAll("{account}", username);
+
+        await reddit.modMail.reply({
+            body: message,
+            conversationId: modmail.conversationId,
+            isAuthorHidden: true,
+        });
+    }
 }

@@ -15,6 +15,7 @@ export interface ModmailMessage {
     bodyMarkdown: string;
     firstMessageBodyMarkdown?: string;
     isFirstMessage: boolean;
+    isFirstParticipantReply: boolean;
     isInternal: boolean;
     isHighlighted?: boolean;
 }

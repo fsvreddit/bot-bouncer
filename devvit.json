@@ -111,7 +111,7 @@
                     "clientModmailNote": {
                         "type": "paragraph",
                         "label": "Template for private moderator note that will be added if banned users write in",
-                        "helpText": "Supports placeholders {account}, {subreddit} and {link} (which links to the submission on /r/BotBouncer)",
+                        "helpText": "Supports placeholders {account}, {subreddit} and {link} (which links to the submission on /r/BotBouncer). Leave blank to disable.",
                         "defaultValue": "/u/{account} is [listed on /r/BotBouncer]({link}).\n\nIf this account is claiming to be human and isn't an obvious novelty account, we recommend asking the account owner to [message /r/BotBouncer](https://www.reddit.com/message/compose?to=/r/${CONTROL_SUBREDDIT}&subject=Ban%20dispute%20for%20/u/{account}%20on%20/r/{subreddit}&message=bot%20classification%20appeal).\n\nIf this account is a bot that you wish to allow, remember to [allowlist](/r/BotBouncer/wiki/index) it before you unban it."
                     },
                     "addModmailIfNotBannedYet": {
@@ -119,6 +119,18 @@
                         "label": "Add a private moderator note if a user listed on /r/BotBouncer sends a modmail but isn't currently banned",
                         "helpText": "If this is turned on, when a user that is listed on /r/BotBouncer sends a message to modmail, if they aren't currently banned, the app will add a private moderator note to the conversation.",
                         "defaultValue": false
+                    },
+                    "respondToFirstUserReply": {
+                        "type": "boolean",
+                        "label": "Respond to the first user reply in modmail where a user is marked as a bot",
+                        "helpText": "If enabled, the bot will automatically respond to the first user reply in modmail emphasising the need to appeal via r/BotBouncer.",
+                        "defaultValue": false
+                    },
+                    "respondToFirstUserReplyMessage": {
+                        "type": "paragraph",
+                        "label": "Message to send when responding to the first user reply",
+                        "helpText": "Supports placeholders {account}, {subreddit} and {link} (which links to the submission on /r/BotBouncer).",
+                        "defaultValue": "Hi {account},\n\nAs previously stated on your ban message, you need to appeal your ban by [messaging r/BotBouncer](https://www.reddit.com/message/compose?to=/r/BotBouncer&subject=Ban%20dispute%20for%20/u/{account}%20on%20/r/{subreddit}&message=bot%20classification%20appeal)."
                     }
                 }
             },

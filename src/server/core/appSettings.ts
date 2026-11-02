@@ -10,13 +10,6 @@ rather than replying to this message.**`,
 
     banNote: "Banned by /u/{me} at {date}",
 
-    noteClient: `/u/{account} is [listed on /r/${CONTROL_SUBREDDIT}]({link}).
-
-If this account is claiming to be human and isn't an obvious novelty account,
-we recommend asking the account owner to [message /r/${CONTROL_SUBREDDIT}](https://www.reddit.com/message/compose?to=/r/${CONTROL_SUBREDDIT}&subject=Ban%20dispute%20for%20/u/{account}%20on%20/r/{subreddit}&message=bot%20classification%20appeal).
-
-If this account is a bot that you wish to allow, remember to [allowlist](/r/${CONTROL_SUBREDDIT}/wiki/index) it before you unban it.`,
-
     appealShadowbannedMessage: `Your classification appeal has been received. Unfortunately, it is not possible to review your request at this time because you have been shadowbanned by Reddit Admin, which prevents us from reviewing your account contents.
 
 You may appeal your shadowban by contacting the Reddit Admins [here](https://reddit.com/appeal). If you are able to get your shadowban lifted, please contact us again and we will be happy to review your classification status.
@@ -51,6 +44,8 @@ export enum AppSetting {
     AddModNoteOnClassificationChange = "addModNoteOnClassificationChange",
     ModmailNote = "clientModmailNote",
     AddModmailIfNotBannedYet = "addModmailIfNotBannedYet",
+    RespondToFirstUserReply = "respondToFirstUserReply",
+    RespondToFirstUserReplyMessage = "respondToFirstUserReplyMessage",
     Digest = "dailyDigest",
     DigestNewMessageEachDay = "dailyDigestNewMessageEachDay",
     DigestFrequency = "dailyDigestFrequency",

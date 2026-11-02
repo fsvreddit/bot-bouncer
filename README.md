@@ -51,7 +51,7 @@ If an account was banned by Bot Bouncer on a sub but successfully appeals via r/
 ## v1.36.0 (coming soon)
 
 * Fixed an issue that prevents submission feedback from being sent after 1000 feedback messages have been delivered
-* Rewrite app to use Devvit Web framework
+* Added the ability to respond to replies to Bot Bouncer ban messages with a predefined message (turned off by default)
 
 ## v1.35.0
 
