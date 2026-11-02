@@ -209,10 +209,38 @@ export function evaluationResultsToBullets (results: EvaluationResult[]) {
 export async function getSummaryForUser (username: string, source: "modmail" | "submission", conversationId?: string): Promise<json2md.DataObject[]> {
     const extendedUser = await getUserExtended(username);
 
+    let userComments: Comment[] | undefined;
+    let userPosts: Post[] | undefined;
+
+    let pushshiftKind = "submission";
+    let asKind = "posts";
+
+    try {
+        [userComments, userPosts] = await Promise.all([
+            reddit.getCommentsByUser({
+                username,
+                sort: "new",
+                limit: 100,
+            }).all(),
+            reddit.getPostsByUser({
+                username,
+                sort: "new",
+                limit: 100,
+            }).all(),
+        ]);
+    } catch (error) {
+        console.error(`Error fetching user content for ${username}:`, error);
+    }
+
     const userStatus = await getUserStatus(extendedUser?.username ?? username);
     const summary: json2md.DataObject[] = [];
 
-    const altSources = `Archive.org: [www](https://web.archive.org/web/${getYear(new Date())}0000000000*/https://www.reddit.com/user/${username}) | [old](https://web.archive.org/web/${getYear(new Date())}0000000000*/https://old.reddit.com/user/${username}) | [sh](https://web.archive.org/web/${getYear(new Date())}0000000000*/https://sh.reddit.com/user/${username}) | [Rechearch](https://rechear.ch/?kind=submission&author=${username}&limit=100) | [Pushshift](https://shiruken.github.io/chearch/?kind=comment&author=${username}&limit=100) | [Arctic Shift](https://fsvreddit.github.io/arcticredir/?author=${username}&type=posts)`;
+    if (userPosts?.length === 0 && userComments && userComments.length > 0) {
+        pushshiftKind = "comment";
+        asKind = "comments";
+    }
+
+    const altSources = `Archive.org: [www](https://web.archive.org/web/${getYear(new Date())}0000000000*/https://www.reddit.com/user/${username}) | [old](https://web.archive.org/web/${getYear(new Date())}0000000000*/https://old.reddit.com/user/${username}) | [sh](https://web.archive.org/web/${getYear(new Date())}0000000000*/https://sh.reddit.com/user/${username}) | [Rechearch](https://rechear.ch/?kind=${pushshiftKind}&author=${username}&limit=100) | [Pushshift](https://shiruken.github.io/chearch/?kind=${pushshiftKind}&author=${username}&limit=100) | [Arctic Shift](https://fsvreddit.github.io/arcticredir/?author=${username}&type=${asKind})`;
 
     if (userStatus && source === "modmail") {
         const post = await reddit.getPostById(userStatus.trackingPostId as T3);
@@ -307,23 +335,7 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
         }
     }
 
-    let userComments: Comment[];
-    let userPosts: Post[];
-
-    try {
-        [userComments, userPosts] = await Promise.all([
-            reddit.getCommentsByUser({
-                username,
-                sort: "new",
-                limit: 100,
-            }).all(),
-            reddit.getPostsByUser({
-                username,
-                sort: "new",
-                limit: 100,
-            }).all(),
-        ]);
-    } catch {
+    if (!userComments || !userPosts) {
         if (source === "modmail") {
             const initialEvaluatorsMatched = await getAccountInitialEvaluationResults(username);
             summary.push({ p: `At the point of initial evaluation, user matched ${initialEvaluatorsMatched.length} ${pluralize("evaluator", initialEvaluatorsMatched.length)}` });
