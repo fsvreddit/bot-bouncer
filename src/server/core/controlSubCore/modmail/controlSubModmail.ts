@@ -20,6 +20,7 @@ import { OpenAISummaryGatherData } from "../../../tasks";
 import { markAppealAsHandledByMod } from "../statistics";
 import { handleAskAI } from "../aiAnalysis";
 import { uniq } from "lodash-es";
+import markdownEscape from "markdown-escape";
 
 export function getPossibleSetStatusValues (): string[] {
     return uniq([...FLAIR_MAPPINGS.map(entry => entry.postFlair), ...Object.values(UserStatus)]);
@@ -192,12 +193,12 @@ export async function handleControlSubredditModmail (modmail: ModmailMessage) {
 
                 let responseForModmail: string;
                 if (results.flairSet && results.statusSet) {
-                    responseForModmail = `Successfully updated status and flair for ${username}. New status: ${newStatusValue}.`;
+                    responseForModmail = `Successfully updated status and flair for ${markdownEscape(username)}. New status: ${newStatusValue}.`;
                     if (newFlags) {
                         responseForModmail += ` New flags set: ${newFlags.join(", ")}`;
                     }
                 } else {
-                    responseForModmail = `Errors occurred when updating status and flair for ${username}.`;
+                    responseForModmail = `Errors occurred when updating status and flair for ${markdownEscape(username)}.`;
                     if (!results.statusSet) {
                         responseForModmail += ` Could not write user status to Redis.`;
                     }
@@ -216,7 +217,7 @@ export async function handleControlSubredditModmail (modmail: ModmailMessage) {
             } else {
                 await reddit.modMail.reply({
                     conversationId: modmail.conversationId,
-                    body: `Did not set status for ${username}, either no existing status or they are already marked as ${newStatus}.`,
+                    body: `Did not set status for ${markdownEscape(username)}, either no existing status or they are already marked as ${newStatus}.`,
                     isInternal: true,
                 });
             }
