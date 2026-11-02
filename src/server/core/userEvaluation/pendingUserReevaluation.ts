@@ -77,6 +77,10 @@ async function processPendingUser (username: string, evaluatorVariables: Record<
         currentDetails: userStatus,
         operator: context.appSlug,
     });
+
+    if (trackingPost.numberOfReports > 0) {
+        await trackingPost.approve();
+    }
 }
 
 export async function processPendingUserReevaluationQueue (event: TaskRequest<PendingUserReevaluationJobData>) {
