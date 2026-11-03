@@ -8,6 +8,7 @@ import { handleSocialLinksStatisticsFinalise, handleSocialLinksStatisticsInitial
 export type SocialLinksStatisticsJobData = {
     jobGuid: string;
     phase: "initialise" | "process" | "finalise";
+    firstRun: boolean;
     prefixes?: string[];
 };
 
@@ -38,7 +39,7 @@ export const handleSocialLinksStatisticsJob = async (c: Context): Promise<Respon
     if (request.data.phase === "initialise") {
         await handleSocialLinksStatisticsInitialise(request.data);
     } else if (request.data.phase === "process") {
-        await handleSocialLinksStatisticsProcess();
+        await handleSocialLinksStatisticsProcess(request.data);
     } else {
         await handleSocialLinksStatisticsFinalise();
     }
