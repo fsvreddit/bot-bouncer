@@ -87,6 +87,7 @@ export async function socialLinksStatisticsJobRunner () {
         data: {
             jobGuid: crypto.randomUUID(),
             phase: "initialise",
+            firstRun: true,
             prefixes: ALL_POTENTIAL_USER_PREFIXES,
         },
     });
@@ -136,6 +137,7 @@ export async function handleSocialLinksStatisticsInitialise (data: SocialLinksSt
             data: {
                 jobGuid: crypto.randomUUID(),
                 phase: "initialise",
+                firstRun: false,
                 prefixes: data.prefixes,
             },
         });
@@ -146,12 +148,13 @@ export async function handleSocialLinksStatisticsInitialise (data: SocialLinksSt
             data: {
                 jobGuid: crypto.randomUUID(),
                 phase: "process",
+                firstRun: true,
             },
         });
     }
 }
 
-export async function handleSocialLinksStatisticsProcess () {
+export async function handleSocialLinksStatisticsProcess (data: SocialLinksStatisticsJobData) {
     console.log("Social Links: Handling process phase");
 
     await redis.set(IN_PROGRESS_KEY, Date.now().toString(), { expiration: addMinutes(new Date(), 1) });
@@ -163,12 +166,18 @@ export async function handleSocialLinksStatisticsProcess () {
         console.log("Social Links: No entries to process, finalising statistics");
         await redis.del(STUCK_JOB_KEY);
 
+        if (data.firstRun) {
+            console.error("Social Links: No entries to process on first run, something might be wrong with the initial data.");
+            return;
+        }
+
         await scheduler.runJob<SocialLinksStatisticsJobData>({
             name: ControlSubredditJob.SocialLinksStatistics,
             runAt: new Date(),
             data: {
                 jobGuid: crypto.randomUUID(),
                 phase: "finalise",
+                firstRun: true,
             },
         });
 
@@ -266,6 +275,7 @@ export async function handleSocialLinksStatisticsProcess () {
         data: {
             jobGuid: crypto.randomUUID(),
             phase: "process",
+            firstRun: false,
         },
     });
 }

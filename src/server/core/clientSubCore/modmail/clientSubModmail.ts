@@ -2,7 +2,7 @@ import { context, reddit, settings } from "@devvit/web/server";
 import { T3 } from "@devvit/web/shared";
 import { isBanned } from "@fsvreddit/fsv-devvit-web-helpers";
 import { UserStatus } from "@fsvreddit/bot-bouncer-types";
-import { AppSetting, getUserStatus, ModmailMessage, wasUserBannedByApp } from "../..";
+import { AppSetting, CONTROL_SUBREDDIT, getUserStatus, ModmailMessage, wasUserBannedByApp } from "../..";
 import json2md from "json2md";
 
 export async function handleClientSubredditModmail (modmail: ModmailMessage) {
@@ -24,7 +24,7 @@ export async function handleClientSubredditModmail (modmail: ModmailMessage) {
     if (!userIsBanned) {
         if (appSettings[AppSetting.AddModmailIfNotBannedYet]) {
             const message: json2md.DataObject[] = [
-                { p: `For info: User /u/${username} is currently listed on /r/${context.subredditName} as a bot or botlike account, but they aren't currently banned on /r/${context.subredditName}.` },
+                { p: `For info: User /u/${username} is currently listed on /r/${CONTROL_SUBREDDIT} as a bot or botlike account, but they aren't currently banned on /r/${context.subredditName}.` },
                 { p: `*I am a bot, and this action was performed automatically. To turn off this notification in the future, please adjust your settings.*` },
             ];
 
@@ -46,10 +46,12 @@ export async function handleClientSubredditModmail (modmail: ModmailMessage) {
 
     const messageTemplate = appSettings[AppSetting.ModmailNote] as string | undefined;
     if (messageTemplate) {
-        const message = messageTemplate
+        let message = messageTemplate
             .replaceAll("{link}", post.permalink)
             .replaceAll("{subreddit}", context.subredditName)
             .replaceAll("{account}", username);
+
+        message = message.trim() + "\n\n*I am a bot, and this action was performed automatically.*";
 
         await reddit.modMail.reply({
             body: message,
