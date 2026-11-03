@@ -5,7 +5,6 @@ import { APP_ACCOUNT_ID, CONTROL_SUBREDDIT } from "./constants";
 import { addClientSubredditJobs, addControlSubredditJobs, checkJobsAreApplicable, ClientSubredditJob, ControlSubredditJob, UniversalJob } from "./schedulerJobs";
 import json2md from "json2md";
 import { storeRecordOfContentCreationGracePeriod } from "./clientSubCore";
-import { socialLinksStatisticsJobRunner } from "./controlSubCore/statistics";
 
 export async function handleInstallTasks () {
     if (await hasEventBeenHandled("installOrUpgrade", { expiration: addSeconds(new Date(), 10) })) {
@@ -29,7 +28,6 @@ export async function handleInstallTasks () {
         if (appAccount?.id !== APP_ACCOUNT_ID) {
             console.warn(`App Install: The app account ID is ${appAccount?.id}, expected ${APP_ACCOUNT_ID}.`);
         }
-        await socialLinksStatisticsJobRunner();
     } else {
         // Delete cached control sub settings
         await redis.del("controlSubSettings", "evaluatorVariablesHash");
