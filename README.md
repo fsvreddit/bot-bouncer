@@ -60,3 +60,10 @@ If an account was banned by Bot Bouncer on a sub but successfully appeals via r/
 * Fix issue that could result in the "Report User to r/BotBouncer" menu item to report that mods are not authorized to submit
 
 For older versions, please see the [full changelog](https://github.com/fsvreddit/bot-bouncer/blob/main/changelog.md).
+
+# Fetch domains
+
+* `api.openai.com` - used for internal moderator summaries and some account evaluation purposes
+* `api.redgifs.com` - used for some account evaluation purposes
+* `discord.com`/`discordapp.com` - used by the r/BotBouncer team for alerts relating to Bot Bouncer moderation
+* `bot-bouncer-cw3lhd-external.devvit.net` - used to submit potential bots from installed instances of Bot Bouncer to the instance running on r/BotBouncer

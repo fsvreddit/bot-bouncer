@@ -94,10 +94,10 @@ application.post("/internal/forms/show-current-evaluation-form", handleShowCurre
 
 // External endpoints
 application.post("/external/external-submission", handlePostExternalSubmissions);
-application.post("/external/user-details", handleGetUserDetails);
-application.post("/external/evaluator-variables", handleGetEvaluatorVariables);
+application.get("/external/user-details/:username", handleGetUserDetails);
+application.get("/external/evaluator-variables", handleGetEvaluatorVariables);
 application.post("/external/account-for-review", handlePostAccountForReview);
-application.post("/external/recent-content-for-user", handleGetRecentContentForUser);
+application.get("/external/recent-content-for-user/:username", handleGetRecentContentForUser);
 
 const server = createServer(getRequestListener(application.fetch));
 server.on("error", (err) => {
