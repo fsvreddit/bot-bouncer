@@ -1,6 +1,6 @@
 import { context, Post, reddit, redis, scheduler, TaskRequest, UpdateWikiPageOptions, ZMember } from "@devvit/web/server";
 import { addHours, addMinutes, addSeconds, format, subMinutes, subMonths } from "date-fns";
-import { BIO_TEXT_STORE, ControlSubredditJob, DISPLAY_NAME_STORE, expireKeyAt, getDataStoreFiltered, USER_DEFINED_HANDLES_POSTS } from "../..";
+import { BIO_TEXT_STORE, ControlSubredditJob, DISPLAY_NAME_STORE, expireKeyAt, getDataStoreFiltered, hMGetAsRecord, USER_DEFINED_HANDLES_POSTS } from "../..";
 import { UserStatus } from "@fsvreddit/bot-bouncer-types";
 import { FLAGS_TO_EXCLUDE_FROM_STATS, userIsBanned } from "./statsHelpers";
 import { hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
@@ -89,14 +89,17 @@ export async function definedHandlesStatsInitializer (event: TaskRequest<Defined
 
 const DEFINED_HANDLES_IN_PROGRESS_KEY = "DefinedHandlesInProgress";
 
-export async function gatherDefinedHandlesStats (event: TaskRequest<DefinedHandlesStatsJobData | undefined>) {
-    const jobGuid = event.data?.jobGuid;
+export async function gatherDefinedHandlesStats (event: TaskRequest<DefinedHandlesStatsJobData>) {
+    const jobGuid = event.data.jobGuid;
     if (jobGuid && await hasEventBeenHandled(`job:${jobGuid}`, { expiration: addMinutes(new Date(), 1) })) {
         console.error(`Defined Handles: Duplicate job with GUID ${jobGuid}!`);
         return;
     }
 
-    const queuedHandles = await redis.zRange(DEFINED_HANDLES_QUEUE, 0, 2999);
+    const start = Date.now();
+    const runLimit = addSeconds(new Date(), 15);
+
+    const queuedHandles = await redis.zRange(DEFINED_HANDLES_QUEUE, 0, 9999);
 
     if (queuedHandles.length === 0) {
         console.log("Defined Handles: No defined handles found in the queue.");
@@ -109,55 +112,29 @@ export async function gatherDefinedHandlesStats (event: TaskRequest<DefinedHandl
     await redis.set(definedHandlesRecentlyRunKey, "1", { expiration: addMinutes(new Date(), 10) });
     await redis.set(DEFINED_HANDLES_IN_PROGRESS_KEY, Date.now().toString(), { expiration: addHours(new Date(), 1) });
 
-    const runLimit = addSeconds(new Date(), 15);
     let processedCount = 0;
+    let withMatchesCount = 0;
+
     const processedUsers: string[] = [];
 
-    const handles = await getDefinedHandles();
+    const handlesList = event.data.handlesList ?? await getDefinedHandles();
+    const handles = handlesList.map(handle => ({ handle, regex: new RegExp(`\\b${handle}\\b`, "u") }));
 
     if (handles.length === 0) {
         console.error("No defined handles found in evaluator variables.");
         return;
     }
 
-    let existingDefinedHandles: Record<string, DefinedHandleData>;
-    if (event.data?.firstRun) {
-        existingDefinedHandles = {};
-        for (const handle of handles) {
-            existingDefinedHandles[handle] = { count: 0, lastSeen: 0, exampleUsers: [], foundInBio: false, foundInDisplayName: false, foundInPosts: false };
-        }
-    } else {
-        const existingDefinedHandlesData = await redis.hGetAll(DEFINED_HANDLES_DATA);
-        existingDefinedHandles = fromPairs(Object.entries(existingDefinedHandlesData).map(([handle, data]) => ([handle, JSON.parse(data) as DefinedHandleData])));
-    }
+    const existingDefinedHandles = await redis.hGetAll(DEFINED_HANDLES_DATA)
+        .then(data => fromPairs(Object.entries(data).map(([handle, data]) => ([handle, JSON.parse(data) as DefinedHandleData]))));
 
-    const userBioTextData = await redis.hMGet(BIO_TEXT_STORE, queuedHandles.map(handle => handle.member));
-    const userDisplayNameData = await redis.hMGet(DISPLAY_NAME_STORE, queuedHandles.map(handle => handle.member));
-    const userDefinedHandlesPosts = await redis.hMGet(USER_DEFINED_HANDLES_POSTS, queuedHandles.map(handle => handle.member));
+    const definedHandlesDataToStore: Record<string, DefinedHandleData> = {};
 
-    const bioTexts: Record<string, string> = {};
-    const displayNames: Record<string, string> = {};
-    const userDefinedHandlesPostsData: Record<string, UserDefinedHandlePost[]> = {};
-
-    for (let i = 0; i < queuedHandles.length; i++) {
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        const username = queuedHandles[i]!.member;
-        const bioText = userBioTextData[i];
-        const displayName = userDisplayNameData[i];
-        const definedHandlesPosts = userDefinedHandlesPosts[i];
-
-        if (definedHandlesPosts) {
-            userDefinedHandlesPostsData[username] = JSON.parse(definedHandlesPosts) as UserDefinedHandlePost[];
-        }
-
-        if (bioText) {
-            bioTexts[username] = bioText;
-        }
-
-        if (displayName) {
-            displayNames[username] = displayName;
-        }
-    }
+    const [bioTexts, displayNames, userDefinedHandlesPosts] = await Promise.all([
+        hMGetAsRecord(redis, BIO_TEXT_STORE, queuedHandles.map(handle => handle.member)),
+        hMGetAsRecord(redis, DISPLAY_NAME_STORE, queuedHandles.map(handle => handle.member)),
+        hMGetAsRecord(redis, USER_DEFINED_HANDLES_POSTS, queuedHandles.map(handle => handle.member)),
+    ]);
 
     while (queuedHandles.length > 0 && new Date() < runLimit) {
         const firstItem = queuedHandles.shift();
@@ -167,49 +144,66 @@ export async function gatherDefinedHandlesStats (event: TaskRequest<DefinedHandl
         }
 
         const username = firstItem.member;
-        const userBioText = bioTexts[username] ?? "";
-        const userDisplayName = displayNames[username] ?? "";
-        const userDefinedHandles = userDefinedHandlesPostsData[username] ?? [];
 
-        const handlesFound = handles.map((handle) => {
-            const regex = new RegExp(`\\b${handle}\\b`, "u");
-            return {
-                handle,
-                foundInBio: regex.test(userBioText),
-                foundInDisplayName: regex.test(userDisplayName),
-                foundInPosts: userDefinedHandles.some(post => regex.test(post.title)),
-            };
-        }).filter(handle => handle.foundInBio || handle.foundInDisplayName || handle.foundInPosts);
+        processedCount++;
+        processedUsers.push(username);
+
+        const userBioText = bioTexts[username];
+        const userDisplayName = displayNames[username];
+        const userDefinedHandlesData = userDefinedHandlesPosts[username];
+
+        if (!userBioText && !userDisplayName && !userDefinedHandlesData) {
+            processedUsers.push(username);
+            continue;
+        }
+
+        let userDefinedHandles: UserDefinedHandlePost[] | undefined;
+        if (userDefinedHandlesData) {
+            userDefinedHandles = JSON.parse(userDefinedHandlesData) as UserDefinedHandlePost[];
+        }
+
+        const handlesFound = handles.map(handle => ({
+            handle: handle.handle,
+            foundInBio: userBioText !== undefined && handle.regex.test(userBioText),
+            foundInDisplayName: userDisplayName !== undefined && handle.regex.test(userDisplayName),
+            // eslint-disable-next-line @typescript-eslint/prefer-optional-chain
+            foundInPosts: userDefinedHandles !== undefined && userDefinedHandles.some(post => handle.regex.test(post.title)),
+        })).filter(handle => handle.foundInBio || handle.foundInDisplayName || handle.foundInPosts);
+
+        if (handlesFound.length > 0) {
+            withMatchesCount++;
+        }
 
         for (const handleEntry of handlesFound) {
             const existingData = existingDefinedHandles[handleEntry.handle] ?? { count: 0, lastSeen: 0, exampleUsers: [], foundInBio: false, foundInDisplayName: false, foundInPosts: false };
             existingData.count++;
             existingData.lastSeen = Math.max(existingData.lastSeen, firstItem.score);
-            existingData.exampleUsers.push(username);
+            existingData.exampleUsers = [...existingData.exampleUsers.slice(-4), username];
             existingData.foundInBio ||= handleEntry.foundInBio;
             existingData.foundInDisplayName ||= handleEntry.foundInDisplayName;
             existingData.foundInPosts ||= handleEntry.foundInPosts;
             existingDefinedHandles[handleEntry.handle] = existingData;
+            definedHandlesDataToStore[handleEntry.handle] = existingData;
         }
-
-        processedCount++;
-        processedUsers.push(username);
     }
 
     if (processedUsers.length > 0) {
         await redis.zRem(DEFINED_HANDLES_QUEUE, processedUsers);
     }
 
-    await redis.hSet(DEFINED_HANDLES_DATA, fromPairs(Object.entries(existingDefinedHandles).map(([handle, data]) => ([handle, JSON.stringify(data)]))));
-    await expireKeyAt(DEFINED_HANDLES_DATA, addMinutes(new Date(), 30));
+    const entriesToStore = Object.entries(definedHandlesDataToStore).map(([handle, data]) => ([handle, JSON.stringify(data)]));
+    if (entriesToStore.length > 0) {
+        await redis.hSet(DEFINED_HANDLES_DATA, fromPairs(entriesToStore));
+        await expireKeyAt(DEFINED_HANDLES_DATA, addMinutes(new Date(), 30));
+    }
 
     const remainingHandles = await redis.zCard(DEFINED_HANDLES_QUEUE);
-    console.log(`Defined Handles: Processed ${processedCount} handles. Remaining in queue: ${remainingHandles}.`);
+    console.log(`Defined Handles: Processed ${processedCount} users in ${(Date.now() - start).toLocaleString()}ms. With matches: ${withMatchesCount}. Remaining in queue: ${remainingHandles}.`);
 
     await scheduler.runJob<DefinedHandlesStatsJobData>({
         name: ControlSubredditJob.DefinedHandlesStatistics,
         runAt: addSeconds(new Date(), 1),
-        data: { firstRun: false, jobGuid: crypto.randomUUID() },
+        data: { firstRun: false, jobGuid: crypto.randomUUID(), handlesList },
     });
 }
 

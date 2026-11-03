@@ -19,6 +19,7 @@ export const handleDefinedHandlesStatsInitializerJob = async (c: Context): Promi
 export type DefinedHandlesStatsJobData = {
     jobGuid: string;
     firstRun: boolean;
+    handlesList?: string[];
 };
 
 export const handleGatherDefinedHandlesStatsJob = async (c: Context): Promise<Response> => {

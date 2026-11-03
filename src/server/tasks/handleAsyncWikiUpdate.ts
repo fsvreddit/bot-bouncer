@@ -9,7 +9,7 @@ export const handleAsyncWikiUpdateJob = async (c: Context): Promise<Response> =>
 
     if (request.data.content.length > 512 * 1024) {
         console.error(`Wiki page content exceeds 512 KB: ${request.data.page}, truncating`);
-        request.data.content = request.data.content.slice(0, (512 * 1024) - 1);
+        request.data.content = `**WARNING: TRUNCATED DATA**\n\n${request.data.content}`.slice(0, (512 * 1024) - 1);
     }
 
     try {
