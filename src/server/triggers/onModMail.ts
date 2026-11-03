@@ -87,8 +87,6 @@ export const onModMail = async (c: Context): Promise<Response> => {
         isHighlighted: conversationResponse.conversation.isHighlighted,
     };
 
-    console.log(JSON.stringify(modmail, null, 2));
-
     if (context.subredditName === CONTROL_SUBREDDIT) {
         await handleControlSubredditModmail(modmail);
     } else if (modmail.participant) {
