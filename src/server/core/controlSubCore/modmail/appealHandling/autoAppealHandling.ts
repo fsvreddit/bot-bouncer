@@ -490,11 +490,12 @@ export async function getMatchedAppealConfig (username: string, userDetails: Use
     let modNotes: ModNote[] = [];
 
     if (shouldFetchModNotes(appealConfig)) {
+        const exclusionRegex = /^u\/[a-zA-Z0-9_-]{3,16} reported:$/;
         modNotes = await reddit.getModNotes({
             subreddit: context.subredditName,
             user: username,
             filter: "NOTE",
-        }).all().then(items => items.filter(item => item.userNote?.note && item.operator.name !== username));
+        }).all().then(items => items.filter(item => item.userNote?.note && item.operator.name !== username && !exclusionRegex.test(item.userNote.note)));
     }
 
     let currentEvaluationResults: EvaluationResult[] | undefined;
