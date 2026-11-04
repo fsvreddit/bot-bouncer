@@ -142,11 +142,6 @@ export async function redosChecker (event: TaskRequest<RedosCheckerJobData>) {
             break;
         }
 
-        if (await getCachedSafetyResult(entry)) {
-            processed.push(entry);
-            continue;
-        }
-
         const regexEntry = JSON.parse(decodedText(entry)) as EvaluatorRegex;
 
         let regex: RegExp | undefined;
@@ -159,39 +154,43 @@ export async function redosChecker (event: TaskRequest<RedosCheckerJobData>) {
         }
 
         try {
-            let maxAttackStringSize: number;
+            let safeResult = await getCachedSafetyResult(entry);
 
-            switch (regexEntry.foundIn) {
-                case EvaluatorRegexFoundIn.Body:
-                    maxAttackStringSize = 10000;
-                    break;
-                case EvaluatorRegexFoundIn.Title:
-                    maxAttackStringSize = 300;
-                    break;
-                case EvaluatorRegexFoundIn.Image:
-                    maxAttackStringSize = 100;
-                    break;
-                case EvaluatorRegexFoundIn.Username:
-                    maxAttackStringSize = 16;
-                    break;
-                case EvaluatorRegexFoundIn.Bio:
-                    maxAttackStringSize = 300;
-                    break;
-                case EvaluatorRegexFoundIn.DisplayName:
-                    maxAttackStringSize = 100;
-                    break;
-                case EvaluatorRegexFoundIn.Url:
-                    maxAttackStringSize = 100;
-                    break;
-                default:
-                    maxAttackStringSize = 10000;
-                    break;
+            if (!safeResult) {
+                let maxAttackStringSize: number;
+
+                switch (regexEntry.foundIn) {
+                    case EvaluatorRegexFoundIn.Body:
+                        maxAttackStringSize = 10000;
+                        break;
+                    case EvaluatorRegexFoundIn.Title:
+                        maxAttackStringSize = 300;
+                        break;
+                    case EvaluatorRegexFoundIn.Image:
+                        maxAttackStringSize = 100;
+                        break;
+                    case EvaluatorRegexFoundIn.Username:
+                        maxAttackStringSize = 16;
+                        break;
+                    case EvaluatorRegexFoundIn.Bio:
+                        maxAttackStringSize = 300;
+                        break;
+                    case EvaluatorRegexFoundIn.DisplayName:
+                        maxAttackStringSize = 100;
+                        break;
+                    case EvaluatorRegexFoundIn.Url:
+                        maxAttackStringSize = 100;
+                        break;
+                    default:
+                        maxAttackStringSize = 10000;
+                        break;
+                }
+
+                safeResult = checkSync(regex.source, regexEntry.flags ?? "", {
+                    maxAttackStringSize,
+                    timeout: 5000,
+                });
             }
-
-            const safeResult = checkSync(regex.source, regexEntry.flags ?? "", {
-                maxAttackStringSize,
-                timeout: 5000,
-            });
 
             if (safeResult.status !== "unknown") {
                 await storeCachedSafetyResult(entry, safeResult);
