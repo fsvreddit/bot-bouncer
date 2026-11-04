@@ -1,5 +1,5 @@
 import { context, Post, reddit, redis, scheduler, TaskRequest, UpdateWikiPageOptions, ZMember } from "@devvit/web/server";
-import { addHours, addMinutes, addSeconds, format, subMinutes, subMonths } from "date-fns";
+import { addHours, addMinutes, addSeconds, format, subMinutes, subMonths, subWeeks } from "date-fns";
 import { BIO_TEXT_STORE, ControlSubredditJob, DISPLAY_NAME_STORE, expireKeyAt, getDataStoreFiltered, hMGetAsRecord, USER_DEFINED_HANDLES_POSTS } from "../..";
 import { UserStatus } from "@fsvreddit/bot-bouncer-types";
 import { FLAGS_TO_EXCLUDE_FROM_STATS, userIsBanned } from "./statsHelpers";
@@ -102,8 +102,12 @@ export async function gatherDefinedHandlesStats (event: TaskRequest<DefinedHandl
     const queuedHandles = await redis.zRange(DEFINED_HANDLES_QUEUE, 0, 9999);
 
     if (queuedHandles.length === 0) {
-        console.log("Defined Handles: No defined handles found in the queue.");
         await redis.del(DEFINED_HANDLES_IN_PROGRESS_KEY);
+        if (event.data.firstRun) {
+            console.error("Defined Handles: No defined handles found on first run.");
+            return;
+        }
+        console.log("Defined Handles: No defined handles found in the queue.");
         await buildDefinedHandlesWikiPage();
         await redis.del(DEFINED_HANDLES_QUEUE, DEFINED_HANDLES_DATA);
         return;
@@ -178,7 +182,9 @@ export async function gatherDefinedHandlesStats (event: TaskRequest<DefinedHandl
             const existingData = existingDefinedHandles[handleEntry.handle] ?? { count: 0, lastSeen: 0, exampleUsers: [], foundInBio: false, foundInDisplayName: false, foundInPosts: false };
             existingData.count++;
             existingData.lastSeen = Math.max(existingData.lastSeen, firstItem.score);
-            existingData.exampleUsers = [...existingData.exampleUsers.slice(-4), username];
+            if (new Date(firstItem.score) > subWeeks(new Date(), 1)) {
+                existingData.exampleUsers = [...existingData.exampleUsers.slice(-4), username];
+            }
             existingData.foundInBio ||= handleEntry.foundInBio;
             existingData.foundInDisplayName ||= handleEntry.foundInDisplayName;
             existingData.foundInPosts ||= handleEntry.foundInPosts;
@@ -227,7 +233,7 @@ async function buildDefinedHandlesWikiPage () {
     const definedHandlesNotHitInLookback = existingDefinedHandles.filter(entry => entry.data.count === 0);
 
     const tableRows: string[][] = [];
-    const tableHeaders = ["Handle", "Count", "Last Seen", "Found In", "Example Users"];
+    const tableHeaders = ["Handle", "Count", "Last Seen", "Found In", "Recent Example Users"];
 
     for (const entry of definedHandlesHitInLookback) {
         const { handle, data } = entry;
