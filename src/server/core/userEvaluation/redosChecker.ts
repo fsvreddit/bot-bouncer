@@ -1,4 +1,4 @@
-import { context, reddit, redis, scheduler, TaskRequest } from "@devvit/web/server";
+import { context, reddit, redis, scheduler, TaskRequest, ZMember } from "@devvit/web/server";
 import { getEvaluatorVariables } from ".";
 import { ALL_RELEVANT_EVALUTORS, ControlSubredditJob, decodedText, encodedText, expireKeyAt, getControlSubSettings, sendMessageToWebhook } from "..";
 import { hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
@@ -8,6 +8,7 @@ import { checkSync, Diagnostics } from "recheck";
 import json2md from "json2md";
 import { RedosCheckerJobData } from "../../tasks";
 import pluralize from "pluralize";
+import { createHash } from "crypto";
 
 const REDOS_QUEUE_KEY = "evaluatorRedosQueue";
 const REDOS_HITS_KEY = "evaluatorRedosHits";
@@ -15,20 +16,33 @@ const REDOS_UNKNOWN_KEY = "evaluatorRedosUnknown";
 
 process.env.RECHECK_SYNC_BACKEND ??= "pure";
 
+function sortRegexes (regexes: EvaluatorRegex[]): EvaluatorRegex[] {
+    return regexes.sort((a, b) => a.regex.localeCompare(b.regex));
+}
+
 async function queueRedosCheckEntries () {
     const evaluatorVariables = await getEvaluatorVariables();
-    let entriesAdded = 0;
+    const entriesToAdd: ZMember[] = [];
     for (const Evaluator of ALL_RELEVANT_EVALUTORS) {
         const evaluatorInstance = new Evaluator([], undefined, evaluatorVariables);
-        const evaluatorRegexes = evaluatorInstance.gatherRegexes();
-        if (evaluatorRegexes.length === 0) {
-            continue;
-        }
-        entriesAdded += await redis.zAdd(REDOS_QUEUE_KEY, ...evaluatorRegexes.map(regex => ({ member: encodedText(JSON.stringify(regex)), score: Date.now() })));
+        const evaluatorRegexes = sortRegexes(evaluatorInstance.gatherRegexes());
+        entriesToAdd.push(...evaluatorRegexes.map(regex => ({ member: encodedText(JSON.stringify(regex)), score: Date.now() })));
+    }
+
+    const hashedRegexes = createHash("sha256").update(JSON.stringify(entriesToAdd), "utf8").digest("hex");
+    const redisKey = "LastRedosDigest";
+    if (await redis.get(redisKey) === hashedRegexes) {
+        console.log(`ReDoS Checker: No changes in regexes, skipping analysis.`);
+        return;
+    }
+    await redis.set(redisKey, hashedRegexes);
+
+    if (entriesToAdd.length > 0) {
+        await redis.zAdd(REDOS_QUEUE_KEY, ...entriesToAdd);
         await expireKeyAt(REDOS_QUEUE_KEY, addHours(new Date(), 1));
     }
 
-    console.log(`ReDoS Checker: Queued ${entriesAdded.toLocaleString()} regex entries for checking.`);
+    console.log(`ReDoS Checker: Queued ${entriesToAdd.length.toLocaleString()} regex entries for checking.`);
 }
 
 function getSafeRegexCacheKey (entry: string): string {
