@@ -13,6 +13,7 @@ import { createHash } from "crypto";
 const REDOS_QUEUE_KEY = "evaluatorRedosQueue";
 const REDOS_HITS_KEY = "evaluatorRedosHits";
 const REDOS_UNKNOWN_KEY = "evaluatorRedosUnknown";
+const LAST_REDOS_DIGEST_KEY = "LastRedosDigest";
 
 process.env.RECHECK_SYNC_BACKEND ??= "pure";
 
@@ -20,7 +21,7 @@ function sortRegexes (regexes: EvaluatorRegex[]): EvaluatorRegex[] {
     return regexes.sort((a, b) => a.regex.localeCompare(b.regex));
 }
 
-async function queueRedosCheckEntries () {
+async function queueRedosCheckEntries (): Promise<string> {
     const evaluatorVariables = await getEvaluatorVariables();
     const entriesToAdd: ZMember[] = [];
     for (const Evaluator of ALL_RELEVANT_EVALUTORS) {
@@ -30,12 +31,12 @@ async function queueRedosCheckEntries () {
     }
 
     const hashedRegexes = createHash("sha256").update(JSON.stringify(entriesToAdd), "utf8").digest("hex");
-    const redisKey = "LastRedosDigest";
-    if (await redis.get(redisKey) === hashedRegexes) {
+
+    if (await redis.get(LAST_REDOS_DIGEST_KEY) === hashedRegexes) {
         console.log(`ReDoS Checker: No changes in regexes, skipping analysis.`);
-        return;
+        return hashedRegexes;
     }
-    await redis.set(redisKey, hashedRegexes);
+    await redis.set(LAST_REDOS_DIGEST_KEY, hashedRegexes);
 
     if (entriesToAdd.length > 0) {
         await redis.zAdd(REDOS_QUEUE_KEY, ...entriesToAdd);
@@ -43,6 +44,7 @@ async function queueRedosCheckEntries () {
     }
 
     console.log(`ReDoS Checker: Queued ${entriesToAdd.length.toLocaleString()} regex entries for checking.`);
+    return hashedRegexes;
 }
 
 function getSafeRegexCacheKey (entry: string): string {
@@ -77,8 +79,8 @@ async function storeCachedSafetyResult (entry: string, result: Diagnostics) {
     await redis.set(redisKey, JSON.stringify(result), { expiration: getFuzzedCacheTime() });
 }
 
-export async function redosChecker (event: TaskRequest<RedosCheckerJobData | undefined>) {
-    const jobGuid = event.data?.jobGuid;
+export async function redosChecker (event: TaskRequest<RedosCheckerJobData>) {
+    const jobGuid = event.data.jobGuid;
     if (jobGuid && await hasEventBeenHandled(`job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
         console.warn(`ReDoS Checker: Job with guid ${jobGuid} has already been handled, skipping.`);
         return;
@@ -86,7 +88,7 @@ export async function redosChecker (event: TaskRequest<RedosCheckerJobData | und
 
     const inProgressKey = "redosCheckerInProgress";
 
-    if (event.data?.firstRun) {
+    if (event.data.firstRun) {
         if (await redis.exists(inProgressKey)) {
             console.log("ReDoS Checker: Previous run still in progress, skipping this run.");
             return;
@@ -100,7 +102,7 @@ export async function redosChecker (event: TaskRequest<RedosCheckerJobData | und
 
         await redis.del(REDOS_QUEUE_KEY, REDOS_HITS_KEY, REDOS_UNKNOWN_KEY);
 
-        await queueRedosCheckEntries();
+        const regexHash = await queueRedosCheckEntries();
         await scheduler.runJob<RedosCheckerJobData>({
             name: ControlSubredditJob.EvaluatorReDoSChecker,
             runAt: addSeconds(new Date(), 2),
@@ -108,19 +110,20 @@ export async function redosChecker (event: TaskRequest<RedosCheckerJobData | und
                 firstRun: false,
                 modName: event.data.modName,
                 jobGuid: crypto.randomUUID(),
+                regexHash,
             },
         });
 
         return;
     }
 
-    if (event.data?.finalise) {
-        await finaliseReDosReport();
+    if (event.data.finalise) {
+        await finaliseReDosReport(event);
         return;
     }
 
     await redis.set(inProgressKey, "true", { expiration: addSeconds(new Date(), 60) });
-    const batchNumber = event.data?.batchNumber ?? 1;
+    const batchNumber = event.data.batchNumber ?? 1;
     const batchSize = 1000;
     console.log(`ReDoS Checker: Starting batch #${batchNumber}...`);
 
@@ -156,46 +159,42 @@ export async function redosChecker (event: TaskRequest<RedosCheckerJobData | und
         }
 
         try {
-            let safeResult = await getCachedSafetyResult(entry);
+            let maxAttackStringSize: number;
 
-            if (!safeResult) {
-                let maxAttackStringSize: number;
+            switch (regexEntry.foundIn) {
+                case EvaluatorRegexFoundIn.Body:
+                    maxAttackStringSize = 10000;
+                    break;
+                case EvaluatorRegexFoundIn.Title:
+                    maxAttackStringSize = 300;
+                    break;
+                case EvaluatorRegexFoundIn.Image:
+                    maxAttackStringSize = 100;
+                    break;
+                case EvaluatorRegexFoundIn.Username:
+                    maxAttackStringSize = 16;
+                    break;
+                case EvaluatorRegexFoundIn.Bio:
+                    maxAttackStringSize = 300;
+                    break;
+                case EvaluatorRegexFoundIn.DisplayName:
+                    maxAttackStringSize = 100;
+                    break;
+                case EvaluatorRegexFoundIn.Url:
+                    maxAttackStringSize = 100;
+                    break;
+                default:
+                    maxAttackStringSize = 10000;
+                    break;
+            }
 
-                switch (regexEntry.foundIn) {
-                    case EvaluatorRegexFoundIn.Body:
-                        maxAttackStringSize = 10000;
-                        break;
-                    case EvaluatorRegexFoundIn.Title:
-                        maxAttackStringSize = 300;
-                        break;
-                    case EvaluatorRegexFoundIn.Image:
-                        maxAttackStringSize = 100;
-                        break;
-                    case EvaluatorRegexFoundIn.Username:
-                        maxAttackStringSize = 16;
-                        break;
-                    case EvaluatorRegexFoundIn.Bio:
-                        maxAttackStringSize = 300;
-                        break;
-                    case EvaluatorRegexFoundIn.DisplayName:
-                        maxAttackStringSize = 100;
-                        break;
-                    case EvaluatorRegexFoundIn.Url:
-                        maxAttackStringSize = 100;
-                        break;
-                    default:
-                        maxAttackStringSize = 10000;
-                        break;
-                }
+            const safeResult = checkSync(regex.source, regexEntry.flags ?? "", {
+                maxAttackStringSize,
+                timeout: 5000,
+            });
 
-                safeResult = checkSync(regex.source, regexEntry.flags ?? "", {
-                    maxAttackStringSize,
-                    timeout: 5000,
-                });
-
-                if (safeResult.status !== "unknown") {
-                    await storeCachedSafetyResult(entry, safeResult);
-                }
+            if (safeResult.status !== "unknown") {
+                await storeCachedSafetyResult(entry, safeResult);
             }
 
             if (safeResult.status === "vulnerable") {
@@ -222,9 +221,10 @@ export async function redosChecker (event: TaskRequest<RedosCheckerJobData | und
             runAt: addSeconds(new Date(), 2),
             data: {
                 firstRun: false,
-                modName: event.data?.modName ?? "unknown",
+                modName: event.data.modName ?? "unknown",
                 batchNumber: batchNumber + 1,
                 jobGuid: crypto.randomUUID(),
+                regexHash: event.data.regexHash,
             },
         });
     } else {
@@ -235,6 +235,7 @@ export async function redosChecker (event: TaskRequest<RedosCheckerJobData | und
             data: {
                 finalise: true,
                 jobGuid: crypto.randomUUID(),
+                regexHash: event.data.regexHash,
             },
         });
     }
@@ -249,7 +250,7 @@ function getRedosRow (hit: EvaluatorRegex): string[] {
     ];
 }
 
-async function finaliseReDosReport () {
+async function finaliseReDosReport (event: TaskRequest<RedosCheckerJobData>) {
     const redosHits = await redis.zRange(REDOS_HITS_KEY, 0, -1).then(entries => entries.map(entry => JSON.parse(decodedText(entry.member)) as EvaluatorRegex));
     const redosUnknown = await redis.zRange(REDOS_UNKNOWN_KEY, 0, -1).then(entries => entries.map(entry => JSON.parse(decodedText(entry.member)) as EvaluatorRegex));
 
@@ -299,4 +300,8 @@ async function finaliseReDosReport () {
     }
 
     await redis.del(REDOS_QUEUE_KEY, REDOS_HITS_KEY, REDOS_UNKNOWN_KEY);
+
+    if (event.data.regexHash) {
+        await redis.set(LAST_REDOS_DIGEST_KEY, event.data.regexHash);
+    }
 }

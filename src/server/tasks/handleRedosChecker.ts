@@ -8,6 +8,7 @@ export type RedosCheckerJobData = {
     batchNumber?: number;
     modName?: string;
     jobGuid?: string;
+    regexHash?: string;
 };
 
 export const handleRedosCheckerJob = async (c: Context): Promise<Response> => {
