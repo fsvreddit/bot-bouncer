@@ -2,7 +2,7 @@ import { context, reddit, redis, scheduler, WikiPage, ZMember } from "@devvit/we
 import { ControlSubSettings, UserStatus } from "@fsvreddit/bot-bouncer-types";
 import { StatsUserEntry } from "./statsHelpers";
 import { addHours, subMonths } from "date-fns";
-import { ControlSubredditJob, expireKeyAt, getControlSubSettings, getFullDataStore, UserDetails, UserFlag } from "../..";
+import { accountIsBotBouncerApp, ControlSubredditJob, expireKeyAt, getControlSubSettings, getFullDataStore, UserDetails, UserFlag } from "../..";
 import json2md from "json2md";
 import { uniq } from "lodash-es";
 import { UpdateSubmitterSuccessRateJobData } from "../../../tasks";
@@ -197,6 +197,10 @@ export async function queueSubmitterForSuccessRateUpdate (submitter: string) {
 }
 
 export async function updateSubmitterSuccessRate (submitter: string) {
+    if (await accountIsBotBouncerApp(submitter)) {
+        return;
+    }
+
     const data = await getFullDataStore({
         submitter: [submitter],
         since: subMonths(new Date(), 1),
