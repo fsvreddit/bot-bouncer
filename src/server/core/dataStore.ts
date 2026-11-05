@@ -10,7 +10,7 @@ import { getUserExtended, getUserSocialLinks } from "@fsvreddit/fsv-devvit-web-h
 import { setCleanupForSubmittersAndMods, setCleanupForUser } from "./cleanup";
 import pluralize from "pluralize";
 import { deleteAccountInitialEvaluationResults, statusToFlair } from ".";
-import { storeClassificationEvent } from "./controlSubCore/statistics";
+import { queueSubmitterForSuccessRateUpdate, storeClassificationEvent } from "./controlSubCore/statistics";
 import { deleteAppealRecordsForUser, removeUserFromReversalsQueue } from "./controlSubCore/modmail";
 import { compact, fromPairs, uniq } from "lodash-es";
 
@@ -171,7 +171,11 @@ export function shouldStoreClassificationEvent (currentStatus: UserDetails | und
 }
 
 export async function setUserStatus (username: string, details: UserDetails) {
-    if (context.subredditName === CONTROL_SUBREDDIT && !isT3(details.trackingPostId) && !isT1(details.trackingPostId)) {
+    if (context.subredditName !== CONTROL_SUBREDDIT) {
+        throw new Error(`Unauthorized: Only the control subreddit can set user status.`);
+    }
+
+    if (!isT3(details.trackingPostId) && !isT1(details.trackingPostId)) {
         throw new Error(`Tracking post ID is missing or invalid for ${username}: ${details.trackingPostId}!`);
     }
 
@@ -200,28 +204,32 @@ export async function setUserStatus (username: string, details: UserDetails) {
 
     await writeUserStatus(username, details);
 
-    if (context.subredditName === CONTROL_SUBREDDIT) {
-        let overrideDate: Date | undefined;
-        if (details.userStatus === UserStatus.Pending && !currentStatus) {
-            overrideDate = addMinutes(new Date(), 2);
-        } else if (details.userStatus === UserStatus.Pending || details.userStatus === UserStatus.Purged || details.userStatus === UserStatus.Retired) {
-            overrideDate = addHours(new Date(), 1);
-        } else if (details.flags?.includes(UserFlag.FutureNSFW)) {
-            overrideDate = addDays(new Date(), 7);
-        } else if (details.userStatus === UserStatus.Inactive) {
-            overrideDate = addDays(new Date(), 7);
-        }
+    let overrideDate: Date | undefined;
+    if (details.userStatus === UserStatus.Pending && !currentStatus) {
+        overrideDate = addMinutes(new Date(), 2);
+    } else if (details.userStatus === UserStatus.Pending || details.userStatus === UserStatus.Purged || details.userStatus === UserStatus.Retired) {
+        overrideDate = addHours(new Date(), 1);
+    } else if (details.flags?.includes(UserFlag.FutureNSFW)) {
+        overrideDate = addDays(new Date(), 7);
+    } else if (details.userStatus === UserStatus.Inactive) {
+        overrideDate = addDays(new Date(), 7);
+    }
 
-        await setCleanupForUser(username, overrideDate);
+    const promises: Promise<unknown>[] = [
+        setCleanupForUser(username, overrideDate),
+    ];
 
-        const submittersAndMods = uniq(compact([details.submitter, details.operator]));
-        await setCleanupForSubmittersAndMods(submittersAndMods);
+    if (details.userStatus !== UserStatus.Pending && details.userStatus !== UserStatus.Purged && details.userStatus !== UserStatus.Retired) {
+        promises.push(redis.global.zAdd(RECENT_CHANGES_STORE, { member: username, score: new Date().getTime() }));
+    }
 
-        if (details.userStatus !== currentStatus?.userStatus) {
-            await updateAggregate(details.userStatus, 1);
-            if (currentStatus) {
-                await updateAggregate(currentStatus.userStatus, -1);
-            }
+    const submittersAndMods = uniq(compact([details.submitter, details.operator]));
+    promises.push(setCleanupForSubmittersAndMods(submittersAndMods));
+
+    if (details.userStatus !== currentStatus?.userStatus) {
+        promises.push(updateAggregate(details.userStatus, 1));
+        if (currentStatus) {
+            promises.push(updateAggregate(currentStatus.userStatus, -1));
         }
     }
 
@@ -230,25 +238,30 @@ export async function setUserStatus (username: string, details: UserDetails) {
         noteText += ` Flags set: ${details.flags.join(", ")}.`;
     }
 
-    if (context.subredditName === CONTROL_SUBREDDIT && currentStatus?.userStatus !== details.userStatus && details.userStatus !== UserStatus.Pending) {
-        await addModNote({
+    if (currentStatus?.userStatus !== details.userStatus && details.userStatus !== UserStatus.Pending) {
+        promises.push(addModNote({
             subreddit: context.subredditName,
             user: username,
             note: noteText,
-        });
+        }));
     }
 
     const classificationOperator = details.operator;
     if (classificationOperator && shouldStoreClassificationEvent(currentStatus, details, context.appSlug)) {
-        await storeClassificationEvent(classificationOperator);
-    }
-
-    if (details.userStatus !== UserStatus.Pending && details.userStatus !== UserStatus.Purged && details.userStatus !== UserStatus.Retired) {
-        await redis.global.zAdd(RECENT_CHANGES_STORE, { member: username, score: new Date().getTime() });
+        promises.push(storeClassificationEvent(classificationOperator));
     }
 
     if (details.userStatus === UserStatus.Banned) {
-        await removeUserFromReversalsQueue(username);
+        promises.push(removeUserFromReversalsQueue(username));
+    }
+
+    if (details.submitter && currentStatus?.userStatus === UserStatus.Pending && details.userStatus !== UserStatus.Pending) {
+        promises.push(queueSubmitterForSuccessRateUpdate(details.submitter));
+    }
+
+    const results = await Promise.allSettled(promises);
+    if (results.find(result => result.status === "rejected")) {
+        console.error(`One or more non-critical actions failed when setting status for ${username}.`);
     }
 }
 

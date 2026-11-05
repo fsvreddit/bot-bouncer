@@ -378,6 +378,9 @@
             "updateEvaluatorVariables": {
                 "endpoint": "/internal/tasks/update-evaluator-variables"
             },
+            "updateSubmitterSuccessRate": {
+                "endpoint": "/internal/tasks/update-submitter-success-rate"
+            },
             "upgradeNotifier": {
                 "endpoint": "/internal/tasks/upgrade-notifier"
             },

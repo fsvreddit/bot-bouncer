@@ -51,6 +51,7 @@ export enum ControlSubredditJob {
     PendingUserReevaluation = "pendingUserReevaluation",
     UnprocessedSubmissionsHandler = "unprocessedSubmissionsHandler",
     SocialLinksStatistics = "socialLinksStatistics",
+    UpdateSubmitterSuccessRate = "updateSubmitterSuccessRate",
 }
 
 /**

@@ -1,7 +1,8 @@
 import { context, reddit, redis } from "@devvit/web/server";
-import { addHours, eachDayOfInterval, format, startOfDay, subDays } from "date-fns";
+import { addDays, addHours, eachDayOfInterval, format, startOfDay, subDays } from "date-fns";
 import json2md from "json2md";
 import pluralize from "pluralize";
+import { expireKeyAt } from "../..";
 
 function classificationKeyForDate (date: Date): string {
     return `classificationStatistics-${format(date, "yyyy-MM-dd")}`;
@@ -11,6 +12,9 @@ export async function storeClassificationEvent (username: string) {
     const redisKey = classificationKeyForDate(new Date());
     const classified = await redis.zIncrBy(redisKey, username, 1);
     console.log(`User ${username} has classified ${classified} ${pluralize("account", classified)} today.`);
+    if (classified === 1) {
+        await expireKeyAt(redisKey, addDays(new Date(), 8));
+    }
 }
 
 export async function updateClassificationStatistics () {

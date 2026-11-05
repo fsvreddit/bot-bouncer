@@ -1,10 +1,11 @@
-import { context, reddit, redis, WikiPage, ZMember } from "@devvit/web/server";
+import { context, reddit, redis, scheduler, WikiPage, ZMember } from "@devvit/web/server";
 import { ControlSubSettings, UserStatus } from "@fsvreddit/bot-bouncer-types";
 import { StatsUserEntry } from "./statsHelpers";
-import { subMonths } from "date-fns";
-import { getControlSubSettings, UserFlag } from "../..";
+import { addHours, subMonths } from "date-fns";
+import { ControlSubredditJob, expireKeyAt, getControlSubSettings, getFullDataStore, UserDetails, UserFlag } from "../..";
 import json2md from "json2md";
 import { uniq } from "lodash-es";
+import { UpdateSubmitterSuccessRateJobData } from "../../../tasks";
 
 export interface SubmitterStatistic {
     submitter: string;
@@ -76,6 +77,14 @@ export function getSubmitterStatusCells (item: SubmitterStatistic, controlSubSet
     return [bulkCell, trustedCell, needsGuidanceCell];
 }
 
+function statusType (userDetails: UserDetails): "organic" | "banned" | undefined {
+    if ((userDetails.userStatus === UserStatus.Organic || userDetails.userStatus === UserStatus.Service) && !userDetails.flags?.includes(UserFlag.HackedAndRecovered)) {
+        return "organic";
+    } else if (userDetails.userStatus === UserStatus.Banned || (userDetails.userStatus === UserStatus.Purged && userDetails.lastStatus === UserStatus.Banned)) {
+        return "banned";
+    }
+}
+
 export async function updateSubmitterStatistics (allStatuses: StatsUserEntry[]) {
     const organicStatuses: Record<string, number> = {};
     const bannedStatuses: Record<string, number> = {};
@@ -89,9 +98,10 @@ export async function updateSubmitterStatistics (allStatuses: StatsUserEntry[]) 
             continue;
         }
 
-        if ((status.userStatus === UserStatus.Organic || status.userStatus === UserStatus.Service) && !status.flags?.includes(UserFlag.HackedAndRecovered)) {
+        const type = statusType(status);
+        if (type === "organic") {
             organicStatuses[status.submitter] = (organicStatuses[status.submitter] ?? 0) + 1;
-        } else if (status.userStatus === UserStatus.Banned || (status.userStatus === UserStatus.Purged && status.lastStatus === UserStatus.Banned)) {
+        } else if (type === "banned") {
             bannedStatuses[status.submitter] = (bannedStatuses[status.submitter] ?? 0) + 1;
         }
     }
@@ -163,4 +173,58 @@ export async function updateSubmitterStatistics (allStatuses: StatsUserEntry[]) 
 
 export async function getSubmitterSuccessRate (submitter: string): Promise<number | undefined> {
     return await redis.zScore(SUBMITTER_SUCCESS_RATE_KEY, submitter);
+}
+
+export async function queueSubmitterForSuccessRateUpdate (submitter: string) {
+    const redisKey = `submitterSuccessRateUpdate:${submitter}`;
+    const newValue = await redis.incrBy(redisKey, 1);
+    if (newValue === 1) {
+        await expireKeyAt(redisKey, addHours(new Date(), 6));
+    }
+
+    if (newValue >= 5) {
+        await redis.del(redisKey);
+
+        await scheduler.runJob<UpdateSubmitterSuccessRateJobData>({
+            name: ControlSubredditJob.UpdateSubmitterSuccessRate,
+            runAt: new Date(),
+            data: {
+                jobGuid: crypto.randomUUID(),
+                username: submitter,
+            },
+        });
+    }
+}
+
+export async function updateSubmitterSuccessRate (submitter: string) {
+    const data = await getFullDataStore({
+        submitter: [submitter],
+        since: subMonths(new Date(), 1),
+        omitFlags: [UserFlag.HackedAndRecovered],
+    });
+
+    let organicCount = 0;
+    let bannedCount = 0;
+
+    for (const entry of Object.values(data)) {
+        const type = statusType(entry);
+        if (type === "organic") {
+            organicCount++;
+        } else if (type === "banned") {
+            bannedCount++;
+        }
+    }
+
+    const controlSubSettings = await getControlSubSettings();
+    const thresholdForSubmitterCalculation = controlSubSettings.thresholdForSubmitterCalculation ?? DEFAULT_THRESHOLD_FOR_SUBMITTER_CALCULATION;
+
+    if (organicCount + bannedCount < thresholdForSubmitterCalculation) {
+        await redis.zRem(SUBMITTER_SUCCESS_RATE_KEY, [submitter]);
+        return;
+    }
+
+    const ratio = organicCount + bannedCount > 0 ? (bannedCount / (organicCount + bannedCount)) * 100 : 0;
+
+    await redis.zAdd(SUBMITTER_SUCCESS_RATE_KEY, { member: submitter, score: ratio });
+    console.log(`Submitters: ${submitter}, now has success rate: ${ratio.toFixed(2)}%`);
 }

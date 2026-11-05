@@ -34,4 +34,5 @@ export * from "./handleBioTextStats.js";
 export * from "./handleRedosChecker.js";
 export * from "./handleExternalSubmissionsQueue.js";
 export * from "./handleUnprocessedSubmissions.js";
+export * from "./handleUpdateSubmitterSuccessRate.js";
 export * from "./handleSocialLinksStatistics.js";
