@@ -266,7 +266,7 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
             firstLine += ` and reported by ${markdownEscape(userStatus.submitter)}`;
             const successRate = await getSubmitterSuccessRate(userStatus.submitter);
             if (successRate !== undefined) {
-                firstLine += ` (${successRate}%)`;
+                firstLine += ` (${Math.round(successRate)}%)`;
             }
         }
 
