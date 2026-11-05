@@ -84,7 +84,12 @@ export async function handleModmailArchiver (event: TaskRequest<ModmailArchiverJ
         }
 
         if (conversation.conversation.participant?.isDeleted) {
-            await reddit.modMail.archiveConversation(conversationId);
+            try {
+                await reddit.modMail.archiveConversation(conversationId);
+            } catch (error) {
+                console.error(`Modmail Archiver: Failed to archive conversation (deleted participant handler) ${conversationId}.`, error);
+            }
+
             await redis.zRem(KNOWN_CONVERSATIONS_KEY, [conversationId]);
             console.log(`Modmail Archiver: Archived conversation ${conversationId} because the participant is deleted.`);
         }
@@ -132,7 +137,12 @@ async function handleSuspendedUser (conversationId: string, conversation: GetCon
         isInternal: false,
         isAuthorHidden: false,
     });
-    await reddit.modMail.archiveConversation(conversation.conversation.id);
+
+    try {
+        await reddit.modMail.archiveConversation(conversationId);
+    } catch (error) {
+        console.error(`Modmail Archiver: Failed to archive conversation (suspended user handler) ${conversationId}.`, error);
+    }
 
     await deleteKeyForAppeal(conversation.conversation.id);
 
