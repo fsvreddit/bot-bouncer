@@ -153,7 +153,7 @@ export async function dataExtract (message: ModmailMessage, conversationId: stri
 
     if (request.bioRegex) {
         try {
-            new RegExp(request.bioRegex);
+            new RegExp(request.bioRegex, "u");
         } catch {
             await reddit.modMail.reply({
                 conversationId,
@@ -166,7 +166,7 @@ export async function dataExtract (message: ModmailMessage, conversationId: stri
 
     if (request.displayNameRegex) {
         try {
-            new RegExp(request.displayNameRegex);
+            new RegExp(request.displayNameRegex, "u");
         } catch {
             await reddit.modMail.reply({
                 conversationId,
@@ -179,7 +179,7 @@ export async function dataExtract (message: ModmailMessage, conversationId: stri
 
     if (request.hitReasonRegex) {
         try {
-            new RegExp(request.hitReasonRegex);
+            new RegExp(request.hitReasonRegex, "u");
         } catch {
             await reddit.modMail.reply({
                 conversationId,
@@ -192,7 +192,7 @@ export async function dataExtract (message: ModmailMessage, conversationId: stri
 
     if (request.hitDetailRegex) {
         try {
-            new RegExp(request.hitDetailRegex);
+            new RegExp(request.hitDetailRegex, "u");
         } catch {
             await reddit.modMail.reply({
                 conversationId,
@@ -385,7 +385,7 @@ export async function continueDataExtract (event: TaskRequest<DataExtractJobData
     console.log(`Data Extract: Processing batch of ${processingQueue.length} entries, extract ID ${extractId}`);
 
     if (request.bioRegex) {
-        const regex = new RegExp(request.bioRegex);
+        const regex = new RegExp(request.bioRegex, "u");
         const bioTexts = await hMGetAsRecord(redis, BIO_TEXT_STORE, processingQueue);
 
         for (const username of processingQueue) {
@@ -400,7 +400,7 @@ export async function continueDataExtract (event: TaskRequest<DataExtractJobData
     }
 
     if (request.displayNameRegex) {
-        const regex = new RegExp(request.displayNameRegex);
+        const regex = new RegExp(request.displayNameRegex, "u");
         const displayNames = await hMGetAsRecord(redis, DISPLAY_NAME_STORE, processingQueue);
         for (const username of processingQueue) {
             if (displayNames[username] && regex.test(displayNames[username])) {
@@ -417,8 +417,8 @@ export async function continueDataExtract (event: TaskRequest<DataExtractJobData
         const socialLinks = await hMGetAsRecord(redis, SOCIAL_LINKS_STORE, processingQueue);
 
         const socialLinkPrefix = request.socialLinkStartsWith?.toLowerCase();
-        const socialLinkUrlRegex = request.socialLinkUrlRegex ? new RegExp(request.socialLinkUrlRegex) : undefined;
-        const socialLinkTitleRegex = request.socialLinkTitleRegex ? new RegExp(request.socialLinkTitleRegex) : undefined;
+        const socialLinkUrlRegex = request.socialLinkUrlRegex ? new RegExp(request.socialLinkUrlRegex, "u") : undefined;
+        const socialLinkTitleRegex = request.socialLinkTitleRegex ? new RegExp(request.socialLinkTitleRegex, "u") : undefined;
 
         for (const username of processingQueue) {
             const userSocialLinks = socialLinks[username];
