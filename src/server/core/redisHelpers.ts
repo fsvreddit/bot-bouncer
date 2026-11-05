@@ -1,6 +1,6 @@
 import { redis, RedisClient, ZRangeOptions } from "@devvit/web/server";
 import { differenceInSeconds } from "date-fns";
-import chunk from "lodash/chunk";
+import { chunk } from "lodash-es";
 
 /**
  * Retrieves multiple fields from a Redis hash and returns them as a record/object.

@@ -32,7 +32,7 @@
     "pako": "^3.0.0",
     "pluralize": "^8.0.0",
     "recheck": "^4.5.0",
-    "regjsparser": "^0.13.0",
+    "regjsparser": "^0.14.1",
     "yaml": "^2.8.1"
   },
   "devDependencies": {

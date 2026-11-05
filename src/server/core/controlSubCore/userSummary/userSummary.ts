@@ -1,9 +1,9 @@
-import { Comment, context, Post, reddit, redis, settings } from "@devvit/web/server";
+import { Comment, context, Post, reddit, settings, UserSocialLink } from "@devvit/web/server";
 import { isT3, JsonValue, T3 } from "@devvit/web/shared";
 import { EvaluationResult } from "@fsvreddit/bot-bouncer-types";
 import { addMilliseconds, differenceInDays, differenceInHours, differenceInMilliseconds, differenceInMinutes, differenceInSeconds, Duration, format, formatDuration, getYear, intervalToDuration, startOfDecade } from "date-fns";
 import json2md from "json2md";
-import { ALL_RELEVANT_EVALUTORS, AppSetting, BIO_TEXT_STORE, CONTROL_SUBREDDIT, getAccountInitialEvaluationResults, getUserStatus, median, normaliseHitReason } from "../..";
+import { ALL_RELEVANT_EVALUTORS, AppSetting, CONTROL_SUBREDDIT, getAccountInitialEvaluationResults, getInitialAccountProperties, getUserStatus, median, normaliseHitReason } from "../..";
 import { getUserExtended, getUserSocialLinks, UserExtended } from "@fsvreddit/fsv-devvit-web-helpers";
 import markdownEscape from "markdown-escape";
 import { getEvaluatorVariables } from "../../userEvaluation";
@@ -206,6 +206,22 @@ export function evaluationResultsToBullets (results: EvaluationResult[]) {
     return markdown;
 }
 
+function areSocialLinksDifferent (originalLinks: UserSocialLink[], currentLinks: UserSocialLink[]): boolean {
+    const originalUrls = uniq(originalLinks.map(link => link.outboundUrl));
+    const currentUrls = uniq(currentLinks.map(link => link.outboundUrl));
+
+    if (originalUrls.length !== currentUrls.length) {
+        return true;
+    }
+
+    for (const url of originalUrls) {
+        if (!currentUrls.includes(url)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 export async function getSummaryForUser (username: string, source: "modmail" | "submission", conversationId?: string): Promise<json2md.DataObject[]> {
     const extendedUser = await getUserExtended(username);
 
@@ -324,14 +340,22 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
     }
 
     if (source === "modmail") {
-        const originalBio = await redis.hGet(BIO_TEXT_STORE, username);
-        if (originalBio && originalBio.trim() !== userBio?.trim()) {
+        const originalAccountProperties = await getInitialAccountProperties(username);
+        if (originalAccountProperties.bioText && originalAccountProperties.bioText.trim() !== userBio?.trim()) {
             if (userBio?.includes("\n")) {
                 summary.push({ p: "Original bio:" });
-                summary.push({ blockquote: cleanedBio(originalBio, sitewideBannedDomains) });
+                summary.push({ blockquote: cleanedBio(originalAccountProperties.bioText, sitewideBannedDomains) });
             } else {
-                summary.push({ p: `Original bio: ${cleanedBio(originalBio, sitewideBannedDomains)}` });
+                summary.push({ p: `Original bio: ${cleanedBio(originalAccountProperties.bioText, sitewideBannedDomains)}` });
             }
+        }
+
+        if (originalAccountProperties.displayName && originalAccountProperties.displayName.trim() !== userDisplayName?.trim()) {
+            summary.push({ p: `Original display name: ${originalAccountProperties.displayName}` });
+        }
+
+        if (originalAccountProperties.socialLinks.length > 0 && areSocialLinksDifferent(originalAccountProperties.socialLinks, socialLinks)) {
+            summary.push({ p: `Original social links: ${uniq(originalAccountProperties.socialLinks.map(link => link.outboundUrl).join(", "))}` });
         }
     }
 
