@@ -4,7 +4,7 @@ import { UserStatus } from "@fsvreddit/bot-bouncer-types";
 import { UserFlag } from "./types";
 import { hGetAllChunked } from "./redisHelpers";
 import { CONTROL_SUBREDDIT } from "./constants";
-import { addDays, addHours, addMinutes, subDays, subHours } from "date-fns";
+import { addDays, addHours, addMinutes, subDays, subHours, subMonths } from "date-fns";
 import { getUsernameFromUrl, statusOrFlagToStatusAndFlags } from "./utility";
 import { getUserExtended, getUserSocialLinks } from "@fsvreddit/fsv-devvit-web-helpers";
 import { setCleanupForSubmittersAndMods, setCleanupForUser } from "./cleanup";
@@ -255,7 +255,7 @@ export async function setUserStatus (username: string, details: UserDetails) {
         promises.push(removeUserFromReversalsQueue(username));
     }
 
-    if (details.submitter && currentStatus?.userStatus === UserStatus.Pending && details.userStatus !== UserStatus.Pending) {
+    if (details.submitter && new Date(details.reportedAt) > subMonths(new Date(), 1) && currentStatus?.userStatus !== details.userStatus) {
         promises.push(queueSubmitterForSuccessRateUpdate(details.submitter));
     }
 
