@@ -172,7 +172,10 @@ export async function updateSubmitterStatistics (allStatuses: StatsUserEntry[]) 
 }
 
 export async function getSubmitterSuccessRate (submitter: string): Promise<number | undefined> {
-    return await redis.zScore(SUBMITTER_SUCCESS_RATE_KEY, submitter);
+    const score = await redis.zScore(SUBMITTER_SUCCESS_RATE_KEY, submitter);
+    if (score) {
+        return Math.round(score);
+    }
 }
 
 export async function queueSubmitterForSuccessRateUpdate (submitter: string) {
@@ -229,6 +232,6 @@ export async function updateSubmitterSuccessRate (submitter: string) {
 
     const ratio = organicCount + bannedCount > 0 ? (bannedCount / (organicCount + bannedCount)) * 100 : 0;
 
-    await redis.zAdd(SUBMITTER_SUCCESS_RATE_KEY, { member: submitter, score: ratio });
+    await redis.zAdd(SUBMITTER_SUCCESS_RATE_KEY, { member: submitter, score: Math.round(ratio) });
     console.log(`Submitters: ${submitter}, now has success rate: ${ratio.toFixed(2)}%`);
 }
