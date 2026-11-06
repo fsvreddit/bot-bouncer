@@ -355,7 +355,7 @@ export async function getSummaryForUser (username: string, source: "modmail" | "
         }
 
         if (originalAccountProperties.socialLinks.length > 0 && areSocialLinksDifferent(originalAccountProperties.socialLinks, socialLinks)) {
-            summary.push({ p: `Original social links: ${uniq(originalAccountProperties.socialLinks.map(link => link.outboundUrl).join(", "))}` });
+            summary.push({ p: `Original social links: ${uniq(originalAccountProperties.socialLinks.map(link => link.outboundUrl)).join(", ")}` });
         }
     }
 
