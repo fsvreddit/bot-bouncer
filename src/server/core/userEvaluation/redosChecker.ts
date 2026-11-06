@@ -253,6 +253,13 @@ async function finaliseReDosReport (event: TaskRequest<RedosCheckerJobData>) {
     const redosHits = await redis.zRange(REDOS_HITS_KEY, 0, -1).then(entries => entries.map(entry => JSON.parse(decodedText(entry.member)) as EvaluatorRegex));
     const redosUnknown = await redis.zRange(REDOS_UNKNOWN_KEY, 0, -1).then(entries => entries.map(entry => JSON.parse(decodedText(entry.member)) as EvaluatorRegex));
 
+    const resultHash = createHash("sha256").update(JSON.stringify([...sortRegexes(redosHits), ...sortRegexes(redosUnknown)])).digest("hex");
+    const previousResultKey = "LastRedosResult";
+    if (resultHash === await redis.get(previousResultKey)) {
+        console.log("ReDoS Checker: No changes detected in ReDoS hits.");
+        return;
+    }
+
     const wikiPageName = "statistics/redos-detections";
 
     const wikiContent: json2md.DataObject[] = [
@@ -303,4 +310,6 @@ async function finaliseReDosReport (event: TaskRequest<RedosCheckerJobData>) {
     if (event.data.regexHash) {
         await redis.set(LAST_REDOS_DIGEST_KEY, event.data.regexHash);
     }
+
+    await redis.set(previousResultKey, resultHash);
 }
