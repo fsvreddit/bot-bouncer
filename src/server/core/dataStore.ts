@@ -39,10 +39,6 @@ export interface UserDetails {
     submitter?: string;
     operator?: string;
     reportedAt?: number;
-    /**
-     * @deprecated This was only used for wiki functionality, which has been removed.
-     */
-    mostRecentActivity?: number;
     flags?: UserFlag[];
 }
 
