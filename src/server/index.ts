@@ -8,7 +8,7 @@ import { handleUpgradeNotifier } from "@fsvreddit/fsv-devvit-web-helpers";
 import { handleModQueueRemovalJob } from "./tasks/handleModQueueRemoval";
 import { handlePostAndCommentMenu } from "./menus";
 import { handleControlSubForm, handleControlSubQuerySubmissionForm, handleQueryForm, handleReportForm, handleShowCurrentEvaluationResultsForm } from "./forms";
-import { handleGetEvaluatorVariables, handleGetRecentContentForUser, handleGetUserDetails, handlePostAccountForReview, handlePostExternalSubmissions } from "./api";
+import { handleGetEvaluatorVariables, handleGetRecentContentForUser, handleGetUserDetails, handlePostAccountForReview, handlePostAccountsForEvaluation, handlePostExternalSubmissions } from "./api";
 
 const application = new Hono();
 
@@ -95,10 +95,11 @@ application.post("/internal/forms/show-current-evaluation-form", handleShowCurre
 
 // External endpoints
 application.post("/external/external-submission", handlePostExternalSubmissions);
-application.get("/external/user-details/:username", handleGetUserDetails);
+application.get("/external/user-details", handleGetUserDetails);
 application.get("/external/evaluator-variables", handleGetEvaluatorVariables);
 application.post("/external/account-for-review", handlePostAccountForReview);
-application.get("/external/recent-content-for-user/:username", handleGetRecentContentForUser);
+application.get("/external/recent-content-for-user", handleGetRecentContentForUser);
+application.post("/external/accounts-for-evaluation", handlePostAccountsForEvaluation);
 
 const server = createServer(getRequestListener(application.fetch));
 server.on("error", (err) => {

@@ -23,23 +23,27 @@
         "externalEndpoints": {
             "externalSubmissions": {
                 "endpoint": "/external/external-submission",
-                "scopes": ["install"]
+                "scopes": ["global"]
             },
             "getRecentContentForUser": {
                 "endpoint": "/external/recent-content-for-user",
-                "scopes": ["install"]
+                "scopes": ["global"]
             },
             "getUserDetails": {
                 "endpoint": "/external/user-details",
-                "scopes": ["install"]
+                "scopes": ["global"]
             },
             "getEvaluatorVariables": {
                 "endpoint": "/external/evaluator-variables",
-                "scopes": ["install"]
+                "scopes": ["global"]
             },
             "postAccountForReview": {
                 "endpoint": "/external/account-for-review",
-                "scopes": ["install"]
+                "scopes": ["global"]
+            },
+            "postAccountsForEvaluation": {
+                "endpoint": "/external/accounts-for-evaluation",
+                "scopes": ["global"]
             }
         }
     },

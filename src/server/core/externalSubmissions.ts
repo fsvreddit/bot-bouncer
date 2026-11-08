@@ -53,10 +53,6 @@ export function resolveExternalSubmissionInitialStatus (
 }
 
 export async function addExternalSubmissionFromExternal (data: ExternalSubmission) {
-    if (context.subredditName === CONTROL_SUBREDDIT) {
-        throw new Error("This function must be called from a client subreddit, not the control subreddit.");
-    }
-
     const alreadyInQueue = await redis.global.zScore(EXTERNAL_SUBMISSION_QUEUE_KEY, data.username);
     if (await redis.global.zScore(EXTERNAL_SUBMISSION_QUEUE_KEY, data.username)) {
         console.log(`External Submissions: User ${data.username} is already in the external submissions queue.`);

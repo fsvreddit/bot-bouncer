@@ -2,11 +2,8 @@ import { Context } from "hono";
 import { getUserStatus } from "../core";
 
 export const handleGetUserDetails = async (c: Context): Promise<Response> => {
-    if (c.req.method !== "GET") {
-        return c.json({ error: "Method not allowed" }, 405);
-    }
+    const username = c.req.query("username");
 
-    const username = c.req.param("username");
     if (!username) {
         return c.json({ error: "Username is required" }, 400);
     }
