@@ -7,9 +7,6 @@ import { UpdateMainStatisticsPageJobData } from "../../../tasks";
 import { sum } from "lodash-es";
 
 export async function updateMainStatisticsPage (event: TaskRequest<UpdateMainStatisticsPageJobData | undefined>) {
-    // TODO: Safe, performant implementation of correctAggregateStore
-    // await correctAggregateData(entries, context);
-
     const jobGuid = event.data?.jobGuid;
     if (jobGuid && await hasEventBeenHandled(`job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
         console.warn(`Update Main Statistics Page: Job with guid ${jobGuid} has already been handled, skipping.`);
@@ -17,7 +14,7 @@ export async function updateMainStatisticsPage (event: TaskRequest<UpdateMainSta
     }
 
     let results = await redis.zRange(AGGREGATE_STORE, 0, -1);
-    results = results.filter(item => item.member !== "pending");
+    results = results.filter(item => item.member !== "pending" && item.member !== "declined");
 
     const wikiContent: json2md.DataObject[] = [];
     wikiContent.push({ h1: "Bot Bouncer statistics" });
