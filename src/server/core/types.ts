@@ -13,6 +13,7 @@ export interface ModmailMessage {
     messageAuthor: string;
     messageAuthorIsMod: boolean;
     bodyMarkdown: string;
+    firstMessageAuthor?: string;
     firstMessageBodyMarkdown?: string;
     isFirstMessage: boolean;
     isFirstParticipantReply: boolean;

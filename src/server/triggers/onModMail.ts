@@ -80,6 +80,7 @@ export const onModMail = async (c: Context): Promise<Response> => {
         messageAuthor: currentMessage.author.name ?? "",
         messageAuthorIsMod: currentMessage.author.isMod ?? false,
         bodyMarkdown: currentMessage.bodyMarkdown,
+        firstMessageAuthor: firstMessage.author?.name,
         firstMessageBodyMarkdown: firstMessage.bodyMarkdown,
         isFirstMessage,
         isFirstParticipantReply,

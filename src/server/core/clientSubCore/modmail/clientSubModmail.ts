@@ -60,7 +60,7 @@ export async function handleClientSubredditModmail (modmail: ModmailMessage) {
         });
     }
 
-    if (appSettings[AppSetting.RespondToFirstUserReply] && appSettings[AppSetting.RespondToFirstUserReplyMessage]) {
+    if (appSettings[AppSetting.RespondToFirstUserReply] && appSettings[AppSetting.RespondToFirstUserReplyMessage] && modmail.firstMessageAuthor === context.appSlug) {
         const messageTemplate = appSettings[AppSetting.RespondToFirstUserReplyMessage] as string;
 
         const message = messageTemplate
