@@ -11,7 +11,6 @@ export const onPostDelete = async (c: Context): Promise<Response> => {
         return c.json<TriggerResponse>({ message: "Wrong subreddit" }, 200);
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
     if (request.source as number !== 1) {
         // Not deleted by user.
         return c.json<TriggerResponse>({ message: "Not deleted by user" }, 200);
