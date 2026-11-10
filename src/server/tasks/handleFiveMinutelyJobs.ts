@@ -1,4 +1,4 @@
-import { context, scheduler, TaskResponse } from "@devvit/web/server";
+import { context, scheduler, TaskRequest, TaskResponse } from "@devvit/web/server";
 import type { Context } from "hono";
 import { CONTROL_SUBREDDIT, ControlSubredditJob } from "../core";
 import { AccountReviewJobData, CheckPermissionQueueItemJobData, FlaggedRechecksQueueJobData, ModmailArchiverJobData, PendingUserReevaluationJobData, RecoveredAccountsData, UnprocessedSubmissionsJobData } from ".";
@@ -6,10 +6,16 @@ import { addSeconds } from "date-fns";
 import { processHighlightedModmailQueue } from "../core/controlSubCore/modmail";
 import { gatherTokenStatistics } from "../core/controlSubCore/aiAnalysis";
 import { updateAppealStatistics, updateClassificationStatistics } from "../core/controlSubCore/statistics";
+import { hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 
 export const handleFiveMinutelyJob = async (c: Context): Promise<Response> => {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
         throw new Error("Five minutely jobs are only run in the control subreddit.");
+    }
+
+    const request = await c.req.json<TaskRequest>();
+    if (await hasEventBeenHandled(`job:${request.name}`, { expiration: addSeconds(new Date(), 10) })) {
+        return c.json<TaskResponse>({ message: "Event has already been handled." }, 200);
     }
 
     await scheduler.runJob<CheckPermissionQueueItemJobData>({

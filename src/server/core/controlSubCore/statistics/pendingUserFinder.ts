@@ -22,6 +22,11 @@ export async function pendingUserFinder (event: TaskRequest<PendingUserFinderJob
         return;
     }
 
+    if (!jobGuid && await hasEventBeenHandled(`job:pendingUserFinder`, { expiration: addSeconds(new Date(), 10) })) {
+        console.warn(`Pending User Finder: Job without guid has already been handled, skipping.`);
+        return;
+    }
+
     const allData = await getFullDataStore({
         statuses: [UserStatus.Pending],
     });

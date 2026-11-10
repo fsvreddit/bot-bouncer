@@ -1,14 +1,20 @@
 import type { Context } from "hono";
-import { context, reddit, redis, TaskResponse } from "@devvit/web/server";
+import { context, reddit, redis, TaskRequest, TaskResponse } from "@devvit/web/server";
 import { CONTROL_SUBREDDIT, getControlSubSettings, sendMessageToWebhook } from "../core";
 import { ControlSubSettings } from "@fsvreddit/bot-bouncer-types";
-import { formatDistanceToNow } from "date-fns";
+import { addSeconds, formatDistanceToNow } from "date-fns";
 import json2md from "json2md";
+import { hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 
 export const handleUptimeMonitor = async (c: Context): Promise<Response> => {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
         console.error("Uptime and message check is only for the control subreddit.");
         return c.json<TaskResponse>({ message: "Wrong subreddit" }, 200);
+    }
+
+    const request = await c.req.json<TaskRequest>();
+    if (await hasEventBeenHandled(`job:${request.name}`, { expiration: addSeconds(new Date(), 10) })) {
+        return c.json<TaskResponse>({ message: "Event has already been handled." }, 200);
     }
 
     const settings = await getControlSubSettings();

@@ -19,7 +19,7 @@ export const handleSixHourlyJob = async (c: Context): Promise<Response> => {
     }
 
     const jobGuid = event.data?.jobGuid;
-    if (jobGuid && await hasEventBeenHandled(`job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+    if (await hasEventBeenHandled(`job:${jobGuid ?? event.name}`, { expiration: addMinutes(new Date(), 5) })) {
         console.warn(`6 Hourly Jobs: Job with guid ${jobGuid} has already been handled, skipping.`);
         return c.json<TaskResponse>({ message: "Job has already been handled." }, 200);
     }
@@ -95,7 +95,7 @@ export const handleSixHourlyJobPart2 = async (c: Context): Promise<Response> => 
     const event = await c.req.json<TaskRequest<SixHourlyJobData | undefined>>();
 
     const jobGuid = event.data?.jobGuid;
-    if (jobGuid && await hasEventBeenHandled(`job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+    if (await hasEventBeenHandled(`job:${jobGuid ?? event.name}`, { expiration: addMinutes(new Date(), 5) })) {
         console.warn(`6 Hourly Jobs Part 2: Job with guid ${jobGuid} has already been handled, skipping.`);
         return c.json<TaskResponse>({ message: "Job has already been handled." }, 200);
     }

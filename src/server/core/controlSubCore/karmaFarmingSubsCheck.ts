@@ -225,6 +225,11 @@ export async function evaluateKarmaFarmingSubs (event: TaskRequest<EvaluateKarma
         return;
     }
 
+    if (!jobGuid && await hasEventBeenHandled(`job:${ControlSubredditJob.EvaluateKarmaFarmingSubs}`, { expiration: addSeconds(new Date(), 10) })) {
+        console.warn(`Karma Farming Subs: Job without guid has already been handled, skipping.`);
+        return;
+    }
+
     if (event.data.firstRun && !event.data.cohort) {
         if (await hasEventBeenHandled(`job:${ControlSubredditJob.EvaluateKarmaFarmingSubs}`, { expiration: addSeconds(new Date(), 5) })) {
             console.warn(`Karma Farming Subs: First run for job ${ControlSubredditJob.EvaluateKarmaFarmingSubs} has already been handled, skipping.`);

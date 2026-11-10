@@ -7,7 +7,7 @@ export type PendingUserFinderJobData = {
 };
 
 export const handlePendingUserFinderJob = async (c: Context): Promise<Response> => {
-    const jobRequest = await c.req.json<TaskRequest<PendingUserFinderJobData>>();
+    const jobRequest = await c.req.json<TaskRequest<PendingUserFinderJobData | undefined>>();
 
     await pendingUserFinder(jobRequest);
 
