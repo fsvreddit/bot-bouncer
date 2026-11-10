@@ -44,6 +44,10 @@
             "postAccountsForEvaluation": {
                 "endpoint": "/external/accounts-for-evaluation",
                 "scopes": ["global"]
+            },
+            "postSetCleanup": {
+                "endpoint": "/external/set-cleanup",
+                "scopes": ["global"]
             }
         }
     },
