@@ -103,6 +103,11 @@ export async function cleanupDeletedAccounts (event: TaskRequest<CleanupJobData>
         return;
     }
 
+    if (!jobGuid && await hasEventBeenHandled(`job:cleanup`, { expiration: addSeconds(new Date(), 10) })) {
+        console.warn(`Cleanup: Job without guid has already been handled, skipping.`);
+        return;
+    }
+
     const items = await redis.zRange(CLEANUP_LOG_KEY, 0, new Date().getTime(), { by: "score" });
     if (items.length === 0) {
         return;

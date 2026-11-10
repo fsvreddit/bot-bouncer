@@ -1,5 +1,5 @@
 import { context, reddit, redis, scheduler, TaskRequest } from "@devvit/web/server";
-import { hasPermissions, isModerator } from "@fsvreddit/fsv-devvit-web-helpers";
+import { hasEventBeenHandled, hasPermissions, isModerator } from "@fsvreddit/fsv-devvit-web-helpers";
 import { CONTROL_SUBREDDIT } from "./constants";
 import { addDays, addHours, addMinutes, addSeconds, addWeeks, format, subDays, subWeeks } from "date-fns";
 import json2md from "json2md";
@@ -43,8 +43,13 @@ export async function checkPermissionQueueItems (event: TaskRequest<CheckPermiss
     }
 
     const jobGuid = event.data.jobGuid;
-    if (jobGuid && await redis.exists(`jobHandled:${jobGuid}`)) {
+    if (jobGuid && await hasEventBeenHandled(`job:${jobGuid}`, { expiration: addMinutes(new Date(), 10) })) {
         console.warn(`Permission Checks: Job with guid ${jobGuid} has already been handled, skipping.`);
+        return;
+    }
+
+    if (!jobGuid && await hasEventBeenHandled(`job:permissionChecks`, { expiration: addSeconds(new Date(), 10) })) {
+        console.warn(`Permission Checks: Job without guid has already been handled, skipping.`);
         return;
     }
 
