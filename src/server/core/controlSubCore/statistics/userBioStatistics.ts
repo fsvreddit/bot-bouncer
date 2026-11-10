@@ -1,4 +1,4 @@
-import { redis, scheduler, TaskRequest, UpdateWikiPageOptions } from "@devvit/web/server";
+import { redis, scheduler, TaskRequest } from "@devvit/web/server";
 import { addHours, addMinutes, addSeconds, format, subWeeks } from "date-fns";
 import json2md from "json2md";
 import { StatsUserEntry, userIsBanned } from "./statsHelpers";
@@ -6,7 +6,7 @@ import { BIO_TEXT_STORE, ControlSubredditJob, decodedText, encodedText, expireKe
 import { hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import { getEvaluatorVariable, getRedisSubstitionValue, setRedisSubstititionValue } from "../../userEvaluation";
 import escapeStringRegexp from "escape-string-regexp";
-import { BioStatsJobData } from "../../../tasks";
+import { AsyncWikiUpdateJobData, BioStatsJobData } from "../../../tasks";
 import { createHash } from "node:crypto";
 import { chunk } from "lodash-es";
 
@@ -313,14 +313,15 @@ export async function generateBioStatisticsReport (event: TaskRequest<BioStatsJo
     }
 
     console.log("Bio Stats: Updating bio statistics wiki page");
-    const wikiUpdateData: UpdateWikiPageOptions = {
+    const wikiUpdateData: AsyncWikiUpdateJobData = {
+        jobGuid: crypto.randomUUID(),
         subredditName: "botbouncer",
         page: "statistics/biotext",
         content: json2md(content),
     };
 
     console.log(`Bio Stats: Queueing wiki update job for biotext stats`);
-    await scheduler.runJob<UpdateWikiPageOptions>({
+    await scheduler.runJob<AsyncWikiUpdateJobData>({
         name: ControlSubredditJob.AsyncWikiUpdate,
         data: wikiUpdateData,
         runAt: new Date(),

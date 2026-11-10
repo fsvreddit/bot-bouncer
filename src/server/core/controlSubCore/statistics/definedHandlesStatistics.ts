@@ -1,4 +1,4 @@
-import { context, Post, reddit, redis, scheduler, TaskRequest, UpdateWikiPageOptions, ZMember } from "@devvit/web/server";
+import { context, Post, reddit, redis, scheduler, TaskRequest, ZMember } from "@devvit/web/server";
 import { addHours, addMinutes, addSeconds, format, subMinutes, subMonths, subWeeks } from "date-fns";
 import { BIO_TEXT_STORE, ControlSubredditJob, DISPLAY_NAME_STORE, expireKeyAt, getDataStoreFiltered, hMGetAsRecord, USER_DEFINED_HANDLES_POSTS } from "../..";
 import { UserStatus } from "@fsvreddit/bot-bouncer-types";
@@ -7,7 +7,7 @@ import { hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import json2md from "json2md";
 import { getEvaluatorVariable } from "../../userEvaluation";
 import { parse } from "regjsparser";
-import { DefinedHandlesStatsInitializerJobData, DefinedHandlesStatsJobData, StoreDefinedHandlesDataJobData } from "../../../tasks";
+import { AsyncWikiUpdateJobData, DefinedHandlesStatsInitializerJobData, DefinedHandlesStatsJobData, StoreDefinedHandlesDataJobData } from "../../../tasks";
 import pluralize from "pluralize";
 import { fromPairs } from "lodash-es";
 
@@ -293,10 +293,11 @@ async function buildDefinedHandlesWikiPage () {
     wikiContent.push({ p: "Existing defined handles, sorted:" });
     wikiContent.push({ p: `\`${existingDefinedHandles.map(entry => entry.handle).join("|")}\`` });
 
-    await scheduler.runJob<UpdateWikiPageOptions>({
+    await scheduler.runJob<AsyncWikiUpdateJobData>({
         name: ControlSubredditJob.AsyncWikiUpdate,
         runAt: new Date(),
         data: {
+            jobGuid: crypto.randomUUID(),
             subredditName: context.subredditName,
             page: "statistics/definedhandles",
             content: json2md(wikiContent),

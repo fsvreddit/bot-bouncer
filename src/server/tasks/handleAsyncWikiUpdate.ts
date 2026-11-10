@@ -1,9 +1,21 @@
 import { reddit, TaskRequest, UpdateWikiPageOptions, TaskResponse } from "@devvit/web/server";
-import { differenceInSeconds } from "date-fns";
+import { hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
+import { addMinutes, differenceInSeconds } from "date-fns";
 import { Context } from "hono";
 
+export type AsyncWikiUpdateJobData = UpdateWikiPageOptions & {
+    jobGuid: string;
+};
+
 export const handleAsyncWikiUpdateJob = async (c: Context): Promise<Response> => {
-    const request = await c.req.json<TaskRequest<UpdateWikiPageOptions>>();
+    const request = await c.req.json<TaskRequest<AsyncWikiUpdateJobData>>();
+
+    if (await hasEventBeenHandled(`job:${request.data.jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
+        console.warn(`Async Wiki Update Job: Job with guid ${request.data.jobGuid} has already been handled, skipping.`);
+        return c.json<TaskResponse>({
+            success: false,
+        }, 200);
+    }
 
     const now = Date.now();
 

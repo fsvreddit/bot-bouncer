@@ -1,11 +1,11 @@
-import { context, redis, scheduler, UpdateWikiPageOptions, UserSocialLink } from "@devvit/web/server";
+import { context, redis, scheduler, UserSocialLink } from "@devvit/web/server";
 import { addHours, addMinutes, addSeconds, format, subMinutes, subMonths, subWeeks } from "date-fns";
 import { ALL_POTENTIAL_USER_PREFIXES, ControlSubredditJob, domainFromUrl, expireKeyAt, getDataStoreFiltered, hGetAllChunked, hMGetAsRecord, hSetChunked, SOCIAL_LINKS_STORE, zRangeAsRecord } from "../..";
 import { FLAGS_TO_EXCLUDE_FROM_STATS, userIsBanned } from "./statsHelpers";
 import { getEvaluatorVariable, getRedisSubstitionValue, setRedisSubstititionValue } from "../../userEvaluation";
 import json2md from "json2md";
 import { compact, uniq } from "lodash-es";
-import { SocialLinksStatisticsJobData } from "../../../tasks";
+import { AsyncWikiUpdateJobData, SocialLinksStatisticsJobData } from "../../../tasks";
 import { UserStatus } from "@fsvreddit/bot-bouncer-types";
 
 export function cleanLink (input: string): string {
@@ -407,10 +407,11 @@ export async function handleSocialLinksStatisticsFinalise () {
 
     const wikiPageName = "statistics/social-links";
 
-    await scheduler.runJob<UpdateWikiPageOptions>({
+    await scheduler.runJob<AsyncWikiUpdateJobData>({
         name: ControlSubredditJob.AsyncWikiUpdate,
         runAt: addSeconds(new Date(), 1),
         data: {
+            jobGuid: crypto.randomUUID(),
             subredditName: context.subredditName,
             page: wikiPageName,
             content: json2md(wikiContent),
