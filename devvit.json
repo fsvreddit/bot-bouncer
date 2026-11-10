@@ -320,9 +320,6 @@
             "notifyModTeamOnDemod": {
                 "endpoint": "/internal/tasks/notify-mod-team-on-demod"
             },
-            "observerSubMinutelyJob": {
-                "endpoint": "/internal/tasks/observer-sub-minutely-job"
-            },
             "openAISummary": {
                 "endpoint": "/internal/tasks/openai-summary-gather"
             },

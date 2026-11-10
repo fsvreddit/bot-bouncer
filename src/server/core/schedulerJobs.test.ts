@@ -1,13 +1,12 @@
 import assert from "node:assert/strict";
 import { describe, it } from "vitest";
 import devvitConfig from "../../../devvit.json";
-import { ClientSubredditJob, ControlSubredditJob, ObserverSubredditJob, UniversalJob } from "./schedulerJobNames.js";
+import { ClientSubredditJob, ControlSubredditJob, UniversalJob } from "./schedulerJobNames.js";
 
 const allEnumJobValues = [
     ...Object.values(UniversalJob),
     ...Object.values(ControlSubredditJob),
     ...Object.values(ClientSubredditJob),
-    ...Object.values(ObserverSubredditJob),
 ].sort() as string[];
 
 const devvitJobNames = Object.keys(devvitConfig.scheduler.tasks).sort();

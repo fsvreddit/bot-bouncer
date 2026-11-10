@@ -4,11 +4,11 @@ import { getControlSubSettings } from "./controlSubSettings";
 import { CONTROL_SUBREDDIT } from "./constants";
 import { UpgradeNotifierData } from "@fsvreddit/fsv-devvit-web-helpers";
 import { AppSetting } from "./appSettings";
-import { ClientSubredditJob, ControlSubredditJob, handleExternalSubmissionsPageUpdate, ObserverSubredditJob, UniversalJob } from ".";
+import { ClientSubredditJob, ControlSubredditJob, handleExternalSubmissionsPageUpdate, UniversalJob } from ".";
 import { CleanupJobData, EvaluateKarmaFarmingSubsEventData, UpdateEvaluatorVariablesFromWikiEventData } from "../tasks";
 import { forceEvaluatorVariablesRefresh } from "./userEvaluation";
 
-export { UniversalJob, ControlSubredditJob, ClientSubredditJob, ObserverSubredditJob } from "./schedulerJobNames.js";
+export { UniversalJob, ControlSubredditJob, ClientSubredditJob } from "./schedulerJobNames.js";
 
 export async function addControlSubredditJobs () {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
@@ -87,11 +87,7 @@ export async function addClientSubredditJobs () {
 
     const controlSubSettings = await getControlSubSettings();
     if (controlSubSettings.observerSubreddits?.includes(context.subredditName)) {
-        await scheduler.runJob({
-            name: ObserverSubredditJob.HandleObserverSubMinutelyJob,
-            cron: "* * * * *",
-        });
-
+        console.log("Observer subreddit detected, skipping client subreddit jobs");
         return;
     }
 
@@ -160,7 +156,6 @@ export async function checkJobsAreApplicable () {
         allowableJobs.push(...Object.values(ControlSubredditJob) as string[]);
     } else {
         allowableJobs.push(...Object.values(ClientSubredditJob) as string[]);
-        allowableJobs.push(...Object.values(ObserverSubredditJob) as string[]);
     }
 
     const badJobs = allJobs.filter(job => !allowableJobs.includes(job.name));

@@ -14,7 +14,6 @@ export * from "./handleEvaluatorVariableUpdateFromWiki.js";
 export * from "./handleFlaggedUserRechecks.js";
 export * from "./handleModmailArchiver.js";
 export * from "./handleNotifyModTeamOnDemod.js";
-export * from "./handleObserverSubMinutelyJob.js";
 export * from "./handleOpenAI.js";
 export * from "./handlePendingUserReevaluation.js";
 export * from "./handlePermissionChecks.js";

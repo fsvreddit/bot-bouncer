@@ -67,10 +67,3 @@ export enum ClientSubredditJob {
     PermissionCheckEnqueue = "permissionCheckEnqueue",
     ClientSubAnnouncements = "clientSubAnnouncements",
 }
-
-/**
- * Job names: Observer Subreddit
- */
-export enum ObserverSubredditJob {
-    HandleObserverSubMinutelyJob = "observerSubMinutelyJob",
-}
