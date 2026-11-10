@@ -236,162 +236,58 @@
     },
     "scheduler": {
         "tasks": {
-            "accountReview": {
-                "endpoint": "/internal/tasks/account-review"
-            },
-            "asyncWikiUpdate": {
-                "endpoint": "/internal/tasks/async-wiki-update"
-            },
-            "autoAccountRecovery": {
-                "endpoint": "/internal/tasks/auto-account-recovery"
-            },
-            "bioStatsUpdate": {
-                "endpoint": "/internal/tasks/bio-stats-update"
-            },
-            "bioStatsGenerateReport": {
-                "endpoint": "/internal/tasks/bio-stats-generate-report"
-            },
-            "checkPermissionQueueItems": {
-                "endpoint": "/internal/tasks/check-permission-queue-items"
-            },
-            "classificationReversals": {
-                "endpoint": "/internal/tasks/classification-reversals"
-            },
-            "cleanupJob": {
-                "endpoint": "/internal/tasks/cleanup-job"
-            },
-            "clientSubAnnouncements": {
-                "endpoint": "/internal/tasks/client-sub-announcements"
-            },
-            "conditionalStatsUpdate": {
-                "endpoint": "/internal/tasks/conditional-stats-update"
-            },
-            "continueDataExtract": {
-                "endpoint": "/internal/tasks/continue-data-extract"
-            },
-            "createSummaries": {
-                "endpoint": "/internal/tasks/create-summaries-for-pending-users"
-            },
-            "definedHandlesStatisticsInitialiser": {
-                "endpoint": "/internal/tasks/defined-handles-statistics-initialiser"
-            },
-            "definedHandlesStatistics": {
-                "endpoint": "/internal/tasks/defined-handles-statistics"
-            },
-            "definedHandlesPostStore": {
-                "endpoint": "/internal/tasks/defined-handles-post-store"
-            },
-            "deleteRecordsForRemovedUsers": {
-                "endpoint": "/internal/tasks/delete-records-for-removed-users"
-            },
-            "evaluateKarmaFarmingSubs": {
-                "endpoint": "/internal/tasks/evaluate-karma-farming-subs"
-            },
-            "evaluateUser": {
-                "endpoint": "/internal/tasks/evaluate-user"
-            },
-            "evaluatorAccuracyStatisticsInitialiser": {
-                "endpoint": "/internal/tasks/evaluator-accuracy-statistics-initialiser"
-            },
-            "evaluatorAccuracyStatistics": {
-                "endpoint": "/internal/tasks/evaluator-accuracy-statistics"
-            },
-            "evaluatorReDoSChecker": {
-                "endpoint": "/internal/tasks/evaluator-redos-checker"
-            },
-            "externalSubmissionsQueue": {
-                "endpoint": "/internal/tasks/external-submissions-queue"
-            },
-            "flaggedUsersRechecks": {
-                "endpoint": "/internal/tasks/flagged-user-rechecks"
-            },
-            "handleClassificationChanges": {
-                "endpoint": "/internal/tasks/handle-classification-changes"
-            },
-            "handleConfigWikiChange": {
-                "endpoint": "/internal/tasks/handle-config-wiki-change"
-            },
-            "mainStatisticsUpdate": {
-                "endpoint": "/internal/tasks/main-statistics-update"
-            },
-            "modmailArchiver": {
-                "endpoint": "/internal/tasks/modmail-archiver"
-            },
-            "notifyModTeamOnDemod": {
-                "endpoint": "/internal/tasks/notify-mod-team-on-demod"
-            },
-            "openAISummary": {
-                "endpoint": "/internal/tasks/openai-summary-gather"
-            },
-            "openAISummaryLookup": {
-                "endpoint": "/internal/tasks/openai-summary-lookup"
-            },
-            "openAIUpdateTokenStatsMessage": {
-                "endpoint": "/internal/tasks/openai-update-token-stats-message"
-            },
-            "pendingUserFinder": {
-                "endpoint": "/internal/tasks/pending-user-finder"
-            },
-            "pendingUserReevaluation": {
-                "endpoint": "/internal/tasks/pending-user-reevaluation"
-            },
-            "perform5MinutelyJobs": {
-                "endpoint": "/internal/tasks/perform-5-minutely-jobs"
-            },
-            "performMinutelyJobs": {
-                "endpoint": "/internal/tasks/perform-minutely-jobs"
-            },
-            "perform6HourlyJobs": {
-                "endpoint": "/internal/tasks/perform-6-hourly-jobs"
-            },
-            "perform6HourlyJobsPart2": {
-                "endpoint": "/internal/tasks/perform-6-hourly-jobs-part2"
-            },
-            "permissionCheckEnqueue": {
-                "endpoint": "/internal/tasks/permission-check-enqueue"
-            },
-            "postCreationQueueReversals": {
-                "endpoint": "/internal/tasks/post-creation-queue-reversals"
-            },
-            "processDelayedMessages": {
-                "endpoint": "/internal/tasks/process-delayed-messages"
-            },
-            "queueKarmaFarmingSubs": {
-                "endpoint": "/internal/tasks/queue-karma-farming-subs"
-            },
-            "queueReclassificationChanges": {
-                "endpoint": "/internal/tasks/queue-reclassification-changes"
-            },
-            "rapidJob": {
-                "endpoint": "/internal/tasks/rapid-job"
-            },
-            "removeUsersFromModqueueAfterBan": {
-                "endpoint": "/internal/tasks/remove-users-from-modqueue-after-ban"
-            },
-            "sendDailyDigest": {
-                "endpoint": "/internal/tasks/send-daily-digest"
-            },
-            "socialLinksStatistics": {
-                "endpoint": "/internal/tasks/social-links-statistics"
-            },
-            "startDataExtract": {
-                "endpoint": "/internal/tasks/start-data-extract"
-            },
-            "unprocessedSubmissionsHandler": {
-                "endpoint": "/internal/tasks/unprocessed-submissions-handler"
-            },
-            "updateEvaluatorVariables": {
-                "endpoint": "/internal/tasks/update-evaluator-variables"
-            },
-            "updateSubmitterSuccessRate": {
-                "endpoint": "/internal/tasks/update-submitter-success-rate"
-            },
-            "upgradeNotifier": {
-                "endpoint": "/internal/tasks/upgrade-notifier"
-            },
-            "uptimeAndMessageCheck": {
-                "endpoint": "/internal/tasks/uptime-monitor"
-            }
+            "accountReview": "/internal/tasks/account-review",
+            "asyncWikiUpdate": "/internal/tasks/async-wiki-update",
+            "autoAccountRecovery": "/internal/tasks/auto-account-recovery",
+            "bioStatsUpdate": "/internal/tasks/bio-stats-update",
+            "bioStatsGenerateReport": "/internal/tasks/bio-stats-generate-report",
+            "checkPermissionQueueItems": "/internal/tasks/check-permission-queue-items",
+            "classificationReversals": "/internal/tasks/classification-reversals",
+            "cleanupJob": "/internal/tasks/cleanup-job",
+            "clientSubAnnouncements": "/internal/tasks/client-sub-announcements",
+            "conditionalStatsUpdate": "/internal/tasks/conditional-stats-update",
+            "continueDataExtract": "/internal/tasks/continue-data-extract",
+            "createSummaries": "/internal/tasks/create-summaries-for-pending-users",
+            "definedHandlesStatisticsInitialiser": "/internal/tasks/defined-handles-statistics-initialiser",
+            "definedHandlesStatistics": "/internal/tasks/defined-handles-statistics",
+            "definedHandlesPostStore": "/internal/tasks/defined-handles-post-store",
+            "deleteRecordsForRemovedUsers": "/internal/tasks/delete-records-for-removed-users",
+            "evaluateKarmaFarmingSubs": "/internal/tasks/evaluate-karma-farming-subs",
+            "evaluateUser": "/internal/tasks/evaluate-user",
+            "evaluatorAccuracyStatisticsInitialiser": "/internal/tasks/evaluator-accuracy-statistics-initialiser",
+            "evaluatorAccuracyStatistics": "/internal/tasks/evaluator-accuracy-statistics",
+            "evaluatorReDoSChecker": "/internal/tasks/evaluator-redos-checker",
+            "externalSubmissionsQueue": "/internal/tasks/external-submissions-queue",
+            "flaggedUsersRechecks": "/internal/tasks/flagged-user-rechecks",
+            "handleClassificationChanges": "/internal/tasks/handle-classification-changes",
+            "handleConfigWikiChange": "/internal/tasks/handle-config-wiki-change",
+            "mainStatisticsUpdate": "/internal/tasks/main-statistics-update",
+            "modmailArchiver": "/internal/tasks/modmail-archiver",
+            "notifyModTeamOnDemod": "/internal/tasks/notify-mod-team-on-demod",
+            "openAISummary": "/internal/tasks/openai-summary-gather",
+            "openAISummaryLookup": "/internal/tasks/openai-summary-lookup",
+            "openAIUpdateTokenStatsMessage": "/internal/tasks/openai-update-token-stats-message",
+            "pendingUserFinder": "/internal/tasks/pending-user-finder",
+            "pendingUserReevaluation": "/internal/tasks/pending-user-reevaluation",
+            "perform5MinutelyJobs": "/internal/tasks/perform-5-minutely-jobs",
+            "performMinutelyJobs": "/internal/tasks/perform-minutely-jobs",
+            "perform6HourlyJobs": "/internal/tasks/perform-6-hourly-jobs",
+            "perform6HourlyJobsPart2": "/internal/tasks/perform-6-hourly-jobs-part2",
+            "permissionCheckEnqueue": "/internal/tasks/permission-check-enqueue",
+            "postCreationQueueReversals": "/internal/tasks/post-creation-queue-reversals",
+            "processDelayedMessages": "/internal/tasks/process-delayed-messages",
+            "queueKarmaFarmingSubs": "/internal/tasks/queue-karma-farming-subs",
+            "queueReclassificationChanges": "/internal/tasks/queue-reclassification-changes",
+            "rapidJob": "/internal/tasks/rapid-job",
+            "removeUsersFromModqueueAfterBan": "/internal/tasks/remove-users-from-modqueue-after-ban",
+            "sendDailyDigest": "/internal/tasks/send-daily-digest",
+            "socialLinksStatistics": "/internal/tasks/social-links-statistics",
+            "startDataExtract": "/internal/tasks/start-data-extract",
+            "unprocessedSubmissionsHandler": "/internal/tasks/unprocessed-submissions-handler",
+            "updateEvaluatorVariables": "/internal/tasks/update-evaluator-variables",
+            "updateSubmitterSuccessRate": "/internal/tasks/update-submitter-success-rate",
+            "upgradeNotifier": "/internal/tasks/upgrade-notifier",
+            "uptimeAndMessageCheck": "/internal/tasks/uptime-monitor"
         }
     },
     "triggers": {
