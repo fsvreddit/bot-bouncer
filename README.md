@@ -58,6 +58,7 @@ If an account was banned by Bot Bouncer on a sub but successfully appeals via r/
 * Content removals now consistently use "remove" rather than a mix of "remove" and "spam"
 * New evaluation capabilities for certain styles of NSFW account
 * Fix issue that could result in the "Report User to r/BotBouncer" menu item to report that mods are not authorized to submit
+* Shorten time taken to bring up the "Report user" form
 
 For older versions, please see the [full changelog](https://github.com/fsvreddit/bot-bouncer/blob/main/changelog.md).
 

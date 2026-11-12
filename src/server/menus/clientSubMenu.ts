@@ -1,4 +1,4 @@
-import { context, reddit } from "@devvit/web/server";
+import { context } from "@devvit/web/server";
 import type { MenuItemRequest, T1, T3, UiResponse } from "@devvit/web/shared";
 import { addMinutes } from "date-fns";
 import { getPostOrCommentById, getUserOrUndefined } from "@fsvreddit/fsv-devvit-web-helpers";
@@ -16,7 +16,11 @@ enum QueryFormField {
 }
 
 export const handleClientSubredditMenu = async (request: MenuItemRequest): Promise<UiResponse> => {
-    const target = await getPostOrCommentById(request.targetId as T1 | T3);
+    if (!context.username) {
+        return {
+            showToast: "You must be logged in to report users to Bot Bouncer.",
+        };
+    }
 
     const controlSubSettings = await getControlSubSettings();
     if (!controlSubSettings.allowNewSubmissions) {
@@ -24,6 +28,8 @@ export const handleClientSubredditMenu = async (request: MenuItemRequest): Promi
             showToast: "Bot Bouncer is not currently accepting new submissions.",
         };
     }
+
+    const target = await getPostOrCommentById(request.targetId as T1 | T3);
 
     const currentStatus = await getUserStatus(target.authorName);
     if (currentStatus) {
@@ -59,16 +65,8 @@ export const handleClientSubredditMenu = async (request: MenuItemRequest): Promi
         };
     }
 
-    const currentUser = await reddit.getCurrentUser();
-
-    if (!currentUser) {
-        return {
-            showToast: "You must be logged in to report users to Bot Bouncer.",
-        };
-    }
-
     const reporterBlacklist = new Set(controlSubSettings.reporterBlacklist.map(entry => entry.toLowerCase()));
-    if (reporterBlacklist.has(currentUser.username.toLowerCase())) {
+    if (reporterBlacklist.has(context.username.toLowerCase())) {
         return {
             showToast: "You are not currently permitted to submit bots to r/BotBouncer. Please write in to modmail if you believe this is a mistake",
         };
@@ -80,40 +78,43 @@ export const handleClientSubredditMenu = async (request: MenuItemRequest): Promi
         };
     }
 
-    if (target.authorName === currentUser.username) {
+    if (target.authorName === context.username) {
         return {
             showToast: "You cannot report yourself.",
         };
     }
 
-    const reportingUserStatus = await getUserStatus(currentUser.username);
+    const [reportingUserStatus, reportedUserIsMod, submitterIsBanned, targetUser, userFeedbackPreference] = await Promise.all([
+        getUserStatus(context.username),
+        isModeratorWithCache(target.authorName),
+        isBannedWithCache(context.username, CONTROL_SUBREDDIT, addMinutes(new Date(), 10)),
+        getUserOrUndefined(target.authorName),
+        getUserFeedbackPreference(context.username),
+    ]);
+
     if (reportingUserStatus?.userStatus === UserStatus.Banned) {
         return {
             showToast: "You are currently listed as a bot on r/BotBouncer, so you cannot report other users.",
         };
     }
 
-    if (await isModeratorWithCache(target.authorName)) {
+    if (reportedUserIsMod) {
         return {
             showToast: "You cannot report a moderator of this subreddit.",
         };
     }
 
-    if (await isBannedWithCache(currentUser.username, CONTROL_SUBREDDIT, addMinutes(new Date(), 10))) {
+    if (submitterIsBanned) {
         return {
             showToast: "You are currently banned from r/BotBouncer, so you cannot report other users.",
         };
     }
 
-    const user = await getUserOrUndefined(target.authorName);
-
-    if (!user) {
+    if (!targetUser) {
         return {
             showToast: `${target.authorName} appears to be shadowbanned or suspended.`,
         };
     }
-
-    const userFeedbackPreference = await getUserFeedbackPreference(currentUser.username);
 
     return {
         showForm: {
