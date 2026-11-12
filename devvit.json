@@ -48,6 +48,10 @@
             "postSetCleanup": {
                 "endpoint": "/external/set-cleanup",
                 "scopes": ["global"]
+            },
+            "postUpdateStats": {
+                "endpoint": "/external/update-stats",
+                "scopes": ["global"]
             }
         }
     },

@@ -8,7 +8,7 @@ import { handleUpgradeNotifier } from "@fsvreddit/fsv-devvit-web-helpers";
 import { handleModQueueRemovalJob } from "./tasks/handleModQueueRemoval";
 import { handlePostAndCommentMenu } from "./menus";
 import { handleControlSubForm, handleControlSubQuerySubmissionForm, handleQueryForm, handleReportForm, handleShowCurrentEvaluationResultsForm } from "./forms";
-import { handleGetEvaluatorVariables, handleGetRecentContentForUser, handleGetUserDetails, handlePostAccountForReview, handlePostAccountsForEvaluation, handlePostExternalSubmissions, handlePostSetCleanup } from "./api";
+import { handleGetEvaluatorVariables, handleGetRecentContentForUser, handleGetUserDetails, handlePostAccountForReview, handlePostAccountsForEvaluation, handlePostExternalSubmissions, handlePostSetCleanup, handlePostUpdateStats } from "./api";
 
 const application = new Hono();
 
@@ -100,6 +100,7 @@ application.post("/external/account-for-review", handlePostAccountForReview);
 application.get("/external/recent-content-for-user", handleGetRecentContentForUser);
 application.post("/external/accounts-for-evaluation", handlePostAccountsForEvaluation);
 application.post("/external/set-cleanup", handlePostSetCleanup);
+application.post("/external/update-stats", handlePostUpdateStats);
 
 const server = createServer(getRequestListener(application.fetch));
 server.on("error", (err) => {

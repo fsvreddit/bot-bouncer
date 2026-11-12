@@ -5,3 +5,4 @@ export * from "./postAccountForReview.js";
 export * from "./postExternalSubmissions.js";
 export * from "./postAccountsForEvaluation.js";
 export * from "./postSetCleanup.js";
+export * from "./postUpdateStats.js";
