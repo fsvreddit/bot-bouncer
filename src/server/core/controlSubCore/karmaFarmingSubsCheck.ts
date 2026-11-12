@@ -231,10 +231,6 @@ export async function evaluateKarmaFarmingSubs (event: TaskRequest<EvaluateKarma
     }
 
     if (event.data.firstRun && !event.data.cohort) {
-        if (await hasEventBeenHandled(`job:${ControlSubredditJob.EvaluateKarmaFarmingSubs}`, { expiration: addSeconds(new Date(), 5) })) {
-            console.warn(`Karma Farming Subs: First run for job ${ControlSubredditJob.EvaluateKarmaFarmingSubs} has already been handled, skipping.`);
-            return;
-        }
         try {
             await rebalanceCohorts();
         } catch (error) {
