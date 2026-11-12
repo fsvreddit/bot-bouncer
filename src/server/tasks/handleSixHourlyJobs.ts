@@ -81,6 +81,11 @@ export const handleSixHourlyJob = async (c: Context): Promise<Response> => {
     const allValues = Object.values(allData);
     console.log(`6 Hourly Jobs: Processing statistics for ${allValues.length} user records.`);
 
+    if (allValues.length === 0) {
+        console.error("6 Hourly Jobs: No user entries found in the data store.");
+        return c.json<TaskResponse>({ message: "No user entries found in the data store." }, 200);
+    }
+
     await Promise.all([
         createTimeOfSubmissionStatistics(allValues),
         analyseBioText(),
@@ -108,6 +113,11 @@ export const handleSixHourlyJobPart2 = async (c: Context): Promise<Response> => 
     const allEntries = Object.entries(allData)
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
         .map(([key, value]) => ({ username: key, data: value } as StatsUserEntry));
+
+    if (allEntries.length === 0) {
+        console.error("6 Hourly Jobs Part 2: No user entries found in the data store.");
+        return c.json<TaskResponse>({ message: "No user entries found in the data store." }, 200);
+    }
 
     await Promise.all([
         updateUsernameStatistics(allEntries),
