@@ -226,7 +226,6 @@ export async function updateSubmitterSuccessRate (submitter: string) {
     const thresholdForSubmitterCalculation = controlSubSettings.thresholdForSubmitterCalculation ?? DEFAULT_THRESHOLD_FOR_SUBMITTER_CALCULATION;
 
     if (organicCount + bannedCount < thresholdForSubmitterCalculation) {
-        await redis.zRem(SUBMITTER_SUCCESS_RATE_KEY, [submitter]);
         return;
     }
 
