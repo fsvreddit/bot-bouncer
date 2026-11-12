@@ -207,8 +207,6 @@ export async function handleControlSubredditModmail (modmail: ModmailMessage) {
                     }
                 }
 
-                console.log(`Modmail: ${responseForModmail}`);
-
                 await reddit.modMail.reply({
                     conversationId: modmail.conversationId,
                     body: responseForModmail,

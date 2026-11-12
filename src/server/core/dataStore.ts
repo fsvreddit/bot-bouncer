@@ -422,7 +422,7 @@ export async function setUserStatusAndFlair (opts: {
     };
 
     if (returnValue.statusSet && returnValue.flairSet) {
-        console.log(`Data Store: Successfully set status to ${newStatusValue} for ${opts.username}`);
+        console.log(`Data Store: Set status to ${newStatusValue} for ${opts.username}`);
     } else {
         console.error(`Data Store: Failed to set status or flair for ${opts.username}. Status set: ${returnValue.statusSet}, Flair set: ${returnValue.flairSet}`);
     }
