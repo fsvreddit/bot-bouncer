@@ -158,8 +158,7 @@ export const handleSixHourlyJobPart2 = async (c: Context): Promise<Response> => 
     const allData = await redis.hGetAll(allDataKey);
 
     const allEntries = Object.entries(allData)
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
-        .map(([key, value]) => ({ username: key, data: JSON.parse(value) as UserDetails } as StatsUserEntry));
+        .map(([key, value]) => ({ username: key, data: JSON.parse(value) as UserDetails } satisfies StatsUserEntry));
 
     await redis.del(allDataKey);
 
