@@ -4,7 +4,7 @@ import { getEvaluatorVariables } from "../../userEvaluation";
 import { FLAGS_TO_EXCLUDE_FROM_STATS, StatsUserEntry } from "./statsHelpers";
 import { hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import { addDays, addMinutes, addSeconds, subMonths } from "date-fns";
-import { ALL_POTENTIAL_USER_PREFIXES, ControlSubredditJob, getFullDataStore, UserDetails } from "../..";
+import { ALL_POTENTIAL_USER_PREFIXES, ControlSubredditJob, getFullDataStore, sha256hash, UserDetails } from "../..";
 import { JsonValue } from "@devvit/web/shared";
 import { ConditionalStatsUpdateJobData, DefinedHandlesStatsInitializerJobData } from "../../../tasks";
 import { compact } from "lodash-es";
@@ -37,7 +37,7 @@ const STATUS_UPDATE_CONFIGS: ConditionalStatsUpdateConfig[] = [
     },
     {
         statName: "bioText",
-        variableKeys: ["biotext:bantext"],
+        variableKeys: ["biotext:bantext", "biotext:entriesToAllowlist", "substitutions:definedhandles"],
         lookbackMonths: 1,
         updateFunction: updateBioStatistics,
     },
@@ -86,6 +86,11 @@ export async function conditionalStatsUpdate (event: TaskRequest<ConditionalStat
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
         .map(([key, value]) => ({ username: key, data: value } as StatsUserEntry));
 
+    if (allEntries.length === 0 && lookbackMonths > 0) {
+        console.log("Conditional Stats Update: No user entries available for updating statistics.");
+        return;
+    }
+
     const promises: Promise<unknown>[] = [];
     for (const config of configsToUpdate) {
         promises.push(config.updateFunction(allEntries));
@@ -103,12 +108,14 @@ export async function shouldUpdateStatistic (config: ConditionalStatsUpdateConfi
         currentConfig[key] = variables[key];
     }
 
+    const currentConfigHash = sha256hash(JSON.stringify(currentConfig));
+
     const cachedEntries = await redis.get(redisKey);
-    if (cachedEntries === JSON.stringify(currentConfig)) {
+    if (cachedEntries === currentConfigHash) {
         return false;
     }
 
-    await redis.set(redisKey, JSON.stringify(currentConfig), { expiration: addDays(new Date(), 7) });
+    await redis.set(redisKey, currentConfigHash, { expiration: addDays(new Date(), 7) });
     return true;
 }
 
