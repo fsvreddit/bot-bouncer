@@ -2,12 +2,11 @@ import { redis, scheduler, TaskRequest } from "@devvit/web/server";
 import { addHours, addMinutes, addSeconds, format, subWeeks } from "date-fns";
 import json2md from "json2md";
 import { StatsUserEntry, userIsBanned } from "./statsHelpers";
-import { BIO_TEXT_STORE, ControlSubredditJob, decodedText, encodedText, expireKeyAt, hGetAllChunked, hMGetAsRecord, hSetChunked, zRangeAsRecord } from "../..";
+import { BIO_TEXT_STORE, ControlSubredditJob, decodedText, encodedText, expireKeyAt, hGetAllChunked, hMGetAsRecord, hSetChunked, sha256hash, zRangeAsRecord } from "../..";
 import { hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import { getEvaluatorVariable, getRedisSubstitionValue, setRedisSubstititionValue } from "../../userEvaluation";
 import escapeStringRegexp from "escape-string-regexp";
 import { AsyncWikiUpdateJobData, BioStatsJobData } from "../../../tasks";
-import { createHash } from "node:crypto";
 import { chunk } from "lodash-es";
 
 const BIO_STATS_UPDATE_IN_PROGRESS = "BioTextStatsUpdateInProgressKey";
@@ -86,10 +85,6 @@ function anyRegexMatches (text: string, regexes: RegExp[]): boolean {
     return false;
 }
 
-function sha1hash (input: string): string {
-    return createHash("sha256").update(input).digest("hex");
-}
-
 export async function updateBioStatisticsJob (event: TaskRequest<BioStatsJobData>) {
     const jobGuid = event.data.jobGuid as string | undefined;
     if (jobGuid && await hasEventBeenHandled(`job:${jobGuid}`, { expiration: addMinutes(new Date(), 5) })) {
@@ -156,7 +151,7 @@ export async function updateBioStatisticsJob (event: TaskRequest<BioStatsJobData
             continue;
         }
 
-        const hashedText = sha1hash(bioText);
+        const hashedText = sha256hash(bioText);
 
         let existingRecord: BioRecord;
         if (recordsToStore[hashedText]) {

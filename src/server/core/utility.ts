@@ -5,6 +5,7 @@ import { addDays, addHours, formatDuration, intervalToDuration } from "date-fns"
 import { deflate, inflate } from "pako";
 import { getControlSubSettings } from "./controlSubSettings";
 import { UserFlag } from ".";
+import { createHash } from "crypto";
 
 export function getUsernameFromUrl (url: string) {
     const urlRegex = /reddit\.com\/u(?:ser)?\/([\w_-]+)\/?(?:[?/].+)?$/i;
@@ -252,4 +253,8 @@ export function statusOrFlagToStatusAndFlags (statusOrFlag: UserStatus | UserFla
             flags: [statusOrFlag as UserFlag],
         };
     }
+}
+
+export function sha256hash (input: string): string {
+    return createHash("sha256").update(input).digest("hex");
 }
