@@ -6,6 +6,8 @@ import json2md from "json2md";
 import pluralize from "pluralize";
 import { T3 } from "@devvit/web/shared";
 import { AccountReviewJobData } from "../../../tasks";
+import { getSummaryForUser } from "../userSummary";
+import { markdownToText } from ".";
 
 const ACCOUNT_REVIEW_QUEUE = "accountReviewQueue";
 
@@ -108,18 +110,32 @@ export async function checkAccountsForReview (event: TaskRequest<AccountReviewJo
                     message.push({ p: `Reason: ${reviewData.reviewReason}` });
                 }
 
-                if (post.flair?.text) {
-                    message.push({ p: `Current user status: **${post.flair.text}**` });
+                if (username) {
+                    const userSummary = await getSummaryForUser(username, "modmail");
+                    message.push(...userSummary);
                 }
 
-                message.push({ p: `[Link to user profile](https://www.reddit.com/user/${username}) | [Rechearch](https://rechear.ch/?kind=submission&author=${username}&limit=100) | [Arctic Shift](https://fsvreddit.github.io/arcticredir/?author=${username}&type=posts)` });
+                const modmailStrings = markdownToText(message);
+                if (modmailStrings.length === 0) {
+                    continue;
+                }
 
                 const subject = username ? `Account review reminder for /u/${username}` : "Account review reminder";
-                await reddit.modMail.createModInboxConversation({
+                const conversationId = await reddit.modMail.createModInboxConversation({
                     subject,
                     subredditId: context.subredditId,
-                    bodyMarkdown: json2md(message),
+                    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+                    bodyMarkdown: modmailStrings[0]!,
                 });
+
+                if (modmailStrings.length > 1) {
+                    for (const string of modmailStrings.slice(1)) {
+                        await reddit.modMail.reply({
+                            conversationId,
+                            body: string,
+                        });
+                    }
+                }
 
                 console.log(`Account Review: Sent review reminder for post ${item.member}.`);
 
