@@ -1,7 +1,7 @@
 import { context, reddit, redis, scheduler } from "@devvit/web/server";
 import { isT1, isT3 } from "@devvit/web/shared";
 import { UserStatus } from "@fsvreddit/bot-bouncer-types";
-import { accountIsBotBouncerApp, CHECK_DATE_KEY, CONFIGURATION_DEFAULTS, ControlSubredditJob, FLAIR_MAPPINGS, getControlSubSettings, getUserStatus, INTERNAL_BOT, isModeratorWithCache, ModmailMessage, setUserStatusAndFlair, statusOrFlagToStatusAndFlags, UserDetails, UserFlag } from "../..";
+import { accountIsBotBouncerApp, CHECK_DATE_KEY, CONFIGURATION_DEFAULTS, ControlSubredditJob, deleteUserStatus, FLAIR_MAPPINGS, getControlSubSettings, getUserStatus, INTERNAL_BOT, isModeratorWithCache, ModmailMessage, setUserStatusAndFlair, statusOrFlagToStatusAndFlags, UserDetails, UserFlag } from "../..";
 import { count } from "@wordpress/wordcount";
 import { AppealOutcomeType, clearRespondToFurtherMessagesFlag, getAppealConfig, getMatchedAppealConfig, getRespondToFurtherMessagesFlag, handleAppeal, storeAppealRecordsForUser } from "./appealHandling";
 import { addDays, addSeconds, addWeeks, format, subMinutes } from "date-fns";
@@ -168,6 +168,11 @@ export async function handleControlSubredditModmail (modmail: ModmailMessage) {
 
     if (modmail.bodyMarkdown.startsWith("!retrybulk")) {
         await retryBulkSubmission(modmail);
+        return;
+    }
+
+    if (modmail.bodyMarkdown.startsWith("!delete") && modmail.messageAuthor === "fsv") {
+        await deleteRecord(modmail);
         return;
     }
 
@@ -610,6 +615,50 @@ async function showUserHistory (modmail: ModmailMessage) {
 
     await reddit.modMail.reply({
         body: json2md(message),
+        conversationId: modmail.conversationId,
+        isInternal: true,
+    });
+}
+
+async function deleteRecord (modmail: ModmailMessage) {
+    const regex = /^!delete ([\w_-]+)/;
+    const match = regex.exec(modmail.bodyMarkdown);
+    if (match?.length !== 2) {
+        await reddit.modMail.reply({
+            body: "Invalid command format. Use `!delete <username>`.",
+            conversationId: modmail.conversationId,
+            isInternal: true,
+        });
+        return;
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const username = match[1]!;
+
+    const userDetails = await getUserStatus(username);
+    if (!userDetails) {
+        await reddit.modMail.reply({
+            body: `No record found for user \`${username}\`.`,
+            conversationId: modmail.conversationId,
+            isInternal: true,
+        });
+        return;
+    }
+
+    if (userDetails.trackingPostId !== "") {
+        const trackingPost = await reddit.getPostById(userDetails.trackingPostId);
+        if (trackingPost.authorName !== "[deleted]") {
+            await trackingPost.delete();
+        }
+    }
+
+    await deleteUserStatus(username);
+
+    // Here you would add the logic to delete the record with the given username.
+    // For example: await deleteUserStatus(username);
+
+    await reddit.modMail.reply({
+        body: `Record for user \`${username}\` has been deleted.`,
         conversationId: modmail.conversationId,
         isInternal: true,
     });
