@@ -78,7 +78,7 @@ export async function getDataStoreFiltered (prefix: string, filter?: DataStoreEx
         }
 
         const details = JSON.parse(value) as UserDetails;
-        if (sinceTime && details.reportedAt && details.reportedAt < sinceTime) {
+        if (sinceTime && details.reportedAt !== undefined && details.reportedAt < sinceTime) {
             return;
         }
 
