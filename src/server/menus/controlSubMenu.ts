@@ -1,10 +1,9 @@
-import { Comment, context, Post, reddit } from "@devvit/web/server";
+import { context } from "@devvit/web/server";
 import { FormField, isT1, T1, T3, type MenuItemRequest, type UiResponse } from "@devvit/web/shared";
 import { HitReason } from "@fsvreddit/bot-bouncer-types";
 import { ControlSubAction, FormName, getAccountInitialEvaluationResults, getUsernameFromUrl, getUserStatus, normaliseHitReason } from "../core";
 import { getPostOrCommentById } from "@fsvreddit/fsv-devvit-web-helpers";
 import { UserStatus } from "@fsvreddit/bot-bouncer-types";
-import { isUserPotentiallyBlockingBot } from "../core/controlSubCore/userSummary/blockChecker";
 
 export const handleControlSubredditMenu = async (request: MenuItemRequest): Promise<UiResponse> => {
     let username: string | undefined;
@@ -77,39 +76,6 @@ export const handleControlSubredditMenu = async (request: MenuItemRequest): Prom
             defaultValue: getHitReasonText(hit.hitReason),
         });
         hitCount++;
-    }
-
-    let history: (Comment | Post)[] | undefined;
-    try {
-        history = await reddit.getCommentsAndPostsByUser({
-            username,
-            limit: 100,
-            sort: "new",
-        }).all();
-    } catch {
-        //
-    }
-
-    if (history) {
-        if (history.length === 0) {
-            fields.push({
-                name: "noHistory",
-                label: "No history found for this user - user may be blocking or suspended.",
-                type: "string",
-            });
-        } else if (await isUserPotentiallyBlockingBot(history)) {
-            fields.push({
-                name: "potentiallyBlocking",
-                label: "User may be blocking Bot Bouncer.",
-                type: "string",
-            });
-        } else {
-            fields.push({
-                name: "histLength",
-                label: `User has ${history.length} posts/comments visible to Bot Bouncer.`,
-                type: "string",
-            });
-        }
     }
 
     return {
