@@ -87,6 +87,11 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: TaskReques
         return;
     }
 
+    if (await hasEventBeenHandled("UpdateEvaluatorVariablesFromWiki", { expiration: addSeconds(new Date(), 5) })) {
+        console.warn(`Evaluator Variables: UpdateEvaluatorVariablesFromWiki has already been handled recently, skipping.`);
+        return;
+    }
+
     const controlSubSettings = await getControlSubSettings();
     if (!controlSubSettings.evaluatorVariableUpdatesEnabled) {
         console.log("Evaluator Variables: Evaluator variable updates from wiki are disabled in control sub settings.");
@@ -258,7 +263,10 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: TaskReques
     await scheduler.runJob<ConditionalStatsUpdateJobData>({
         name: ControlSubredditJob.ConditionalStatsUpdate,
         runAt: addSeconds(new Date(), 10),
-        data: { jobGuid: crypto.randomUUID() },
+        data: {
+            jobGuid: crypto.randomUUID(),
+            phase: "initial",
+        },
     });
 
     await scheduler.runJob<RedosCheckerJobData>({

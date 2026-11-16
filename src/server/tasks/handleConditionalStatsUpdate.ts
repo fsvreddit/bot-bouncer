@@ -1,9 +1,13 @@
 import { TaskRequest, TaskResponse } from "@devvit/web/server";
 import { Context } from "hono";
-import { conditionalStatsUpdate } from "../core/controlSubCore/statistics";
+import { conditionalStatsUpdate, StatisticsName } from "../core/controlSubCore/statistics";
 
 export type ConditionalStatsUpdateJobData = {
-    jobGuid?: string;
+    jobGuid: string;
+    phase: "initial" | "gather" | "process";
+    lookBackMonths?: number;
+    prefixes?: string[];
+    statsNames?: StatisticsName[];
 };
 
 export const handleConditionalStatsUpdateJob = async (c: Context): Promise<Response> => {
