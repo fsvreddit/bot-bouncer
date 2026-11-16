@@ -87,7 +87,7 @@ export async function checkPermissionQueueItems (event: TaskRequest<CheckPermiss
         if (!isMod) {
             problemFound.push([
                 { p: `/u/bot-bouncer is not a moderator of /r/${subredditName}. This means Bot Bouncer cannot perform moderation checks or actions for this subreddit.` },
-                { p: `Please check that you have the latest version of Bot Bouncer on your subreddit's [app configuration page](https://developers.reddit.com/r/${subredditName}/apps/bot-bouncer), and then re-invite /u/bot-bouncer to the mod team with full permissions.` },
+                { p: `Please check that you have the latest version of Bot Bouncer on your subreddit's [app configuration page](https://developers.reddit.com/r/${subredditName}/apps/bot-bouncer), and then press the "Fix broken mod permissions" button near the bottom.` },
                 { p: "If you no longer wish to use Bot Bouncer, it can be uninstalled from the same page." },
             ]);
             issueFound = "not a moderator";
@@ -103,7 +103,7 @@ export async function checkPermissionQueueItems (event: TaskRequest<CheckPermiss
                     { p: `/u/bot-bouncer is listed as a moderator of /r/${subredditName}, but it does not have all required moderator permissions.` },
                     { p: `When /u/bot-bouncer has no permissions, or is missing required permissions, Reddit may reject Bot Bouncer's requests with errors such as \`403 Forbidden\`.` },
                     { p: "This can prevent Bot Bouncer from checking ban status, reading required moderation information, handling modmail-related workflows, or applying moderation actions." },
-                    { p: `Please check your subreddit's [app configuration page](https://developers.reddit.com/r/${subredditName}/apps/bot-bouncer), confirm that the latest version of Bot Bouncer is installed, and update /u/bot-bouncer to full moderator permissions.` },
+                    { p: `Please check your subreddit's [app configuration page](https://developers.reddit.com/r/${subredditName}/apps/bot-bouncer), confirm that the latest version of Bot Bouncer is installed, and then press the "Fix broken mod permissions" button near the bottom.` },
                 ]);
                 issueFound = "missing permissions";
             }
