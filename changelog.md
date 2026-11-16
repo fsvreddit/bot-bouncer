@@ -1,5 +1,12 @@
 # Changelog for Bot Bouncer
 
+## v1.35.0
+
+* Content removals now consistently use "remove" rather than a mix of "remove" and "spam"
+* New evaluation capabilities for certain styles of NSFW account
+* Fix issue that could result in the "Report User to r/BotBouncer" menu item to report that mods are not authorized to submit
+* Shorten time taken to bring up the "Report user" form
+
 ## v1.34.0
 
 * Add detections for image and video repost bots

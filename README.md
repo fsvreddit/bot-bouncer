@@ -50,15 +50,10 @@ If an account was banned by Bot Bouncer on a sub but successfully appeals via r/
 
 ## v1.36.0 (coming soon)
 
+* Further improve the time it takes to bring up the "Report user to Bot Bouncer" submission form
+* Adds new bot detection capabilities
 * Fixed an issue that prevents submission feedback from being sent after 1000 feedback messages have been delivered
 * Added the ability to respond to replies to Bot Bouncer ban messages with a predefined message (turned off by default)
-
-## v1.35.0
-
-* Content removals now consistently use "remove" rather than a mix of "remove" and "spam"
-* New evaluation capabilities for certain styles of NSFW account
-* Fix issue that could result in the "Report User to r/BotBouncer" menu item to report that mods are not authorized to submit
-* Shorten time taken to bring up the "Report user" form
 
 For older versions, please see the [full changelog](https://github.com/fsvreddit/bot-bouncer/blob/main/changelog.md).
 
@@ -68,3 +63,4 @@ For older versions, please see the [full changelog](https://github.com/fsvreddit
 * `api.redgifs.com` - used for some account evaluation purposes
 * `discord.com`/`discordapp.com` - used by the r/BotBouncer team for alerts relating to Bot Bouncer moderation
 * `bot-bouncer-cw3lhd-external.devvit.net` - used to submit potential bots from installed instances of Bot Bouncer to the instance running on r/BotBouncer
+* `api.github.com` - in future, Bot Bouncer will store its configuration in GitHub, so this is needed to fetch new versions of that configuration. Access will be read-only and Bot Bouncer will not send any data to GitHub.
