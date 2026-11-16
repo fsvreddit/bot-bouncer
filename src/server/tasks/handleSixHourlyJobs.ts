@@ -1,7 +1,7 @@
 import { context, redis, scheduler, TaskRequest, TaskResponse } from "@devvit/web/server";
 import type { Context } from "hono";
 import { ALL_POTENTIAL_USER_PREFIXES, CONTROL_SUBREDDIT, ControlSubredditJob, getDataStoreFiltered, getFullDataStore, removeStaleRecentChangesEntries, UserDetails } from "../core";
-import { addMinutes, addSeconds, subMonths } from "date-fns";
+import { addMinutes, addSeconds, subMonths, subWeeks } from "date-fns";
 import { analyseBioText } from "../core/controlSubCore/similarBioTextFinder";
 import { expireKeyAt, hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import { DefinedHandlesStatsInitializerJobData, DeleteRecordsForRemovedUsersData, EvaluatorAccuracyInitialiserData, PendingUserFinderJobData, UpdateMainStatisticsPageJobData } from ".";
@@ -131,7 +131,7 @@ export const handleSixHourlyJobPart2 = async (c: Context): Promise<Response> => 
             }
 
             const data = await getDataStoreFiltered(firstPrefix, {
-                since: subMonths(new Date(), 3),
+                since: subWeeks(new Date(), 4),
                 omitFlags: FLAGS_TO_EXCLUDE_FROM_STATS,
             });
 
