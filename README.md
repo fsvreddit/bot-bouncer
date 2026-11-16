@@ -48,7 +48,7 @@ If an account was banned by Bot Bouncer on a sub but successfully appeals via r/
 
 # Latest Changes
 
-## v1.36.0 (coming soon)
+## v1.36.2
 
 * Further improve the time it takes to bring up the "Report user to Bot Bouncer" submission form
 * Adds new bot detection capabilities
