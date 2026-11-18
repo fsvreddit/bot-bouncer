@@ -10,10 +10,12 @@ import { ConditionalStatsUpdateJobData, RedosCheckerJobData, UpdateEvaluatorVari
 import { ValidationIssue } from "@fsvreddit/bot-bouncer-types";
 import { fromPairs, uniq } from "lodash-es";
 import { Octokit } from "octokit";
+import pluralize from "pluralize";
 
 const EVALUATOR_VARIABLES_KEY = "evaluatorVariablesHash";
 const EVALUATOR_VARIABLES_WIKI_PAGE = "evaluatorvars";
 const EVALUATOR_VARIABLES_LAST_COMMIT_KEY = "evaluatorVariablesLastCommit";
+const EVALUATOR_VARIABLES_LAST_COMMIT_HASH_KEY = "evaluatorVariablesLastCommitHash";
 const EXTRA_VARIABLES_KEY = "extraEvaluatorVariablesHash";
 const EXTRA_VARIABLES_UPDATED_KEY = "extraEvaluatorVariablesUpdated";
 
@@ -79,6 +81,7 @@ export async function getEvaluatorVariable<T> (variableName: string): Promise<T 
 
 async function getLatestVariablesCommit (octokit: Octokit): Promise<{ sha: string; author?: string; date?: string } | undefined> {
     const lastUpdated = await redis.get(EVALUATOR_VARIABLES_LAST_COMMIT_KEY);
+    const lastHash = await redis.get(EVALUATOR_VARIABLES_LAST_COMMIT_HASH_KEY);
 
     const result = await octokit.rest.repos.listCommits({
         owner: "fsvreddit",
@@ -87,8 +90,17 @@ async function getLatestVariablesCommit (octokit: Octokit): Promise<{ sha: strin
         since: lastUpdated,
     });
 
+    if (result.data.length === 0) {
+        return;
+    }
+
     const latestCommit = result.data[0];
-    return latestCommit ? { sha: latestCommit.sha, author: latestCommit.commit.author?.name, date: latestCommit.commit.author?.date } : undefined;
+    if (!latestCommit || latestCommit.sha === lastHash) {
+        return;
+    }
+
+    console.log(`Evaluator Variables: Found ${result.data.length} new ${pluralize("commit", result.data.length)} since ${lastUpdated}. Latest: ${latestCommit.commit.author?.date}`);
+    return { sha: latestCommit.sha, author: latestCommit.commit.author?.name, date: latestCommit.commit.author?.date };
 }
 
 export async function haveEvaluatorVariablesChanged (): Promise<boolean> {
@@ -106,8 +118,9 @@ export async function haveEvaluatorVariablesChanged (): Promise<boolean> {
     return (latestCommit !== undefined);
 }
 
-async function setLatestVariablesCommit (dateString: string) {
+async function setLatestVariablesCommit (dateString: string, sha: string) {
     await redis.set(EVALUATOR_VARIABLES_LAST_COMMIT_KEY, dateString);
+    await redis.set(EVALUATOR_VARIABLES_LAST_COMMIT_HASH_KEY, sha);
 }
 
 async function getEvaluatorConfigContent (octokit: Octokit): Promise<string | undefined> {
@@ -242,7 +255,7 @@ export async function updateEvaluatorVariables (event: TaskRequest<UpdateEvaluat
         }
 
         if (latestCommit?.date) {
-            await setLatestVariablesCommit(latestCommit.date);
+            await setLatestVariablesCommit(latestCommit.date, latestCommit.sha);
         }
 
         return;
@@ -269,7 +282,7 @@ export async function updateEvaluatorVariables (event: TaskRequest<UpdateEvaluat
     }
 
     const variablesCount = Object.keys(converted).length;
-    console.log(`Evaluator Variables: Updated ${variablesCount} variables and removed ${keysToRemove.length} from wiki edit by /u/${latestCommit?.author ?? "unknown"}.`);
+    console.log(`Evaluator Variables: Updated ${variablesCount} variables and removed ${keysToRemove.length} from wiki edit by ${latestCommit?.author ?? "unknown"}.`);
 
     const compressedVariables = compressData(variables);
 
@@ -293,7 +306,7 @@ export async function updateEvaluatorVariables (event: TaskRequest<UpdateEvaluat
     }
 
     if (latestCommit?.date) {
-        await setLatestVariablesCommit(latestCommit.date);
+        await setLatestVariablesCommit(latestCommit.date, latestCommit.sha);
     }
 
     await scheduler.runJob<ConditionalStatsUpdateJobData>({
@@ -321,7 +334,7 @@ export async function updateEvaluatorVariables (event: TaskRequest<UpdateEvaluat
     await redis.del(failedEvaluatorVariablesKey);
     if (previouslyFailed && controlSubSettings.monitoringWebhook) {
         const username = latestCommit?.author ?? "unknown";
-        await sendMessageToWebhook(controlSubSettings.monitoringWebhook, `✅ Successfully updated evaluator variables from wiki edit by /u/${username}.`);
+        await sendMessageToWebhook(controlSubSettings.monitoringWebhook, `✅ Successfully updated evaluator variables from wiki edit by ${username}.`);
     }
 
     await redis.del(EXTRA_VARIABLES_UPDATED_KEY);
