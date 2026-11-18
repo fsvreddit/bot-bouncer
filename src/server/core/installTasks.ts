@@ -60,6 +60,7 @@ export async function handleInstallTasks () {
         "definedHandlesStatsLastRun",
         "BioTextAnalysisRecentlyRun",
         "evaluatorVariablesLastRevisions",
+        "lastRemoteStatsUpdate",
     ];
 
     await redis.del(...obsoleteKeys);

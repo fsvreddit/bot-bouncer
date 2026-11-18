@@ -3,9 +3,8 @@ import { OnModActionRequest, T3, TriggerResponse } from "@devvit/web/shared";
 import { getExtendedDevvit, hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import { addDays, addMinutes, addSeconds, subMinutes } from "date-fns";
 import { Context } from "hono";
-import { accountIsBotBouncerApp, APP_ACCOUNT_ID, clearAppPermissionsCache, ClientSubredditJob, ConfigWikiPage, CONTROL_SUBREDDIT, ControlSubredditJob, getControlSubSettings, getInstallDate, handleExternalSubmissionsPageUpdate, INTERNAL_BOT, isModeratorWithCache, recordWhitelistUnban, removeCachedBanStatus, removeRecordOfBan, sendMessageToWebhook } from "../core";
+import { accountIsBotBouncerApp, clearAppPermissionsCache, ClientSubredditJob, ConfigWikiPage, CONTROL_SUBREDDIT, ControlSubredditJob, getControlSubSettings, getInstallDate, handleExternalSubmissionsPageUpdate, INTERNAL_BOT, isModeratorWithCache, recordWhitelistUnban, removeCachedBanStatus, removeRecordOfBan, sendMessageToWebhook } from "../core";
 import { HandleConfigWikiChangeRequestData, NotifyModTeamOnDemodRequestData } from "../tasks";
-import { SixHourlyJobData } from "../tasks/handleSixHourlyJobs";
 import { handleObserverSubsWikiPageCopy } from "../core/controlSubCore/statistics";
 
 export const onModAction = async (c: Context): Promise<Response> => {
@@ -116,10 +115,6 @@ async function handleModActionControlSub (event: OnModActionRequest) {
             await handleExternalSubmissionsPageUpdate();
         }
 
-        if (event.moderator.name === INTERNAL_BOT) {
-            await checkIfStatsNeedUpdating();
-        }
-
         if (event.moderator.name !== context.appSlug && event.moderator.name !== INTERNAL_BOT) {
             await Promise.all([
                 queueConfigWikiCheck(ConfigWikiPage.AutoAppealHandling, event.moderator.name, 1),
@@ -192,33 +187,4 @@ async function queueConfigWikiCheck (configWikiPage: ConfigWikiPage, updatedBy: 
             jobGuid: crypto.randomUUID(),
         },
     });
-}
-
-async function checkIfStatsNeedUpdating () {
-    const lastRevisionKey = "lastRemoteStatsUpdate";
-    const lastRevisionVal = await redis.get(lastRevisionKey);
-    const wikiPage = await reddit.getWikiPage(CONTROL_SUBREDDIT, "statistics/update_stats", {});
-    if (lastRevisionVal === wikiPage.revisionId) {
-        return;
-    }
-
-    if (wikiPage.revisionAuthorId === APP_ACCOUNT_ID) {
-        return;
-    }
-
-    console.log("Stats wiki page has been updated, scheduling stats update job.");
-
-    await scheduler.runJob<SixHourlyJobData>({
-        name: ControlSubredditJob.Perform6HourlyJobs,
-        runAt: new Date(),
-        data: { jobGuid: crypto.randomUUID() },
-    });
-
-    const newEntry = await reddit.updateWikiPage({
-        subredditName: CONTROL_SUBREDDIT,
-        page: "statistics/update_stats",
-        content: "false",
-    });
-
-    await redis.set(lastRevisionKey, newEntry.revisionId);
 }
