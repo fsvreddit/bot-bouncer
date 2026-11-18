@@ -5,7 +5,7 @@ import { CONTROL_SUBREDDIT } from "./constants";
 import { UpgradeNotifierData } from "@fsvreddit/fsv-devvit-web-helpers";
 import { AppSetting } from "./appSettings";
 import { ClientSubredditJob, ControlSubredditJob, handleExternalSubmissionsPageUpdate, UniversalJob } from ".";
-import { CleanupJobData, EvaluateKarmaFarmingSubsEventData, UpdateEvaluatorVariablesFromWikiEventData } from "../tasks";
+import { CleanupJobData, EvaluateKarmaFarmingSubsEventData } from "../tasks";
 import { forceEvaluatorVariablesRefresh } from "./userEvaluation";
 
 export { UniversalJob, ControlSubredditJob, ClientSubredditJob } from "./schedulerJobNames.js";
@@ -50,15 +50,6 @@ export async function addControlSubredditJobs () {
         scheduler.runJob({
             name: ControlSubredditJob.PerformMinutelyJobs,
             cron: "* * * * *",
-        }),
-
-        scheduler.runJob<UpdateEvaluatorVariablesFromWikiEventData>({
-            name: ControlSubredditJob.UpdateEvaluatorVariables,
-            cron: "0/10 * * * *",
-            data: {
-                username: context.appSlug,
-                updateExtraVariables: true,
-            },
         }),
 
         scheduler.runJob({

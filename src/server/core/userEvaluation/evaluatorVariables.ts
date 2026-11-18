@@ -1,19 +1,19 @@
-import { context, reddit, redis, scheduler, TaskRequest } from "@devvit/web/server";
+import { context, reddit, redis, scheduler, settings, TaskRequest } from "@devvit/web/server";
 import { JsonValue } from "@devvit/web/shared";
-import { ALL_RELEVANT_EVALUTORS, compressData, CONTROL_SUBREDDIT, ControlSubredditJob, getControlSubSettings, normaliseHitReason, sendMessageToWebhook } from "..";
+import { ALL_RELEVANT_EVALUTORS, AppSetting, compressData, CONTROL_SUBREDDIT, ControlSubredditJob, getControlSubSettings, normaliseHitReason, sendMessageToWebhook } from "..";
 import { getUserExtended, hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import { addMinutes, addSeconds } from "date-fns";
 import { EvaluateBotGroupAdvanced, EvaluateBotGroupAdvancedSubmitters, yamlToVariables } from "@fsvreddit/bot-bouncer-evaluation";
 import json2md from "json2md";
 import { checkNonexistentSubs } from ".";
-import { ConditionalStatsUpdateJobData, RedosCheckerJobData, UpdateEvaluatorVariablesFromWikiEventData } from "../../tasks";
+import { ConditionalStatsUpdateJobData, RedosCheckerJobData, UpdateEvaluatorVariablesEventData } from "../../tasks";
 import { ValidationIssue } from "@fsvreddit/bot-bouncer-types";
 import { fromPairs, uniq } from "lodash-es";
+import { Octokit } from "octokit";
 
 const EVALUATOR_VARIABLES_KEY = "evaluatorVariablesHash";
-const EVALUATOR_VARIABLES_YAML_PAGE_ROOT = "evaluator-config";
 const EVALUATOR_VARIABLES_WIKI_PAGE = "evaluatorvars";
-const EVALUATOR_VARIABLES_LAST_REVISIONS_KEY = "evaluatorVariablesLastRevisions";
+const EVALUATOR_VARIABLES_LAST_COMMIT_KEY = "evaluatorVariablesLastCommit";
 const EXTRA_VARIABLES_KEY = "extraEvaluatorVariablesHash";
 const EXTRA_VARIABLES_UPDATED_KEY = "extraEvaluatorVariablesUpdated";
 
@@ -77,7 +77,53 @@ export async function getEvaluatorVariable<T> (variableName: string): Promise<T 
     return JSON.parse(variable) as T;
 }
 
-export async function updateEvaluatorVariablesFromWikiHandler (event: TaskRequest<UpdateEvaluatorVariablesFromWikiEventData>) {
+async function getLatestVariablesCommit (octokit: Octokit): Promise<{ sha: string; author?: string; date?: string } | undefined> {
+    const lastUpdated = await redis.get(EVALUATOR_VARIABLES_LAST_COMMIT_KEY);
+
+    const result = await octokit.rest.repos.listCommits({
+        owner: "fsvreddit",
+        repo: "bot-bouncer-config",
+        path: "config/evaluator-config.yaml",
+        since: lastUpdated,
+    });
+
+    const latestCommit = result.data[0];
+    return latestCommit ? { sha: latestCommit.sha, author: latestCommit.commit.author?.name, date: latestCommit.commit.author?.date } : undefined;
+}
+
+export async function haveEvaluatorVariablesChanged (): Promise<boolean> {
+    const githubApiKey = await settings.get<string>(AppSetting.GithubToken);
+    if (!githubApiKey) {
+        console.error("Evaluator Variables: Github API key is not set.");
+        return false;
+    }
+
+    const octokit = new Octokit({
+        auth: githubApiKey,
+    });
+
+    const latestCommit = await getLatestVariablesCommit(octokit);
+    return (latestCommit !== undefined);
+}
+
+async function setLatestVariablesCommit (dateString: string) {
+    await redis.set(EVALUATOR_VARIABLES_LAST_COMMIT_KEY, dateString);
+}
+
+async function getEvaluatorConfigContent (octokit: Octokit): Promise<string | undefined> {
+    const result = await octokit.rest.repos.getContent({
+        owner: "fsvreddit",
+        repo: "bot-bouncer-config",
+        path: "config/evaluator-config.yaml",
+        mediaType: {
+            format: "raw",
+        },
+    });
+
+    return typeof result.data === "string" ? result.data : undefined;
+}
+
+export async function updateEvaluatorVariables (event: TaskRequest<UpdateEvaluatorVariablesEventData>) {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
         throw new Error("Evaluator Variables: This job should only be run in the control subreddit.");
     }
@@ -98,25 +144,35 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: TaskReques
         return;
     }
 
-    if (event.data.updateExtraVariables && !await redis.exists(EXTRA_VARIABLES_UPDATED_KEY)) {
+    const githubApiKey = await settings.get<string>(AppSetting.GithubToken);
+    if (!githubApiKey) {
+        console.error("Evaluator Variables: Github API key is not set.");
+        return;
+    }
+
+    const octokit = new Octokit({
+        auth: githubApiKey,
+    });
+
+    const latestCommit = await getLatestVariablesCommit(octokit);
+
+    if (!latestCommit && !event.data.updateExtraVariables) {
+        console.log("Evaluator Variables: No changes detected in evaluator-config.yaml.");
+        return;
+    }
+
+    if (event.data.updateExtraVariables && !latestCommit && !await redis.exists(EXTRA_VARIABLES_UPDATED_KEY)) {
         console.log("Evaluator Variables: No changes detected in extra substitution variables.");
         return;
     }
 
     console.log(`Evaluator Variables: Starting update from wiki pages. Variables update: ${event.data.updateExtraVariables}`);
 
-    const pageList = await reddit.getWikiPages(CONTROL_SUBREDDIT)
-        .then(pages => pages.filter(page => page === EVALUATOR_VARIABLES_YAML_PAGE_ROOT || page.startsWith(`${EVALUATOR_VARIABLES_YAML_PAGE_ROOT}/`)));
-
-    const pages = await Promise.all(pageList.map(page => reddit.getWikiPage(CONTROL_SUBREDDIT, page)));
-
-    const recentRevisions = await redis.hGetAll(EVALUATOR_VARIABLES_LAST_REVISIONS_KEY);
-    if (!event.data.updateExtraVariables && !pages.some(page => recentRevisions[page.name] !== page.revisionId)) {
-        console.log("Evaluator Variables: No changes detected in evaluator variable wiki pages.");
+    const yamlStr = await getEvaluatorConfigContent(octokit);
+    if (!yamlStr) {
+        console.error("Evaluator Variables: Failed to retrieve evaluator-config.yaml content.");
         return;
     }
-
-    const yamlStr = pages.map(page => page.content).join("\n\n---\n\n");
 
     const extraVariables = await getExtraSubstititionValues();
 
@@ -173,44 +229,23 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: TaskReques
     const failedEvaluatorVariablesKey = "failedEvaluatorVariables";
     if (invalidEntries.length > 0) {
         await redis.set(failedEvaluatorVariablesKey, "true");
-        if (!event.data.username) {
-            console.error("Evaluator Variables: Evaluator variables contains issues. Will fall back to cached values.");
-            return;
-        } else {
-            console.error("Evaluator Variables: Invalid entries in evaluator variables", invalidEntries);
 
-            const body: json2md.DataObject[] = [
-                { p: "There are invalid regexes in the evaluator variables. Please check the wiki page and try again." },
-                { ul: invalidEntries.map(entry => `${entry.severity}: ${entry.message}`) },
-            ];
+        console.error("Evaluator Variables: Invalid entries in evaluator variables", invalidEntries);
 
-            let messageBody = json2md(body);
-            if (messageBody.length > 10000) {
-                messageBody = messageBody.substring(0, 9997) + "...";
-            }
-
-            const username = event.data.username;
-            const controlSubSettings = await getControlSubSettings();
-            if (controlSubSettings.monitoringWebhook) {
-                const discordMessage: json2md.DataObject[] = [{ p: `${username} has updated the evaluator config, but there's an error! Please check and correct as soon as possible.` }];
-                discordMessage.push({ ul: invalidEntries.map(entry => `${entry.severity}: ${entry.message}`) });
-                discordMessage.push({ p: "Last known good values will be used until the issue is resolved." });
-                console.log(JSON.stringify(discordMessage));
-                await sendMessageToWebhook(controlSubSettings.monitoringWebhook, json2md(discordMessage));
-            }
-
-            try {
-                await reddit.sendPrivateMessage({
-                    subject: "Problem with evaluator variables config after edit",
-                    to: username,
-                    text: messageBody,
-                });
-            } catch (error) {
-                console.error(`Evaluator Variables: Failed to send PM to ${username} about invalid evaluator variables.`, error);
-            }
-
-            return;
+        const controlSubSettings = await getControlSubSettings();
+        if (controlSubSettings.monitoringWebhook) {
+            const discordMessage: json2md.DataObject[] = [{ p: `${latestCommit?.author ?? "An unknown user"} has updated the evaluator config, but there's an error! Please check and correct as soon as possible.` }];
+            discordMessage.push({ ul: invalidEntries.map(entry => `${entry.severity}: ${entry.message}`) });
+            discordMessage.push({ p: "Last known good values will be used until the issue is resolved." });
+            console.log(JSON.stringify(discordMessage));
+            await sendMessageToWebhook(controlSubSettings.monitoringWebhook, json2md(discordMessage));
         }
+
+        if (latestCommit?.date) {
+            await setLatestVariablesCommit(latestCommit.date);
+        }
+
+        return;
     }
 
     for (const module of uniq(Object.keys(variables).map(key => key.split(":")[0]))) {
@@ -233,11 +268,8 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: TaskReques
         await redis.global.hDel(EVALUATOR_VARIABLES_KEY, keysToRemove);
     }
 
-    const newRevisions = fromPairs(pages.map(page => [page.name, page.revisionId]));
-    await redis.hSet(EVALUATOR_VARIABLES_LAST_REVISIONS_KEY, newRevisions);
-
     const variablesCount = Object.keys(converted).length;
-    console.log(`Evaluator Variables: Updated ${variablesCount} variables and removed ${keysToRemove.length} from wiki edit by /u/${event.data.username ?? "unknown"}.`);
+    console.log(`Evaluator Variables: Updated ${variablesCount} variables and removed ${keysToRemove.length} from wiki edit by /u/${latestCommit?.author ?? "unknown"}.`);
 
     const compressedVariables = compressData(variables);
 
@@ -260,6 +292,10 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: TaskReques
         }
     }
 
+    if (latestCommit?.date) {
+        await setLatestVariablesCommit(latestCommit.date);
+    }
+
     await scheduler.runJob<ConditionalStatsUpdateJobData>({
         name: ControlSubredditJob.ConditionalStatsUpdate,
         runAt: addSeconds(new Date(), 10),
@@ -269,20 +305,22 @@ export async function updateEvaluatorVariablesFromWikiHandler (event: TaskReques
         },
     });
 
-    await scheduler.runJob<RedosCheckerJobData>({
-        name: ControlSubredditJob.EvaluatorReDoSChecker,
-        runAt: addSeconds(new Date(), 5),
-        data: {
-            firstRun: true,
-            modName: event.data.username ?? "unknown",
-            jobGuid: crypto.randomUUID(),
-        },
-    });
+    if (latestCommit) {
+        await scheduler.runJob<RedosCheckerJobData>({
+            name: ControlSubredditJob.EvaluatorReDoSChecker,
+            runAt: addSeconds(new Date(), 5),
+            data: {
+                firstRun: true,
+                modName: latestCommit.author ?? "unknown",
+                jobGuid: crypto.randomUUID(),
+            },
+        });
+    }
 
     const previouslyFailed = await redis.exists(failedEvaluatorVariablesKey);
     await redis.del(failedEvaluatorVariablesKey);
     if (previouslyFailed && controlSubSettings.monitoringWebhook) {
-        const username = event.data.username ?? "unknown";
+        const username = latestCommit?.author ?? "unknown";
         await sendMessageToWebhook(controlSubSettings.monitoringWebhook, `✅ Successfully updated evaluator variables from wiki edit by /u/${username}.`);
     }
 

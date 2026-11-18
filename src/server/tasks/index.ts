@@ -10,7 +10,7 @@ export * from "./handleDigestSummary.js";
 export * from "./handleEvaluateKarmaFarmingSubs.js";
 export * from "./handleEvaluateUser.js";
 export * from "./handleEvaluatorReversals.js";
-export * from "./handleEvaluatorVariableUpdateFromWiki.js";
+export * from "./handleEvaluatorVariableUpdate.js";
 export * from "./handleFlaggedUserRechecks.js";
 export * from "./handleModmailArchiver.js";
 export * from "./handleNotifyModTeamOnDemod.js";

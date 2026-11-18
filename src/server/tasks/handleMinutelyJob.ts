@@ -1,13 +1,14 @@
 import { context, scheduler, TaskRequest, TaskResponse } from "@devvit/web/server";
 import type { Context } from "hono";
 import { areAnyDelayedMessagesQueued } from "../core/controlSubCore/modmail";
-import { DelayedMessageJobData } from ".";
+import { DelayedMessageJobData, UpdateEvaluatorVariablesEventData } from ".";
 import { checkBotPostFreshness, CONTROL_SUBREDDIT, ControlSubredditJob, processFeedbackQueue } from "../core";
 import { handleClassificationQueryQueue } from "../core/controlSubCore/modmail/classificationQuery";
 import { resumeStuckExtracts } from "../core/controlSubCore/modmail/dataExtract";
 import { resumeSocialLinksJob, resumeStuckDefinedHandlesJob } from "../core/controlSubCore/statistics";
 import { hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
-import { addSeconds } from "date-fns";
+import { addSeconds, getMinutes } from "date-fns";
+import { haveEvaluatorVariablesChanged } from "../core/userEvaluation";
 
 export const handleMinutelyJob = async (c: Context): Promise<Response> => {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
@@ -34,7 +35,25 @@ export const handleMinutelyJob = async (c: Context): Promise<Response> => {
         resumeStuckExtracts(),
         resumeStuckDefinedHandlesJob(),
         resumeSocialLinksJob(),
+        handleEvaluatorVariableUpdate(),
     ]);
 
     return c.json<TaskResponse>({ success: true }, 200);
 };
+
+async function handleEvaluatorVariableUpdate () {
+    const updateExtraVariables = getMinutes(new Date()) % 10 === 0;
+
+    const shouldUpdate = updateExtraVariables || await haveEvaluatorVariablesChanged();
+
+    if (shouldUpdate) {
+        await scheduler.runJob<UpdateEvaluatorVariablesEventData>({
+            name: ControlSubredditJob.UpdateEvaluatorVariables,
+            data: {
+                jobGuid: crypto.randomUUID(),
+                updateExtraVariables,
+            },
+            runAt: new Date(),
+        });
+    }
+}

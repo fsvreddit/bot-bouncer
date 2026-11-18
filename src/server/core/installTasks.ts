@@ -59,6 +59,7 @@ export async function handleInstallTasks () {
         "installedSubredditsReportLastUpdated",
         "definedHandlesStatsLastRun",
         "BioTextAnalysisRecentlyRun",
+        "evaluatorVariablesLastRevisions",
     ];
 
     await redis.del(...obsoleteKeys);

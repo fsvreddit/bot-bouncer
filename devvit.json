@@ -231,6 +231,11 @@
                 "label": "OpenAI Project ID",
                 "isSecret": true
             },
+            "githubToken": {
+                "type": "string",
+                "label": "GitHub Token",
+                "isSecret": true
+            },
             "disableClientChecks": {
                 "type": "boolean",
                 "label": "Disable client post and comment checks",

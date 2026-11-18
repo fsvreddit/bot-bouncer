@@ -60,6 +60,7 @@ export enum AppSetting {
     OpenAIEvaluationKey = "openAIEvaluationKey",
     OpenAIAdminKey = "openAIAdminKey",
     OpenAIProjectId = "openAIProjectId",
+    GithubToken = "githubToken",
     DisableClientChecks = "disableClientChecks",
 }
 

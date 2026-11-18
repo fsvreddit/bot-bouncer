@@ -4,7 +4,7 @@ import { getExtendedDevvit, hasEventBeenHandled } from "@fsvreddit/fsv-devvit-we
 import { addDays, addMinutes, addSeconds, subMinutes } from "date-fns";
 import { Context } from "hono";
 import { accountIsBotBouncerApp, APP_ACCOUNT_ID, clearAppPermissionsCache, ClientSubredditJob, ConfigWikiPage, CONTROL_SUBREDDIT, ControlSubredditJob, getControlSubSettings, getInstallDate, handleExternalSubmissionsPageUpdate, INTERNAL_BOT, isModeratorWithCache, recordWhitelistUnban, removeCachedBanStatus, removeRecordOfBan, sendMessageToWebhook } from "../core";
-import { HandleConfigWikiChangeRequestData, NotifyModTeamOnDemodRequestData, UpdateEvaluatorVariablesFromWikiEventData } from "../tasks";
+import { HandleConfigWikiChangeRequestData, NotifyModTeamOnDemodRequestData } from "../tasks";
 import { SixHourlyJobData } from "../tasks/handleSixHourlyJobs";
 import { handleObserverSubsWikiPageCopy } from "../core/controlSubCore/statistics";
 
@@ -121,22 +121,7 @@ async function handleModActionControlSub (event: OnModActionRequest) {
         }
 
         if (event.moderator.name !== context.appSlug && event.moderator.name !== INTERNAL_BOT) {
-            const jobData: UpdateEvaluatorVariablesFromWikiEventData = {
-                username: event.moderator.name,
-                jobGuid: crypto.randomUUID(),
-            };
-
-            if (event.actionedAt) {
-                jobData.actionedAt = new Date(event.actionedAt).getTime();
-            }
-
             await Promise.all([
-                scheduler.runJob<UpdateEvaluatorVariablesFromWikiEventData>({
-                    name: ControlSubredditJob.UpdateEvaluatorVariables,
-                    runAt: new Date(),
-                    data: jobData,
-                }),
-
                 queueConfigWikiCheck(ConfigWikiPage.AutoAppealHandling, event.moderator.name, 1),
                 queueConfigWikiCheck(ConfigWikiPage.ControlSubSettings, event.moderator.name, 1),
             ]);
