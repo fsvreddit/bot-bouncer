@@ -1,7 +1,7 @@
 import { context, reddit, redis, scheduler, settings, TaskRequest } from "@devvit/web/server";
 import { JsonValue } from "@devvit/web/shared";
 import { ALL_RELEVANT_EVALUTORS, AppSetting, compressData, CONTROL_SUBREDDIT, ControlSubredditJob, getControlSubSettings, normaliseHitReason, sendMessageToWebhook } from "..";
-import { getUserExtended, hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
+import { getUserExtended, hasEventBeenHandled, mGetAsRecord } from "@fsvreddit/fsv-devvit-web-helpers";
 import { addMinutes, addSeconds } from "date-fns";
 import { EvaluateBotGroupAdvanced, EvaluateBotGroupAdvancedSubmitters, yamlToVariables } from "@fsvreddit/bot-bouncer-evaluation";
 import json2md from "json2md";
@@ -80,8 +80,9 @@ export async function getEvaluatorVariable<T> (variableName: string): Promise<T 
 }
 
 async function getLatestVariablesCommit (octokit: Octokit): Promise<{ sha: string; author?: string; date?: string } | undefined> {
-    const lastUpdated = await redis.get(EVALUATOR_VARIABLES_LAST_COMMIT_KEY);
-    const lastHash = await redis.get(EVALUATOR_VARIABLES_LAST_COMMIT_HASH_KEY);
+    const values = await mGetAsRecord([EVALUATOR_VARIABLES_LAST_COMMIT_KEY, EVALUATOR_VARIABLES_LAST_COMMIT_HASH_KEY]);
+    const lastUpdated = values[EVALUATOR_VARIABLES_LAST_COMMIT_KEY];
+    const lastHash = values[EVALUATOR_VARIABLES_LAST_COMMIT_HASH_KEY];
 
     const result = await octokit.rest.repos.listCommits({
         owner: "fsvreddit",
@@ -119,8 +120,10 @@ export async function haveEvaluatorVariablesChanged (): Promise<boolean> {
 }
 
 async function setLatestVariablesCommit (dateString: string, sha: string) {
-    await redis.set(EVALUATOR_VARIABLES_LAST_COMMIT_KEY, dateString);
-    await redis.set(EVALUATOR_VARIABLES_LAST_COMMIT_HASH_KEY, sha);
+    await Promise.all([
+        redis.set(EVALUATOR_VARIABLES_LAST_COMMIT_KEY, dateString),
+        redis.set(EVALUATOR_VARIABLES_LAST_COMMIT_HASH_KEY, sha),
+    ]);
 }
 
 async function getEvaluatorConfigContent (octokit: Octokit): Promise<string | undefined> {
