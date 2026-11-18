@@ -17,7 +17,7 @@
     "@devvit/start": "0.15.4",
     "@devvit/web": "0.15.4",
     "@fsvreddit/bot-bouncer-evaluation": "^0.8.8",
-    "@fsvreddit/bot-bouncer-types": "^1.0.9",
+    "@fsvreddit/bot-bouncer-types": "^1.0.11",
     "@fsvreddit/fsv-devvit-web-helpers": "^0.2.4",
     "@hono/node-server": "^2.1.4",
     "@wordpress/wordcount": "^5.0.0",

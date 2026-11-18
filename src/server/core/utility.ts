@@ -1,10 +1,9 @@
 import { context, redis } from "@devvit/web/server";
 import { isBanned, isModerator } from "@fsvreddit/fsv-devvit-web-helpers";
-import { HitReason, HitReasonDetailed, UserStatus } from "@fsvreddit/bot-bouncer-types";
+import { HitReason, HitReasonDetailed, UserFlag, UserStatus } from "@fsvreddit/bot-bouncer-types";
 import { addDays, addHours, formatDuration, intervalToDuration } from "date-fns";
 import { deflate, inflate } from "pako";
 import { getControlSubSettings } from "./controlSubSettings";
-import { UserFlag } from ".";
 import { createHash } from "crypto";
 
 export function getUsernameFromUrl (url: string) {

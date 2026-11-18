@@ -1,5 +1,5 @@
 import { ALL_EVALUATORS, ALL_INTERNAL_EVALUATORS } from "@fsvreddit/bot-bouncer-evaluation";
-import { UserFlag } from "./types";
+import { UserFlag } from "@fsvreddit/bot-bouncer-types";
 
 /**
  * The subreddit that is used for user submissions

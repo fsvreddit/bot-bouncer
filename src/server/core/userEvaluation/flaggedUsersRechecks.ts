@@ -2,9 +2,9 @@ import { context, reddit, redis, scheduler, settings, TaskRequest, UserSocialLin
 import { getUserExtended, hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import { EvaluateBioTextDefinedHandles, EvaluateBotGroupAdvanced, EvaluateBotGroupAdvancedInternal, EvaluatePostTitleDefinedHandles, EvaluateSocialLinks } from "@fsvreddit/bot-bouncer-evaluation";
 import { addMinutes, addSeconds } from "date-fns";
-import { AppSetting, ControlSubredditJob, getControlSubSettings, getUserStatus, UserFlag } from "..";
+import { AppSetting, ControlSubredditJob, getControlSubSettings, getUserStatus } from "..";
 import pluralize from "pluralize";
-import { UserStatus } from "@fsvreddit/bot-bouncer-types";
+import { UserFlag, UserStatus } from "@fsvreddit/bot-bouncer-types";
 import { getEvaluatorVariables } from "./evaluatorVariables";
 import json2md from "json2md";
 import { FlaggedRechecksQueueJobData } from "../../tasks";

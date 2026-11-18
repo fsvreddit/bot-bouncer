@@ -1,6 +1,5 @@
-import { UserStatus } from "@fsvreddit/bot-bouncer-types";
+import { UserFlag, UserStatus } from "@fsvreddit/bot-bouncer-types";
 import { UserDetails } from "../..";
-import { UserFlag } from "../../types";
 
 export const FLAGS_TO_EXCLUDE_FROM_STATS: UserFlag[] = [
     UserFlag.HackedAndRecovered,

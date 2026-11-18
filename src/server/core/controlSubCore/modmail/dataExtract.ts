@@ -1,9 +1,8 @@
 /* eslint-disable @stylistic/quote-props */
 import { context, reddit, redis, scheduler, TaskRequest, UserSocialLink, WikiPage } from "@devvit/web/server";
-import { UserStatus } from "@fsvreddit/bot-bouncer-types";
+import { UserFlag, UserStatus } from "@fsvreddit/bot-bouncer-types";
 import { hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import { ALL_POTENTIAL_USER_PREFIXES, BIO_TEXT_STORE, ControlSubredditJob, DISPLAY_NAME_STORE, expireKeyAt, getAccountInitialEvaluationResultsMulti, getDataStoreFiltered, hMGetAsRecord, ModmailMessage, normaliseHitReason, setCleanupForUser, SOCIAL_LINKS_STORE, UserDetails } from "../..";
-import { UserFlag } from "../../types";
 import Ajv, { JSONSchemaType } from "ajv";
 import json2md from "json2md";
 import { addHours, addMinutes, addSeconds, format, subDays } from "date-fns";

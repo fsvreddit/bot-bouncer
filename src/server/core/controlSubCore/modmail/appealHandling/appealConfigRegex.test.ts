@@ -1,5 +1,6 @@
 import { expect, test } from "vitest";
-import { AppealRegexConfig, compileAppealConfigRegexes, compileAppealConfigs, getAppealConfigRegexIssues } from "./appealConfigRegex";
+import { compileAppealConfigRegexes, compileAppealConfigs, getAppealConfigRegexIssues } from "./appealConfigRegex";
+import { AppealRegexConfig } from "@fsvreddit/bot-bouncer-types";
 
 const supportedRegexProperties = [
     "usernameRegex",

@@ -1,6 +1,6 @@
 import { context, redis, scheduler, TaskRequest } from "@devvit/web/server";
-import { UserStatus } from "@fsvreddit/bot-bouncer-types";
-import { ControlSubredditJob, getControlSubSettings, getUserStatus, setUserStatusAndFlair, UserDetails, UserFlag } from "..";
+import { UserFlag, UserStatus } from "@fsvreddit/bot-bouncer-types";
+import { ControlSubredditJob, getControlSubSettings, getUserStatus, setUserStatusAndFlair, UserDetails } from "..";
 import { hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import pluralize from "pluralize";
 import { addMinutes, addSeconds } from "date-fns";

@@ -1,9 +1,9 @@
 import type { Context } from "hono";
 import { context, reddit, redis } from "@devvit/web/server";
 import { OnPostFlairUpdateRequest, T3, TriggerResponse } from "@devvit/web/shared";
-import { CONTROL_SUBREDDIT, FLAIR_MAPPINGS, getUsernameFromUrl, getUserStatus, queueSendFeedback, setUserStatus, setUserStatusAndFlair, UserDetails, UserFlag } from "../core";
+import { CONTROL_SUBREDDIT, FLAIR_MAPPINGS, getUsernameFromUrl, getUserStatus, queueSendFeedback, setUserStatus, setUserStatusAndFlair, UserDetails } from "../core";
 import { fixPostTriggerEvent, hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
-import { UserStatus } from "@fsvreddit/bot-bouncer-types";
+import { UserFlag, UserStatus } from "@fsvreddit/bot-bouncer-types";
 import { addMinutes, addSeconds } from "date-fns";
 import { addToReversalsQueue, submitAccountForReview } from "../core/controlSubCore/modmail";
 

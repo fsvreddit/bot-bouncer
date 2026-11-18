@@ -1,32 +1,4 @@
-export interface AppealRegexConfig {
-    "name": string;
-    "usernameRegex"?: string[];
-    "~usernameRegex"?: string[];
-    "messageBodyRegex"?: string[];
-    "~messageBodyRegex"?: string[];
-    "evaluatorNameRegex"?: string[];
-    "~evaluatorNameRegex"?: string[];
-    "evaluatorHitReasonRegex"?: string[];
-    "~evaluatorHitReasonRegex"?: string[];
-    "evaluatorDetailRegex"?: string[];
-    "~evaluatorDetailRegex"?: string[];
-    "currentEvaluatorNameRegex"?: string[];
-    "~currentEvaluatorNameRegex"?: string[];
-    "currentEvaluatorHitReasonRegex"?: string[];
-    "~currentEvaluatorHitReasonRegex"?: string[];
-    "currentEvaluatorDetailRegex"?: string[];
-    "~currentEvaluatorDetailRegex"?: string[];
-    "bioRegex"?: string[];
-    "~bioRegex"?: string[];
-    "originalBioRegex"?: string[];
-    "~originalBioRegex"?: string[];
-    "socialLinkRegex"?: string[];
-    "~socialLinkRegex"?: string[];
-    "originalSocialLinkRegex"?: string[];
-    "~originalSocialLinkRegex"?: string[];
-    "modNoteTextRegex"?: string[];
-    "~modNoteTextRegex"?: string[];
-}
+import { AppealRegexConfig } from "@fsvreddit/bot-bouncer-types";
 
 export type AppealRegexProperty = `${string}Regex`;
 

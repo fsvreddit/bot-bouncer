@@ -1,7 +1,6 @@
 import { context, CreateModNoteOptions, reddit, redis, RedisClient, UserSocialLink, ZMember } from "@devvit/web/server";
 import { isT1, isT3, T3 } from "@devvit/web/shared";
-import { UserStatus } from "@fsvreddit/bot-bouncer-types";
-import { UserFlag } from "./types";
+import { UserFlag, UserStatus } from "@fsvreddit/bot-bouncer-types";
 import { hGetAllChunked } from "./redisHelpers";
 import { CONTROL_SUBREDDIT } from "./constants";
 import { addDays, addHours, addMinutes, subDays, subHours, subMonths } from "date-fns";

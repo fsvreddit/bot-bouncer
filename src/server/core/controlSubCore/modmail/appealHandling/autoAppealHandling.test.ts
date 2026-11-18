@@ -18,9 +18,9 @@ vi.mock("@fsvreddit/fsv-devvit-web-helpers", () => ({
     getUserSocialLinks: vi.fn(),
     hasEventBeenHandled: vi.fn(),
 }));
-import { EvaluationResult } from "@fsvreddit/bot-bouncer-types";
+import { AppealRegexConfig, EvaluationResult } from "@fsvreddit/bot-bouncer-types";
 import { expect, test } from "vitest";
-import { AppealRegexConfig, AppealRegexProperty, compileAppealConfigRegexes, CompiledAppealRegexes } from "./appealConfigRegex";
+import { AppealRegexProperty, compileAppealConfigRegexes, CompiledAppealRegexes } from "./appealConfigRegex";
 import { CompiledAppealConfig, evaluationResultMatchesRegexes, NegatedAppealRegexContext, negatedAppealRegexesExcludeConfig, shouldFetchModNotes, sortedAppealConfigs } from "./autoAppealHandling";
 
 function evaluationResult (botName: string, hitReason?: string | { reason: string }): EvaluationResult {

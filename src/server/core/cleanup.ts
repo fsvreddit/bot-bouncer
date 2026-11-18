@@ -5,8 +5,7 @@ import { addDays, addMinutes, addSeconds, addWeeks, subDays, subMinutes, subSeco
 import { CONTROL_SUBREDDIT, PostFlairTemplate } from "./constants";
 import { getControlSubSettings } from "./controlSubSettings";
 import { deleteUserStatus, getUserStatus, removeRecordOfSubmitterOrMod, setUserStatusAndFlair, updateAggregate, writeUserStatus } from "./dataStore";
-import { UserStatus } from "@fsvreddit/bot-bouncer-types";
-import { UserFlag } from "./types";
+import { UserFlag, UserStatus } from "@fsvreddit/bot-bouncer-types";
 import { formatTimeSince } from "./utility";
 import { UniversalJob } from "./schedulerJobs";
 import { CleanupJobData } from "../tasks";

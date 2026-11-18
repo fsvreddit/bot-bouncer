@@ -1,8 +1,8 @@
 import { context, reddit, redis, scheduler, WikiPage, ZMember } from "@devvit/web/server";
-import { ControlSubSettings, UserStatus } from "@fsvreddit/bot-bouncer-types";
+import { ControlSubSettings, UserFlag, UserStatus } from "@fsvreddit/bot-bouncer-types";
 import { StatsUserEntry } from "./statsHelpers";
 import { addHours, subMonths } from "date-fns";
-import { accountIsBotBouncerApp, ControlSubredditJob, expireKeyAt, getControlSubSettings, getFullDataStore, UserDetails, UserFlag } from "../..";
+import { accountIsBotBouncerApp, ControlSubredditJob, expireKeyAt, getControlSubSettings, getFullDataStore, UserDetails } from "../..";
 import json2md from "json2md";
 import { uniq } from "lodash-es";
 import { UpdateSubmitterSuccessRateJobData } from "../../../tasks";

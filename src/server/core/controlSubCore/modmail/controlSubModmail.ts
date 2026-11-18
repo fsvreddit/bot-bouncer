@@ -1,7 +1,7 @@
 import { context, reddit, redis, scheduler } from "@devvit/web/server";
 import { isT1, isT3 } from "@devvit/web/shared";
-import { UserStatus } from "@fsvreddit/bot-bouncer-types";
-import { accountIsBotBouncerApp, CHECK_DATE_KEY, CONFIGURATION_DEFAULTS, ControlSubredditJob, deleteUserStatus, FLAIR_MAPPINGS, getControlSubSettings, getUserStatus, INTERNAL_BOT, isModeratorWithCache, ModmailMessage, setUserStatusAndFlair, statusOrFlagToStatusAndFlags, UserDetails, UserFlag } from "../..";
+import { UserFlag, UserStatus } from "@fsvreddit/bot-bouncer-types";
+import { accountIsBotBouncerApp, CHECK_DATE_KEY, CONFIGURATION_DEFAULTS, ControlSubredditJob, deleteUserStatus, FLAIR_MAPPINGS, getControlSubSettings, getUserStatus, INTERNAL_BOT, isModeratorWithCache, ModmailMessage, setUserStatusAndFlair, statusOrFlagToStatusAndFlags, UserDetails } from "../..";
 import { count } from "@wordpress/wordcount";
 import { AppealOutcomeType, clearRespondToFurtherMessagesFlag, getAppealConfig, getMatchedAppealConfig, getRespondToFurtherMessagesFlag, handleAppeal, storeAppealRecordsForUser } from "./appealHandling";
 import { addDays, addSeconds, addWeeks, format, subMinutes } from "date-fns";
