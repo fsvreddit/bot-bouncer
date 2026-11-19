@@ -16,6 +16,7 @@ const EVALUATOR_VARIABLES_KEY = "evaluatorVariablesHash";
 const EVALUATOR_VARIABLES_WIKI_PAGE = "evaluatorvars";
 const EVALUATOR_VARIABLES_LAST_COMMIT_KEY = "evaluatorVariablesLastCommit";
 const EVALUATOR_VARIABLES_LAST_COMMIT_HASH_KEY = "evaluatorVariablesLastCommitHash";
+const EVALUATOR_VARIABLES_LAST_UPDATE_TIMESTAMP_KEY = "evaluatorVariablesLastUpdateTimestamp";
 const EXTRA_VARIABLES_KEY = "extraEvaluatorVariablesHash";
 const EXTRA_VARIABLES_UPDATED_KEY = "extraEvaluatorVariablesUpdated";
 
@@ -284,6 +285,8 @@ export async function updateEvaluatorVariables (event: TaskRequest<UpdateEvaluat
         await redis.global.hDel(EVALUATOR_VARIABLES_KEY, keysToRemove);
     }
 
+    await redis.set(EVALUATOR_VARIABLES_LAST_UPDATE_TIMESTAMP_KEY, Date.now().toString());
+
     const variablesCount = Object.keys(converted).length;
     console.log(`Evaluator Variables: Updated ${variablesCount} variables and removed ${keysToRemove.length} from wiki edit by ${latestCommit?.author ?? "unknown"}.`);
 
@@ -437,4 +440,9 @@ export async function invalidEvaluatorVariableCondition (variables: Record<strin
     }
 
     return results;
+}
+
+export async function getLastEvaluatorVariablesUpdateTimestamp (): Promise<number | undefined> {
+    const timestamp = await redis.get(EVALUATOR_VARIABLES_LAST_UPDATE_TIMESTAMP_KEY);
+    return timestamp ? parseInt(timestamp) : undefined;
 }
