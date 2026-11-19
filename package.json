@@ -10,13 +10,13 @@
     "logs": "devvit logs botbouncer --verbose --since 5m",
     "test": "vitest run --config vitest.config.ts",
     "lint": "eslint \"src/**/*.{ts,tsx}\"",
-    "type-check": "tsc --build"
+    "type-check": "tsc --build && tsc --build --clean"
   },
   "dependencies": {
     "@devvit/server": "0.15.4",
     "@devvit/start": "0.15.4",
     "@devvit/web": "0.15.4",
-    "@fsvreddit/bot-bouncer-evaluation": "^0.8.8",
+    "@fsvreddit/bot-bouncer-evaluation": "^0.8.14",
     "@fsvreddit/bot-bouncer-types": "^1.0.11",
     "@fsvreddit/fsv-devvit-web-helpers": "^0.2.4",
     "@hono/node-server": "^2.1.4",
@@ -33,7 +33,7 @@
     "pako": "^3.0.0",
     "pluralize": "^8.0.0",
     "recheck": "^4.5.0",
-    "regjsparser": "^0.14.1",
+    "regjsparser": "^1.0.0",
     "yaml": "^2.8.1"
   },
   "devDependencies": {

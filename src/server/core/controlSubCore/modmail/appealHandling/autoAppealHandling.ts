@@ -11,6 +11,7 @@ import { getEvaluatorVariables } from "../../../userEvaluation";
 import { sendMessageOnDelay } from "../delayedSend";
 import { recordAppealHandled } from "../../statistics";
 import { compact, countBy } from "lodash-es";
+import { getSubstitutionsDocument } from "@fsvreddit/bot-bouncer-evaluation";
 
 const APPEAL_CONFIG_WIKI_PAGE = "appeal-config";
 const APPEAL_CONFIG_REDIS_KEY = "AppealConfig";
@@ -163,7 +164,8 @@ export function negatedCurrentEvaluationRegexesExcludeConfig (
 }
 
 function getSubstitutions (wikiPage: string): Record<string, string | string[]> {
-    const documents = parseAllDocuments(wikiPage);
+    const substitutionsYaml = getSubstitutionsDocument(wikiPage);
+    const documents = parseAllDocuments(substitutionsYaml);
 
     const results: Record<string, string | string[]> = {};
 
