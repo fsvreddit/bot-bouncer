@@ -11,7 +11,6 @@ jobs:
         with:
           node-version: '26.x'
       - run: npm install
-      - run: npx tsc --build
-      - run: npx tsc --build --clean
+      - run: npx tsc --build --noEmit
       - run: npm run test
       - run: npx eslint

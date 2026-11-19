@@ -215,10 +215,7 @@ export async function addExternalSubmissionToPostCreationQueue (item: ExternalSu
 
 export async function handleExternalSubmissionsPageUpdate () {
     if (context.subredditName !== CONTROL_SUBREDDIT) {
-        const controlSubSettings = await getControlSubSettings();
-        if (!context.subredditName || !controlSubSettings.observerSubreddits?.includes(context.subredditName)) {
-            return;
-        }
+        return;
     }
 
     const externalSubmissionLock = "externalSubmissionLock";

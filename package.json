@@ -10,7 +10,7 @@
     "logs": "devvit logs botbouncer --verbose --since 5m",
     "test": "vitest run --config vitest.config.ts",
     "lint": "eslint \"src/**/*.{ts,tsx}\"",
-    "type-check": "tsc --build && tsc --build --clean"
+    "type-check": "tsc --build --noEmit"
   },
   "dependencies": {
     "@devvit/server": "0.15.4",

@@ -98,7 +98,6 @@ async function handleModActionClientSub (event: OnModActionRequest) {
     // Special actions for observer subreddits
     if (event.action === "wikirevise" && event.moderator?.name && event.moderator.name !== context.appSlug && event.moderator.name !== INTERNAL_BOT && await accountIsBotBouncerApp(event.moderator.name)) {
         await handleObserverSubsWikiPageCopy();
-        await handleExternalSubmissionsPageUpdate();
     }
 }
 

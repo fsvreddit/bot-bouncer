@@ -300,17 +300,6 @@ export async function updateEvaluatorVariables (event: TaskRequest<UpdateEvaluat
         reason: `Updating evaluator variables from wiki on /r/${context.subredditName}`,
     });
 
-    if (controlSubSettings.observerSubreddits?.length) {
-        for (const subreddit of controlSubSettings.observerSubreddits) {
-            await reddit.updateWikiPage({
-                subredditName: subreddit,
-                page: EVALUATOR_VARIABLES_WIKI_PAGE,
-                content: compressedVariables,
-            });
-            console.log(`Evaluator Variables: Updated wiki page on /r/${subreddit}`);
-        }
-    }
-
     if (latestCommit?.date) {
         await setLatestVariablesCommit(latestCommit.date, latestCommit.sha);
     }
