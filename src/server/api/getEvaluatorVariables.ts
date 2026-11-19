@@ -8,7 +8,7 @@ export const handleGetEvaluatorVariables = async (c: Context): Promise<Response>
         const sinceTimestamp = parseInt(sinceValue);
         if (!isNaN(sinceTimestamp)) {
             const lastUpdate = await getLastEvaluatorVariablesUpdateTimestamp();
-            if (lastUpdate && lastUpdate <= sinceTimestamp) {
+            if (lastUpdate && lastUpdate < sinceTimestamp) {
                 return c.json({ updated: false }, 200);
             }
         }
