@@ -9,6 +9,7 @@ import { addHours, addMinutes, addSeconds, format, subDays } from "date-fns";
 import pluralize from "pluralize";
 import { DataExtractJobData } from "../../../tasks";
 import { chunk, fromPairs } from "lodash-es";
+import { parseDocument } from "yaml";
 
 interface ModmailDataExtract {
     status?: UserStatus[];
@@ -88,25 +89,44 @@ function getExtractDefinitionKey (extractId: string) {
     return `ModmailDataExtractDefinition~${extractId}`;
 }
 
+function getExtractDataFromJson (json: string): ModmailDataExtract | undefined {
+    try {
+        return JSON.parse(json) as ModmailDataExtract;
+    } catch (error) {
+        console.error("Error parsing JSON:", error);
+        return undefined;
+    }
+}
+
+function getExtractDataFromYaml (yaml: string): ModmailDataExtract | undefined {
+    try {
+        return parseDocument(yaml).toJSON() as ModmailDataExtract;
+    } catch (error) {
+        console.error("Error parsing YAML:", error);
+        return undefined;
+    }
+}
+
 export async function dataExtract (message: ModmailMessage, conversationId: string) {
-    if (!message.bodyMarkdown.startsWith("!extract {")) {
+    if (!message.bodyMarkdown.startsWith("!extract ")) {
         return;
     }
 
     console.log("Data Extract: Starting extract process.");
 
-    const requestData = message.bodyMarkdown.slice(9);
+    const requestData = message.bodyMarkdown.slice(9).trim();
 
-    let request: ModmailDataExtract;
-    try {
-        request = JSON.parse(requestData) as ModmailDataExtract;
-    } catch (error) {
+    let request: ModmailDataExtract | undefined;
+    if (requestData.startsWith("{")) {
+        request = getExtractDataFromJson(requestData);
+    } else {
+        request = getExtractDataFromYaml(requestData);
+    }
+
+    if (!request) {
         await reddit.modMail.reply({
             conversationId,
-            body: json2md([
-                { p: "Error parsing JSON" },
-                { blockquote: error },
-            ]),
+            body: "Invalid request data.",
             isInternal: true,
         });
         return;
@@ -119,7 +139,7 @@ export async function dataExtract (message: ModmailMessage, conversationId: stri
         await reddit.modMail.reply({
             conversationId,
             body: json2md([
-                { p: "Invalid JSON" },
+                { p: "Invalid request" },
                 { blockquote: ajv.errorsText(validate.errors) },
             ]),
             isInternal: true,
