@@ -107,7 +107,7 @@ export async function dataExtract (message: ModmailMessage, conversationId: stri
                 { p: "Error parsing JSON" },
                 { blockquote: error },
             ]),
-            isAuthorHidden: false,
+            isInternal: true,
         });
         return;
     }
@@ -122,7 +122,7 @@ export async function dataExtract (message: ModmailMessage, conversationId: stri
                 { p: "Invalid JSON" },
                 { blockquote: ajv.errorsText(validate.errors) },
             ]),
-            isAuthorHidden: false,
+            isInternal: true,
         });
         return;
     }
@@ -132,7 +132,7 @@ export async function dataExtract (message: ModmailMessage, conversationId: stri
         await reddit.modMail.reply({
             conversationId,
             body: `Request is empty. Please provide at least one of the following fields: ${atLeastOneRequiredFields.map(field => `\`${field}\``).join(", ")}. \`bioRegex\` cannot be used on its own.`,
-            isAuthorHidden: false,
+            isInternal: true,
         });
         return;
     }
@@ -144,7 +144,7 @@ export async function dataExtract (message: ModmailMessage, conversationId: stri
             await reddit.modMail.reply({
                 conversationId,
                 body: "Invalid regex provided for `usernameRegex`.",
-                isAuthorHidden: false,
+                isInternal: true,
             });
             return;
         }
@@ -157,7 +157,7 @@ export async function dataExtract (message: ModmailMessage, conversationId: stri
             await reddit.modMail.reply({
                 conversationId,
                 body: "Invalid regex provided for `bioRegex`.",
-                isAuthorHidden: false,
+                isInternal: true,
             });
             return;
         }
@@ -170,7 +170,7 @@ export async function dataExtract (message: ModmailMessage, conversationId: stri
             await reddit.modMail.reply({
                 conversationId,
                 body: "Invalid regex provided for `displayNameRegex`.",
-                isAuthorHidden: false,
+                isInternal: true,
             });
             return;
         }
@@ -183,7 +183,7 @@ export async function dataExtract (message: ModmailMessage, conversationId: stri
             await reddit.modMail.reply({
                 conversationId,
                 body: "Invalid regex provided for `hitReasonRegex`.",
-                isAuthorHidden: false,
+                isInternal: true,
             });
             return;
         }
@@ -196,7 +196,7 @@ export async function dataExtract (message: ModmailMessage, conversationId: stri
             await reddit.modMail.reply({
                 conversationId,
                 body: "Invalid regex provided for `hitDetailRegex`.",
-                isAuthorHidden: false,
+                isInternal: true,
             });
             return;
         }
@@ -335,7 +335,7 @@ export async function startDataExtract (event: TaskRequest<DataExtractJobData>) 
         await reddit.modMail.reply({
             conversationId: event.data.conversationId,
             body: `This data extract uses filters that require additional processing. ${countEntriesInTempStore.toLocaleString()} users match the initial "simple" criteria, which means that the extract will take some time to process. Please wait for a follow-up message once the extract is complete.`,
-            isAuthorHidden: false,
+            isInternal: true,
         });
     }
 }
@@ -550,6 +550,7 @@ async function createDataExtract (
         await reddit.modMail.reply({
             conversationId,
             body: `The data to export includes ${keys.length} records which exceeds the maximum of 5000. Detailed data cannot be shown.`,
+            isInternal: true,
         });
 
         await redis.del(getExtractTempStoreKey(extractId), getExtractTempQueueKey(extractId));
@@ -566,7 +567,7 @@ async function createDataExtract (
         await reddit.modMail.reply({
             conversationId,
             body: "No records found with the provided criteria.",
-            isAuthorHidden: false,
+            isInternal: true,
         });
         return;
     }
@@ -699,7 +700,7 @@ async function createDataExtract (
             await reddit.modMail.reply({
                 conversationId,
                 body: `The data to export includes ${data.length} records, which exceeds the maximum of 5000 for rechecks. Users have not been queued for recheck.`,
-                isAuthorHidden: false,
+                isInternal: true,
             });
         }
     }
@@ -708,7 +709,7 @@ async function createDataExtract (
         await reddit.modMail.reply({
             conversationId,
             body: `The data to export includes ${data.length} records and exceeds the maximum size of 512KB. Please refine your request.`,
-            isAuthorHidden: false,
+            isInternal: true,
         });
         return;
     }
@@ -740,7 +741,7 @@ async function createDataExtract (
     await reddit.modMail.reply({
         conversationId,
         body: json2md(body),
-        isAuthorHidden: false,
+        isInternal: true,
     });
 }
 
@@ -779,5 +780,6 @@ export async function resumeStuckExtracts () {
     await reddit.modMail.reply({
         conversationId: extractData.conversationId,
         body: `Sorry - your data extract is taking longer than expected due to platform instability. It has been resumed and will continue processing. ${remainingEntries.toLocaleString()} users remain to process.`,
+        isInternal: true,
     });
 }
