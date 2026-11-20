@@ -108,7 +108,7 @@ function getExtractDataFromYaml (yaml: string): ModmailDataExtract | undefined {
 }
 
 export async function dataExtract (message: ModmailMessage, conversationId: string) {
-    if (!message.bodyMarkdown.startsWith("!extract ")) {
+    if (!message.bodyMarkdown.startsWith("!extract ") && !message.bodyMarkdown.startsWith("!extract\n")) {
         return;
     }
 
