@@ -222,8 +222,10 @@ function areSocialLinksDifferent (originalLinks: UserSocialLink[], currentLinks:
     return false;
 }
 
-export async function getSummaryForUser (username: string, source: "modmail" | "submission", conversationId?: string): Promise<json2md.DataObject[]> {
-    const extendedUser = await getUserExtended(username);
+export async function getSummaryForUser (user: string, source: "modmail" | "submission", conversationId?: string): Promise<json2md.DataObject[]> {
+    const extendedUser = await getUserExtended(user);
+
+    const username = extendedUser?.username ?? user;
 
     let userComments: Comment[] | undefined;
     let userPosts: Post[] | undefined;
