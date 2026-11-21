@@ -143,7 +143,7 @@ export const onPostFlairUpdate = async (c: Context): Promise<Response> => {
     const post = await reddit.getPostById(request.post.id as T3);
 
     // Look for Account Properties/OpenAI Summary comment and delete it.
-    if (postFlair !== UserStatus.Pending) {
+    if (!(postFlair.startsWith(UserStatus.Pending))) {
         const comment = await post.comments.all();
         const commentToDelete = comment.filter(c => c.authorName === context.appSlug && (c.body.includes("## Account Properties") || c.body.trim().startsWith("**OpenAI Summary**")));
 

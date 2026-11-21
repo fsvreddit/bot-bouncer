@@ -254,9 +254,24 @@ export async function setUserStatus (username: string, details: UserDetails) {
         promises.push(queueSubmitterForSuccessRateUpdate(details.submitter));
     }
 
+    if (currentStatus?.userStatus === UserStatus.Pending && details.userStatus !== UserStatus.Pending) {
+        promises.push(removeSummaryCommentFromPost(details.trackingPostId));
+    }
+
     const results = await Promise.allSettled(promises);
     if (results.find(result => result.status === "rejected")) {
         console.error(`One or more non-critical actions failed when setting status for ${username}.`);
+    }
+}
+
+async function removeSummaryCommentFromPost (postId: T3) {
+    const post = await reddit.getPostById(postId);
+
+    const comments = await post.comments.all();
+    const commentToDelete = comments.filter(c => c.authorName === context.appSlug && (c.body.includes("## Account Properties") || c.body.trim().startsWith("**OpenAI Summary**")));
+
+    if (commentToDelete.length > 0) {
+        await Promise.all(commentToDelete.map(c => c.delete()));
     }
 }
 
