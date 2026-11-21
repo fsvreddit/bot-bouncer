@@ -176,10 +176,6 @@ export function postIdToShortLink (postId: string): string {
     return `https://redd.it/${postId.replace("t3_", "")}`;
 }
 
-export function compressData (value: unknown): string {
-    return Buffer.from(deflate(JSON.stringify(value), { level: 9 })).toString("base64");
-}
-
 export function conditionallyCompressString (input: string): string {
     const compressed = `c:${Buffer.from(deflate(input, { level: 9 })).toString("base64")}`;
 

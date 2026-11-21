@@ -1,6 +1,6 @@
 import { context, reddit, redis, scheduler, settings, TaskRequest } from "@devvit/web/server";
 import { JsonValue } from "@devvit/web/shared";
-import { ALL_RELEVANT_EVALUTORS, AppSetting, compressData, CONTROL_SUBREDDIT, ControlSubredditJob, getControlSubSettings, normaliseHitReason, sendMessageToWebhook } from "..";
+import { ALL_RELEVANT_EVALUTORS, AppSetting, CONTROL_SUBREDDIT, ControlSubredditJob, getControlSubSettings, normaliseHitReason, sendMessageToWebhook } from "..";
 import { getUserExtended, hasEventBeenHandled, mGetAsRecord } from "@fsvreddit/fsv-devvit-web-helpers";
 import { addMinutes, addSeconds } from "date-fns";
 import { EvaluateBotGroupAdvanced, EvaluateBotGroupAdvancedSubmitters, yamlToVariables } from "@fsvreddit/bot-bouncer-evaluation";
@@ -13,7 +13,6 @@ import { Octokit } from "octokit";
 import pluralize from "pluralize";
 
 const EVALUATOR_VARIABLES_KEY = "evaluatorVariablesHash";
-const EVALUATOR_VARIABLES_WIKI_PAGE = "evaluatorvars";
 const EVALUATOR_VARIABLES_LAST_COMMIT_KEY = "evaluatorVariablesLastCommit";
 const EVALUATOR_VARIABLES_LAST_COMMIT_HASH_KEY = "evaluatorVariablesLastCommitHash";
 const EVALUATOR_VARIABLES_LAST_UPDATE_TIMESTAMP_KEY = "evaluatorVariablesLastUpdateTimestamp";
@@ -289,16 +288,6 @@ export async function updateEvaluatorVariables (event: TaskRequest<UpdateEvaluat
 
     const variablesCount = Object.keys(converted).length;
     console.log(`Evaluator Variables: Updated ${variablesCount} variables and removed ${keysToRemove.length} from wiki edit by ${latestCommit?.author ?? "unknown"}.`);
-
-    const compressedVariables = compressData(variables);
-
-    // Write back to parsed wiki page for older client subreddits and observer subreddits
-    await reddit.updateWikiPage({
-        subredditName: CONTROL_SUBREDDIT,
-        page: EVALUATOR_VARIABLES_WIKI_PAGE,
-        content: compressedVariables,
-        reason: `Updating evaluator variables from wiki on /r/${context.subredditName}`,
-    });
 
     if (latestCommit?.date) {
         await setLatestVariablesCommit(latestCommit.date, latestCommit.sha);
