@@ -1,7 +1,7 @@
 import { Comment, context, Post, reddit, redis, scheduler, settings, SubredditInfo, TaskRequest } from "@devvit/web/server";
 import { JsonValue, T1, T3 } from "@devvit/web/shared";
 import { EvaluateBotGroupAdvancedSubmitters, getSocialLinksWithCache, UserEvaluatorBase } from "@fsvreddit/bot-bouncer-evaluation";
-import { getPostOrCommentById, getUserExtended, hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
+import { getPostOrCommentById, getUserOrUndefined, hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import { accountIsBotBouncerApp, ALL_RELEVANT_EVALUTORS, AppSetting, conditionallyCompressString, conditionallyDecompressString, CONTROL_SUBREDDIT, ControlSubredditJob, getControlSubSettings, getUserStatus, normaliseHitReason, normaliseHitReasons, setUserStatusAndFlair } from "..";
 import { addMinutes, addSeconds, addWeeks, subMonths } from "date-fns";
 import { HitReason, HitReasonDetailed, UserStatus } from "@fsvreddit/bot-bouncer-types";
@@ -32,7 +32,7 @@ interface EvaluateUserAccountOptions {
 }
 
 export async function evaluateUserAccount (options: EvaluateUserAccountOptions, silent = false): Promise<EvaluationResult[]> {
-    const user = await getUserExtended(options.username);
+    const user = await getUserOrUndefined(options.username);
     if (!user) {
         return [];
     }
@@ -76,7 +76,7 @@ export async function evaluateUserAccount (options: EvaluateUserAccountOptions, 
         userItems.unshift(await getPostOrCommentById(options.targetId));
     }
 
-    const socialLinks = await getSocialLinksWithCache(user.username);
+    const socialLinks = await getSocialLinksWithCache(user);
     const openAIEvaluationKey = await settings.get<string>(AppSetting.OpenAIEvaluationKey);
 
     await Promise.all(compact(matchedEvaluators).map(async (evaluator) => {
@@ -193,7 +193,7 @@ export async function handleControlSubAccountEvaluation (request: TaskRequest<Ev
         const evaluator = new EvaluateBotGroupAdvancedSubmitters(history, undefined, variables);
         if (!evaluator.evaluatorDisabled()) {
             evaluator.setSubmitterName(currentStatus.submitter);
-            const user = await getUserExtended(username);
+            const user = await getUserOrUndefined(username);
             if (user) {
                 const isABot = await evaluator.evaluate(user);
                 if (isABot) {

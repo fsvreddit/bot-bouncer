@@ -1,6 +1,6 @@
 import { Comment, context, Post, reddit, redis, settings, UserSocialLink } from "@devvit/web/server";
 import { isT3, JsonValue, OnCommentCreateRequest, OnCommentUpdateRequest, OnPostCreateRequest, OnPostUpdateRequest, T1, T3 } from "@devvit/web/shared";
-import { fixCommentTriggerEvent, fixPostTriggerEvent, getPostOrCommentById, getUserExtended, getUserOrUndefined, isBanned, isContributor } from "@fsvreddit/fsv-devvit-web-helpers";
+import { fixCommentTriggerEvent, fixPostTriggerEvent, getPostOrCommentById, getUserOrUndefined, isBanned, isContributor } from "@fsvreddit/fsv-devvit-web-helpers";
 import { ActionType, addExternalSubmissionFromExternal, addUserToModqueueRemovalStore, ALL_RELEVANT_EVALUTORS, AppSetting, CONFIGURATION_DEFAULTS, CONTROL_SUBREDDIT, expireKeyAt, getControlSubSettings, getUserStatus, isModeratorWithCache, isUserWhitelisted, recordBan, recordBanForSummary, recordUserContentCreation, UserDetails } from "..";
 import { getEvaluatorVariables } from "../userEvaluation";
 import { UserStatus } from "@fsvreddit/bot-bouncer-types";
@@ -308,7 +308,7 @@ async function handleContentCreation (username: string, currentStatus: UserDetai
 }
 
 async function checkAndReportPotentialBot (username: string, target: Post | OnCommentCreateRequest | OnCommentUpdateRequest, variables: Record<string, JsonValue>) {
-    const user = await getUserExtended(username);
+    const user = await getUserOrUndefined(username);
     if (!user) {
         return;
     }

@@ -1,10 +1,10 @@
-import { Comment, context, Post, reddit, settings, UserSocialLink } from "@devvit/web/server";
+import { Comment, context, Post, reddit, settings, User, UserSocialLink } from "@devvit/web/server";
 import { isT3, JsonValue, T3 } from "@devvit/web/shared";
 import { EvaluationResult } from "@fsvreddit/bot-bouncer-types";
 import { addMilliseconds, differenceInDays, differenceInHours, differenceInMilliseconds, differenceInMinutes, differenceInSeconds, Duration, format, formatDuration, getYear, intervalToDuration, startOfDecade } from "date-fns";
 import json2md from "json2md";
 import { ALL_RELEVANT_EVALUTORS, AppSetting, CONTROL_SUBREDDIT, getAccountInitialEvaluationResults, getInitialAccountProperties, getUserStatus, median, normaliseHitReason } from "../..";
-import { getUserExtended, getUserSocialLinks, UserExtended } from "@fsvreddit/fsv-devvit-web-helpers";
+import { getUserOrUndefined, getUserSocialLinks } from "@fsvreddit/fsv-devvit-web-helpers";
 import markdownEscape from "markdown-escape";
 import { getEvaluatorVariables } from "../../userEvaluation";
 import pluralize from "pluralize";
@@ -223,9 +223,9 @@ function areSocialLinksDifferent (originalLinks: UserSocialLink[], currentLinks:
 }
 
 export async function getSummaryForUser (user: string, source: "modmail" | "submission", conversationId?: string): Promise<json2md.DataObject[]> {
-    const extendedUser = await getUserExtended(user);
+    const userObj = await getUserOrUndefined(user);
 
-    const username = extendedUser?.username ?? user;
+    const username = userObj?.username ?? user;
 
     let userComments: Comment[] | undefined;
     let userPosts: Post[] | undefined;
@@ -250,7 +250,7 @@ export async function getSummaryForUser (user: string, source: "modmail" | "subm
         console.error(`Error fetching user content for ${username}:`, error);
     }
 
-    const userStatus = await getUserStatus(extendedUser?.username ?? username);
+    const userStatus = await getUserStatus(userObj?.username ?? username);
     const summary: json2md.DataObject[] = [];
 
     if (userPosts?.length === 0 && userComments && userComments.length > 0) {
@@ -283,7 +283,7 @@ export async function getSummaryForUser (user: string, source: "modmail" | "subm
         summary.push({ p: altSources });
     }
 
-    if (!extendedUser) {
+    if (!userObj) {
         summary.push({ p: `User Summary: User ${username} is already shadowbanned or suspended, so summary will not be created.` });
         return summary;
     }
@@ -292,16 +292,16 @@ export async function getSummaryForUser (user: string, source: "modmail" | "subm
 
     const evaluatorVariables = await getEvaluatorVariables();
 
-    const accountAge = formatDifferenceInDates(extendedUser.createdAt, new Date());
+    const accountAge = formatDifferenceInDates(userObj.createdAt, new Date());
 
     summary.push({ h2: `Account Properties` });
 
     const accountPropsBullets = [
         `Account age: ${accountAge}`,
-        `Comment karma: ${extendedUser.commentKarma.toLocaleString()}`,
-        `Post karma: ${extendedUser.linkKarma.toLocaleString()}`,
-        `Verified Email: ${extendedUser.hasVerifiedEmail ? "Yes" : "No"}`,
-        `Subreddit Moderator: ${extendedUser.isModerator ? "Yes" : "No"}`,
+        `Comment karma: ${userObj.commentKarma.toLocaleString()}`,
+        `Post karma: ${userObj.linkKarma.toLocaleString()}`,
+        `Verified Email: ${userObj.hasVerifiedEmail ? "Yes" : "No"}`,
+        `Subreddit Moderator: ${userObj.isModerator ? "Yes" : "No"}`,
     ];
 
     if (userStatus?.flags && userStatus.flags.length > 0) {
@@ -318,23 +318,23 @@ export async function getSummaryForUser (user: string, source: "modmail" | "subm
         }
     }
 
-    const userHasGold = extendedUser.isGold;
+    const userHasGold = userObj.hasRedditPremium;
     if (userHasGold) {
         accountPropsBullets.push("User has Reddit Premium");
     }
 
-    const userDisplayName = extendedUser.displayName;
+    const userDisplayName = userObj.displayName;
     if (userDisplayName) {
         accountPropsBullets.push(`Display name: ${userDisplayName}`);
     }
 
-    const userBio = extendedUser.userDescription;
+    const userBio = userObj.about;
     const sitewideBannedDomains = evaluatorVariables["generic:sitewidebanneddomains"] as string[] | undefined ?? [];
 
-    if (userBio?.includes("\n")) {
+    if (userBio.includes("\n")) {
         summary.push({ ul: accountPropsBullets });
         summary.push({ blockquote: cleanedBio(userBio, sitewideBannedDomains) });
-    } else if (userBio) {
+    } else if (userBio.length > 0) {
         accountPropsBullets.push(`Bio: ${cleanedBio(userBio, sitewideBannedDomains)}`);
         summary.push({ ul: accountPropsBullets });
     } else {
@@ -343,16 +343,16 @@ export async function getSummaryForUser (user: string, source: "modmail" | "subm
 
     if (source === "modmail") {
         const originalAccountProperties = await getInitialAccountProperties(username);
-        if (originalAccountProperties.bioText && originalAccountProperties.bioText.trim() !== userBio?.trim()) {
-            if (userBio?.includes("\n")) {
+        if (originalAccountProperties.bioText && originalAccountProperties.bioText.trim() !== userBio.trim()) {
+            if (userBio.includes("\n")) {
                 summary.push({ p: "Original bio:" });
                 summary.push({ blockquote: cleanedBio(originalAccountProperties.bioText, sitewideBannedDomains) });
-            } else {
+            } else if (userBio.length > 0) {
                 summary.push({ p: `Original bio: ${cleanedBio(originalAccountProperties.bioText, sitewideBannedDomains)}` });
             }
         }
 
-        if (originalAccountProperties.displayName && originalAccountProperties.displayName.trim() !== userDisplayName?.trim()) {
+        if (originalAccountProperties.displayName && originalAccountProperties.displayName.trim() !== userDisplayName.trim()) {
             summary.push({ p: `Original display name: ${originalAccountProperties.displayName}` });
         }
 
@@ -385,7 +385,7 @@ export async function getSummaryForUser (user: string, source: "modmail" | "subm
 
     if (source === "modmail") {
         const initialEvaluatorsMatched = await getAccountInitialEvaluationResults(username);
-        const matchedEvaluators = await evaluatorsMatched(extendedUser, [...userComments, ...userPosts], evaluatorVariables);
+        const matchedEvaluators = await evaluatorsMatched(userObj, [...userComments, ...userPosts], evaluatorVariables);
         if (matchedEvaluators.length > 0 || initialEvaluatorsMatched.length > 0) {
             summary.push({ h2: "Evaluation results" });
         }
@@ -497,7 +497,7 @@ export async function getSummaryForUser (user: string, source: "modmail" | "subm
 
         if (userComments.length < 90) {
             // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-            bullets.push(`First comment was ${formatDifferenceInDates(extendedUser.createdAt, userComments[userComments.length - 1]!.createdAt)} after account creation`);
+            bullets.push(`First comment was ${formatDifferenceInDates(userObj.createdAt, userComments[userComments.length - 1]!.createdAt)} after account creation`);
         }
 
         summary.push({ ul: bullets });
@@ -527,7 +527,7 @@ export async function getSummaryForUser (user: string, source: "modmail" | "subm
         bullets.push(`Post subreddits: ${Object.entries(subreddits).map(([subreddit, count]) => `${markdownEscape(subreddit)}: ${count}`).join(", ")}`);
         if (userPosts.length < 90) {
             // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-            bullets.push(`First post was ${formatDifferenceInDates(extendedUser.createdAt, userPosts[userPosts.length - 1]!.createdAt)} after account creation`);
+            bullets.push(`First post was ${formatDifferenceInDates(userObj.createdAt, userPosts[userPosts.length - 1]!.createdAt)} after account creation`);
         }
 
         summary.push({ ul: bullets });
@@ -562,7 +562,7 @@ export async function createUserSummary (username: string, postId: string) {
     console.log(`User Summary: Summary created for ${username}`);
 }
 
-async function evaluatorsMatched (user: UserExtended, userHistory: (Post | Comment)[], evaluatorVariables: Record<string, JsonValue>): Promise<InstanceType<typeof ALL_RELEVANT_EVALUTORS[number]>[]> {
+async function evaluatorsMatched (user: User, userHistory: (Post | Comment)[], evaluatorVariables: Record<string, JsonValue>): Promise<InstanceType<typeof ALL_RELEVANT_EVALUTORS[number]>[]> {
     const evaluatorsMatched: InstanceType<typeof ALL_RELEVANT_EVALUTORS[number]>[] = [];
     const openAIEvaluationKey = await settings.get<string>(AppSetting.OpenAIEvaluationKey);
 

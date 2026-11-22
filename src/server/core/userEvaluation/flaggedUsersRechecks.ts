@@ -1,5 +1,5 @@
 import { context, reddit, redis, scheduler, settings, TaskRequest, UserSocialLink } from "@devvit/web/server";
-import { getUserExtended, hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
+import { getUserOrUndefined, hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import { EvaluateBioTextDefinedHandles, EvaluateBotGroupAdvanced, EvaluateBotGroupAdvancedInternal, EvaluatePostTitleDefinedHandles, EvaluateSocialLinks } from "@fsvreddit/bot-bouncer-evaluation";
 import { addMinutes, addSeconds } from "date-fns";
 import { AppSetting, ControlSubredditJob, getControlSubSettings, getUserStatus } from "..";
@@ -113,7 +113,7 @@ export async function recheckFlaggedUser (username: string): Promise<void> {
         return;
     }
 
-    const user = await getUserExtended(username);
+    const user = await getUserOrUndefined(username);
     if (!user) {
         console.error("FlaggedRechecks: Could not fetch user details for", username);
         return;

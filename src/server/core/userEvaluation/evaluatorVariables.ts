@@ -1,7 +1,7 @@
 import { context, reddit, redis, scheduler, settings, TaskRequest } from "@devvit/web/server";
 import { JsonValue } from "@devvit/web/shared";
 import { ALL_RELEVANT_EVALUTORS, AppSetting, CONTROL_SUBREDDIT, ControlSubredditJob, getControlSubSettings, normaliseHitReason, sendMessageToWebhook } from "..";
-import { getUserExtended, hasEventBeenHandled, mGetAsRecord } from "@fsvreddit/fsv-devvit-web-helpers";
+import { getUserOrUndefined, hasEventBeenHandled, mGetAsRecord } from "@fsvreddit/fsv-devvit-web-helpers";
 import { addMinutes, addSeconds } from "date-fns";
 import { EvaluateBotGroupAdvanced, EvaluateBotGroupAdvancedSubmitters, yamlToVariables } from "@fsvreddit/bot-bouncer-evaluation";
 import json2md from "json2md";
@@ -212,7 +212,7 @@ export async function updateEvaluatorVariables (event: TaskRequest<UpdateEvaluat
         // Do a sanity check to ensure that nobody's done anything silly with Bot Group Advanced.
         const matchedMods: Record<string, string> = {};
         for (const moderator of ["fsv", "Leonichol", "NeedAGoodUsername"]) {
-            const user = await getUserExtended(moderator);
+            const user = await getUserOrUndefined(moderator);
             if (!user) {
                 console.warn(`Evaluator Variables: User ${moderator} not found, skipping.`);
                 continue;

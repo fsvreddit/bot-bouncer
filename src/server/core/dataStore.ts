@@ -5,7 +5,7 @@ import { hGetAllChunked } from "./redisHelpers";
 import { CONTROL_SUBREDDIT } from "./constants";
 import { addDays, addHours, addMinutes, subDays, subHours, subMonths } from "date-fns";
 import { getUsernameFromUrl, statusOrFlagToStatusAndFlags } from "./utility";
-import { getUserExtended, getUserSocialLinks } from "@fsvreddit/fsv-devvit-web-helpers";
+import { getUserOrUndefined, getUserSocialLinks } from "@fsvreddit/fsv-devvit-web-helpers";
 import { setCleanupForSubmittersAndMods, setCleanupForUser } from "./cleanup";
 import pluralize from "pluralize";
 import { deleteAccountInitialEvaluationResults, statusToFlair } from ".";
@@ -334,15 +334,15 @@ export async function removeRecordOfSubmitterOrMod (username: string) {
 }
 
 export async function storeInitialAccountProperties (username: string) {
-    const userExtended = await getUserExtended(username);
+    const userExtended = await getUserOrUndefined(username);
 
     if (!userExtended) {
         return;
     }
 
     const promises: Promise<number>[] = [];
-    if (userExtended.userDescription) {
-        promises.push(redis.hSet(BIO_TEXT_STORE, { [username]: userExtended.userDescription }));
+    if (userExtended.about && userExtended.about.trim().length > 0) {
+        promises.push(redis.hSet(BIO_TEXT_STORE, { [username]: userExtended.about }));
         console.log(`Data Store: Stored bio for ${username}`);
     }
 
