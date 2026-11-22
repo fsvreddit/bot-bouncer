@@ -3,9 +3,8 @@ import { OnModActionRequest, T3, TriggerResponse } from "@devvit/web/shared";
 import { getExtendedDevvit, hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import { addDays, addMinutes, addSeconds, subMinutes } from "date-fns";
 import { Context } from "hono";
-import { accountIsBotBouncerApp, clearAppPermissionsCache, ClientSubredditJob, ConfigWikiPage, CONTROL_SUBREDDIT, ControlSubredditJob, getControlSubSettings, getInstallDate, handleExternalSubmissionsPageUpdate, INTERNAL_BOT, isModeratorWithCache, recordWhitelistUnban, removeCachedBanStatus, removeRecordOfBan, sendMessageToWebhook } from "../core";
+import { clearAppPermissionsCache, ClientSubredditJob, ConfigWikiPage, CONTROL_SUBREDDIT, ControlSubredditJob, getControlSubSettings, getInstallDate, handleExternalSubmissionsPageUpdate, INTERNAL_BOT, isModeratorWithCache, recordWhitelistUnban, removeCachedBanStatus, removeRecordOfBan, sendMessageToWebhook } from "../core";
 import { HandleConfigWikiChangeRequestData, NotifyModTeamOnDemodRequestData } from "../tasks";
-import { handleObserverSubsWikiPageCopy } from "../core/controlSubCore/statistics";
 
 export const onModAction = async (c: Context): Promise<Response> => {
     const event = await c.req.json<OnModActionRequest>();
@@ -93,11 +92,6 @@ async function handleModActionClientSub (event: OnModActionRequest) {
     if (event.action === "setpermissions" && event.targetUser?.name === context.appSlug) {
         await clearAppPermissionsCache();
         console.log(`handleModActionClientSub: Bot Bouncer's moderator permissions have been changed on r/${context.subredditName} by u/${event.moderator?.name}`);
-    }
-
-    // Special actions for observer subreddits
-    if (event.action === "wikirevise" && event.moderator?.name && event.moderator.name !== context.appSlug && event.moderator.name !== INTERNAL_BOT && await accountIsBotBouncerApp(event.moderator.name)) {
-        await handleObserverSubsWikiPageCopy();
     }
 }
 
