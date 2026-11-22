@@ -130,7 +130,12 @@ export async function processPendingUserReevaluationQueue (event: TaskRequest<Pe
         }
 
         await redis.zRem(PENDING_USER_REEVALUATION_QUEUE_KEY, [username]);
-        await processPendingUser(username, evaluatorVariables);
+        try {
+            await processPendingUser(username, evaluatorVariables);
+        } catch (error) {
+            console.error(`Pending User Reevaluation: Failed to process user ${username}.`, error);
+        }
+
         processed++;
     }
 
