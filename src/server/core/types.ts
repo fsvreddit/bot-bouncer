@@ -15,7 +15,6 @@ export interface ModmailMessage {
 }
 
 export enum ConfigWikiPage {
-    AutoAppealHandling = "autoAppealHandling",
     ControlSubSettings = "controlSubSettings",
 }
 

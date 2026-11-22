@@ -1,6 +1,6 @@
 import { context, scheduler, TaskRequest, TaskResponse } from "@devvit/web/server";
 import type { Context } from "hono";
-import { areAnyDelayedMessagesQueued } from "../core/controlSubCore/modmail";
+import { areAnyDelayedMessagesQueued, validateAndSaveAppealConfig } from "../core/controlSubCore/modmail";
 import { DelayedMessageJobData, UpdateEvaluatorVariablesEventData } from ".";
 import { checkBotPostFreshness, CONTROL_SUBREDDIT, ControlSubredditJob, processFeedbackQueue } from "../core";
 import { handleClassificationQueryQueue } from "../core/controlSubCore/modmail/classificationQuery";
@@ -36,6 +36,7 @@ export const handleMinutelyJob = async (c: Context): Promise<Response> => {
         resumeStuckDefinedHandlesJob(),
         resumeSocialLinksJob(),
         handleEvaluatorVariableUpdate(),
+        validateAndSaveAppealConfig(),
     ]);
 
     return c.json<TaskResponse>({ success: true }, 200);

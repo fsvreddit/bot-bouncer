@@ -1,10 +1,10 @@
-import { Comment, context, ModNote, Post, reddit, redis, UserSocialLink } from "@devvit/web/server";
+import { Comment, context, ModNote, Post, reddit, redis, settings, UserSocialLink } from "@devvit/web/server";
 import Ajv from "ajv";
-import { BIO_TEXT_STORE, CONTROL_SUBREDDIT, evaluateUserAccount, EvaluationResult, getAccountInitialEvaluationResults, getControlSubSettings, ModmailMessage, normaliseHitReason, sendMessageToWebhook, setUserStatusAndFlair, SOCIAL_LINKS_STORE, UserDetails } from "../../..";
+import { AppSetting, BIO_TEXT_STORE, CONTROL_SUBREDDIT, evaluateUserAccount, EvaluationResult, getAccountInitialEvaluationResults, getControlSubSettings, ModmailMessage, normaliseHitReason, sendMessageToWebhook, setUserStatusAndFlair, SOCIAL_LINKS_STORE, UserDetails } from "../../..";
 import { AppealConfigWithCompiledRegexes, compileAppealConfigs, CompiledAppealRegexes, getAppealConfigRegexIssues } from "./appealConfigRegex";
 import { parseAllDocuments } from "yaml";
 import json2md from "json2md";
-import { addMinutes, addSeconds, addWeeks, differenceInMonths, format, getYear, subDays } from "date-fns";
+import { addMinutes, addSeconds, addWeeks, differenceInMonths, format, getYear, subDays, subMinutes } from "date-fns";
 import { AppealConfig, appealConfigSchema, UserFlag, UserStatus } from "@fsvreddit/bot-bouncer-types";
 import { getUserExtended, getUserSocialLinks } from "@fsvreddit/fsv-devvit-web-helpers";
 import { getEvaluatorVariables } from "../../../userEvaluation";
@@ -12,8 +12,8 @@ import { sendMessageOnDelay } from "../delayedSend";
 import { recordAppealHandled } from "../../statistics";
 import { compact, countBy } from "lodash-es";
 import { getSubstitutionsDocument } from "@fsvreddit/bot-bouncer-evaluation";
+import { Octokit } from "octokit";
 
-const APPEAL_CONFIG_WIKI_PAGE = "appeal-config";
 const APPEAL_CONFIG_REDIS_KEY = "AppealConfig";
 
 export type CompiledAppealConfig = AppealConfigWithCompiledRegexes<AppealConfig>;
@@ -190,34 +190,63 @@ function getSubstitutions (wikiPage: string): Record<string, string | string[]> 
     return results;
 }
 
-export async function validateAndSaveAppealConfig (username: string): Promise<void> {
-    const appealConfigRevisionKey = "AppealConfigRevision";
-    const wikiPage = await reddit.getWikiPage(CONTROL_SUBREDDIT, APPEAL_CONFIG_WIKI_PAGE, {});
-    const lastAppealConfigRevision = await redis.get(appealConfigRevisionKey);
-    if (wikiPage.revisionId === lastAppealConfigRevision) {
-        // The saved config is up-to-date with the latest revision
+export async function validateAndSaveAppealConfig (): Promise<void> {
+    const lastCommitHashKey = "LastAppealConfigCommitHash";
+    const lastHash = await redis.get(lastCommitHashKey);
+
+    const githubApiKey = await settings.get<string>(AppSetting.GithubToken);
+    if (!githubApiKey) {
+        console.error("Evaluator Variables: Github API key is not set.");
+        return;
+    }
+
+    const octokit = new Octokit({
+        auth: githubApiKey,
+    });
+
+    const result = await octokit.rest.repos.listCommits({
+        owner: "fsvreddit",
+        repo: "bot-bouncer-config",
+        path: "config/appeal-config.yaml",
+        since: subMinutes(new Date(), 5).toISOString(),
+    });
+
+    if (result.data.length === 0) {
+        return;
+    }
+
+    const latestCommit = result.data[0];
+    if (!latestCommit || latestCommit.sha === lastHash) {
+        return;
+    }
+
+    const commitDetails = { sha: latestCommit.sha, author: latestCommit.commit.author?.name, date: latestCommit.commit.author?.date };
+
+    const fetchResult = await octokit.rest.repos.getContent({
+        owner: "fsvreddit",
+        repo: "bot-bouncer-config",
+        path: "config/appeal-config.yaml",
+        mediaType: {
+            format: "raw",
+        },
+    });
+
+    const appealData = typeof fetchResult.data === "string" ? fetchResult.data as string : undefined;
+    if (!appealData) {
+        console.error("Failed to fetch appeal configuration data.");
         return;
     }
 
     let substitutions: Record<string, string | string[]>;
     try {
-        substitutions = getSubstitutions(wikiPage.content);
+        substitutions = getSubstitutions(appealData);
     } catch {
         console.error("Failed to parse substitutions from the appeal config wiki page.");
-
-        await reddit.sendPrivateMessage({
-            to: username,
-            subject: "Error in appeal configuration",
-            text: json2md([
-                { p: "Unable to parse YAML on the appeal configuration page." },
-                { p: "Please ensure the page is formatted correctly." },
-            ]),
-        });
 
         const webhookUrl = await getControlSubSettings().then(s => s.monitoringWebhook);
         if (webhookUrl) {
             await sendMessageToWebhook(webhookUrl, json2md([
-                { p: `There was an error in the appeal configuration, last updated by ${username}` },
+                { p: `There was an error in the appeal configuration, last updated by ${commitDetails.author ?? "unknown"}` },
                 { p: "Last known good values will be used until this is corrected." },
                 { p: "The YAML on the appeal configuration page could not be parsed." },
             ]));
@@ -226,13 +255,13 @@ export async function validateAndSaveAppealConfig (username: string): Promise<vo
         return;
     }
 
-    let pageToParse = wikiPage.content;
+    let dataToParse = appealData;
     for (const [key, value] of Object.entries(substitutions)) {
         const valueToSubstitute = JSON.stringify(value);
-        pageToParse = pageToParse.replaceAll(`{{${key}}}`, valueToSubstitute);
+        dataToParse = dataToParse.replaceAll(`{{${key}}}`, valueToSubstitute);
     }
 
-    const documents = parseAllDocuments(pageToParse);
+    const documents = parseAllDocuments(dataToParse);
 
     const parsedConfigs = compact(documents.map(doc => doc.toJSON() as AppealConfig)).filter(item => item.name !== "substitutions");
 
@@ -263,26 +292,17 @@ export async function validateAndSaveAppealConfig (username: string): Promise<vo
         // Save the valid config to Redis and update the in-memory compiled cache.
         const configData = JSON.stringify(parsedConfigs);
         await redis.set(APPEAL_CONFIG_REDIS_KEY, configData);
-        await redis.set(appealConfigRevisionKey, wikiPage.revisionId);
-        console.log(`Appeal config updated to revision ${wikiPage.revisionId}`);
+        await redis.set(lastCommitHashKey, commitDetails.sha);
+        console.log(`✨ Appeal config updated to commit ${commitDetails.sha}`);
         return;
     }
 
     console.error("Invalid appeal config:", issues);
 
-    await reddit.sendPrivateMessage({
-        to: username,
-        subject: "Error in appeal configuration",
-        text: json2md([
-            { p: "There was an error in your appeal configuration:" },
-            { ul: issues },
-        ]),
-    });
-
     const webhookUrl = await getControlSubSettings().then(s => s.monitoringWebhook);
     if (webhookUrl) {
         await sendMessageToWebhook(webhookUrl, json2md([
-            { p: `There was an error in the appeal configuration, last updated by ${username}:` },
+            { p: `There was an error in the appeal configuration, last updated by ${commitDetails.author ?? "unknown"}:` },
             { p: "Last known good values will be used until this is corrected." },
             { ul: issues },
         ]));

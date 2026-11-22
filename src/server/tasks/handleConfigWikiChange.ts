@@ -2,7 +2,6 @@ import { redis, TaskRequest, TaskResponse } from "@devvit/web/server";
 import { hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import { ConfigWikiPage, validateControlSubConfigChange } from "../core";
 import { addMinutes } from "date-fns";
-import { validateAndSaveAppealConfig } from "../core/controlSubCore/modmail";
 import { Context } from "hono";
 
 export type HandleConfigWikiChangeRequestData = {
@@ -25,9 +24,7 @@ export const handleConfigWikiChangeJob = async (c: Context): Promise<Response> =
     }
 
     switch (configWikiPage) {
-        case ConfigWikiPage.AutoAppealHandling:
-            await validateAndSaveAppealConfig(updatedBy);
-            break;
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
         case ConfigWikiPage.ControlSubSettings:
             await validateControlSubConfigChange(updatedBy);
             break;

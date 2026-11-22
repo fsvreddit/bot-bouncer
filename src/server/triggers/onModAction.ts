@@ -110,7 +110,6 @@ async function handleModActionControlSub (event: OnModActionRequest) {
 
         if (event.moderator.name !== context.appSlug && event.moderator.name !== INTERNAL_BOT) {
             await Promise.all([
-                queueConfigWikiCheck(ConfigWikiPage.AutoAppealHandling, event.moderator.name, 1),
                 queueConfigWikiCheck(ConfigWikiPage.ControlSubSettings, event.moderator.name, 1),
             ]);
         }
