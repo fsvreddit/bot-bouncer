@@ -4,10 +4,11 @@ import json2md from "json2md";
 import { StatsUserEntry, userIsBanned } from "./statsHelpers";
 import { BIO_TEXT_STORE, ControlSubredditJob, decodedText, encodedText, expireKeyAt, hGetAllChunked, hMGetAsRecord, hSetChunked, sha256hash, zRangeAsRecord } from "../..";
 import { hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
-import { getEvaluatorVariable, getRedisSubstitionValue, setRedisSubstititionValue } from "../../userEvaluation";
+import { getEvaluatorVariable, getEvaluatorVariables, getRedisSubstitionValue, setRedisSubstititionValue } from "../../userEvaluation";
 import escapeStringRegexp from "escape-string-regexp";
 import { AsyncWikiUpdateJobData, BioStatsJobData } from "../../../tasks";
 import { chunk } from "lodash-es";
+import { EvaluateBioTextDefinedHandles } from "@fsvreddit/bot-bouncer-evaluation";
 
 const BIO_STATS_UPDATE_IN_PROGRESS = "BioTextStatsUpdateInProgressKey";
 
@@ -118,8 +119,15 @@ export async function updateBioStatisticsJob (event: TaskRequest<BioStatsJobData
 
     const runLimit = addSeconds(new Date(), 10);
 
-    const configuredBioRegexes = (await getEvaluatorVariable<string[]>("biotext:bantext") ?? []).map(entry => new RegExp(entry, "u"));
-    const entriesToAllowlist = (await getEvaluatorVariable<string[]>("biotext:entriesToAllowlist") ?? []).map(entry => new RegExp(entry, "u"));
+    const evaluatorVariables = await getEvaluatorVariables();
+    const configuredBioRegexes = (evaluatorVariables["biotext:bantext"] as string[] | undefined ?? []).map(entry => new RegExp(entry, "u"));
+
+    const definedHandleEvaluator = new EvaluateBioTextDefinedHandles([], [], evaluatorVariables);
+    const definedHandlesRegexes = definedHandleEvaluator.gatherRegexes();
+
+    configuredBioRegexes.push(...definedHandlesRegexes.map(entry => new RegExp(entry.regex, entry.flags)));
+
+    const entriesToAllowlist = (evaluatorVariables["biotext:entriesToAllowlist"] as string[] | undefined ?? []).map(entry => new RegExp(entry, "u"));
 
     const userBios = await hMGetAsRecord(redis, BIO_TEXT_STORE, queueItems.map(item => item.member));
 
