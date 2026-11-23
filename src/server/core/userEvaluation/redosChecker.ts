@@ -187,7 +187,7 @@ export async function redosChecker (event: TaskRequest<RedosCheckerJobData>) {
                 }
 
                 safeResult = checkSync(regex.source, regexEntry.flags ?? "", {
-                    maxAttackStringSize,
+                    maxAttackStringSize: regexEntry.maxLength ?? maxAttackStringSize,
                     timeout: 5000,
                 });
             }
