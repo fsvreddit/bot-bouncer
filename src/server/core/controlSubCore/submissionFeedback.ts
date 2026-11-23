@@ -1,7 +1,7 @@
 import { context, reddit, redis } from "@devvit/web/server";
-import { T1 } from "@devvit/web/shared";
+import { isT3, T1 } from "@devvit/web/shared";
 import { UserStatus } from "@fsvreddit/bot-bouncer-types";
-import { CONTROL_SUBREDDIT, expireKeyAt, getUserStatus } from "..";
+import { CONTROL_SUBREDDIT, expireKeyAt, getUserStatus, UserDetails } from "..";
 import { addMinutes, addWeeks } from "date-fns";
 import json2md from "json2md";
 
@@ -63,7 +63,7 @@ export async function processFeedbackQueue () {
     await redis.zRem(FEEDBACK_QUEUE, [firstUser]);
 
     if (await redis.exists(`sendFeedback:${firstUser}`)) {
-        await sendFeedbackViaModmail(firstUser, currentStatus.submitter, currentStatus.operator, currentStatus.userStatus);
+        await sendFeedbackViaModmail(firstUser, currentStatus);
     } else {
         const commentId = await redis.get(`callbackCommentPosted:${firstUser}`);
         if (commentId) {
@@ -76,21 +76,24 @@ export async function processFeedbackQueue () {
     }
 }
 
-async function sendFeedbackViaModmail (username: string, submitter: string, operator: string | undefined, userStatus: UserStatus) {
-    const modmailKeyForUser = `feedbackModmailConversation:${submitter}`;
+async function sendFeedbackViaModmail (username: string, currentStatus: UserDetails) {
+    const modmailKeyForUser = `feedbackModmailConversation:${currentStatus.submitter}`;
     const existingModmailId = await redis.get(modmailKeyForUser);
 
-    const automaticText = operator === context.appSlug ? "automatically" : "manually";
+    const automaticText = currentStatus.operator === context.appSlug ? "automatically" : "manually";
+
+    const reportText = isT3(currentStatus.trackingPostId) ? `[report](https://redd.it/${currentStatus.trackingPostId.slice(3)})` : "report";
+
     const message: json2md.DataObject[] = [
-        { p: `Following your report to /r/${CONTROL_SUBREDDIT}, /u/${username} has been classified ${automaticText} as **${userStatus}**.` },
+        { p: `Following your ${reportText} to /r/${CONTROL_SUBREDDIT}, /u/${username} has been classified ${automaticText} as **${currentStatus.userStatus}**.` },
     ];
 
-    if (userStatus === UserStatus.Organic || userStatus === UserStatus.Service) {
+    if (currentStatus.userStatus === UserStatus.Organic || currentStatus.userStatus === UserStatus.Service) {
         message.push({ p: `If you have any more information to help us understand why this may be a harmful or disruptive bot, please reply to this message.` });
     }
 
     message.push({ p: "*This is an automated message, but replies will be read.*" });
-    const modmailFailureKey = `modmailFailureCount:${submitter}`;
+    const modmailFailureKey = `modmailFailureCount:${currentStatus.submitter}`;
 
     try {
         if (existingModmailId) {
@@ -103,7 +106,7 @@ async function sendFeedbackViaModmail (username: string, submitter: string, oper
             if (conversation.conversation?.state?.toLowerCase() === "archived") {
                 await reddit.modMail.archiveConversation(existingModmailId);
             } else {
-                console.log(`Feedback message was sent to ${submitter} about ${username}, conversation was not archived.`);
+                console.log(`Feedback message was sent to ${currentStatus.submitter} about ${username}, conversation was not archived.`);
             }
             await redis.del(modmailFailureKey);
         } else {
@@ -111,21 +114,21 @@ async function sendFeedbackViaModmail (username: string, submitter: string, oper
                 subredditName: CONTROL_SUBREDDIT,
                 subject: "Bot Bouncer classification feedback",
                 body: json2md(message),
-                to: submitter,
+                to: currentStatus.submitter,
                 isAuthorHidden: false,
             });
             if (newModmailConversation.conversation.id) {
                 await redis.set(modmailKeyForUser, newModmailConversation.conversation.id);
                 await reddit.modMail.archiveConversation(newModmailConversation.conversation.id);
             } else {
-                console.warn(`Feedback message was sent to ${submitter} but no conversation ID was returned.`);
+                console.warn(`Feedback message was sent to ${currentStatus.submitter} but no conversation ID was returned.`);
             }
         }
 
-        console.log(`Feedback sent to ${submitter} about ${username} being classified as ${userStatus} by ${operator}`);
+        console.log(`Feedback sent to ${currentStatus.submitter} about ${username} being classified as ${currentStatus.userStatus} by ${currentStatus.operator}`);
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        console.error(`Failed to send feedback to ${submitter} about ${username} being classified as ${userStatus} by ${operator}: ${message}`);
+        console.error(`Failed to send feedback to ${currentStatus.submitter} about ${username} being classified as ${currentStatus.userStatus} by ${currentStatus.operator}: ${message}`);
         if (existingModmailId) {
             const failureCount = await redis.incrBy(modmailFailureKey, 1);
             if (failureCount >= 3) {

@@ -173,10 +173,10 @@ export async function redosChecker (event: TaskRequest<RedosCheckerJobData>) {
                         maxAttackStringSize = 16;
                         break;
                     case EvaluatorRegexFoundIn.Bio:
-                        maxAttackStringSize = 300;
+                        maxAttackStringSize = 200;
                         break;
                     case EvaluatorRegexFoundIn.DisplayName:
-                        maxAttackStringSize = 100;
+                        maxAttackStringSize = 90;
                         break;
                     case EvaluatorRegexFoundIn.Url:
                         maxAttackStringSize = 100;
