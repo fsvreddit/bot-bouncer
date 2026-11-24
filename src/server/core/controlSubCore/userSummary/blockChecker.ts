@@ -31,9 +31,6 @@ async function isAppModOfSub (subredditName: string): Promise<boolean> {
 export async function isUserPotentiallyBlockingBot (history: (Post | Comment)[]): Promise<boolean | undefined> {
     const relevantHistory = history.filter(item => !item.stickied && item.subredditName !== `u_${item.authorName}`);
     const distinctSubreddits = uniq(relevantHistory.map(item => item.subredditName));
-    if (distinctSubreddits.length < 5) {
-        return;
-    }
 
     for (const subreddit of distinctSubreddits) {
         const isMod = await isAppModOfSub(subreddit);
@@ -41,5 +38,10 @@ export async function isUserPotentiallyBlockingBot (history: (Post | Comment)[])
             return false;
         }
     }
+
+    if (distinctSubreddits.length < 5) {
+        return;
+    }
+
     return true;
 }

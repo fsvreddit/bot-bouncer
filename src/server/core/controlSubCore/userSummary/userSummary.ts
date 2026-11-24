@@ -4,7 +4,7 @@ import { EvaluationResult } from "@fsvreddit/bot-bouncer-types";
 import { addMilliseconds, differenceInDays, differenceInHours, differenceInMilliseconds, differenceInMinutes, differenceInSeconds, Duration, format, formatDuration, getYear, intervalToDuration, startOfDecade } from "date-fns";
 import json2md from "json2md";
 import { ALL_RELEVANT_EVALUTORS, AppSetting, CONTROL_SUBREDDIT, getAccountInitialEvaluationResults, getInitialAccountProperties, getUserStatus, median, normaliseHitReason } from "../..";
-import { getUserOrUndefined, getUserSocialLinks } from "@fsvreddit/fsv-devvit-web-helpers";
+import { getExtendedDevvit, getUserOrUndefined, getUserSocialLinks } from "@fsvreddit/fsv-devvit-web-helpers";
 import markdownEscape from "markdown-escape";
 import { getEvaluatorVariables } from "../../userEvaluation";
 import pluralize from "pluralize";
@@ -220,6 +220,57 @@ function areSocialLinksDifferent (originalLinks: UserSocialLink[], currentLinks:
         }
     }
     return false;
+}
+
+async function getPostDates (postIds: string[]): Promise<Record<T3, Date>> {
+    try {
+        const results = await getExtendedDevvit().redditAPIPlugins.Listings.ById({ postIds: postIds.join(",") }, context.metadata);
+        if (!results.data) {
+            return {};
+        }
+
+        const postDates: Record<T3, Date> = {};
+        for (const post of results.data.children.map(entry => entry.data)) {
+            if (!post?.id || !post.created) {
+                continue;
+            }
+            postDates[`t3_${post.id}`] = new Date(post.created * 1000);
+        }
+        return postDates;
+    } catch (error) {
+        console.error("Error fetching post dates for post IDs", error);
+        return {};
+    }
+}
+
+async function getPostRecency (comments: Comment[]): Promise<string | undefined> {
+    const postDates = await getPostDates(comments.map(comment => comment.postId));
+    if (Object.keys(postDates).length === 0) {
+        return;
+    }
+
+    const results = {
+        withinADay: 0,
+        withinAWeek: 0,
+        older: 0,
+    };
+
+    for (const comment of comments) {
+        const postDate = postDates[comment.postId];
+        if (!postDate) {
+            continue;
+        }
+
+        if (differenceInDays(comment.createdAt, postDate) <= 1) {
+            results.withinADay++;
+        } else if (differenceInDays(comment.createdAt, postDate) <= 7) {
+            results.withinAWeek++;
+        } else {
+            results.older++;
+        }
+    }
+
+    return `Comment Post Age: within 24h: ${results.withinADay}, within a week: ${results.withinAWeek}, older: ${results.older}`;
 }
 
 export async function getSummaryForUser (user: string, source: "modmail" | "submission", conversationId?: string): Promise<json2md.DataObject[]> {
@@ -498,6 +549,11 @@ export async function getSummaryForUser (user: string, source: "modmail" | "subm
         if (userComments.length < 90) {
             // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
             bullets.push(`First comment was ${formatDifferenceInDates(userObj.createdAt, userComments[userComments.length - 1]!.createdAt)} after account creation`);
+        }
+
+        const commentPostAge = await getPostRecency(userComments);
+        if (commentPostAge) {
+            bullets.push(commentPostAge);
         }
 
         summary.push({ ul: bullets });
