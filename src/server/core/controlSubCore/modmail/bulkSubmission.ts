@@ -13,7 +13,7 @@ interface UserWithDetails {
     /**
      * @deprecated submitters are ignored in bulk submissions
      */
-    submitter: string;
+    submitter?: string;
     reason?: string;
 }
 
@@ -39,10 +39,11 @@ const schema: JSONSchemaType<BulkSubmission> = {
                 type: "object",
                 properties: {
                     username: { type: "string" },
-                    submitter: { type: "string" },
+                    // eslint-disable-next-line @typescript-eslint/no-deprecated
+                    submitter: { type: "string", nullable: true },
                     reason: { type: "string", nullable: true },
                 },
-                required: ["username", "submitter"],
+                required: ["username"],
                 additionalProperties: false,
             },
             nullable: true,
