@@ -1,5 +1,4 @@
 import { redis } from "@devvit/web/server";
-import { ModmailMessage } from "../../..";
 import json2md from "json2md";
 import { compareDesc, format } from "date-fns";
 import { compact } from "lodash-es";
@@ -18,7 +17,7 @@ function normalisedConversationId (conversationId: string): string {
     return conversationId.replace("ModmailConversation_", "");
 }
 
-export async function storeAppealRecordsForUser (modmail: ModmailMessage) {
+export async function storeAppealRecordsForUser (modmail: { conversationId: string; participant?: string; createdAt: Date; subject: string }) {
     const conversationId = normalisedConversationId(modmail.conversationId);
 
     if (!modmail.participant) {

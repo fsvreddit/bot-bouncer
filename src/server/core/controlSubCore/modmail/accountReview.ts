@@ -7,7 +7,7 @@ import pluralize from "pluralize";
 import { T3 } from "@devvit/web/shared";
 import { AccountReviewJobData } from "../../../tasks";
 import { getSummaryForUser } from "../userSummary";
-import { markdownToText } from ".";
+import { markdownToText, storeAppealRecordsForUser } from ".";
 
 const ACCOUNT_REVIEW_QUEUE = "accountReviewQueue";
 
@@ -135,6 +135,15 @@ export async function checkAccountsForReview (event: TaskRequest<AccountReviewJo
                             body: string,
                         });
                     }
+                }
+
+                if (reviewData.reviewRequestedBy === context.appSlug) {
+                    await storeAppealRecordsForUser({
+                        conversationId,
+                        participant: username,
+                        createdAt: new Date(),
+                        subject,
+                    });
                 }
 
                 console.log(`Account Review: Sent review reminder for post ${item.member}.`);
