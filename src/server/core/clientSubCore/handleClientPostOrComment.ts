@@ -1,7 +1,7 @@
 import { Comment, context, Post, reddit, redis, settings, UserSocialLink } from "@devvit/web/server";
 import { isT3, JsonValue, OnCommentCreateRequest, OnCommentUpdateRequest, OnPostCreateRequest, OnPostUpdateRequest, T1, T3 } from "@devvit/web/shared";
 import { fixCommentTriggerEvent, fixPostTriggerEvent, getPostOrCommentById, getUserOrUndefined, isBanned, isContributor } from "@fsvreddit/fsv-devvit-web-helpers";
-import { ActionType, addExternalSubmissionFromExternal, addUserToModqueueRemovalStore, ALL_RELEVANT_EVALUTORS, AppSetting, CONFIGURATION_DEFAULTS, CONTROL_SUBREDDIT, expireKeyAt, getControlSubSettings, getUserStatus, isModeratorWithCache, isUserWhitelisted, recordBan, recordBanForSummary, recordUserContentCreation, UserDetails } from "..";
+import { ActionType, addExternalSubmissionFromExternal, addUserToModqueueRemovalStore, ALL_RELEVANT_EVALUTORS, AppSetting, CONFIGURATION_DEFAULTS, CONTROL_SUBREDDIT, expireKeyAt, getControlSubSettings, getUserStatus, isModeratorWithCache, isUserWhitelisted, recordBan, recordBanForSummary, recordUserContentCreation, setGlobalCleanup, UserDetails } from "..";
 import { getEvaluatorVariables } from "../userEvaluation";
 import { UserStatus } from "@fsvreddit/bot-bouncer-types";
 import { addDays, formatDate } from "date-fns";
@@ -207,6 +207,10 @@ async function handleContentCreation (username: string, currentStatus: UserDetai
         return;
     }
 
+    if (currentStatus.userStatus === UserStatus.Purged) {
+        await setGlobalCleanup(username);
+    }
+
     const controlSubSettings = await getControlSubSettings();
     if (!controlSubSettings.allowBans) {
         console.log(`Content Create: ${username} is banned but allowBans is false, so will not be actioned.`);
@@ -221,16 +225,17 @@ async function handleContentCreation (username: string, currentStatus: UserDetai
 
     console.log(`Content Create: Status for ${username} is marked as ${currentStatus.userStatus}`);
 
-    const subredditName = context.subredditName;
-
     const user = await getUserOrUndefined(username);
 
     if (!user) {
         console.log(`Content Create: ${username} appears to be shadowbanned.`);
+        if (currentStatus.userStatus === UserStatus.Banned) {
+            await setGlobalCleanup(username);
+        }
         return;
     }
 
-    const flair = await user.getUserFlairBySubreddit(subredditName);
+    const flair = await user.getUserFlairBySubreddit(context.subredditName);
     if (flair?.flairCssClass?.toLowerCase().endsWith("proof")) {
         console.log(`Content Create: ${user.username} is allowlisted via flair`);
         return;
@@ -239,7 +244,7 @@ async function handleContentCreation (username: string, currentStatus: UserDetai
     const appSettings = await settings.getAll();
 
     const exemptApprovedUsers = appSettings[AppSetting.ExemptApprovedUsers] as boolean | undefined ?? true;
-    if (exemptApprovedUsers && await isContributor(subredditName, user.username)) {
+    if (exemptApprovedUsers && await isContributor(context.subredditName, user.username)) {
         console.log(`Content Create: ${user.username} is allowlisted as an approved user`);
         return;
     }
@@ -255,11 +260,11 @@ async function handleContentCreation (username: string, currentStatus: UserDetai
     const target = await getPostOrCommentById(targetId);
 
     if (actionToTake === ActionType.Ban) {
-        const isCurrentlyBanned = await isBanned(subredditName, user.username);
+        const isCurrentlyBanned = await isBanned(context.subredditName, user.username);
 
         if (!isCurrentlyBanned) {
             let message = appSettings[AppSetting.BanMessage] as string | undefined ?? CONFIGURATION_DEFAULTS.banMessage;
-            message = message.replaceAll("{subreddit}", subredditName)
+            message = message.replaceAll("{subreddit}", context.subredditName)
                 .replaceAll("{account}", user.username)
                 .replaceAll("{link}", user.username);
 
@@ -268,7 +273,7 @@ async function handleContentCreation (username: string, currentStatus: UserDetai
                 .replaceAll("{date}", formatDate(new Date(), "yyyy-MM-dd"));
 
             promises.push(reddit.banUser({
-                subredditName,
+                subredditName: context.subredditName,
                 username: user.username,
                 message,
                 note: banNote,
@@ -276,7 +281,7 @@ async function handleContentCreation (username: string, currentStatus: UserDetai
 
             promises.push(recordBan(username));
             promises.push(recordBanForSummary(username));
-            console.log(`Content Create: 💥 ${user.username} banned from ${subredditName}`);
+            console.log(`Content Create: 💥 ${user.username} banned from ${context.subredditName}`);
         }
 
         const removedByMod = await redis.get(`removedbymod:${targetId}`);

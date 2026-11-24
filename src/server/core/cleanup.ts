@@ -15,6 +15,7 @@ import { removeRecordOfBan, removeWhitelistUnban } from "./clientSubCore";
 import { max } from "lodash-es";
 
 export const CLEANUP_LOG_KEY = "CleanupLog";
+const GLOBAL_CLEANUP_KEY = "GlobalCleanupLog";
 const SUB_OR_MOD_LOG_KEY = "SubOrModLog";
 const DAYS_BETWEEN_CHECKS = 28;
 
@@ -33,6 +34,10 @@ export async function setCleanupForUser (username: string, overrideDate?: Date) 
     }
 
     await redis.zAdd(CLEANUP_LOG_KEY, ({ member: username, score: cleanupTime.getTime() }));
+}
+
+export async function setGlobalCleanup (username: string) {
+    await redis.global.zAdd(GLOBAL_CLEANUP_KEY, ({ member: username, score: new Date().getTime() }));
 }
 
 export async function setCleanupForSubmittersAndMods (usernames: string[]) {
@@ -105,6 +110,14 @@ export async function cleanupDeletedAccounts (event: TaskRequest<CleanupJobData>
     if (!jobGuid && await hasEventBeenHandled(`job:cleanup`, { expiration: addSeconds(new Date(), 10) })) {
         console.warn(`Cleanup: Job without guid has already been handled, skipping.`);
         return;
+    }
+
+    if (event.data.firstRun) {
+        const globalCleanupEntries = await redis.global.zRange(GLOBAL_CLEANUP_KEY, 0, -1);
+        if (globalCleanupEntries.length > 0) {
+            await redis.zAdd(CLEANUP_LOG_KEY, ...globalCleanupEntries);
+            await redis.global.zRem(GLOBAL_CLEANUP_KEY, globalCleanupEntries.map(item => item.member));
+        }
     }
 
     const items = await redis.zRange(CLEANUP_LOG_KEY, 0, new Date().getTime(), { by: "score" });
