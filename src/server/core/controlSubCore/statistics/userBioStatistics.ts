@@ -223,14 +223,14 @@ export async function generateBioStatisticsReport (event: TaskRequest<BioStatsJo
         return;
     }
 
-    const itemsWithMoreThanOne = await zRangeAsRecord(redis, getBioStatsCountsKey(statsId), 5, "+inf", { by: "score" });
+    const widelySeenItems = await zRangeAsRecord(redis, getBioStatsCountsKey(statsId), 10, "+inf", { by: "score" });
 
-    for (let i = 4; i > 1; i--) {
+    for (let i = 9; i > 1; i--) {
         const additionalItems = await zRangeAsRecord(redis, getBioStatsCountsKey(statsId), i, i, { by: "score" });
-        Object.assign(itemsWithMoreThanOne, additionalItems);
+        Object.assign(widelySeenItems, additionalItems);
     }
 
-    const bioRecords = await hMGetAsRecord(redis, getBioStatsTempStoreKey(statsId), Object.keys(itemsWithMoreThanOne));
+    const bioRecords = await hMGetAsRecord(redis, getBioStatsTempStoreKey(statsId), Object.keys(widelySeenItems));
     console.log(`Bio Stats: Retrieved ${Object.keys(bioRecords).length} bio records for report generation`);
 
     const configuredBioRegexes = await getEvaluatorVariable<string[]>("biotext:bantext") ?? [];
