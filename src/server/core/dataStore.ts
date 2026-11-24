@@ -8,7 +8,7 @@ import { getUsernameFromUrl, statusOrFlagToStatusAndFlags } from "./utility";
 import { getUserOrUndefined, getUserSocialLinks } from "@fsvreddit/fsv-devvit-web-helpers";
 import { setCleanupForSubmittersAndMods, setCleanupForUser } from "./cleanup";
 import pluralize from "pluralize";
-import { deleteAccountInitialEvaluationResults, statusToFlair } from ".";
+import { deleteAccountInitialEvaluationResults, deleteRenameRecords, statusToFlair } from ".";
 import { queueSubmitterForSuccessRateUpdate, storeClassificationEvent } from "./controlSubCore/statistics";
 import { deleteAppealRecordsForUser, removeUserFromReversalsQueue } from "./controlSubCore/modmail";
 import { compact, fromPairs, uniq } from "lodash-es";
@@ -295,6 +295,7 @@ export async function deleteUserStatus (username: string) {
     await redis.hDel(USER_DEFINED_HANDLES_POSTS, [username]);
 
     await deleteAppealRecordsForUser(username);
+    await deleteRenameRecords(username);
 
     await redis.global.zRem(TEMP_DECLINE_STORE, [username]);
 }

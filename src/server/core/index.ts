@@ -11,6 +11,7 @@ export * from "./externalSubmissions.js";
 export * from "./installTasks.js";
 export * from "./permissionChecksAndInstallDates.js";
 export * from "./redisHelpers.js";
+export * from "./renames.js";
 export * from "./schedulerJobs.js";
 export * from "./utility.js";
 export * from "./trustedSubmitterHelpers.js";

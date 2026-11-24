@@ -1,10 +1,10 @@
 import { Comment, context, Post, reddit, redis, scheduler, TaskRequest } from "@devvit/web/server";
-import { T3 } from "@devvit/web/shared";
+import { T2, T3 } from "@devvit/web/shared";
 import { getUserExtended, hasEventBeenHandled } from "@fsvreddit/fsv-devvit-web-helpers";
 import { addDays, addMinutes, addSeconds, addWeeks, subDays, subMinutes, subSeconds } from "date-fns";
 import { CONTROL_SUBREDDIT, PostFlairTemplate } from "./constants";
 import { getControlSubSettings } from "./controlSubSettings";
-import { deleteUserStatus, getUserStatus, removeRecordOfSubmitterOrMod, setUserStatusAndFlair, updateAggregate, writeUserStatus } from "./dataStore";
+import { deleteUserStatus, getUserStatus, removeRecordOfSubmitterOrMod, setUserStatusAndFlair, updateAggregate, UserDetails, writeUserStatus } from "./dataStore";
 import { UserFlag, UserStatus } from "@fsvreddit/bot-bouncer-types";
 import { formatTimeSince } from "./utility";
 import { UniversalJob } from "./schedulerJobs";
@@ -13,6 +13,7 @@ import { addUserToRecoveredRechecksQueue } from "./controlSubCore";
 import { submitAccountForReview } from "./controlSubCore/modmail";
 import { removeRecordOfBan, removeWhitelistUnban } from "./clientSubCore";
 import { max } from "lodash-es";
+import { storeRenameRecords } from "./renames";
 
 export const CLEANUP_LOG_KEY = "CleanupLog";
 const GLOBAL_CLEANUP_KEY = "GlobalCleanupLog";
@@ -61,14 +62,19 @@ enum UserActiveStatus {
     Shadowbanned = "shadowbanned",
 }
 
-async function userActive (username: string): Promise<UserActiveStatus> {
+interface UserActiveResult {
+    status: UserActiveStatus;
+    userId?: T2;
+}
+
+async function userActive (username: string): Promise<UserActiveResult> {
     const user = await getUserExtended(username);
     if (user?.isSuspended) {
-        return UserActiveStatus.Suspended;
+        return { status: UserActiveStatus.Suspended };
     }
 
     if (user) {
-        return UserActiveStatus.Active;
+        return { status: UserActiveStatus.Active, userId: user.id };
     }
 
     /* If the user could not be retrieved, they may be suspended, shadowbanned or deleted.
@@ -78,7 +84,7 @@ async function userActive (username: string): Promise<UserActiveStatus> {
      * control subreddit, because the client subreddit's cleanup requirements are different.
      * */
     if (context.subredditName !== CONTROL_SUBREDDIT) {
-        return UserActiveStatus.Deleted;
+        return { status: UserActiveStatus.Deleted };
     }
 
     try {
@@ -87,10 +93,10 @@ async function userActive (username: string): Promise<UserActiveStatus> {
             user: username,
         }).all();
         // User is either suspended or shadowbanned.
-        return UserActiveStatus.Shadowbanned;
+        return { status: UserActiveStatus.Shadowbanned };
     } catch {
         // User is deleted.
-        return UserActiveStatus.Deleted;
+        return { status: UserActiveStatus.Deleted };
     }
 }
 
@@ -162,7 +168,7 @@ export async function cleanupDeletedAccounts (event: TaskRequest<CleanupJobData>
 
         const currentUserStatus = await userActive(username);
 
-        if (currentUserStatus === UserActiveStatus.Deleted) {
+        if (currentUserStatus.status === UserActiveStatus.Deleted) {
             await handleDeletedAccount(username);
             deletedCount++;
             continue;
@@ -191,7 +197,7 @@ export async function cleanupDeletedAccounts (event: TaskRequest<CleanupJobData>
 
         let newStatus: UserStatus | UserFlag | undefined;
 
-        if (currentUserStatus === UserActiveStatus.Active) {
+        if (currentUserStatus.status === UserActiveStatus.Active) {
             activeCount++;
             if (currentStatus.userStatus === UserStatus.Pending) {
                 // User is still pending, so set the next check date to be very soon to allow for pending->retired transitions.
@@ -264,6 +270,10 @@ export async function cleanupDeletedAccounts (event: TaskRequest<CleanupJobData>
             if (controlSubSettings.allowRechecks && currentStatus.flags?.some(flag => [UserFlag.HackedAndRecovered, UserFlag.Scammed, UserFlag.FutureNSFW].includes(flag))) {
                 await redis.zAdd("flaggedRechecksQueue", { member: username, score: new Date().getTime() });
             }
+
+            if (currentUserStatus.userId) {
+                await storeRenameRecords(username, currentUserStatus.userId);
+            }
         } else {
             suspendedCount++;
             // User's current status is Suspended or Shadowbanned.
@@ -327,8 +337,8 @@ async function handleDeletedAccount (username: string) {
     await redis.zRem(CLEANUP_LOG_KEY, [username]);
 }
 
-async function handleDeletedAccountControlSub (username: string) {
-    const status = await getUserStatus(username);
+export async function handleDeletedAccountControlSub (username: string, userDetails?: UserDetails) {
+    const status = userDetails ?? await getUserStatus(username);
     const submitterOrModFlag = await isUserSubmitterOrMod(username);
 
     if (!status && !submitterOrModFlag) {

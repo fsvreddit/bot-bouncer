@@ -181,7 +181,7 @@ export async function handleControlSubPostCreate (event: OnPostCreateRequest) {
 
     try {
         const submission: AsyncSubmission = {
-            user: await getUserExtendedFromUser(user),
+            user: getUserExtendedFromUser(user),
             submitter: event.author.name,
             reportContext,
             details: newDetails,

@@ -12,6 +12,7 @@ import { formatTimeSince, isBannedWithCache, sendMessageToWebhook, updateWebhook
 import pluralize from "pluralize";
 import { queueSendFeedback, recordBotPostCreated } from ".";
 import { EvaluateUserJobData, StoreDefinedHandlesDataJobData } from "../../tasks";
+import { storeRenameRecords } from "../renames";
 
 export const statusToFlair: Record<UserStatus, PostFlairTemplate> = {
     [UserStatus.Pending]: PostFlairTemplate.Pending,
@@ -192,6 +193,8 @@ async function createNewSubmission (submission: AsyncSubmission) {
             note: modNoteText,
         }));
     }
+
+    promises.push(storeRenameRecords(submission.user.username, submission.user.id));
 
     const results = await Promise.allSettled(promises);
 

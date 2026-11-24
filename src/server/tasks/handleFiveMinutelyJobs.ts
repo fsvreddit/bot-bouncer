@@ -1,6 +1,6 @@
 import { context, scheduler, TaskRequest, TaskResponse } from "@devvit/web/server";
 import type { Context } from "hono";
-import { CONTROL_SUBREDDIT, ControlSubredditJob } from "../core";
+import { CONTROL_SUBREDDIT, ControlSubredditJob, queueRenameUserJob } from "../core";
 import { AccountReviewJobData, CheckPermissionQueueItemJobData, FlaggedRechecksQueueJobData, ModmailArchiverJobData, PendingUserReevaluationJobData, RecoveredAccountsData, UnprocessedSubmissionsJobData } from ".";
 import { addSeconds } from "date-fns";
 import { processHighlightedModmailQueue } from "../core/controlSubCore/modmail";
@@ -76,6 +76,7 @@ export const handleFiveMinutelyJob = async (c: Context): Promise<Response> => {
         gatherTokenStatistics(),
         updateClassificationStatistics(),
         updateAppealStatistics(),
+        queueRenameUserJob(),
     ]);
 
     return c.json<TaskResponse>({ success: true }, 200);

@@ -1,7 +1,7 @@
 import { Comment, context, Post, reddit, redis, settings, UserSocialLink } from "@devvit/web/server";
-import { isT3, JsonValue, OnCommentCreateRequest, OnCommentUpdateRequest, OnPostCreateRequest, OnPostUpdateRequest, T1, T3 } from "@devvit/web/shared";
+import { isT3, JsonValue, OnCommentCreateRequest, OnCommentUpdateRequest, OnPostCreateRequest, OnPostUpdateRequest, T1, T2, T3, UserV2 } from "@devvit/web/shared";
 import { fixCommentTriggerEvent, fixPostTriggerEvent, getPostOrCommentById, getUserOrUndefined, isBanned, isContributor } from "@fsvreddit/fsv-devvit-web-helpers";
-import { ActionType, addExternalSubmissionFromExternal, addUserToModqueueRemovalStore, ALL_RELEVANT_EVALUTORS, AppSetting, CONFIGURATION_DEFAULTS, CONTROL_SUBREDDIT, expireKeyAt, getControlSubSettings, getUserStatus, isModeratorWithCache, isUserWhitelisted, recordBan, recordBanForSummary, recordUserContentCreation, setGlobalCleanup, UserDetails } from "..";
+import { ActionType, addExternalSubmissionFromExternal, addUserToModqueueRemovalStore, ALL_RELEVANT_EVALUTORS, AppSetting, CONFIGURATION_DEFAULTS, CONTROL_SUBREDDIT, expireKeyAt, getControlSubSettings, getUserStatus, isModeratorWithCache, isUserPotentiallyRenamed, isUserWhitelisted, queueRenamedUser, recordBan, recordBanForSummary, recordUserContentCreation, setGlobalCleanup, UserDetails } from "..";
 import { getEvaluatorVariables } from "../userEvaluation";
 import { UserStatus } from "@fsvreddit/bot-bouncer-types";
 import { addDays, formatDate } from "date-fns";
@@ -21,6 +21,8 @@ export async function handleClientPostCreate (event: OnPostCreateRequest) {
         console.error("Content Create: PostCreate event missing post or author information", JSON.stringify(event));
         return;
     }
+
+    await checkAndQueueRenamedUser(event.author);
 
     console.log(`Content Create: PostCreate ${event.post.id} by ${event.author.name}`);
 
@@ -71,6 +73,8 @@ export async function handleClientCommentCreate (event: OnCommentCreateRequest) 
     if (!fixedEvent.comment || !fixedEvent.author?.name) {
         return;
     }
+
+    await checkAndQueueRenamedUser(fixedEvent.author);
 
     await recordUserContentCreation(fixedEvent.author.name);
 
@@ -430,4 +434,16 @@ async function checkAndReportPotentialBot (username: string, target: Post | OnCo
     });
 
     console.log(`Created external submission via automated evaluation for ${user.username} for bot style ${botName}`);
+}
+
+async function checkAndQueueRenamedUser (user: UserV2) {
+    try {
+        if (!await isUserPotentiallyRenamed(user.name, user.id as T2)) {
+            return;
+        }
+
+        await queueRenamedUser(user.id as T2);
+    } catch (error) {
+        console.error(`Failed to check and queue renamed user ${user.name}:`, error);
+    }
 }

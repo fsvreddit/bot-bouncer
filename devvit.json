@@ -286,6 +286,7 @@
             "permissionCheckEnqueue": "/internal/tasks/permission-check-enqueue",
             "postCreationQueueReversals": "/internal/tasks/post-creation-queue-reversals",
             "processDelayedMessages": "/internal/tasks/process-delayed-messages",
+            "processRenameQueue": "/internal/tasks/process-rename-queue",
             "queueKarmaFarmingSubs": "/internal/tasks/queue-karma-farming-subs",
             "queueReclassificationChanges": "/internal/tasks/queue-reclassification-changes",
             "rapidJob": "/internal/tasks/rapid-job",

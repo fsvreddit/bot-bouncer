@@ -171,7 +171,7 @@ export async function addExternalSubmissionToPostCreationQueue (item: ExternalSu
     }
 
     const submission: AsyncSubmission = {
-        user: await getUserExtendedFromUser(user),
+        user: getUserExtendedFromUser(user),
         submitter: item.submitter,
         details: {
             userStatus: initialStatus,
