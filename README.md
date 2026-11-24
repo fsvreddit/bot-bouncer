@@ -48,12 +48,10 @@ If an account was banned by Bot Bouncer on a sub but successfully appeals via r/
 
 # Latest Changes
 
-## v1.36.2
+## v1.37.0
 
-* Further improve the time it takes to bring up the "Report user to Bot Bouncer" submission form
-* Adds new bot detection capabilities
-* Fixed an issue that prevents submission feedback from being sent after 1000 feedback messages have been delivered
-* Added the ability to respond to replies to Bot Bouncer ban messages with a predefined message (turned off by default)
+* Fix default text used on modmails so that they reference Bot Bouncer correctly
+* Improve detection capabilities for certain bot styles on NSFW subreddits
 
 For older versions, please see the [full changelog](https://github.com/fsvreddit/bot-bouncer/blob/main/changelog.md).
 

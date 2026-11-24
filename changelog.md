@@ -1,5 +1,12 @@
 # Changelog for Bot Bouncer
 
+## v1.36.2
+
+* Further improve the time it takes to bring up the "Report user to Bot Bouncer" submission form
+* Adds new bot detection capabilities
+* Fixed an issue that prevents submission feedback from being sent after 1000 feedback messages have been delivered
+* Added the ability to respond to replies to Bot Bouncer ban messages with a predefined message (turned off by default)
+
 ## v1.35.0
 
 * Content removals now consistently use "remove" rather than a mix of "remove" and "spam"
