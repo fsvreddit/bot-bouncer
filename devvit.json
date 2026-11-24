@@ -96,7 +96,7 @@
                         "type": "paragraph",
                         "label": "Ban message to use when banning user",
                         "helpText": "Supports placeholders {account}, {subreddit}",
-                        "defaultValue": "Bots and bot-like accounts are not welcome on /r/{subreddit}.\n\n[I am a bot, and this action was performed automatically](/r/BotBouncer/wiki/index).\n\n**If you wish to appeal the classification of the /u/{account} account, please [message /r/${CONTROL_SUBREDDIT}](https://www.reddit.com/message/compose?to=/r/BotBouncer&subject=Ban%20dispute%20for%20/u/{account}%20on%20/r/{subreddit}&message=bot%20classification%20appeal) rather than replying to this message.**"
+                        "defaultValue": "Bots and bot-like accounts are not welcome on /r/{subreddit}.\n\n[I am a bot, and this action was performed automatically](/r/BotBouncer/wiki/index).\n\n**If you wish to appeal the classification of the /u/{account} account, please [message /r/BotBouncer](https://www.reddit.com/message/compose?to=/r/BotBouncer&subject=Ban%20dispute%20for%20/u/{account}%20on%20/r/{subreddit}&message=bot%20classification%20appeal) rather than replying to this message.**"
                     },
                     "autoWhitelist": {
                         "type": "boolean",
@@ -126,7 +126,7 @@
                         "type": "paragraph",
                         "label": "Template for private moderator note that will be added if banned users write in",
                         "helpText": "Supports placeholders {account}, {subreddit} and {link} (which links to the submission on /r/BotBouncer). Leave blank to disable.",
-                        "defaultValue": "/u/{account} is [listed on /r/BotBouncer]({link}).\n\nIf this account is claiming to be human and isn't an obvious novelty account, we recommend asking the account owner to [message /r/BotBouncer](https://www.reddit.com/message/compose?to=/r/${CONTROL_SUBREDDIT}&subject=Ban%20dispute%20for%20/u/{account}%20on%20/r/{subreddit}&message=bot%20classification%20appeal).\n\nIf this account is a bot that you wish to allow, remember to [allowlist](/r/BotBouncer/wiki/index) it before you unban it."
+                        "defaultValue": "/u/{account} is [listed on /r/BotBouncer]({link}).\n\nIf this account is claiming to be human and isn't an obvious novelty account, we recommend asking the account owner to [message /r/BotBouncer](https://www.reddit.com/message/compose?to=/r/BotBouncer&subject=Ban%20dispute%20for%20/u/{account}%20on%20/r/{subreddit}&message=bot%20classification%20appeal).\n\nIf this account is a bot that you wish to allow, remember to [allowlist](/r/BotBouncer/wiki/index) it before you unban it."
                     },
                     "addModmailIfNotBannedYet": {
                         "type": "boolean",
