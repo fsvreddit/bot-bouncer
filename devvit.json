@@ -53,6 +53,10 @@
             "postUpdateStats": {
                 "endpoint": "/external/update-stats",
                 "scopes": ["global"]
+            },
+            "autoSubList": {
+                "endpoint": "/external/auto-subs-list",
+                "scopes": ["global"]
             }
         }
     },
