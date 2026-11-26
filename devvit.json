@@ -54,6 +54,10 @@
                 "endpoint": "/external/update-stats",
                 "scopes": ["global"]
             },
+            "postWikiUpdate": {
+                "endpoint": "/external/wiki-page-update",
+                "scopes": ["global"]
+            },
             "autoSubList": {
                 "endpoint": "/external/auto-subs-list",
                 "scopes": ["global"]
