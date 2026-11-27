@@ -5,7 +5,7 @@ import { hGetAllChunked } from "./redisHelpers";
 import { CONTROL_SUBREDDIT } from "./constants";
 import { addDays, addHours, addMinutes, subDays, subHours, subMonths } from "date-fns";
 import { getUsernameFromUrl, statusOrFlagToStatusAndFlags } from "./utility";
-import { getUserOrUndefined, getUserSocialLinks } from "@fsvreddit/fsv-devvit-web-helpers";
+import { getUserSocialLinks, UserExtended } from "@fsvreddit/fsv-devvit-web-helpers";
 import { setCleanupForSubmittersAndMods, setCleanupForUser } from "./cleanup";
 import pluralize from "pluralize";
 import { deleteAccountInitialEvaluationResults, deleteRenameRecords, statusToFlair } from ".";
@@ -334,31 +334,29 @@ export async function removeRecordOfSubmitterOrMod (username: string) {
     console.log(`Cleanup: Removed ${entriesUpdated} ${pluralize("record", entriesUpdated)} of ${username} as submitter or operator`);
 }
 
-export async function storeInitialAccountProperties (username: string) {
-    const userExtended = await getUserOrUndefined(username);
-
-    if (!userExtended) {
-        return;
-    }
-
+export async function storeInitialAccountProperties (userExtended: UserExtended) {
     const promises: Promise<number>[] = [];
-    if (userExtended.about && userExtended.about.trim().length > 0) {
-        promises.push(redis.hSet(BIO_TEXT_STORE, { [username]: userExtended.about }));
-        console.log(`Data Store: Stored bio for ${username}`);
+    if (userExtended.userDescription && userExtended.userDescription.trim().length > 0) {
+        promises.push(redis.hSet(BIO_TEXT_STORE, { [userExtended.username]: userExtended.userDescription }));
+        console.log(`Data Store: Stored bio for ${userExtended.username}`);
     }
 
-    if (userExtended.displayName && userExtended.displayName !== username && userExtended.displayName !== `u_${username}`) {
-        promises.push(redis.hSet(DISPLAY_NAME_STORE, { [username]: userExtended.displayName }));
-        console.log(`Data Store: Stored display name for ${username}`);
+    if (userExtended.displayName && userExtended.displayName !== userExtended.username && userExtended.displayName !== `u_${userExtended.username}`) {
+        promises.push(redis.hSet(DISPLAY_NAME_STORE, { [userExtended.username]: userExtended.displayName }));
+        console.log(`Data Store: Stored display name for ${userExtended.username}`);
     }
 
-    const socialLinks = await getUserSocialLinks(username);
-    if (socialLinks.length > 0) {
-        promises.push(redis.hSet(SOCIAL_LINKS_STORE, { [username]: JSON.stringify(socialLinks) }));
-        console.log(`Data Store: Stored social links for ${username}`);
+    try {
+        const socialLinks = await getUserSocialLinks(userExtended.username);
+        if (socialLinks.length > 0) {
+            promises.push(redis.hSet(SOCIAL_LINKS_STORE, { [userExtended.username]: JSON.stringify(socialLinks) }));
+            console.log(`Data Store: Stored social links for ${userExtended.username}`);
+        }
+    } catch (error) {
+        console.error(`Data Store: Failed to store social links for ${userExtended.username}`, error);
     }
 
-    await Promise.all(promises);
+    await Promise.allSettled(promises);
 }
 
 export async function getInitialAccountProperties (username: string) {

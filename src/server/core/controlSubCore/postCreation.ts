@@ -150,7 +150,7 @@ async function createNewSubmission (submission: AsyncSubmission) {
         recordBotPostCreated(newPost),
         addReportContextComment(submission, newPost),
         addCallbackComment(submission, newPost),
-        storeInitialAccountProperties(submission.user.username),
+        storeInitialAccountProperties(submission.user),
     ];
 
     if (submission.details.userStatus === UserStatus.Pending || !submission.evaluatorsChecked) {
