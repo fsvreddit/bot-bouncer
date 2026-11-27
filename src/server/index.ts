@@ -8,7 +8,7 @@ import { handleUpgradeNotifier } from "@fsvreddit/fsv-devvit-web-helpers";
 import { handleModQueueRemovalJob } from "./tasks/handleModQueueRemoval";
 import { handlePostAndCommentMenu } from "./menus";
 import { handleControlSubForm, handleControlSubQuerySubmissionForm, handleQueryForm, handleReportForm, handleShowCurrentEvaluationResultsForm } from "./forms";
-import { handleGetEvaluatorVariables, handleGetRecentContentForUser, handleGetUserDetails, handlePostAccountForReview, handlePostAccountsForEvaluation, handlePostExternalSubmissions, handlePostSetCleanup, handlePostUpdateStats, handlePostAutoSubsList, handleGetAutoSubsList, handlePostWikiPageUpdate } from "./api";
+import { handleGetEvaluatorVariables, handleGetRecentContentForUser, handleGetUserDetails, handlePostAccountForReview, handlePostAccountsForEvaluation, handlePostExternalSubmissions, handlePostSetCleanup, handlePostUpdateStats, handlePostAutoSubsList, handleGetAutoSubsList, handlePostWikiPageUpdate, handlePostControlSubJobs } from "./api";
 
 const application = new Hono();
 
@@ -105,6 +105,7 @@ application.post("/external/update-stats", handlePostUpdateStats);
 application.post("/external/wiki-page-update", handlePostWikiPageUpdate);
 application.get("/external/auto-subs-list", handleGetAutoSubsList);
 application.post("/external/auto-subs-list", handlePostAutoSubsList);
+application.post("/external/control-sub-jobs", handlePostControlSubJobs);
 
 const server = createServer(getRequestListener(application.fetch));
 server.on("error", (err) => {

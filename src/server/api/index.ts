@@ -8,3 +8,4 @@ export * from "./postExternalSubmissions.js";
 export * from "./postSetCleanup.js";
 export * from "./postUpdateStats.js";
 export * from "./postWikiPageUpdate.js";
+export * from "./controlSubJobManagement.js";

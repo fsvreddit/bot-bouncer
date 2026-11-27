@@ -50,6 +50,10 @@
                 "endpoint": "/external/set-cleanup",
                 "scopes": ["global"]
             },
+            "controlSubJobs": {
+                "endpoint": "/external/control-sub-jobs",
+                "scopes": ["global"]
+            },
             "postUpdateStats": {
                 "endpoint": "/external/update-stats",
                 "scopes": ["global"]
